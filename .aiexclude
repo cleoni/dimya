@@ -1,0 +1,76 @@
+# ==========================================
+# DIPENDENZE E LIBRERIE ESTERNE
+# (File enormi che consumano inutilmente token)
+# ==========================================
+/node_modules/
+/vendor/
+/venv/
+/.venv/
+/env/
+
+# ==========================================
+# BUILD / DIST / ASSETS COMPILATI
+# ==========================================
+/_backups/
+/dimx/
+*.min.js
+*.min.css
+*.map
+
+# ==========================================
+# LOG, CACHE E FILE TEMPORANEI
+# ==========================================
+*.log
+/logs/
+/storage/
+/sessions/
+/.cache/
+/cache/
+/tmp/
+/temp/
+
+# ==========================================
+# MEDIA E ASSET BINARI
+# (Claude non trae beneficio dal codice di questi file)
+# ==========================================
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.webp
+*.mp3
+*.wav
+*.mp4
+*.pdf
+*.zip
+*.tar.gz
+
+# ==========================================
+# DATABASE E DUMP DI DATI
+# ==========================================
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+*.csv
+*.json.gz
+!schema.sql
+
+# ==========================================
+# FILE DI SISTEMA / IDE
+# ==========================================
+.DS_Store
+Thumbs.db
+/.idea/
+/.vscode/
+*.swp
+
+# ==========================================
+# FILE DI CONFIGURAZIONE SENSIBILI E ENV
+# (Per sicurezza ed evitare di esporre chiavi nel contesto)
+# ==========================================
+.env
+.env.*
+!.env.example

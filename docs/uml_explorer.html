@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DimensioneX UML Class Diagram Explorer</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* Custom scrollbars and transitions */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
+    .badge { font-family: monospace; font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-4 md:p-6 min-h-full">
+  <div class="max-w-7xl mx-auto space-y-6">
+
+    <!-- Header Section -->
+    <header class="border-b border-[var(--border)] pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 text-xs font-semibold rounded bg-amber-500/20 text-amber-500 border border-amber-500/30">Java EE / OOP</span>
+          <span class="px-2 py-0.5 text-xs font-semibold rounded bg-sky-500/20 text-sky-500 border border-sky-500/30">Package: cleoni.adv</span>
+          <span class="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">46 Classes</span>
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight mt-2 text-[var(--foreground)]">DimensioneX UML Hierarchy Explorer</h1>
+        <p class="text-sm text-[var(--muted-foreground)]">Interactive architectural map, class declarations, inheritance chains, and UML cards.</p>
+      </div>
+
+      <!-- Quick Search Bar -->
+      <div class="w-full md:w-72">
+        <div class="relative">
+          <input id="searchInput" type="text" placeholder="Search class, field, or method..." 
+                 class="w-full px-3 py-2 text-sm rounded-lg bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] placeholder-[var(--placeholder)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]" />
+          <span id="matchCount" class="absolute right-3 top-2.5 text-xs text-[var(--muted-foreground)]">46 classes</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Subsystem Tabs -->
+    <nav class="flex flex-wrap gap-2 text-xs font-medium border-b border-[var(--border)] pb-3" id="tabBar">
+      <button onclick="filterSubsystem('all')" class="tab-btn active px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold transition-colors" data-tab="all">All Subsystems (46)</button>
+      <button onclick="filterSubsystem('domain')" class="tab-btn px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors" data-tab="domain">Domain Entities (14)</button>
+      <button onclick="filterSubsystem('parser')" class="tab-btn px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors" data-tab="parser">Parser & Scripting (8)</button>
+      <button onclick="filterSubsystem('views')" class="tab-btn px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors" data-tab="views">Views & UI (9)</button>
+      <button onclick="filterSubsystem('web')" class="tab-btn px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors" data-tab="web">Web & Servlets (6)</button>
+      <button onclick="filterSubsystem('infrastructure')" class="tab-btn px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors" data-tab="infrastructure">Infrastructure & Utils (9)</button>
+    </nav>
+
+    <!-- Main Content Grid: Tree / List + Detail Inspector -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Class Cards Grid (8 cols) -->
+      <div class="lg:col-span-7 xl:col-span-8 space-y-4">
+        <div id="classList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Detail Inspector Panel (4 cols) -->
+      <div class="lg:col-span-5 xl:col-span-4">
+        <div class="sticky top-6 bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-4" id="inspectorCard">
+          <div class="flex items-center justify-between border-b border-[var(--border)] pb-3">
+            <div>
+              <span id="inspStereotype" class="text-xs uppercase tracking-wider font-mono text-[var(--muted-foreground)]">CLASS</span>
+              <h3 id="inspName" class="text-xl font-bold text-[var(--foreground)]">Select a Class</h3>
+            </div>
+            <span id="inspSubsystem" class="badge bg-slate-500/20 text-[var(--foreground)]">Subsystem</span>
+          </div>
+
+          <div class="space-y-3 text-xs">
+            <div>
+              <span class="text-[var(--muted-foreground)] font-semibold uppercase block mb-1">Inheritance & Interfaces</span>
+              <div id="inspHierarchy" class="font-mono bg-[var(--background)] p-2.5 rounded border border-[var(--border)] space-y-1">
+                <div>extends: <span class="text-amber-500">None</span></div>
+                <div>implements: <span class="text-emerald-500">None</span></div>
+              </div>
+            </div>
+
+            <div>
+              <span class="text-[var(--muted-foreground)] font-semibold uppercase block mb-1">Source File Location</span>
+              <div id="inspFile" class="font-mono text-sky-400 break-all bg-[var(--background)] p-2 rounded border border-[var(--border)]">
+                WEB-INF/classes/cleoni/adv/...
+              </div>
+            </div>
+
+            <div>
+              <span class="text-[var(--muted-foreground)] font-semibold uppercase block mb-1">Key Fields & Properties</span>
+              <div id="inspFields" class="font-mono max-h-36 overflow-y-auto bg-[var(--background)] p-2 rounded border border-[var(--border)] space-y-1">
+                <span class="text-[var(--muted-foreground)] italic">None</span>
+              </div>
+            </div>
+
+            <div>
+              <span class="text-[var(--muted-foreground)] font-semibold uppercase block mb-1">Key Methods & Operations</span>
+              <div id="inspMethods" class="font-mono max-h-48 overflow-y-auto bg-[var(--background)] p-2 rounded border border-[var(--border)] space-y-1">
+                <span class="text-[var(--muted-foreground)] italic">None</span>
+              </div>
+            </div>
+
+            <div>
+              <span class="text-[var(--muted-foreground)] font-semibold uppercase block mb-1">Role & Responsibility</span>
+              <p id="inspDesc" class="text-sm text-[var(--muted-foreground)] leading-relaxed">
+                Click on any class card to view its complete UML specification, fields, and operations.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    const CLASSES = [
+      {
+        name: "ManageableObject",
+        subsystem: "domain",
+        extends: "Object",
+        implements: [],
+        file: "ManageableObject.java",
+        line: 12,
+        desc: "Root scriptable base class providing method dispatch tables, reflection-free script invocation, and dynamic property lookup.",
+        fields: ["+String[] methods$", "+int[] methodArgs$"],
+        methods: ["+getMethods() : String[]", "+getMethodArgs(String) : int", "+hasMethod(String) : boolean", "+execMethod(String, Dict) : Token", "+varGet(String) : Token", "+varSet(String, Token)"]
+      },
+      {
+        name: "DimxObject",
+        subsystem: "domain",
+        extends: "ManageableObject",
+        implements: [],
+        file: "DimxObject.java",
+        line: 11,
+        desc: "Common base for high-level DimensioneX world entities (World and AdvObject), maintaining unique ID, world reference, properties, and contents.",
+        fields: ["+String id", "+World world", "+Token name", "+DictSorted properties", "+Dict contents"],
+        methods: ["+display(String) : boolean", "+displayRight(String) : boolean", "+getObjectsByName(String, Dict) : Dict", "+printContents() : String"]
+      },
+      {
+        name: "World",
+        subsystem: "domain",
+        extends: "DimxObject",
+        implements: [],
+        file: "World.java",
+        line: 6,
+        desc: "Central game world singleton aggregate holding all rooms, items, links, active players, global clock ticks, and script event dispatchers.",
+        fields: ["+multiplayer server", "+String instanceid", "+String site", "+String worldFile", "+Logger logger", "-int dynObjCount"],
+        methods: ["+evaluateExpression(String, DimxObject, AdvObject, String, DictSorted) : Token", "+execute(String, DimxObject, AdvObject, DictSorted, Token, boolean) : Token", "+fireEvent(String, DimxObject, String, String, DictSorted, boolean, boolean) : boolean", "+getRoom(String) : Room", "+getPlayer(String) : Player"]
+      },
+      {
+        name: "AdvObject",
+        subsystem: "domain",
+        extends: "DimxObject",
+        implements: [],
+        file: "AdvObject.java",
+        line: 10,
+        desc: "Base class for in-world adventure entities (Character, Item, Link, Room) managing spatial position, containment, facing, and visibility.",
+        fields: ["-Token icon", "+Token capacity", "+Token volume", "-Token description", "+AdvObject container", "+Token images", "+Token showmode", "+Token facing"],
+        methods: ["+contains(String) : boolean", "+getRoom() : Room", "+isContainer() : boolean", "+move(AdvObject) : boolean", "+isaCharacter() : boolean", "+isaRoom() : boolean", "+isanItem() : boolean", "+isLink() : boolean"]
+      },
+      {
+        name: "Link",
+        subsystem: "domain",
+        extends: "AdvObject",
+        implements: [],
+        file: "Link.java",
+        line: 4,
+        desc: "Represents directional connections and exits between rooms, supporting bidirectional routing and state (open/locked).",
+        fields: ["-Dict fromto", "-String direction", "#boolean isBidirectional"],
+        methods: ["+getDirection(String) : String", "+getRoom() : Room", "#getTarget(String) : Room", "+isOpen() : boolean", "+isLink() : boolean"]
+      },
+      {
+        name: "Character",
+        subsystem: "domain",
+        extends: "AdvObject",
+        implements: [],
+        file: "Character.java",
+        line: 4,
+        desc: "Animated non-player or actor entity capable of directional navigation ('go'), speaking, carrying inventory items, and reacting to events.",
+        fields: ["+Token accepting"],
+        methods: ["+getMethods() : String[]", "+execMethod(String, Dict) : Token", "+go(String) : boolean", "+isaCharacter() : boolean", "+isRobot() : boolean"]
+      },
+      {
+        name: "Player",
+        subsystem: "domain",
+        extends: "Character",
+        implements: [],
+        file: "Player.java",
+        line: 6,
+        desc: "Human-controlled character connected to a live web session, containing inventory, skin preferences, client display state, and password.",
+        fields: ["+Skin skin", "-Client msgBoard", "-Panel panel", "+String password", "+String prevPanelIds", "-boolean listening"],
+        methods: ["+getClient() : Client", "+getImageAndCorrectFacing(PeopleContainer) : Image", "+printXYZ(int, int, int, String, int)", "+execMethod(String, Dict) : Token"]
+      },
+      {
+        name: "PeopleContainer",
+        subsystem: "domain",
+        extends: "AdvObject",
+        implements: [],
+        file: "PeopleContainer.java",
+        line: 12,
+        desc: "Specialized base class for spatial entities capable of containing humans and characters (Rooms and Vehicles).",
+        fields: ["-Panel panel"],
+        methods: ["+display(String) : boolean", "+getPanel() : Panel", "+setPanel(Panel)"]
+      },
+      {
+        name: "Room",
+        subsystem: "domain",
+        extends: "PeopleContainer",
+        implements: [],
+        file: "Room.java",
+        line: 7,
+        desc: "Discrete virtual location in the world containing background images, exit links ('ways'), items, and characters.",
+        fields: ["-Dict ways"],
+        methods: ["+getRoom() : Room", "+getWay(String) : Link", "+getLinks() : Dict", "+addLink(Link)", "+isaRoom() : boolean"]
+      },
+      {
+        name: "Item",
+        subsystem: "domain",
+        extends: "PeopleContainer",
+        implements: [],
+        file: "Item.java",
+        line: 4,
+        desc: "Interactive game item capable of being taken, dropped, worn, inspected, and containing other items or characters.",
+        fields: [],
+        methods: ["+isanItem() : boolean", "+restoreTo(Player, StringBuffer, World) : boolean", "+worldChange(World, String, String)"]
+      },
+      {
+        name: "Vehicle",
+        subsystem: "domain",
+        extends: "Item",
+        implements: [],
+        file: "Vehicle.java",
+        line: 12,
+        desc: "Movable item that can transport passengers across links and rooms, acting both as an item and as a passenger container.",
+        fields: [],
+        methods: ["+isVehicle() : boolean", "+getLinks() : Dict"]
+      },
+      {
+        name: "Dict",
+        subsystem: "domain",
+        extends: "ManageableObject",
+        implements: ["Cloneable", "Serializable"],
+        file: "Dict.java",
+        line: 9,
+        desc: "Dynamic associative array modeled after VBScript Dictionary/Vector, used for properties, collections, and variable tables.",
+        fields: ["#String[] keys", "#Object[] elementData", "#int elementCount", "-int capacityIncrement", "-boolean allowDups"],
+        methods: ["+put(String, Object)", "+get(String) : Object", "+containsKey(String) : boolean", "+size() : int", "+remove(String) : Object", "+keys() : Enumeration"]
+      },
+      {
+        name: "DictSorted",
+        subsystem: "domain",
+        extends: "Dict",
+        implements: [],
+        file: "DictSorted.java",
+        line: 15,
+        desc: "Specialization of Dict maintaining keys in sorted order for fast lookup and sorted enumerations.",
+        fields: [],
+        methods: ["+put(String, Object)", "+indexOfKey(String) : int", "+sort()"]
+      },
+      {
+        name: "Image",
+        subsystem: "domain",
+        extends: "ManageableObject",
+        implements: ["Cloneable"],
+        file: "Image.java",
+        line: 4,
+        desc: "Media descriptor holding URLs, dimensions (width, height, baseline), and HTML rendering tags.",
+        fields: ["#Token src", "#Token width", "#Token height", "#int baseline", "#int showareax1", "#int showareax2"],
+        methods: ["+clone() : Object", "+getSrc() : String", "+getWidth() : int", "+getHeight() : int"]
+      },
+      {
+        name: "Event",
+        subsystem: "parser",
+        extends: "ManageableObject",
+        implements: [],
+        file: "Event.java",
+        line: 6,
+        desc: "Encapsulates script execution units (EVENT, FUNCTION, SUB) with formal parameters, local Varspace, and script body.",
+        fields: ["+String id", "-DimxObject parent", "+String type", "-Varspace varspace", "-Vector formalparams", "+String attachedEventsId"],
+        methods: ["+fire(DimxObject, String, String, DictSorted, boolean) : boolean", "+fire_t(DimxObject, String, String, DictSorted, Token) : Token", "+executeActions(DimxObject, String, String, Token) : Token", "+getActions() : String"]
+      },
+      {
+        name: "Page",
+        subsystem: "views",
+        extends: "ManageableObject",
+        implements: [],
+        file: "Page.java",
+        line: 13,
+        desc: "HTML template page entity that performs macro replacements and generates HTML responses.",
+        fields: ["+String id", "-String src", "-String template"],
+        methods: ["+toHtml(Dict) : String", "+toString() : String"]
+      },
+      {
+        name: "DimxParser",
+        subsystem: "parser",
+        extends: "Object",
+        implements: [],
+        file: "DimxParser.java",
+        line: 10,
+        desc: "Core tokenizer, expression evaluator, arithmetic/logical evaluator, and built-in SmallBasic function registry.",
+        fields: ["+boolean verbose", "+World world", "+Varspace varspace", "#Logger logger", "+String buf", "+int startToken", "+int currLine"],
+        methods: ["+eat()", "+evalExpression(Token, int) : Token", "+evalFunction(String, Dict) : Token", "+feed(String)", "#getLine() : String"]
+      },
+      {
+        name: "ActionsRunner",
+        subsystem: "parser",
+        extends: "DimxParser",
+        implements: [],
+        file: "ActionsRunner.java",
+        line: 12,
+        desc: "Evaluates and executes game event actions and SmallBasic script statements during gameplay.",
+        fields: ["-String fileName", "-String fileShort", "+String actionverb", "+Token result"],
+        methods: ["+parseInstructionLine(String[]) : Dict", "+run() : Token"]
+      },
+      {
+        name: "WorldLoader",
+        subsystem: "parser",
+        extends: "DimxParser",
+        implements: [],
+        file: "WorldLoader.java",
+        line: 13,
+        desc: "Parser and compiler for .dxw world definition files, constructing the full in-memory World graph.",
+        fields: ["-String worldFile", "+World world"],
+        methods: ["+loadWorld(String) : World", "+parseRoom()", "+parseItem()"]
+      },
+      {
+        name: "SkinLoader",
+        subsystem: "parser",
+        extends: "DimxParser",
+        implements: [],
+        file: "SkinLoader.java",
+        line: 12,
+        desc: "Specialized parser for loading skin and client theme definition scripts.",
+        fields: ["+Skin skin"],
+        methods: ["+loadSkin(String) : Skin", "+parseSkinProperties()"]
+      },
+      {
+        name: "SmallBasicLoader",
+        subsystem: "parser",
+        extends: "DimxParser",
+        implements: [],
+        file: "SmallBasicLoader.java",
+        line: 14,
+        desc: "Parses DimensioneX SmallBasic script source code libraries (.dxl) into executable Event objects.",
+        fields: ["+Dict events"],
+        methods: ["+loadScript(String)", "+parseEvent()", "+parseFunction()"]
+      },
+      {
+        name: "Token",
+        subsystem: "parser",
+        extends: "Object",
+        implements: ["Cloneable"],
+        file: "Token.java",
+        line: 7,
+        desc: "Polymorphic dynamically typed value container (String, Number, DimxObject, Dict, Boolean) used by the script interpreter.",
+        fields: ["+char type", "-Object sVal", "-double nVal"],
+        methods: ["+strVal() : String", "+numVal() : double", "+boolVal() : boolean", "+objVal() : DimxObject", "+clone() : Object", "+assign(Token, World)"]
+      },
+      {
+        name: "Varspace",
+        subsystem: "parser",
+        extends: "Object",
+        implements: [],
+        file: "Varspace.java",
+        line: 7,
+        desc: "Symbol table and variable storage environment for script scopes, local function arguments, and global world variables.",
+        fields: ["-DictSorted elements"],
+        methods: ["+varGet(String) : Token", "+varSet(String, Token)", "+varExists(String) : boolean"]
+      },
+      {
+        name: "View",
+        subsystem: "views",
+        extends: "Object",
+        implements: [],
+        file: "View.java",
+        line: 19,
+        desc: "Base HTML view generator producing web client components, scene backgrounds, multimedia embeds, and chat frames.",
+        fields: [],
+        methods: ["+htmlCharset(World)$ : String", "+htmlWidthHeight(Image, StringBuffer, double)$", "+htmlImage(Image, StringBuffer, Client, String, String, String, String)$"]
+      },
+      {
+        name: "ViewAdmin",
+        subsystem: "views",
+        extends: "View",
+        implements: [],
+        file: "ViewAdmin.java",
+        line: 13,
+        desc: "Admin console view rendering CPU performance stats, script optimizer telemetry, and active world details.",
+        fields: [],
+        methods: ["+render(PrintWriter, World, multiplayer)"]
+      },
+      {
+        name: "ViewCluster",
+        subsystem: "views",
+        extends: "View",
+        implements: [],
+        file: "ViewCluster.java",
+        line: 19,
+        desc: "Cluster view displaying status of distributed world nodes, connected databases, and server health.",
+        fields: [],
+        methods: ["+render(PrintWriter, Cluster)"]
+      },
+      {
+        name: "ViewDirect",
+        subsystem: "views",
+        extends: "View",
+        implements: [],
+        file: "ViewDirect.java",
+        line: 19,
+        desc: "Passthrough view rendering unadorned direct output to the client.",
+        fields: [],
+        methods: ["+render(PrintWriter, String)"]
+      },
+      {
+        name: "ViewHOF",
+        subsystem: "views",
+        extends: "View",
+        implements: [],
+        file: "ViewHOF.java",
+        line: 14,
+        desc: "Hall of Fame view rendering top player leaderboards, high scores, and persistent records.",
+        fields: [],
+        methods: ["+render(PrintWriter, World)"]
+      },
+      {
+        name: "ViewMap",
+        subsystem: "views",
+        extends: "View",
+        implements: [],
+        file: "ViewMap.java",
+        line: 12,
+        desc: "Map view rendering graphical or 2D grid representations of discovered rooms and connections.",
+        fields: [],
+        methods: ["+render(PrintWriter, World, Player)"]
+      },
+      {
+        name: "Skin",
+        subsystem: "views",
+        extends: "Object",
+        implements: [],
+        file: "Skin.java",
+        line: 4,
+        desc: "Visual theme definition configuring background colors, fonts, panel layouts, icons, and CSS styles.",
+        fields: ["+String path", "+String picFader", "+String bodyColor", "+String textColor"],
+        methods: ["+getIcon(String) : String"]
+      },
+      {
+        name: "Panel",
+        subsystem: "views",
+        extends: "Object",
+        implements: [],
+        file: "Panel.java",
+        line: 6,
+        desc: "UI control container representing interactive button panels, compass navigation, and command bars.",
+        fields: ["+String id", "+Dict buttons", "+String hasFocus"],
+        methods: ["+addButton(Ctrl)", "+getButton(String) : Ctrl"]
+      },
+      {
+        name: "Ctrl",
+        subsystem: "views",
+        extends: "Object",
+        implements: [],
+        file: "Ctrl.java",
+        line: 8,
+        desc: "Individual interactive browser UI control (buttons, links, text inputs, ghost buttons) inside UI panels.",
+        fields: ["+String id", "+String type", "+String caption", "+String target"],
+        methods: ["+toHtml() : String"]
+      },
+      {
+        name: "multiplayer",
+        subsystem: "web",
+        extends: "HttpServlet",
+        implements: [],
+        file: "multiplayer.java",
+        line: 242,
+        desc: "Main entry-point game engine servlet handling HTTP request loop, world ticking, player sessions, and rendering HTML frames.",
+        fields: ["+String navigatorUrl", "-DictSorted worlds", "-DictSorted clusters", "+String dbdriver"],
+        methods: ["+service(HttpServletRequest, HttpServletResponse)", "+getWorld(String) : World", "+getCluster(String) : Cluster", "+loadSettings(String)"]
+      },
+      {
+        name: "Maint",
+        subsystem: "web",
+        extends: "HttpServlet",
+        implements: [],
+        file: "Maint.java",
+        line: 21,
+        desc: "Administration and maintenance HTTP servlet for user profile management, world backup, and server health.",
+        fields: ["-Skin skin", "-String systemDir"],
+        methods: ["+init(ServletConfig)", "+destroy()", "#processRequest(HttpServletRequest, HttpServletResponse)", "#doGet(HttpServletRequest, HttpServletResponse)", "#doPost(HttpServletRequest, HttpServletResponse)"]
+      },
+      {
+        name: "SlotSettingsFilter",
+        subsystem: "web",
+        extends: "Object",
+        implements: ["FilenameFilter"],
+        file: "Maint.java",
+        line: 452,
+        desc: "Inner filter class within Maint that discovers world properties and slot configuration files on disk.",
+        fields: ["#String pattern"],
+        methods: ["+accept(File, String) : boolean"]
+      },
+      {
+        name: "Client",
+        subsystem: "web",
+        extends: "Object",
+        implements: [],
+        file: "Client.java",
+        line: 6,
+        desc: "Tracks user client browser session, display dimensions, scale factors (factorx, factory), sound support, and command queue.",
+        fields: ["-Dict messages", "+Utils session", "-Player owner", "-World world", "-StringBuffer console", "+double factorx", "+double factory"],
+        methods: ["+display(String)", "+displayRight(String)", "+readConsole() : String", "+getConsole() : String"]
+      },
+      {
+        name: "Cluster",
+        subsystem: "web",
+        extends: "Object",
+        implements: [],
+        file: "Cluster.java",
+        line: 15,
+        desc: "Coordinates multi-world game server instances, SQL database connectivity, journal logging, and cross-world management.",
+        fields: ["+String id", "+boolean dbConnected", "+DictSorted worlds", "+Journal journal", "+multiplayer server"],
+        methods: ["+dbConn(StringBuffer) : Connection", "+checkDbConn(StringBuffer) : boolean", "+registerWorld(String)", "+getPlayers(String) : String"]
+      },
+      {
+        name: "Journal",
+        subsystem: "infrastructure",
+        extends: "Object",
+        implements: [],
+        file: "Journal.java",
+        line: 10,
+        desc: "File-based action journaling system for event replay, player command audit logs, and game session logging.",
+        fields: ["-String logFile"],
+        methods: ["+log(String)", "+flush()"]
+      },
+      {
+        name: "Logger",
+        subsystem: "infrastructure",
+        extends: "Object",
+        implements: [],
+        file: "Logger.java",
+        line: 10,
+        desc: "Logging utility providing categorized console and disk logging (debug, warning, info, error).",
+        fields: ["-int level"],
+        methods: ["+log(String)$", "+debug(String)$", "+warning(String)$", "+error(String)$"]
+      },
+      {
+        name: "Message",
+        subsystem: "infrastructure",
+        extends: "Object",
+        implements: [],
+        file: "Message.java",
+        line: 11,
+        desc: "Chat, notification, or private message entity passed between players or broadcast by the engine.",
+        fields: ["+String sender", "+String receiver", "+String body", "+Date sentTime"],
+        methods: ["+getSenderName() : String", "+getText() : String"]
+      },
+      {
+        name: "Messages",
+        subsystem: "infrastructure",
+        extends: "Object",
+        implements: [],
+        file: "Messages.java",
+        line: 7,
+        desc: "Multi-language localization manager loading localized strings and game system text from .properties files.",
+        fields: ["+String[] cmd", "+Properties bundle"],
+        methods: ["+load(String)", "+get(String) : String"]
+      },
+      {
+        name: "Const",
+        subsystem: "infrastructure",
+        extends: "Object",
+        implements: [],
+        file: "Const.java",
+        line: 4,
+        desc: "Central constants dictionary defining command verbs, screen modes, directions (N, S, E, W, etc.), and type tags.",
+        fields: ["+String TYPE_ITEM$", "+String TYPE_LINK$", "+String OFFSCREEN$", "+String ONSCREEN_ICON$"],
+        methods: []
+      },
+      {
+        name: "Utils",
+        subsystem: "infrastructure",
+        extends: "Object",
+        implements: [],
+        file: "Utils.java",
+        line: 18,
+        desc: "Static utility toolkit for string manipulation, date formatting, HTML escaping, math, and HTTP header helpers.",
+        fields: [],
+        methods: ["+cInt(Object)$ : int", "+cStr(Object)$ : String", "+now()$ : String", "+fetch(String, String)$ : String", "+stringReplace(String, Dict, boolean)$ : String"]
+      },
+      {
+        name: "DimxException",
+        subsystem: "infrastructure",
+        extends: "Exception",
+        implements: [],
+        file: "DimxException.java",
+        line: 6,
+        desc: "Base engine checked exception for parsing errors, runtime script failures, and illegal state exceptions.",
+        fields: [],
+        methods: ["+getMessage() : String"]
+      },
+      {
+        name: "NestedException",
+        subsystem: "infrastructure",
+        extends: "DimxException",
+        implements: [],
+        file: "NestedException.java",
+        line: 7,
+        desc: "Exception chaining wrapper preserving root cause exceptions across script and parser execution boundaries.",
+        fields: ["-Exception cause"],
+        methods: ["+getCause() : Throwable"]
+      },
+      {
+        name: "DictEnumerator",
+        subsystem: "infrastructure",
+        extends: "Object",
+        implements: ["Enumeration"],
+        file: "DictEnumerator.java",
+        line: 7,
+        desc: "Iterator for traversing keys or elements within a Dict collection.",
+        fields: ["-Dict dict", "-int currentIdx"],
+        methods: ["+hasMoreElements() : boolean", "+nextElement() : Object"]
+      }
+    ];
+
+    let currentSubsystem = 'all';
+    let searchQuery = '';
+    let selectedClass = CLASSES[0];
+
+    function renderList() {
+      const container = document.getElementById('classList');
+      container.innerHTML = '';
+
+      const filtered = CLASSES.filter(c => {
+        const matchesSub = currentSubsystem === 'all' || c.subsystem === currentSubsystem;
+        const matchesSearch = !searchQuery || 
+          c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          c.desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          c.extends.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (c.methods && c.methods.some(m => m.toLowerCase().includes(searchQuery.toLowerCase()))) ||
+          (c.fields && c.fields.some(f => f.toLowerCase().includes(searchQuery.toLowerCase())));
+        return matchesSub && matchesSearch;
+      });
+
+      document.getElementById('matchCount').innerText = `${filtered.length} of ${CLASSES.length} classes`;
+
+      filtered.forEach(cls => {
+        const isSelected = selectedClass && selectedClass.name === cls.name;
+        const card = document.createElement('div');
+        card.className = `p-4 rounded-xl border transition-all cursor-pointer ${
+          isSelected 
+            ? 'bg-[var(--accent)] border-[var(--primary)] shadow-md ring-1 ring-[var(--primary)]' 
+            : 'bg-[var(--card)] border-[var(--border)] hover:border-[var(--muted-foreground)]'
+        }`;
+        card.onclick = () => selectClass(cls);
+
+        // Subsystem pill styling
+        const subColors = {
+          domain: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+          parser: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+          views: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+          web: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+          infrastructure: 'bg-slate-500/20 text-slate-300 border-slate-500/30'
+        };
+
+        const subPill = `<span class="badge ${subColors[cls.subsystem] || 'bg-slate-500/20'} border">${cls.subsystem}</span>`;
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-2 mb-1.5">
+            <h4 class="font-bold text-sm tracking-tight text-[var(--foreground)] font-mono">${cls.name}</h4>
+            ${subPill}
+          </div>
+          <div class="text-xs text-[var(--muted-foreground)] font-mono mb-2">
+            ${cls.extends !== 'Object' ? `▲ extends <span class="text-[var(--foreground)] font-semibold">${cls.extends}</span>` : 'extends Object'}
+            ${cls.implements.length ? `• impl <span class="text-emerald-400">${cls.implements.join(', ')}</span>` : ''}
+          </div>
+          <p class="text-xs text-[var(--muted-foreground)] line-clamp-2 leading-relaxed">${cls.desc}</p>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function selectClass(cls) {
+      selectedClass = cls;
+      renderInspector();
+      renderList();
+    }
+
+    function renderInspector() {
+      if (!selectedClass) return;
+      const c = selectedClass;
+
+      document.getElementById('inspName').innerText = c.name;
+      document.getElementById('inspSubsystem').innerText = c.subsystem.toUpperCase();
+      document.getElementById('inspFile').innerText = `WEB-INF/classes/cleoni/adv/${c.file} (Line ${c.line})`;
+      document.getElementById('inspDesc').innerText = c.desc;
+
+      const hierDiv = document.getElementById('inspHierarchy');
+      hierDiv.innerHTML = `
+        <div><span class="text-[var(--muted-foreground)]">Superclass:</span> <span class="text-amber-400 font-semibold">${c.extends}</span></div>
+        <div><span class="text-[var(--muted-foreground)]">Implements:</span> <span class="text-emerald-400 font-semibold">${c.implements.length ? c.implements.join(', ') : 'None'}</span></div>
+      `;
+
+      const fieldsDiv = document.getElementById('inspFields');
+      if (c.fields && c.fields.length > 0) {
+        fieldsDiv.innerHTML = c.fields.map(f => `<div class="text-sky-300">${escapeHtml(f)}</div>`).join('');
+      } else {
+        fieldsDiv.innerHTML = '<span class="text-[var(--muted-foreground)] italic">No explicit major fields</span>';
+      }
+
+      const methodsDiv = document.getElementById('inspMethods');
+      if (c.methods && c.methods.length > 0) {
+        methodsDiv.innerHTML = c.methods.map(m => `<div class="text-amber-300">${escapeHtml(m)}</div>`).join('');
+      } else {
+        methodsDiv.innerHTML = '<span class="text-[var(--muted-foreground)] italic">Inherits standard methods</span>';
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function filterSubsystem(sub) {
+      currentSubsystem = sub;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.dataset.tab === sub) {
+          btn.className = 'tab-btn active px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold transition-colors';
+        } else {
+          btn.className = 'tab-btn px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors';
+        }
+      });
+      renderList();
+    }
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim();
+      renderList();
+    });
+
+    // Init
+    selectClass(CLASSES[0]);
+    renderList();
+  </script>
+</body>
+</html>

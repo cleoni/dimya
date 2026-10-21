@@ -1,0 +1,465 @@
+@startuml DimensioneX_UML_Class_Hierarchy
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+
+title DimensioneX (cleoni.adv) - Complete UML Class Hierarchy
+
+package "Core Domain & Scripting Entity Model" #EBF5FB {
+    class ManageableObject {
+        {static} +String[] methods
+        {static} +int[] methodArgs
+        +getMethods(): String[]
+        +getMethodArgs(mname: String): int
+        +hasMethod(mname: String): boolean
+        +execMethod(mname: String, params: Dict): Token
+        +varGet(varId: String): Token
+        +varSet(varId: String, val: Token)
+    }
+
+    class DimxObject {
+        +String id
+        +Token name
+        +World world
+        +DictSorted properties
+        +Dict contents
+        +display(msg: String): boolean
+        +displayRight(msg: String): boolean
+        +getObjectsByName(name: String, found: Dict): Dict
+    }
+
+    class World {
+        +multiplayer server
+        +String instanceid
+        +String site
+        +String worldFile
+        +Logger logger
+        -int dynObjCount
+        +evaluateExpression(expr: String, owner: DimxObject, agent: AdvObject, targetid: String, input: DictSorted): Token
+        +execute(eventId: String, owner: DimxObject, agent: AdvObject, actualpar: DictSorted, defaultResult: Token, mustExist: boolean): Token
+        +fireEvent(eventId: String, owner: DimxObject, agent: String, target: String, input: DictSorted, defaultResult: boolean, mustExist: boolean): boolean
+        +getRoom(roomid: String): Room
+        +getPlayer(playerid: String): Player
+    }
+
+    class AdvObject {
+        -Token icon
+        +Token capacity
+        +Token volume
+        -Token description
+        +AdvObject container
+        +Token images
+        +Token showmode
+        +Token facing
+        +contains(whatId: String): boolean
+        +getRoom(): Room
+        +isContainer(): boolean
+        +move(target: AdvObject): boolean
+        +isaCharacter(): boolean
+        +isaRoom(): boolean
+        +isanItem(): boolean
+        +isLink(): boolean
+    }
+
+    class Link {
+        -Dict fromto
+        -String direction
+        #boolean isBidirectional
+        +getDirection(from: String): String
+        +getRoom(): Room
+        #getTarget(from: String): Room
+        +isOpen(): boolean
+    }
+
+    class Character {
+        +Token accepting
+        +getMethods(): String[]
+        +execMethod(mname: String, params: Dict): Token
+        +go(linkId: String): boolean
+        +isaCharacter(): boolean
+        +isRobot(): boolean
+    }
+
+    class Player {
+        +Skin skin
+        -Client msgBoard
+        -Panel panel
+        +String password
+        +String prevPanelIds
+        -boolean listening
+        +getClient(): Client
+        +getImageAndCorrectFacing(container: PeopleContainer): Image
+        +printXYZ(x: int, y: int, z: int, stuff: String, stuffheight: int)
+    }
+
+    class PeopleContainer {
+        -Panel panel
+        +display(msg: String): boolean
+        +getPanel(): Panel
+        +setPanel(p: Panel)
+    }
+
+    class Room {
+        -Dict ways
+        +getRoom(): Room
+        +getWay(wayId: String): Link
+        +getLinks(): Dict
+        +addLink(w: Link)
+        +isaRoom(): boolean
+    }
+
+    class Item {
+        +isanItem(): boolean
+        +restoreTo(player: Player, alerts: StringBuffer, myworld: World): boolean
+        +worldChange(toWorld: World, newid: String, defContainer: String)
+    }
+
+    class Vehicle {
+        +isVehicle(): boolean
+        +getLinks(): Dict
+    }
+
+    class Dict {
+        #String[] keys
+        #Object[] elementData
+        #int elementCount
+        -int capacityIncrement
+        -boolean allowDups
+        +put(key: String, value: Object)
+        +get(key: String): Object
+        +containsKey(key: String): boolean
+        +size(): int
+        +remove(key: String): Object
+        +keys(): Enumeration
+    }
+
+    class DictSorted {
+        +put(key: String, value: Object)
+        +indexOfKey(key: String): int
+        +sort()
+    }
+
+    class Image {
+        #Token src
+        #Token width
+        #Token height
+        #int baseline
+        +clone(): Object
+        +getSrc(): String
+        +getWidth(): int
+        +getHeight(): int
+    }
+
+    class Page {
+        +String id
+        -String src
+        -String template
+        +toHtml(replacements: Dict): String
+    }
+
+    interface Cloneable <<interface>>
+    interface Serializable <<interface>>
+
+    ManageableObject <|-- DimxObject
+    ManageableObject <|-- Dict
+    ManageableObject <|-- Image
+    ManageableObject <|-- Page
+
+    Cloneable <|.. Dict
+    Serializable <|.. Dict
+    Cloneable <|.. Image
+
+    Dict <|-- DictSorted
+
+    DimxObject <|-- World
+    DimxObject <|-- AdvObject
+
+    AdvObject <|-- Link
+    AdvObject <|-- Character
+    AdvObject <|-- PeopleContainer
+
+    Character <|-- Player
+    PeopleContainer <|-- Room
+    PeopleContainer <|-- Item
+    Item <|-- Vehicle
+
+    World "1" *-- "*" Room : contains
+    World "1" *-- "*" Character : contains
+    World "1" *-- "*" Item : contains
+    Room "1" o-- "*" Link : ways
+    AdvObject o-- "0..1" AdvObject : container
+}
+
+package "Scripting & Parser Subsystem" #FCF3CF {
+    class DimxParser {
+        +boolean verbose
+        +World world
+        +Varspace varspace
+        #Logger logger
+        +String buf
+        +int startToken
+        +int currLine
+        +eat()
+        +evalExpression(t: Token, prevPriority: int): Token
+        +evalFunction(fname: String, params: Dict): Token
+        +feed(str: String)
+        #getLine(): String
+    }
+
+    class ActionsRunner {
+        -String fileName
+        -String fileShort
+        +String actionverb
+        +Token result
+        +parseInstructionLine(closers: String[]): Dict
+        +run(): Token
+    }
+
+    class WorldLoader {
+        -String worldFile
+        +World world
+        +loadWorld(file: String): World
+    }
+
+    class SkinLoader {
+        +Skin skin
+        +loadSkin(path: String): Skin
+    }
+
+    class SmallBasicLoader {
+        +Dict events
+        +loadScript(file: String)
+    }
+
+    class Event {
+        +String id
+        -DimxObject parent
+        +String type
+        -Varspace varspace
+        -Vector formalparams
+        +String attachedEventsId
+        +fire(owner: DimxObject, agent: String, target: String, input: DictSorted, defaultResult: boolean): boolean
+        +fire_t(owner: DimxObject, agent: String, target: String, params: DictSorted, defaultResult: Token): Token
+        +executeActions(owner: DimxObject, agent: String, target: String, defaultResult: Token): Token
+    }
+
+    class Token {
+        +char type
+        -Object sVal
+        -double nVal
+        +strVal(): String
+        +numVal(): double
+        +boolVal(): boolean
+        +objVal(): DimxObject
+        +assign(res: Token, world: World)
+    }
+
+    class Varspace {
+        -DictSorted elements
+        +varGet(name: String): Token
+        +varSet(name: String, val: Token)
+        +varExists(name: String): boolean
+    }
+
+    DimxParser <|-- ActionsRunner
+    DimxParser <|-- WorldLoader
+    DimxParser <|-- SkinLoader
+    DimxParser <|-- SmallBasicLoader
+    ManageableObject <|-- Event
+    Cloneable <|.. Token
+
+    Event o-- Varspace
+    DimxParser o-- Varspace
+    World "1" *-- "*" Event : scripts
+}
+
+package "Presentation & View Engine" #EAFAF1 {
+    class View {
+        {static} +htmlCharset(world: World): String
+        {static} +htmlWidthHeight(im: Image, sb: StringBuffer, factorx: double)
+        {static} +htmlImage(im: Image, sb: StringBuffer, client: Client, alt: String, aclass: String, aid: String, astyle: String)
+    }
+
+    class ViewAdmin {
+        +render(out: PrintWriter, world: World, server: multiplayer)
+    }
+
+    class ViewCluster {
+        +render(out: PrintWriter, cluster: Cluster)
+    }
+
+    class ViewDirect {
+        +render(out: PrintWriter, output: String)
+    }
+
+    class ViewHOF {
+        +render(out: PrintWriter, world: World)
+    }
+
+    class ViewMap {
+        +render(out: PrintWriter, world: World, player: Player)
+    }
+
+    class Skin {
+        +String path
+        +String picFader
+        +String bodyColor
+        +String textColor
+        +getIcon(name: String): String
+    }
+
+    class Panel {
+        +String id
+        +Dict buttons
+        +String hasFocus
+        +addButton(b: Ctrl)
+        +getButton(id: String): Ctrl
+    }
+
+    class Ctrl {
+        +String id
+        +String type
+        +String caption
+        +String target
+        +toHtml(): String
+    }
+
+    View <|-- ViewAdmin
+    View <|-- ViewCluster
+    View <|-- ViewDirect
+    View <|-- ViewHOF
+    View <|-- ViewMap
+
+    Panel "1" *-- "*" Ctrl : controls
+    Player o-- Skin
+    PeopleContainer o-- Panel
+}
+
+package "Web Servlets & Infrastructure" #FDEDEC {
+    abstract class HttpServlet <<abstract>> {
+        +service(req: HttpServletRequest, res: HttpServletResponse)
+    }
+
+    class multiplayer {
+        +String navigatorUrl
+        -DictSorted worlds
+        -DictSorted clusters
+        +String dbdriver
+        +service(request: HttpServletRequest, response: HttpServletResponse)
+        +getWorld(areaid: String): World
+        +getCluster(clusterid: String): Cluster
+        +loadSettings(propFile: String)
+    }
+
+    class Maint {
+        -Skin skin
+        -String systemDir
+        +init(config: ServletConfig)
+        +destroy()
+        #processRequest(request: HttpServletRequest, response: HttpServletResponse)
+    }
+
+    class SlotSettingsFilter {
+        #String pattern
+        +accept(dir: File, name: String): boolean
+    }
+
+    class Client {
+        -Dict messages
+        +Utils session
+        -Player owner
+        -World world
+        -StringBuffer console
+        +double factorx
+        +double factory
+        +display(shortMsg: String)
+        +readConsole(): String
+    }
+
+    class Cluster {
+        +String id
+        +boolean dbConnected
+        +DictSorted worlds
+        +Journal journal
+        +multiplayer server
+        +dbConn(err: StringBuffer): Connection
+        +checkDbConn(err: StringBuffer): boolean
+        +registerWorld(areaid: String)
+    }
+
+    class Journal {
+        -String logFile
+        +log(entry: String)
+        +flush()
+    }
+
+    class Logger {
+        {static} +log(msg: String)
+        {static} +debug(msg: String)
+        {static} +warning(msg: String)
+        {static} +error(msg: String)
+    }
+
+    class Message {
+        +String sender
+        +String receiver
+        +String body
+        +Date sentTime
+        +getSenderName(): String
+    }
+
+    class Messages {
+        +String[] cmd
+        +Properties bundle
+        +load(lang: String)
+        +get(code: String): String
+    }
+
+    class Const {
+        {static} +String TYPE_ITEM
+        {static} +String TYPE_LINK
+        {static} +String OFFSCREEN
+    }
+
+    class Utils {
+        {static} +cInt(o: Object): int
+        {static} +cStr(o: Object): String
+        {static} +now(): String
+        {static} +fetch(url: String, enc: String): String
+    }
+
+    class DimxException {
+        +getMessage(): String
+    }
+
+    class NestedException {
+        -Exception cause
+        +getCause(): Throwable
+    }
+
+    interface FilenameFilter <<interface>>
+    interface Enumeration <<interface>>
+
+    class DictEnumerator {
+        -Dict dict
+        -int currentIdx
+        +hasMoreElements(): boolean
+        +nextElement(): Object
+    }
+
+    HttpServlet <|-- multiplayer
+    HttpServlet <|-- Maint
+    FilenameFilter <|.. SlotSettingsFilter
+    Maint +-- SlotSettingsFilter : inner class
+    Exception <|-- DimxException
+    DimxException <|-- NestedException
+    Enumeration <|.. DictEnumerator
+
+    multiplayer "1" o-- "*" World : hosts
+    multiplayer "1" o-- "*" Cluster : coordinates
+    Player "1" *-- "1" Client : session
+}
+
+@enduml
