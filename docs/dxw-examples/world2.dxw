@@ -1,0 +1,126 @@
+WORLD 
+	NAME		World 2
+	IMAGESFOLDER	/dimx/pics/
+	VERSION		1.9
+	AUTHOR  	Cristiano Leoni 
+	LOGOSRC 	rana.gif
+	HELP    	http://www.dimensionex.net/en/quick_start.htm 
+
+
+GUI
+	LOGOSRC 	rana.gif
+END_GUI
+
+
+'***********************************************************************
+ROOMS
+
+ROOM spiaggia 
+	NAME		The beach
+	DESCRIPTION	The classic beach with white sand and palm trees... an old cliché but still working.
+	IMAGE		scnSpiaggiaTropical.jpg
+
+ROOM rocca
+	NAME		The rock
+	DESCRIPTION	From here I enjoy the wonderful landscape below
+	IMAGE	scnSpiaggiaDasopra.jpg
+
+ROOM bungalow
+	NAME		The bungalow
+	DESCRIPTION	A bungalow here proves the turism is arriving everywhere. There's a switch on the left wall.
+	IMAGE		scnBungalow.jpg
+	
+END_ROOMS
+
+
+
+'***********************************************************************
+LINKS
+	LINK 	w18 rocca-bungalow E
+		NAME	path
+	MLINK w16 spiaggia-rocca	U 
+		NAME	to the rock
+	MLINK  w17 rocca-spiaggia	D
+		NAME	to the beach
+
+END_LINKS
+
+
+
+' **************************************************************
+CHARACTERS
+
+CHARACTER surfer
+	NAME		a surfer
+	DESCRIPTION	Walks up and down, I'd say he's got nothing to do.
+	POSITION	spiaggia
+	IMAGE		120x120		chrSurfista.gif
+
+END_CHARACTERS
+
+
+
+'***********************************************************************
+ITEMS
+ 
+ITEM box
+	NAME		a cardboard box
+	DESCRIPTION	It's just an ordinary cardboard box
+	POSITION	spiaggia
+	ICON		icoScatola.gif
+	ATTRLIST	open=0,hideable=0
+	IMAGE		80x64	box.gif
+
+ITEM apple
+	NAME		an apple
+	ICON		icoMela.gif
+	POSITION	box
+	DESCRIPTION	A nice red apple... maybe it's good and tasty...
+	ATTRLIST	pickable
+	IMAGE		121x88	mela.gif
+
+ITEM switch
+	NAME		a switch
+	DESCRIPTION	What is this switch for?
+	POSITION	bungalow
+	ICON		icoInterruttore.gif
+	IMAGE		77x111	interruttore.gif
+	SHOW		ICON 62,68
+
+END_ITEMS
+
+
+	
+'***********************************************************************
+SCRIPTS 
+
+EVENT surfer.onLook
+	Speak "Hey, why the hell you are staring at me?", "Please look elsewhere!"
+
+
+EVENT switch.onLook
+	Speak "USE this switch to start a new game!"
+
+
+EVENT switch.onUse
+	If $WORLD.mode <> 1
+		$WORLD.mode = 1
+		SetPanel $WORLD, "default"
+		Move apple, box
+		box.open = 0
+		Broadcast "The adventure has started!"
+	End_If
+
+EVENT apple.whenPicked
+	Goal
+	setPanel $WORLD,"chat"
+
+
+EVENT onStart
+	setPanel $WORLD,"chat"
+
+
+END_SCRIPTS
+
+
+END_WORLD

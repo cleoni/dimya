@@ -17,8 +17,52 @@ class ManageableObject
     /** @var array<string, callable> Dynamic methods registry */
     protected array $methods = [];
 
+    /** @var array<string, array<string, array{name: string, type: ?string, nullable: bool, isClass: bool}>> */
+    private static array $classPropMetadata = [];
+
     public function __construct()
     {
+    }
+
+    /**
+     * Get or build cached reflection metadata for class properties.
+     * Maps lowercase property names to their declared name and typing rules.
+     *
+     * @return array<string, array{name: string, type: ?string, nullable: bool, isClass: bool}>
+     */
+    private static function getClassPropertyMetaMap(string $className): array
+    {
+        if (isset(self::$classPropMetadata[$className])) {
+            return self::$classPropMetadata[$className];
+        }
+
+        $map = [];
+        $ref = new \ReflectionClass($className);
+        foreach ($ref->getProperties() as $prop) {
+            if ($prop->isStatic()) {
+                continue;
+            }
+            $type = $prop->getType();
+            $typeName = null;
+            $nullable = true;
+            $isClass = false;
+
+            if ($type instanceof \ReflectionNamedType) {
+                $typeName = $type->getName();
+                $nullable = $type->allowsNull();
+                $isClass = class_exists($typeName) || interface_exists($typeName);
+            }
+
+            $map[strtolower($prop->getName())] = [
+                'name'     => $prop->getName(),
+                'type'     => $typeName,
+                'nullable' => $nullable,
+                'isClass'  => $isClass,
+            ];
+        }
+
+        self::$classPropMetadata[$className] = $map;
+        return $map;
     }
 
     /**
@@ -29,22 +73,72 @@ class ManageableObject
         if (array_key_exists($name, $this->properties)) {
             return $this->properties[$name];
         }
-        if (property_exists($this, $name)) {
-            return $this->{$name};
+
+        $metaMap = self::getClassPropertyMetaMap(static::class);
+        $lower = strtolower($name);
+        if (isset($metaMap[$lower])) {
+            $propName = $metaMap[$lower]['name'];
+            return $this->{$propName} ?? null;
         }
+
+        // Case-insensitive lookup in dynamic properties
+        foreach ($this->properties as $k => $v) {
+            if (strcasecmp((string)$k, $name) === 0) {
+                return $v;
+            }
+        }
+
         return null;
     }
 
     /**
-     * Set dynamic or declared property.
+     * Set dynamic or declared property with type coercion for typed declared properties.
      */
     public function setProperty(string $name, mixed $value): mixed
     {
-        if (property_exists($this, $name)) {
-            $this->{$name} = $value;
-        } else {
-            $this->properties[$name] = $value;
+        $metaMap = self::getClassPropertyMetaMap(static::class);
+        $lower = strtolower($name);
+
+        if (isset($metaMap[$lower])) {
+            $meta = $metaMap[$lower];
+            $propName = $meta['name'];
+            $typeName = $meta['type'];
+
+            if ($typeName !== null) {
+                if ($value === null) {
+                    if ($meta['nullable']) {
+                        $this->{$propName} = null;
+                        return null;
+                    }
+                } elseif ($typeName === 'bool') {
+                    $coerced = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                    $this->{$propName} = $coerced ?? (bool)$value;
+                    return $this->{$propName};
+                } elseif ($typeName === 'int') {
+                    $this->{$propName} = (int)$value;
+                    return $this->{$propName};
+                } elseif ($typeName === 'float') {
+                    $this->{$propName} = (float)$value;
+                    return $this->{$propName};
+                } elseif ($typeName === 'string') {
+                    $this->{$propName} = (string)$value;
+                    return $this->{$propName};
+                } elseif ($meta['isClass']) {
+                    if ($value instanceof $typeName) {
+                        $this->{$propName} = $value;
+                        return $value;
+                    }
+                    // Non-compatible object/scalar assigned to typed object property; store dynamically
+                    $this->properties[$name] = $value;
+                    return $value;
+                }
+            }
+
+            $this->{$propName} = $value;
+            return $value;
         }
+
+        $this->properties[$name] = $value;
         return $value;
     }
 
@@ -53,7 +147,22 @@ class ManageableObject
      */
     public function varExists(string $name): bool
     {
-        return array_key_exists($name, $this->properties) || property_exists($this, $name);
+        if (array_key_exists($name, $this->properties)) {
+            return true;
+        }
+
+        $metaMap = self::getClassPropertyMetaMap(static::class);
+        if (isset($metaMap[strtolower($name)])) {
+            return true;
+        }
+
+        foreach ($this->properties as $k => $v) {
+            if (strcasecmp((string)$k, $name) === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

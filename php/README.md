@@ -1,12 +1,13 @@
 # DimensioneX PHP Game Engine & Object Hierarchy
 
-Modern PHP 8.1+ implementation of the **DimensioneX** virtual world and multiplayer interactive fiction engine, designed according to the official **Developer's Reference (v7.1.7)**.
+Modern PHP 8.1+ implementation of the **DimensioneX** virtual world and multiplayer interactive fiction engine, designed according to the official **Developer's Reference (v7.1.7)** and the [**DXW Language Specification**](../docs/DXW_SPECIFICATION.md).
 
 ---
 
 ## 1. Architectural Highlights
 
-* **Pure Native Data Structures**:
+* **Pure Native Data Structures & Loose Scalar Typing**:
+  * All game scalar values (`int`, `bool`, `string`, `float`) are loosely typed as in standard PHP, allowing dynamic context-dependent coercion without strict typing restrictions.
   * The Java `Dict` / `DictSorted` associative collection has been replaced with PHP's native associative arrays (`array`).
   * The Java `Token` polymorphic type wrapper has been replaced with PHP's native dynamic typing and union types (`mixed`).
 * **Web Interfaces as Standalone Pages**:

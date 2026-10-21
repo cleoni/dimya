@@ -1,0 +1,36 @@
+WORLD 
+	NAME		World 1
+	IMAGESFOLDER	/dimx/pics/
+	VERSION		1.5
+	AUTHOR  	Cristiano Leoni 
+	HELP    	http://www.dimensionex.net/en/quick_start.htm 
+
+GUI
+	LOGOSRC 	rana.gif
+END_GUI
+
+ROOMS
+
+ROOM spiaggia 
+	NAME		The beach
+	DESCRIPTION	On the beach, at last!
+	IMAGE		scnSpiaggiaTropical.jpg
+
+END_ROOMS
+
+
+ITEMS
+ 
+ITEM key
+	NAME		a key
+	POSITION	spiaggia
+	ATTRLIST	pickable
+	ICON		icoKey.gif
+	DESCRIPTION	It's a key... what do I do with this one now?
+	IMAGE 		67x50 chiavegold.gif
+END_ITEMS
+
+
+
+
+END_WORLD

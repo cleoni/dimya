@@ -1,0 +1,403 @@
+WORLD 
+	NAME		Four-in-line
+	IMAGESFOLDER_PUBLIC	http://www.dimensionex.net/boardgames/
+	IMAGESFOLDER_LOCAL	/dimx/boardgames/
+	VERSION		1.3
+	'Tested on DimX 5.7.1b
+	AUTHOR  	Cris
+	SITE		http://www.dimensionex.net/turnbased/fourinline.htm
+	HELP		http://www.dimensionex.net/turnbased/help_four.htm
+
+GUI
+	LOGOSRC 	greentable.jpg
+	SKINS		http://www.dimensionex.net/skins/aqua/aqua.dxs,http://www.dimensionex.net/skins/bloody/bloody.dxs,http://www.dimensionex.net/skins/forest/forest.dxs,default
+
+PANEL default
+	BUTTON refresh,"Refresh","Refresh",onRefresh
+	BUTTON help
+	BUTTON logout
+	TEXTBOX
+	BUTTON say
+
+PANEL pre VERSION OF default
+	CR
+	CR
+	BUTTON startgame, "Start Game!", "Start Game!", onStartGame
+
+PANEL play VERSION OF default
+
+PANEL pause VERSION OF default
+
+PANEL end VERSION OF default
+	CR
+	CR
+	BUTTON resetgame, "Reset", "Reset", onReset
+
+END_GUI
+
+ROOMS
+
+ROOM board 
+	NAME		Game Board
+	IMAGE		greentable.jpg
+
+END_ROOMS
+
+CHARACTERS ATTRLIST showmode=0
+END_CHARACTERS
+
+ITEMS
+
+END_ITEMS
+
+SETS
+	ARRAY players (empty),(empty)
+	ARRAY turnscore 0,0
+	ARRAY score	0,0
+	ARRAY color	black,black
+	ARRAY pieces	0
+	ARRAY dirx	0,1,1,1,0,-1,-1,-1
+	ARRAY diry	1,1,0,-1,-1,-1,0,1
+	ARRAY opposite  5,6,7,8,1,2,3,4
+END_SETS
+
+
+SCRIPTS
+
+Sub config()
+	target_players = 2
+	target_turns = 0 ' means indefinite
+	auto_start = false
+	has_scores = false
+	turn_reminders = false
+End_Sub
+
+EVENT onStart
+	Call config()
+	mode = "pre" ' modes: pre / play / pause / end
+	nplayers = 0
+	cycles = 0
+	SetPanel $WORLD,"pre"
+	Dim i
+	For i=1 to target_players
+		score(i)=0
+	Next
+	For i=1 to 8
+		Call initRow(i)
+	Next
+	board.name = $WORLD.name
+End_EVENT
+
+Sub initRow(row)
+	Dim y = 10 + row * 22
+	Dim x
+	Dim attrs
+	Dim i
+	Dim subscript
+	For i = 1 to 8
+		x = 60 + i * 22
+		attrs = "type=cell,showmode=1,showy=" + y + ",showx=" + x + ",row=" + row + ",col=" + i
+		subscript = i+(row-1)*8
+		pieces(subscript) = NewItem(board,"column "+i,null,NewImage("cross.gif",16,16),attrs)
+	Next
+End_Sub
+
+
+EVENT onNew
+	If (mode = "pre" Or mode = "pause") And nplayers < target_players
+		Dim slot = addPlayer($AGENT)
+		If nplayers = target_players
+			If mode = "pre" 
+				If Not(auto_start)
+					Speak SYS,$WORLD,"You can now start the game by clicking the [START GAME] button."
+				Else
+					Call play()
+				End_If
+			Else
+				If mode="pause"
+					Speak SYS,$AGENT,"You have joined a running game as player #" + slot
+					Call play()
+				End_If
+			End_If
+		End_If
+	End_If
+	board.description = getSituation()
+	RefreshView board
+End_EVENT
+
+Function addPlayer(person)
+	Dim i
+	For i=1 To SetLen(players)
+		If Not(Exists(players(i)))
+			players(i) = person
+			nplayers = nplayers+1
+			Return i
+		End_If
+	Next
+End_Function
+
+Function getSituation()
+	Dim i
+	Dim x
+	Dim string
+
+	string = "-- current players: " + nplayers + " (target is: " + target_players + ") --" 
+	string = string + "<UL>"
+	For i=1 To SetLen(players)
+		x = players(i)
+		string = string + "<LI>player#" + i + " "
+		If Exists(x)
+			string = string + "<FONT COLOR=YELLOW><B>" + x.name + "</B></FONT>"
+			string = string + " - color: " + color(i)
+			If has_scores
+				string = string + " - score: " + score(i)
+			End_If
+		Else
+			string = string + x
+		End_If
+	Next
+	string = string + "</UL><P>"
+	If mode <> "pre"
+		string = string + "Play cycles: " + cycles + "<BR>"
+	End_If
+	If mode = "play"
+		string = string + "Next player: " + players(nowplays).name 
+	End_If
+	If mode = "pre" Or mode = "pause"
+		If nplayers < target_players
+			string = string + "Waiting for " + (target_players - nplayers) + " more player(s)... Invite friends!"
+		Else
+			If nplayers > target_players
+				string = string + "There is " + (nplayers - target_players) + " person too much..."
+			Else
+				string = string + "Ready to start!"
+			End_If
+		End_If
+	End_If
+	If mode = "end"
+		string = string + "GAME OVER - Click [RESET] button for another game."
+	End_If
+	Return string
+End_Function
+
+EVENT onStartGame
+	If mode = "pre"
+		If findUser($AGENT) > 0
+			If nplayers < target_players
+				Speak "Cannot start a game before at least " + target_players + " players are connected."
+			Else
+				Call play()
+				started_playing = findUser($AGENT)
+				color(started_playing) = "white"
+				nowplays = started_playing
+				If turn_reminders
+					Speak SYS,$WORLD,"Now plays: " + players(nowplays).name
+				End_If
+			End_If
+		Else
+			' somebody is trying to play but not in the list of players
+			If nplayers < target_players
+				' OK one place is available - join
+				Call onNew()
+				Speak "OK you now have joined - click [START GAME] again to start"
+			Else
+				Speak "You are not one of the players - sorry. You are welcome to stay as a watcher."
+			End_If
+		End_If
+	Else
+		Speak "Cannot start game now (mode=" + mode + ")"
+	End_If
+	board.description = getSituation()
+END_EVENT
+
+Function findUser(user)
+	For i=1 To SetLen(players)
+		If user = players(i)
+			Return i
+		End_If
+	Next
+	Return 0
+End_Function
+
+Sub updScore()
+	If has_scores
+		If turnscore(1) > turnscore(2)
+			Speak SYS,$WORLD,"O.K. then " + players(1).name + " wins this round"
+			score(1) = score(1) + 1
+		Else
+			If turnscore(2) > turnscore(1)
+				Speak SYS,$WORLD,"Look: " + players(2).name + " wins this round"
+				score(2) = score(2) + 1
+			Else
+				Speak SYS,$WORLD,"Hey - this round was even!"
+			End_If
+		End_If
+	End_If
+	board.description = getSituation()
+	RefreshView board
+End_Sub
+
+Function checkEnd()
+	Return (target_turns > 0) And (cycles = target_turns)
+End_Function
+
+EVENT board.onLoose
+If $AGENT=null
+	' User logs off
+	Dim loggingout = findUser($TARGET)
+	If loggingout > 0
+		players(loggingout) = "(empty)"
+		nplayers = nplayers - 1
+		If mode = "play"
+			mode = "pause"
+			SetPanel $WORLD,"pause"
+		End_If
+	End_If
+	board.description = getSituation()
+End_If
+End_EVENT
+
+Sub play()
+	Speak SYS,$WORLD,"Game has begun... GOOD LUCK!"
+	PlayBackground $WORLD,"sndMimovie.mid"
+	mode = "play"
+	SetPanel $WORLD,"play"
+End_Sub
+
+Sub onLook
+	If mode <> "play"
+		RefreshView board
+		Return false
+	End_If
+	If $AGENT = players(nowplays)
+		If $OWNER.type = "cell" Or $OWNER.type = "mark"
+			If Not(placePiece($OWNER.col,$OWNER.row,color(nowplays)))
+				Return false
+			End_If
+		End_If
+		' else...
+		If has_scores
+			Speak SYS,$WORLD,"" + players(nowplays).name + " has scored: " + roll1 + " + " + roll2 + " = " + turnscore(nowplays)
+		End_If
+		nowplays = getNext(nowplays)
+	Else
+		Speak "WAIT! It's " + players(nowplays).name + " turn."
+	End_If
+
+	If mode = "play"
+		If nowplays = started_playing
+			cycles = cycles + 1
+			Call updScore()
+			If checkEnd()
+				mode = "end"
+				SetPanel $WORLD,"end"
+			Else
+				dummy=0
+				If turn_reminders
+					Speak SYS,$WORLD,"Another round. Now plays: " + players(nowplays).name 
+				End_If
+			End_If
+		Else
+			dummy=0
+			If turn_reminders
+				Speak SYS,$WORLD,"Now plays: " + players(nowplays).name 
+			End_If
+		End_If
+	End_If
+	
+	board.description = getSituation()
+	Return false
+End_Sub
+
+Function getNext(x)
+	x = x + 1
+	If x > nplayers
+		x = 1
+	End_If
+	Return x
+End_Function
+
+Function placePiece(x,y,color)
+	Dim piece
+	Dim yi
+	Dim found = 0
+	For yi = 1 to 8
+		piece = getPiece(x,yi)
+		If found=0 And piece.type <> "mark"
+			found = yi
+		End_If
+	Next
+	If found = 0
+		Return false
+	End_If
+	piece = getPiece(x,found)
+	piece.type = "mark"
+	piece.color = color
+	piece.image = "" + color + ".gif"
+	'Print "placed " + color + "at " + x + "," + found
+	If checkWinner(x,found,color)
+		Call gameOver($AGENT.name + " is the WINNER!!")
+	End_If
+	RefreshView board
+	Return true
+End_Function
+
+Function getPiece(x,y)
+Return pieces(x+(y-1)*8)
+End_Function
+
+' check whether it is possible to have won
+' starting from x,y
+' with color "color"
+' and "missing" missing cells
+Function checkWinner(x,y,color)
+	'Print "Checking " + x + "," + y + " for " + color
+	If getPiece(x,y).color <> color
+		Return false
+	End_If
+	Dim sum
+	Dim i
+	For i = 1 To 4
+		'Print "direction " + i + " and " + opposite(i) 
+		sum = 1 + checkWinnerAhead(x+dirx(i),y+diry(i),color,i)
+		sum = sum + checkWinnerAhead(x+dirx(opposite(i)),y+diry(opposite(i)),color,opposite(i))
+		'Print "Sums: " + sum
+		If sum >= 4
+			Return true
+		End_If
+	Next
+	Return false
+End_Function
+
+Function checkWinnerAhead(x,y,color,direction)
+	'Print "checking " + x + "," + y + " for " + color
+	If x <= 0 Or y <= 0
+		'Print "out"
+		Return 0
+	End_If
+	If getPiece(x,y).color <> color
+		'Print "empty or other color"
+		Return 0
+	End_If
+	Return 1 + checkWinnerAhead(x+dirx(direction),y+diry(direction),color,direction)
+End_Function
+
+Sub gameOver(message)
+	Speak SYS,$WORLD,message
+	mode = "end"
+	PlayBackground $WORLD,"independenceday.mid"
+	SetPanel $WORLD,"end"
+End_Sub
+
+EVENT onRefresh
+	RefreshView $AGENT
+END_EVENT
+
+EVENT onReset
+	RefreshView $WORLD
+	Reset
+END_EVENT
+
+END_SCRIPTS
+
+END_WORLD

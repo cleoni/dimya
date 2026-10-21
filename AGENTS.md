@@ -1,8 +1,10 @@
-# DimensioneX (DimX) Game Engine
+# DimensioneY Multiplayer Game Engine written in PHP
 
-Java-based multiplayer virtual world and interactive adventure game engine (version 7.1.8).
+Multiplayer virtual world and interactive adventure game engine.
 
 ## Architecture & Class Hierarchy Documentation
+
+The software has been generated starting from a Java multiplayer game engine named DimensioneX
 
 Detailed documentation and diagrams have been generated and saved to the [`docs/`](docs/) directory:
 
@@ -13,3 +15,6 @@ Detailed documentation and diagrams have been generated and saved to the [`docs/
 ## Source Code Location
 All Java source files reside in package `cleoni.adv`:
 - [`WEB-INF/classes/cleoni/adv/`](WEB-INF/classes/cleoni/adv/)
+
+## Implementation Recommendations
+- NO scalar values in the game have to be strict typed. They all must be handled like PHP does, as int, bool or string depending on the context.
