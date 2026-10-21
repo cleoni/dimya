@@ -73,4 +73,5 @@ Thumbs.db
 # ==========================================
 .env
 .env.*
+config.php
 !.env.example
