@@ -22,7 +22,7 @@ class UIhtml extends UI
     /**
      * Render the login form for human players.
      */
-    public function renderLogin(?string $worldFile = null): void
+    public function renderLogin(): void
     {
         if (!headers_sent()) {
             header('Content-Type: text/html; charset=utf-8');
@@ -48,9 +48,6 @@ class UIhtml extends UI
             <h2>Enter the World</h2>
             <form method="POST">
               <input type="text" name="username" placeholder="Your name…" required autofocus maxlength="32" />
-              <?php if (!empty($worldFile)): ?>
-                <input type="hidden" name="world_file" value="<?= htmlspecialchars($worldFile) ?>" />
-              <?php endif; ?>
               <button type="submit">Play</button>
             </form>
           </div>

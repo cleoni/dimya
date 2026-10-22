@@ -70,6 +70,11 @@ class DxwLoader
      */
     public function parse(string $rawContent, string $sourceName = ''): World
     {
+        // Ensure content is normalized to UTF-8
+        if (!mb_check_encoding($rawContent, 'UTF-8')) {
+            $rawContent = mb_convert_encoding($rawContent, 'UTF-8', 'ISO-8859-1, Windows-1252, UTF-8');
+        }
+
         $lines = preg_split('/\r\n|\r|\n/', $rawContent);
         $cleanLines = [];
 

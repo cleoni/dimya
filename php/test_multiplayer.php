@@ -4,6 +4,7 @@ declare(strict_types=1);
 /**
  * test_multiplayer.php
  * Automated tests for UI hierarchy, GameEngine, UIhtml, and UIjson bot API endpoint.
+ * Verifies single-world architecture and no external world disclosure.
  */
 
 require_once __DIR__ . '/autoload.php';
@@ -58,14 +59,15 @@ $_SERVER['HTTP_ACCEPT'] = 'text/html,application/xhtml+xml';
 assertTest(UI::detectClientType() === 'html', "Detects browser Accept header as 'html'");
 
 // -------------------------------------------------------------
-// Test 2: Input Parsing
+// Test 2: Input Parsing (Single World enforcement)
 // -------------------------------------------------------------
 echo "\n2. Testing UI::parseInput()...\n";
-$_GET = ['cmd' => 'go', 'dir' => 'N', 'player' => 'Explorer1'];
+$_GET = ['cmd' => 'go', 'dir' => 'N', 'player' => 'Explorer1', 'world' => 'arbitrary_world'];
 $input = UI::parseInput();
 assertTest($input['username'] === 'Explorer1', "Parsed username 'Explorer1'");
 assertTest($input['cmd'] === 'go', "Parsed cmd 'go'");
 assertTest($input['param'] === 'N', "Parsed param 'N' from 'dir'");
+assertTest(!isset($input['world']) && !isset($input['world_file']), "World switching parameters are ignored (single world)");
 
 // -------------------------------------------------------------
 // Test 3: GameEngine Setup & Core Processing
@@ -76,8 +78,8 @@ $dbConfig = $config['db'] ?? [];
 $baseUrl  = $config['base_url'] ?? '';
 $pm       = new PersistenceManager($dbConfig, __DIR__ . '/data');
 
-$testWorldId = 'test_engine_' . uniqid();
-$engine = new GameEngine($pm, $testWorldId, null, $baseUrl);
+$unitWorldId = 'test_unit_' . uniqid();
+$engine = new GameEngine($pm, $unitWorldId, null, $baseUrl);
 
 $world = $engine->loadOrSeedWorld();
 assertTest($world !== null, "Engine seeded world successfully");
@@ -128,6 +130,8 @@ assertTest(isset($result4['room']->contents['apple']), "'apple' is now inside 'b
 $result5 = $engine->processCommand($botName, 'say', 'Greetings from AI bot!', '', $uiJson);
 assertTest(in_array("<b>{$botName}</b> says: Greetings from AI bot!", $result5['messages'], true), "Bot speech captured in messages");
 
+$pm->resetWorld($unitWorldId);
+
 // -------------------------------------------------------------
 // Test 5: Simulating multiplayer.php entrypoint for Bot (JSON)
 // -------------------------------------------------------------
@@ -136,7 +140,6 @@ $_GET = [
     'format'   => 'json',
     'username' => 'DirectApiBot',
     'cmd'      => 'look',
-    'world'    => $testWorldId,
 ];
 $_POST = [];
 
@@ -147,7 +150,7 @@ $jsonOutput = ob_get_clean();
 $decoded = json_decode($jsonOutput, true);
 assertTest(is_array($decoded), "multiplayer.php returned valid JSON");
 assertTest(($decoded['success'] ?? false) === true, "JSON response indicates success: true");
-assertTest(isset($decoded['room']['id']), "JSON response includes room snapshot: " . ($decoded['room']['name'] ?? ''));
+assertTest(isset($decoded['room']['id']), "JSON response includes room snapshot");
 assertTest(isset($decoded['player']['name']) && $decoded['player']['name'] === 'DirectApiBot', "JSON response includes player record: " . ($decoded['player']['name'] ?? ''));
 
 // -------------------------------------------------------------
@@ -157,7 +160,6 @@ echo "\n6. Testing multiplayer.php entrypoint with human HTML player...\n";
 $_GET = [
     'username' => 'HumanHero',
     'cmd'      => 'look',
-    'world'    => $testWorldId,
 ];
 $_POST = [];
 $_SERVER['HTTP_ACCEPT'] = 'text/html';
@@ -168,7 +170,6 @@ $htmlOutput = ob_get_clean();
 
 assertTest(str_contains($htmlOutput, '<!DOCTYPE html>'), "multiplayer.php returned HTML doctype");
 assertTest(str_contains($htmlOutput, 'HumanHero'), "HTML output includes player name 'HumanHero'");
-assertTest(str_contains($htmlOutput, 'Sunny Beach'), "HTML output includes room name 'Sunny Beach'");
 assertTest(str_contains($htmlOutput, 'id="consoleBox"'), "HTML output includes consoleBox element");
 assertTest(str_contains($htmlOutput, 'id="chatBox"'), "HTML output includes chatBox element");
 
@@ -183,31 +184,32 @@ unset($_SESSION['dimx_player']);
 ob_start();
 // Test UIjson directly
 $jsonUi = new UIjson();
-$jsonUi->renderLogin('test.dxw');
+$jsonUi->renderLogin();
 $loginJson = ob_get_clean();
 $decodedLogin = json_decode($loginJson, true);
 assertTest(($decodedLogin['status'] ?? '') === 'login_required', "UIjson login status is 'login_required'");
-assertTest(($decodedLogin['world_file'] ?? '') === 'test.dxw', "UIjson login includes world_file");
+assertTest(!isset($decodedLogin['world_file']), "UIjson login does NOT disclose world_file");
 
 ob_start();
 $htmlUi = new UIhtml();
-$htmlUi->renderLogin('test.dxw');
+$htmlUi->renderLogin();
 $loginHtml = ob_get_clean();
 assertTest(str_contains($loginHtml, 'Enter the World'), "UIhtml login includes 'Enter the World' form");
 assertTest(str_contains($loginHtml, 'name="username"'), "UIhtml login includes username input");
+assertTest(!str_contains($loginHtml, 'name="world_file"'), "UIhtml login does NOT disclose world_file hidden input");
 
 // -------------------------------------------------------------
 // Test 8: Bot Logout / Disconnect & Room Occupant Verification
 // -------------------------------------------------------------
 echo "\n8. Testing Bot Logout & Occupant Removal...\n";
 // Bot 1 connects
-$_GET = ['format' => 'json', 'username' => 'Bot1', 'cmd' => 'look', 'world' => $testWorldId];
+$_GET = ['format' => 'json', 'username' => 'Bot1', 'cmd' => 'look'];
 ob_start();
 require __DIR__ . '/multiplayer.php';
 ob_get_clean();
 
 // Bot 2 connects and looks around - should see Bot1 in occupants
-$_GET = ['format' => 'json', 'username' => 'Bot2', 'cmd' => 'look', 'world' => $testWorldId];
+$_GET = ['format' => 'json', 'username' => 'Bot2', 'cmd' => 'look'];
 ob_start();
 require __DIR__ . '/multiplayer.php';
 $bot2Json = ob_get_clean();
@@ -216,7 +218,7 @@ $occupantsBefore = array_column($bot2Data['room']['occupants'] ?? [], 'name');
 assertTest(in_array('Bot1', $occupantsBefore, true), "Bot2 sees Bot1 in room occupants");
 
 // Bot 1 logs out
-$_GET = ['format' => 'json', 'username' => 'Bot1', 'cmd' => 'logout', 'world' => $testWorldId];
+$_GET = ['format' => 'json', 'username' => 'Bot1', 'cmd' => 'logout'];
 ob_start();
 require __DIR__ . '/multiplayer.php';
 $logoutJson = ob_get_clean();
@@ -226,7 +228,7 @@ assertTest(($logoutData['logged_out'] ?? false) === true, "Bot1 logout response 
 assertTest(array_key_exists('room', $logoutData) && $logoutData['room'] === null, "Bot1 logout response room snapshot is null");
 
 // Bot 2 looks again - Bot1 should NO LONGER be in occupants!
-$_GET = ['format' => 'json', 'username' => 'Bot2', 'cmd' => 'look', 'world' => $testWorldId];
+$_GET = ['format' => 'json', 'username' => 'Bot2', 'cmd' => 'look'];
 ob_start();
 require __DIR__ . '/multiplayer.php';
 $bot2JsonAfter = ob_get_clean();
@@ -234,8 +236,8 @@ $bot2DataAfter = json_decode($bot2JsonAfter, true);
 $occupantsAfter = array_column($bot2DataAfter['room']['occupants'] ?? [], 'name');
 assertTest(!in_array('Bot1', $occupantsAfter, true), "Bot2 NO LONGER sees Bot1 after Bot1 logged out");
 
-// Clean up test world
-$pm->resetWorld($testWorldId);
+// Clean up single test world
+$pm->resetWorld('main');
 
 echo "\n=== Summary: {$passCount} passed, {$failCount} failed ===\n";
 exit($failCount > 0 ? 1 : 0);

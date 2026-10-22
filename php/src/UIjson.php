@@ -24,13 +24,12 @@ class UIjson extends UI
     /**
      * Render authentication required response.
      */
-    public function renderLogin(?string $worldFile = null): void
+    public function renderLogin(): void
     {
         $this->sendJson([
-            'success'    => false,
-            'status'     => 'login_required',
-            'message'    => "Player authentication required. Please supply a 'username' or 'player' parameter.",
-            'world_file' => $worldFile,
+            'success' => false,
+            'status'  => 'login_required',
+            'message' => "Player authentication required. Please supply a 'username' or 'player' parameter.",
         ], 401);
     }
 
@@ -199,7 +198,7 @@ class UIjson extends UI
      * Dispatch an incoming API request using the supplied GameEngine.
      *
      * @param GameEngine $engine
-     * @param array{username?: string, cmd?: string, param?: string, target?: string, world_file?: string}|null $input
+     * @param array{username?: string, cmd?: string, param?: string, target?: string}|null $input
      */
     public function handleApiRequest(GameEngine $engine, ?array $input = null): void
     {
@@ -207,7 +206,7 @@ class UIjson extends UI
         $params = $input ?? self::parseInput();
 
         if (empty($params['username'])) {
-            $this->renderLogin($params['world_file'] ?? null);
+            $this->renderLogin();
             return;
         }
 
@@ -236,6 +235,18 @@ class UIjson extends UI
             http_response_code($statusCode);
             header('Content-Type: application/json; charset=utf-8');
         }
-        echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $encoded = json_encode(
+            $data,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+        );
+        if ($encoded === false) {
+            echo json_encode([
+                'success' => false,
+                'status'  => 'error',
+                'error'   => 'JSON serialization error: ' . json_last_error_msg(),
+            ]);
+        } else {
+            echo $encoded;
+        }
     }
 }

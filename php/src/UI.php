@@ -75,7 +75,7 @@ abstract class UI
     /**
      * Render a login screen or authentication prompt.
      */
-    abstract public function renderLogin(?string $worldFile = null): void;
+    abstract public function renderLogin(): void;
 
     /**
      * Render an error message.
@@ -120,13 +120,13 @@ abstract class UI
 
     /**
      * Parse and normalize input parameters from GET, POST, or JSON body.
+     * The game world is single per installation and cannot be specified by the client.
      *
      * @return array{
      *   username: string,
      *   cmd: string,
      *   param: string,
      *   target: string,
-     *   world_file: ?string,
      *   reset: bool
      * }
      */
@@ -151,16 +151,14 @@ abstract class UI
         $cmd      = strtolower(trim((string)($merged['cmd'] ?? $merged['command'] ?? $merged['action'] ?? 'look')));
         $param    = trim((string)($merged['param'] ?? $merged['direction'] ?? $merged['dir'] ?? $merged['value'] ?? ''));
         $target   = trim((string)($merged['target'] ?? $merged['target_id'] ?? $merged['item'] ?? ''));
-        $worldFile = $merged['world_file'] ?? $merged['world'] ?? null;
         $reset     = isset($merged['reset']) && ($merged['reset'] === '1' || $merged['reset'] === 1 || $merged['reset'] === 'true' || $merged['reset'] === true);
 
         return [
-            'username'   => $username,
-            'cmd'        => $cmd,
-            'param'      => $param,
-            'target'     => $target,
-            'world_file' => !empty($worldFile) ? (string)$worldFile : null,
-            'reset'      => $reset,
+            'username' => $username,
+            'cmd'      => $cmd,
+            'param'    => $param,
+            'target'   => $target,
+            'reset'    => $reset,
         ];
     }
 }

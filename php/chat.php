@@ -28,26 +28,20 @@ $pm       = new PersistenceManager($dbConfig, __DIR__ . '/data');
 
 $method = $_SERVER['REQUEST_METHOD'];
 
+$worldId = 'main'; // Single world per installation
+
 if ($method === 'GET') {
-    $worldId = trim($_GET['world_id'] ?? '');
     $afterId = max(0, (int)($_GET['after'] ?? 0));
-
-    if ($worldId === '') {
-        echo json_encode(['error' => 'missing world_id']);
-        exit;
-    }
-
     $messages = $pm->getMessages($worldId, $afterId, 60);
     echo json_encode(['messages' => $messages], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 if ($method === 'POST') {
-    $worldId    = trim($_POST['world_id'] ?? '');
-    $senderName = trim($_POST['sender']   ?? '');
-    $text       = trim($_POST['text']     ?? '');
+    $senderName = trim($_POST['sender'] ?? '');
+    $text       = trim($_POST['text']   ?? '');
 
-    if ($worldId === '' || $senderName === '' || $text === '') {
+    if ($senderName === '' || $text === '') {
         http_response_code(400);
         echo json_encode(['error' => 'missing fields']);
         exit;

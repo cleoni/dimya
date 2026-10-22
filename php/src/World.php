@@ -19,7 +19,6 @@ class World extends DimxObject
     public int $tickLength = 30; // Seconds between clock ticks
     public int $mode = 1; // 1 = running, 0 = game won (Goal)
     public int $savegamePersistence = 2; // 0=restart only, 1=version only, 2=permanent
-    public ?string $clusterId = null;
 
     /** @var array<string> Blacklisted client IPs */
     public array $bannedClients = [];

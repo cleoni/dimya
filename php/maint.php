@@ -42,28 +42,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
 
         case 'reset_world':
-            $worldId = trim($_POST['world_id'] ?? '');
-            if ($worldId && $pm->isConnected()) {
-                try {
-                    $pdo = $pm->getPdo();
-                    $pdo->prepare("DELETE FROM dimx_worlds WHERE world_id = :w")->execute([':w' => $worldId]);
-                    $message = "World '{$worldId}' has been reset. It will be re-seeded from .dxw on next player login.";
-                } catch (\Throwable $e) {
-                    $message = "Error: " . $e->getMessage();
-                }
-            }
+            $worldId = 'main';
+            $pm->resetWorld($worldId);
+            $message = "The game world has been reset. It will be re-seeded from server configuration on the next player connection.";
             break;
 
         case 'clear_chat':
-            $worldId = trim($_POST['world_id'] ?? '');
-            if ($worldId && $pm->isConnected()) {
+            $worldId = 'main';
+            if ($pm->isConnected()) {
                 try {
                     $pdo = $pm->getPdo();
                     $pdo->prepare("DELETE FROM dimx_messages WHERE world_id = :w")->execute([':w' => $worldId]);
-                    $message = "Chat history cleared for world '{$worldId}'.";
+                    $message = "Chat history cleared for the game world.";
                 } catch (\Throwable $e) {
                     $message = "Error: " . $e->getMessage();
                 }
+            } else {
+                $file = __DIR__ . "/data/chat_{$worldId}.jsonl";
+                if (file_exists($file)) { @unlink($file); }
+                $message = "Local chat history cleared.";
             }
             break;
     }
@@ -151,7 +148,7 @@ if ($pm->isConnected()) {
     <?php if ($diag['connected']): ?>
     <!-- Row count stats -->
     <div class="stat-grid" style="margin:16px 0">
-      <div class="stat-box"><div class="stat-num"><?= $worlds >= 0 ? $worlds : '?' ?></div><div class="stat-label">Worlds</div></div>
+      <div class="stat-box"><div class="stat-num">Active</div><div class="stat-label">Single World</div></div>
       <div class="stat-box"><div class="stat-num"><?= $players >= 0 ? $players : '?' ?></div><div class="stat-label">Players</div></div>
       <div class="stat-box"><div class="stat-num"><?= $settings >= 0 ? $settings : '?' ?></div><div class="stat-label">Settings</div></div>
       <div class="stat-box"><div class="stat-num"><?= $messages >= 0 ? $messages : '?' ?></div><div class="stat-label">Chat Messages</div></div>
@@ -185,22 +182,19 @@ if ($pm->isConnected()) {
   <!-- World management -->
   <div class="maint-card">
     <h3>🌍 World Management</h3>
-    <p style="font-size:13px;color:#94a3b8">Reset a world to force it to reload from the .dxw source file on the next player login. All in-game state (item positions, etc.) will be lost.</p>
-    <form method="POST" style="display:flex;gap:8px;align-items:center"
-          onsubmit="return confirm('Reset this world? All in-game state will be lost.')">
+    <p style="font-size:13px;color:#94a3b8">Reset the game world. On the next player connection, the authoritative state will be re-seeded from the server's configured definition file. All in-game modifications (moved items, player positions) will be reset.</p>
+    <form method="POST" onsubmit="return confirm('Reset the game world? All in-game state will be lost.')">
       <input type="hidden" name="action" value="reset_world" />
-      <input type="text" name="world_id" placeholder="World ID (e.g. world1)" />
-      <button type="submit" class="btn btn-danger">Reset World</button>
+      <button type="submit" class="btn btn-danger">🔄 Reset Game World</button>
     </form>
   </div>
 
   <!-- Chat management -->
   <div class="maint-card">
     <h3>💬 Chat Management</h3>
-    <form method="POST" style="display:flex;gap:8px;align-items:center"
-          onsubmit="return confirm('Clear all chat messages for this world?')">
+    <p style="font-size:13px;color:#94a3b8">Clear the world chat log history.</p>
+    <form method="POST" onsubmit="return confirm('Clear all chat messages for the world?')">
       <input type="hidden" name="action" value="clear_chat" />
-      <input type="text" name="world_id" placeholder="World ID (e.g. world1)" />
       <button type="submit" class="btn btn-danger">Clear Chat History</button>
     </form>
   </div>
@@ -225,18 +219,18 @@ if ($pm->isConnected()) {
 
   <!-- Config reference -->
   <div class="maint-card">
-    <h3>MySQL Configuration Reference</h3>
+    <h3>Configuration Reference</h3>
     <pre style="background:#090d16;padding:12px;border-radius:6px;font-size:12px;color:#38bdf8;overflow-x:auto">// php/config.php
 return [
     'db' => [
         'host'   => '127.0.0.1',
         'port'   => 3306,
-        'dbname' => 'dimx_game',
-        'user'   => 'dimx_user',
+        'dbname' => 'dimya',
+        'user'   => 'root',
         'pass'   => 'secret',
     ],
-    'default_world' => 'https://test.dimensionex.net/worlds/world1.dxw',
-    'base_url'      => 'https://test.dimensionex.net',
+    'world_file' => __DIR__ . '/../docs/dxw-examples/world2.dxw',
+    'base_url'   => 'http://localhost',
 ];</pre>
   </div>
 

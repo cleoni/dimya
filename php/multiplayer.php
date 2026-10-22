@@ -39,19 +39,16 @@ $ui = ($clientType === 'json') ? new UIjson() : new UIhtml();
 // 3. Parse and sanitize input parameters (POST, GET, and JSON body)
 $input      = UI::parseInput();
 $playerName = $input['username'] ?: ($_SESSION['dimx_player'] ?? '');
-$worldFile  = $input['world_file'] ?: ($config['default_world'] ?? null);
 $resetWorld = $input['reset'] || (isset($_GET['reset']) && $_GET['reset'] === '1');
 
-// 4. If no player name provided, show login prompt according to UI type
-if (empty($playerName)) {
-    $ui->renderLogin($worldFile);
-    exit;
-}
+// 4. Single authoritative world per installation (configured strictly on server)
+$worldFile = $config['world_file'] ?? $config['default_world'] ?? null;
+$worldId   = 'main';
 
-// 5. Derive stable world ID from file name
-$worldId = 'default';
-if (!empty($worldFile)) {
-    $worldId = preg_replace('/[^a-zA-Z0-9_\-]/', '_', basename($worldFile, '.dxw'));
+// 5. If no player name provided, show login prompt according to UI type
+if (empty($playerName)) {
+    $ui->renderLogin();
+    exit;
 }
 
 $_SESSION['dimx_player'] = $playerName;
