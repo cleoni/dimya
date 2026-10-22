@@ -17,7 +17,7 @@ Comprehensive technical documentation and formal specifications reside in the [`
 - [**docs/uml_specifications.puml**](docs/uml_specifications.puml) — Full PlantUML source code for rendering in PlantUML or IDE UML tools.
 - [**docs/dxw-examples/**](docs/dxw-examples/) — Reference `.dxw` world definition files:
   - `world1.dxw` — Minimal introductory world
-  - `world2.dxw` — Classic adventure with events, puzzles, and containers
+  - `world2.dxw` — Minimal adventure with linked rooms, 1 character, events
   - `world3net.dxw` — The Beach (full multiplayer environment with multi-directional views)
   - `fourinline.dxw` — Turn-based board game implemented entirely in DXW / SmallBasic
 
