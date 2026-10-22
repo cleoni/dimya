@@ -1,0 +1,3 @@
+# Blocca accesso alla cartella .git
+RewriteEngine On
+RewriteRule ^\.git - [F,L]
