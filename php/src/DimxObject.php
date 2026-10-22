@@ -94,7 +94,7 @@ class DimxObject extends ManageableObject
     {
         $names = [];
         foreach ($this->contents as $obj) {
-            $names[] = $obj->name . " [{$obj->id}]";
+            $names[] = $obj->name;
         }
         return implode(", ", $names);
     }

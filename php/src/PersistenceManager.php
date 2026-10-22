@@ -367,7 +367,7 @@ class PersistenceManager
                         WHERE id = :id
                     ");
                     return $stmt->execute([
-                        ':pid'     => $player->id,
+                        ':pid'     => $player->name,
                         ':name'    => $player->name,
                         ':bot'     => $isBotVal,
                         ':score'   => $player->score,
@@ -399,7 +399,7 @@ class PersistenceManager
                 $ok = $stmt->execute([
                     ':wid'     => $worldId,
                     ':name'    => $player->name,
-                    ':pid'     => $player->id,
+                    ':pid'     => $player->name,
                     ':pass'    => $player->password,
                     ':bot'     => $isBotVal,
                     ':score'   => $player->score,

@@ -72,7 +72,7 @@ if (!empty($requestedUser)) {
             exit;
         }
 
-        $playerName = (string)$auth['player_id'];
+        $playerName = (string)($auth['name'] ?? $requestedUser);
         $numericId  = (int)($auth['numeric_id'] ?? 0);
         $isBot      = !empty($auth['is_bot']) || $isBot;
 
