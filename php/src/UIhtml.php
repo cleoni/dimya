@@ -322,7 +322,8 @@ class UIhtml extends UI
                 <h4>⚡ Actions</h4>
                 <div style="display:flex;flex-wrap:wrap;gap:6px">
                   <button class="dimx-btn" onclick="sendCmd('look')">👁 Look</button>
-                  <button class="dimx-btn" onclick="sendCmd('savexit')">💾 Save &amp; Exit</button>
+                  <button class="dimx-btn" onclick="sendCmd('save')">💾 Save</button>
+                  <button class="dimx-btn" onclick="sendCmd('exit')">🚪 Exit</button>
                 </div>
               </div>
             </div>

@@ -58,9 +58,14 @@ Every command cycle follows this processing pipeline:
 | **`enter`** | `vehicle` | `board` | Enters a vehicle item | `onEnterVehicle` |
 | **`exit`** | - | `leave`, `disembark` | Disembarks vehicle into the surrounding room | `onExitVehicle` |
 | **`say`** | `text`, `[target]` | `talk`, `shout` | Speaks to room, world, or whispers to a specific person | `onHear` |
-| **`save`** | - | - | Saves player profile to DB (location, inventory, properties) | `onSave` |
+| **`save`** | - | - | Saves current player data (location, inventory, properties, score) | `onSave` |
 | **`login`** | `[password]` | - | Authenticates player and displays initial room snapshot | `onLogin` |
-| **`logout`** | - | `quit`, `savexit` | Disconnects player; carried items drop to the floor | `onQuit` |
+| **`exit`** | - | `logout`, `quit`, `disconnect` | Exits virtual world (logout); carried items drop to the floor | `onQuit`, `onExit` |
+
+> [!IMPORTANT]
+> **Legacy DimensioneX `savexit` Removed**: The old combined `savexit` ("Save & Exit") command from DimensioneX has been completely removed. It is replaced by two distinct, independent commands:
+> - **`save`**: Saves current player data to the database without disconnecting.
+> - **`exit`** (or **`logout`**): Disconnects from the world, dropping carried inventory to the room floor.
 
 ---
 
@@ -147,8 +152,10 @@ Every command cycle follows this processing pipeline:
 * **Events**: Fires `onHear` on each receiving occupant.
 
 ### 14. `save`
-* **Intent**: Persists player profile without leaving the game.
-* **Effect**: Stores score, location, attributes, and inventory IDs into persistence (`dimx_players`).
+* **Intent**: Saves current player data to the database without leaving the game.
+* **Effect**: Persists score, room location, properties/attributes, and carried inventory items into `dimx_players`.
+* **Events**: Fires `onSave`.
+* **Output**: Displays confirmation message `"Game saved!"`.
 
 ### 15. `login [password]`
 * **Intent**: Connects player or bot character to world.
@@ -165,13 +172,15 @@ Every command cycle follows this processing pipeline:
   * **Bot API (`UIjson`)**: Accepts credentials via JSON body or query parameters (`username`, `password`). Returns structured JSON snapshot with player's `numeric_id` and `is_bot` boolean flag.
 * **Effect**: Validates credentials, places player in start room, and generates initial room snapshot. Fires `onLogin`.
 
-### 16. `logout`
-* **Intent**: Leaves virtual world.
+### 16. `exit` (alias `logout`)
+* **Intent**: Exits the virtual world (logout).
+* **Aliases**: `logout`, `quit`, `disconnect`.
 * **Effect**:
-  * Saves player profile.
-  * **Drops all carried items in inventory onto the current room floor**.
-  * Removes player from room occupants and world registry.
-  * Fires `onQuit`.
+  * **Drops all carried items in inventory onto the current room floor** (firing `whenDropped` for each item).
+  * Notifies other room occupants that the player has left the game.
+  * Fires `onQuit` and `onExit`.
+  * Removes player from active world memory and clears the active session.
+* **Legacy Replacement**: Completely replaces the old legacy DimensioneX combined `savexit` ("Save & Exit") command. Saving progress is an independent action performed via `save`.
 
 ---
 

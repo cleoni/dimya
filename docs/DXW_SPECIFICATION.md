@@ -219,7 +219,7 @@ PANEL <panelId> [VERSION OF <parentPanelId>]
 * **`chat`**: Simplified communication panel (speech box + exits + logout).
 * **`connect`**: Initial connection / character selection screen.
 * **`connecting`**: Password login screen for existing profiles.
-* **`exiting`**: Confirmation screen when issuing `Save and Exit`.
+* **`exiting`**: Confirmation screen when issuing `exit` (`logout`).
 
 #### Panel Inheritance (`VERSION OF`):
 Creates a modified version of an existing panel, inheriting its controls while allowing addition or removal:
@@ -254,7 +254,7 @@ BUTTON id
     [ICON src]
 ```
 
-* **Reserved Built-in Button IDs**: `click`, `go`, `rotate`, `look`, `use`, `use2`, `open`, `close`, `pick`, `drop`, `search`, `hide`, `put`, `give`, `enter`, `exit`, `say`, `save`, `login`, `logout`, `rotr`, `rotl`, `savexit`. See [**COMMANDS.md**](COMMANDS.md) for the full engine command reference and execution semantics.
+* **Reserved Built-in Button IDs**: `click`, `go`, `rotate`, `look`, `use`, `use2`, `open`, `close`, `pick`, `drop`, `search`, `hide`, `put`, `give`, `enter`, `exit`, `say`, `save`, `login`, `logout`, `rotr`, `rotl`. See [**COMMANDS.md**](COMMANDS.md) for the full engine command reference and execution semantics.
 * **Event Models**:
   * `(none)`: No parameters passed.
   * `O`: 1 object parameter (`$OWNER`).

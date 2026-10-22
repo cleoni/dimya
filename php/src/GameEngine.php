@@ -236,7 +236,7 @@ class GameEngine
 
         $consoleMessages = [];
         $lockError       = false;
-        $loggedOut       = in_array($cmd, ['logout', 'quit', 'exit', 'disconnect', 'savexit'], true);
+        $loggedOut       = in_array($cmd, ['logout', 'quit', 'exit', 'disconnect'], true);
 
         // Concurrency-controlled execution via WorldLock (MySQL GET_LOCK)
         if ($this->pdo !== null && $this->lock !== null) {
@@ -455,12 +455,15 @@ class GameEngine
             case 'quit':
             case 'exit':
             case 'disconnect':
-            case 'savexit':
-                // Persist player stats, inventory and location
-                $this->pm->savePlayer($player);
-
-                // Notify other occupants in room
+                // Notify other occupants in room & drop carried inventory to the floor
                 if ($currentRoom !== null) {
+                    foreach ($player->contents as $item) {
+                        if ($item instanceof Item) {
+                            $item->move($currentRoom);
+                            $world->fireEvent('whenDropped', $item, $player, null);
+                        }
+                    }
+
                     foreach ($currentRoom->getOccupants() as $occ) {
                         if ($occ !== $player) {
                             $occ->display("<b>{$player->name}</b> has left the game.");

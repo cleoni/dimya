@@ -67,7 +67,8 @@ class Panel
         $panel->addButton(new Ctrl('txtBox', Ctrl::TYPE_TEXTBOX, '', 'Enter speech or action...'));
         $panel->addButton(new Ctrl('say', Ctrl::TYPE_BUTTON, 'Say', 'Speak to characters in the room', 'onSay'));
         $panel->addButton(new Ctrl('help', Ctrl::TYPE_BUTTON, 'Help', 'Show help instructions', 'onHelp'));
-        $panel->addButton(new Ctrl('savexit', Ctrl::TYPE_BUTTON, 'Save & Exit', 'Save your character and logout', 'onSaveExit'));
+        $panel->addButton(new Ctrl('save', Ctrl::TYPE_BUTTON, 'Save', 'Save current player data', 'onSave'));
+        $panel->addButton(new Ctrl('exit', Ctrl::TYPE_BUTTON, 'Exit', 'Logout from the world', 'onQuit'));
         return $panel;
     }
 }

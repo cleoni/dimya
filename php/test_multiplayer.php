@@ -214,6 +214,27 @@ assertTest(isset($result4['room']->contents['apple']), "'apple' is now inside 'b
 $result5 = $engine->processCommand($botName, 'say', 'Greetings from AI bot!', '', $uiJson);
 assertTest(in_array("<b>{$botName}</b> says: Greetings from AI bot!", $result5['messages'], true), "Bot speech captured in messages");
 
+// Step 5f: 'save' command saves player profile without exiting
+$resultSave = $engine->processCommand($botName, 'save', '', '', $uiJson);
+assertTest(in_array("Game saved!", $resultSave['messages'], true), "Save command returns 'Game saved!' confirmation");
+assertTest(($resultSave['logged_out'] ?? false) === false, "Save command does NOT logout player");
+
+// Step 5g: 'exit' command logs out player
+$resultExit = $engine->processCommand($botName, 'exit', '', '', $uiJson);
+assertTest(($resultExit['logged_out'] ?? false) === true, "Exit command sets logged_out = true");
+assertTest($world->getPlayer($resultExit['player']->id) === null, "Player cleanly removed on exit");
+
+// Step 5h: 'savexit' command is removed completely
+$resultSavexit = $engine->processCommand($botName, 'savexit', '', '', $uiJson);
+assertTest(($resultSavexit['logged_out'] ?? false) === false, "Legacy 'savexit' does NOT trigger logout");
+assertTest(in_array("Unknown command: savexit", $resultSavexit['messages'], true), "Legacy 'savexit' is treated as unknown command");
+
+// Step 5i: Panel buttons verify 'save' & 'exit' replace 'savexit'
+$defaultPanel = Dimx\Panel::createDefaultPanel();
+assertTest($defaultPanel->getButton('save') !== null, "Default panel includes 'save' button");
+assertTest($defaultPanel->getButton('exit') !== null, "Default panel includes 'exit' button");
+assertTest($defaultPanel->getButton('savexit') === null, "Default panel does NOT include legacy 'savexit' button");
+
 $pm->resetWorld($unitWorldId);
 
 // -------------------------------------------------------------
