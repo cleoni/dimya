@@ -19,6 +19,9 @@ class GameEngine
     public ?\PDO $pdo = null;
     public ?WorldLock $lock = null;
 
+    /** Inactivity timeout for automatically disconnecting idle players (seconds) */
+    public int $playerTimeout = 1800; // 30 minutes
+
     public function __construct(
         PersistenceManager $pm,
         string $worldId = 'default',
@@ -47,6 +50,7 @@ class GameEngine
         $world = $this->pm->loadWorld($this->worldId);
         if ($world !== null) {
             $world->persistence = $this->pm;
+            $this->pruneStalePlayers($world);
             return $world;
         }
 
@@ -85,6 +89,20 @@ class GameEngine
     }
 
     /**
+     * Remove players that have exceeded the inactivity timeout.
+     */
+    protected function pruneStalePlayers(World $world): void
+    {
+        $now = time();
+        foreach ($world->players as $p) {
+            $last = (int)($p->getProperty('lastActive') ?? $now);
+            if (($now - $last) > $this->playerTimeout) {
+                $world->removePlayer($p);
+            }
+        }
+    }
+
+    /**
      * Ensure the player exists in the world, setting start room and UI if new.
      */
     public function ensurePlayer(World $world, string $playerName, mixed $ui = null): Player
@@ -113,6 +131,9 @@ class GameEngine
             $player->display("Welcome to <b>{$world->name}</b>, {$player->name}!");
         }
 
+        // Update player activity timestamp
+        $player->setProperty('lastActive', time());
+
         if ($ui !== null) {
             $player->setUI($ui);
         }
@@ -124,7 +145,7 @@ class GameEngine
      * Process an incoming player command inside the concurrency critical section.
      *
      * @param string $playerName Unique player name / ID
-     * @param string $cmd Command verb (look, go, pick, drop, use, say, etc.)
+     * @param string $cmd Command verb (look, go, pick, drop, use, say, logout, etc.)
      * @param string $param Secondary parameter or direction
      * @param string $targetId Target item, link, or character ID
      * @param mixed $ui Optional UI instance to attach to player
@@ -143,11 +164,12 @@ class GameEngine
 
         $consoleMessages = [];
         $lockError       = false;
+        $loggedOut       = in_array($cmd, ['logout', 'quit', 'exit', 'disconnect', 'savexit'], true);
 
         // Concurrency-controlled execution via WorldLock (MySQL GET_LOCK)
         if ($this->pdo !== null && $this->lock !== null) {
             $result = $this->lock->executeAtomic($this->worldId, function (\PDO $pdo) use (
-                $playerName, $cmd, $param, $targetId, $ui
+                $playerName, $cmd, $param, $targetId, $ui, $loggedOut
             ): array {
                 $world  = $this->loadOrSeedWorld();
                 $player = $this->ensurePlayer($world, $playerName, $ui);
@@ -164,9 +186,10 @@ class GameEngine
                 $this->pm->saveWorld($world);
 
                 return [
-                    'world'  => $world,
-                    'player' => $player,
-                    'msgs'   => $msgs,
+                    'world'      => $world,
+                    'player'     => $player,
+                    'msgs'       => $msgs,
+                    'logged_out' => $loggedOut,
                 ];
             });
 
@@ -180,6 +203,7 @@ class GameEngine
                 $world           = $result['world'];
                 $player          = $result['player'];
                 $consoleMessages = $result['msgs'];
+                $loggedOut       = $result['logged_out'] ?? $loggedOut;
             }
 
             // Post chat messages outside the world lock
@@ -215,6 +239,7 @@ class GameEngine
             'target'       => $targetId,
             'storageLabel' => $storageLabel,
             'worldId'      => $this->worldId,
+            'logged_out'   => $loggedOut,
         ];
     }
 
@@ -350,10 +375,37 @@ class GameEngine
                 }
                 break;
 
+            case 'logout':
+            case 'quit':
+            case 'exit':
+            case 'disconnect':
             case 'savexit':
+                // Persist player stats, inventory and location
+                $this->pm->savePlayer($player);
+
+                // Notify other occupants in room
+                if ($currentRoom !== null) {
+                    foreach ($currentRoom->getOccupants() as $occ) {
+                        if ($occ !== $player) {
+                            $occ->display("<b>{$player->name}</b> has left the game.");
+                        }
+                    }
+                }
+
+                $world->fireEvent('onQuit', $player, $player, null);
+                if ($currentRoom !== null) {
+                    $world->fireEvent('onExit', $player, $player, null);
+                }
+
+                $player->display("You have logged out of <b>{$world->name}</b>. Goodbye!");
+
+                // Remove player from active world and room contents
+                $world->removePlayer($player);
+                break;
+
             case 'save':
                 $this->pm->savePlayer($player);
-                $player->display("Game saved! You may safely close this window.");
+                $player->display("Game saved!");
                 break;
 
             case 'login':

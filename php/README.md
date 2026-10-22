@@ -18,6 +18,7 @@ Modern PHP 8.1+ implementation of the **DimensioneX** virtual world and multipla
 * **Separation of Concerns & Concurrency**:
   * [`GameEngine`](src/GameEngine.php): Central processor encapsulating world loading, transaction locking (`WorldLock::executeAtomic`), entity mutations, events, and persistence, completely separated from UI presentation.
   * [`UI`](src/UI.php), [`UIhtml`](src/UIhtml.php), [`UIjson`](src/UIjson.php): Pluggable presentation hierarchy attached to the `Player::$ui` property.
+  * **Complete Command Specification**: All built-in commands (`click`, `go`, `rotate`, `look`, `use`, `use2`, `open`, `close`, `pick`, `drop`, `search`, `hide`, `put`, `give`, `enter`, `exit`, `say`, `save`, `login`, `logout`) and custom panel buttons are documented in [**`docs/COMMANDS.md`**](../docs/COMMANDS.md).
 * **Persistent Storage**:
   * Handled by [`PersistenceManager`](src/PersistenceManager.php) using **MySQL via PDO**.
   * Implements transparent automatic fallback to structured JSON file storage if MySQL is unconfigured or offline (matching DimensioneX's fallback on `onDbDown`).
@@ -136,6 +137,11 @@ Supply any of the following to activate the JSON API endpoint:
   ```bash
   curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
     -d "username=BotAlpha&cmd=say&param=Hello+world!"
+  ```
+* **Disconnect / Log Out**:
+  ```bash
+  curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
+    -d "username=BotAlpha&cmd=logout"
   ```
 
 ### JSON Response Format

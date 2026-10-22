@@ -58,10 +58,19 @@ class UIjson extends UI
         /** @var Room|null $room */
         $room   = $context['room'] ?? $player->getRoom();
         $lockError = (bool)($context['lockError'] ?? false);
+        $loggedOut = (bool)($context['logged_out'] ?? false);
+
+        $status = 'ok';
+        if ($lockError) {
+            $status = 'lock_busy';
+        } elseif ($loggedOut) {
+            $status = 'logged_out';
+        }
 
         $response = [
             'success'    => !$lockError,
-            'status'     => $lockError ? 'lock_busy' : 'ok',
+            'status'     => $status,
+            'logged_out' => $loggedOut,
             'lock_error' => $lockError,
             'world'      => [
                 'id'          => $world->id,
@@ -70,7 +79,7 @@ class UIjson extends UI
                 'tick_length' => $world->tickLength,
             ],
             'player'     => $this->buildPlayerStatus($player),
-            'room'       => $this->buildRoomSnapshot($room, $player),
+            'room'       => $loggedOut ? null : $this->buildRoomSnapshot($room, $player),
             'messages'   => $context['messages'] ?? [],
             'command'    => [
                 'cmd'    => $context['cmd']    ?? null,

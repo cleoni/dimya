@@ -254,7 +254,7 @@ BUTTON id
     [ICON src]
 ```
 
-* **Reserved Built-in Button IDs**: `look`, `go`, `logout`, `savexit`, `return`, `rotate`, `use`, `use2`, `drop`, `pick`, `put`, `give`, `say`, `search`, `hide`, `clear`, `rotr`, `rotl`.
+* **Reserved Built-in Button IDs**: `click`, `go`, `rotate`, `look`, `use`, `use2`, `open`, `close`, `pick`, `drop`, `search`, `hide`, `put`, `give`, `enter`, `exit`, `say`, `save`, `login`, `logout`, `rotr`, `rotl`, `savexit`. See [**COMMANDS.md**](COMMANDS.md) for the full engine command reference and execution semantics.
 * **Event Models**:
   * `(none)`: No parameters passed.
   * `O`: 1 object parameter (`$OWNER`).

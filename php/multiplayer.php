@@ -76,7 +76,12 @@ $result = $engine->processCommand(
     $ui
 );
 
-// 9. Attach UI to player and return outcome via the player's UI
+// 9. If player logged out, clear active session
+if (!empty($result['logged_out'])) {
+    unset($_SESSION['dimx_player']);
+}
+
+// 10. Attach UI to player and return outcome via the player's UI
 $player = $result['player'] ?? null;
 if ($player !== null) {
     $player->setUI($ui);

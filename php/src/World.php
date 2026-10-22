@@ -102,6 +102,24 @@ class World extends DimxObject
         return $this->players[$id] ?? null;
     }
 
+    /**
+     * Remove a player from world registry and their current room/container.
+     */
+    public function removePlayer(Player|string $player): ?Player
+    {
+        $id = is_string($player) ? $player : $player->id;
+        $p  = $this->players[$id] ?? null;
+        if ($p !== null) {
+            unset($this->players[$id]);
+            unset($this->characters[$id]);
+            unset($this->contents[$id]);
+            if ($p->container !== null) {
+                $p->container->removeObject($p);
+            }
+        }
+        return $p;
+    }
+
     public function addItem(Item $item): void
     {
         $item->world = $this;

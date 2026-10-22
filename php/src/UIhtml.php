@@ -109,6 +109,39 @@ class UIhtml extends UI
         $worldId         = $context['worldId'] ?? $world->id;
         $playerName      = $player->name;
 
+        // Render departure / logged-out screen
+        if (!empty($context['logged_out'])) {
+            if (!headers_sent()) {
+                header('Content-Type: text/html; charset=utf-8');
+            }
+            ?>
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title><?= htmlspecialchars($world->name) ?> — Logged Out</title>
+              <style>
+                body{background:#0f172a;color:#f8fafc;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+                .box{background:#1e293b;padding:36px 40px;border-radius:12px;border:1px solid #334155;width:340px;text-align:center;box-shadow:0 10px 25px rgba(0,0,0,0.5)}
+                h2{margin:0 0 16px;color:#38bdf8}
+                p{font-size:14px;color:#94a3b8;line-height:1.6}
+                .btn{display:inline-block;margin-top:16px;padding:10px 20px;background:#2563eb;color:#fff;border-radius:4px;text-decoration:none;font-weight:600}
+                .btn:hover{background:#1d4ed8}
+              </style>
+            </head>
+            <body>
+              <div class="box">
+                <h2>Goodbye, <?= htmlspecialchars($player->name) ?></h2>
+                <p>Your game was saved and you have safely left <b><?= htmlspecialchars($world->name) ?></b>.</p>
+                <a href="multiplayer.php" class="btn">Play Again</a>
+              </div>
+            </body>
+            </html>
+            <?php
+            return;
+        }
+
         $skin         = $player->skin ?? new Skin();
         $occupants    = $currentRoom ? $currentRoom->getOccupants() : [];
         $roomItems    = $currentRoom ? $currentRoom->getItems()     : [];

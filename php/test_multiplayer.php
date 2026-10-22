@@ -196,6 +196,44 @@ $loginHtml = ob_get_clean();
 assertTest(str_contains($loginHtml, 'Enter the World'), "UIhtml login includes 'Enter the World' form");
 assertTest(str_contains($loginHtml, 'name="username"'), "UIhtml login includes username input");
 
+// -------------------------------------------------------------
+// Test 8: Bot Logout / Disconnect & Room Occupant Verification
+// -------------------------------------------------------------
+echo "\n8. Testing Bot Logout & Occupant Removal...\n";
+// Bot 1 connects
+$_GET = ['format' => 'json', 'username' => 'Bot1', 'cmd' => 'look', 'world' => $testWorldId];
+ob_start();
+require __DIR__ . '/multiplayer.php';
+ob_get_clean();
+
+// Bot 2 connects and looks around - should see Bot1 in occupants
+$_GET = ['format' => 'json', 'username' => 'Bot2', 'cmd' => 'look', 'world' => $testWorldId];
+ob_start();
+require __DIR__ . '/multiplayer.php';
+$bot2Json = ob_get_clean();
+$bot2Data = json_decode($bot2Json, true);
+$occupantsBefore = array_column($bot2Data['room']['occupants'] ?? [], 'name');
+assertTest(in_array('Bot1', $occupantsBefore, true), "Bot2 sees Bot1 in room occupants");
+
+// Bot 1 logs out
+$_GET = ['format' => 'json', 'username' => 'Bot1', 'cmd' => 'logout', 'world' => $testWorldId];
+ob_start();
+require __DIR__ . '/multiplayer.php';
+$logoutJson = ob_get_clean();
+$logoutData = json_decode($logoutJson, true);
+assertTest(($logoutData['status'] ?? '') === 'logged_out', "Bot1 logout response status is 'logged_out'");
+assertTest(($logoutData['logged_out'] ?? false) === true, "Bot1 logout response flag logged_out is true");
+assertTest(array_key_exists('room', $logoutData) && $logoutData['room'] === null, "Bot1 logout response room snapshot is null");
+
+// Bot 2 looks again - Bot1 should NO LONGER be in occupants!
+$_GET = ['format' => 'json', 'username' => 'Bot2', 'cmd' => 'look', 'world' => $testWorldId];
+ob_start();
+require __DIR__ . '/multiplayer.php';
+$bot2JsonAfter = ob_get_clean();
+$bot2DataAfter = json_decode($bot2JsonAfter, true);
+$occupantsAfter = array_column($bot2DataAfter['room']['occupants'] ?? [], 'name');
+assertTest(!in_array('Bot1', $occupantsAfter, true), "Bot2 NO LONGER sees Bot1 after Bot1 logged out");
+
 // Clean up test world
 $pm->resetWorld($testWorldId);
 
