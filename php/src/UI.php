@@ -75,7 +75,7 @@ abstract class UI
     /**
      * Render a login screen or authentication prompt.
      */
-    abstract public function renderLogin(): void;
+    abstract public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null): void;
 
     /**
      * Render an error message.
@@ -124,6 +124,7 @@ abstract class UI
      *
      * @return array{
      *   username: string,
+     *   password: string,
      *   cmd: string,
      *   param: string,
      *   target: string,
@@ -148,13 +149,15 @@ abstract class UI
 
         // Extract normalized fields
         $username = trim((string)($merged['username'] ?? $merged['player'] ?? $merged['player_id'] ?? ''));
+        $password = trim((string)($merged['password'] ?? $merged['pass'] ?? ''));
         $cmd      = strtolower(trim((string)($merged['cmd'] ?? $merged['command'] ?? $merged['action'] ?? 'look')));
         $param    = trim((string)($merged['param'] ?? $merged['direction'] ?? $merged['dir'] ?? $merged['value'] ?? ''));
         $target   = trim((string)($merged['target'] ?? $merged['target_id'] ?? $merged['item'] ?? ''));
-        $reset     = isset($merged['reset']) && ($merged['reset'] === '1' || $merged['reset'] === 1 || $merged['reset'] === 'true' || $merged['reset'] === true);
+        $reset    = isset($merged['reset']) && ($merged['reset'] === '1' || $merged['reset'] === 1 || $merged['reset'] === 'true' || $merged['reset'] === true);
 
         return [
             'username' => $username,
+            'password' => $password,
             'cmd'      => $cmd,
             'param'    => $param,
             'target'   => $target,

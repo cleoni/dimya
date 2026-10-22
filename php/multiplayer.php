@@ -37,16 +37,58 @@ $clientType = UI::detectClientType();
 $ui = ($clientType === 'json') ? new UIjson() : new UIhtml();
 
 // 3. Parse and sanitize input parameters (POST, GET, and JSON body)
-$input      = UI::parseInput();
-$playerName = $input['username'] ?: ($_SESSION['dimx_player'] ?? '');
-$resetWorld = $input['reset'] || (isset($_GET['reset']) && $_GET['reset'] === '1');
+$input         = UI::parseInput();
+$requestedUser = $input['username'];
+$password      = $input['password'];
+$resetWorld    = $input['reset'] || (isset($_GET['reset']) && $_GET['reset'] === '1');
 
 // 4. Single authoritative world per installation (configured strictly on server)
 $worldFile = $config['world_file'] ?? $config['default_world'] ?? null;
 $worldId   = 'main';
 
-// 5. If no player name provided, show login prompt according to UI type
-if (empty($playerName)) {
+// 5. Player Authentication & Account Handling
+$sessionUser     = (string)($_SESSION['dimx_player'] ?? '');
+$isAuthenticated = !empty($_SESSION['dimx_authenticated']);
+$numericId       = $_SESSION['dimx_numeric_id'] ?? null;
+$sessionEngineId = $_SESSION['dimx_engine_player_id'] ?? null;
+$isBot           = ($clientType === 'json');
+$isNewLogin      = false;
+
+if (!empty($requestedUser)) {
+    // If client supplied an explicit username:
+    // Check if session is already authenticated for this exact user
+    if ($isAuthenticated && $sessionUser === $requestedUser) {
+        $playerName = $requestedUser;
+    } else {
+        // Authenticate credentials or auto-create account
+        if ($password === '') {
+            $ui->renderLogin("Password is required for player '{$requestedUser}'.", $requestedUser);
+            exit;
+        }
+
+        $auth = $pm->authenticateOrCreatePlayer($worldId, $requestedUser, $password, $isBot);
+        if (!$auth['success']) {
+            $ui->renderLogin($auth['error'] ?? 'Authentication failed.', $requestedUser);
+            exit;
+        }
+
+        $playerName = (string)$auth['player_id'];
+        $numericId  = (int)($auth['numeric_id'] ?? 0);
+        $isBot      = !empty($auth['is_bot']) || $isBot;
+
+        $_SESSION['dimx_player']        = $playerName;
+        $_SESSION['dimx_authenticated'] = true;
+        $_SESSION['dimx_numeric_id']    = $numericId;
+        $_SESSION['dimx_is_bot']        = $isBot;
+
+        $isNewLogin      = true;
+        $sessionEngineId = null;
+    }
+} elseif ($isAuthenticated && $sessionUser !== '') {
+    // Ongoing authenticated session
+    $playerName = $sessionUser;
+} else {
+    // No username provided and no authenticated session
     $ui->renderLogin();
     exit;
 }
@@ -70,12 +112,27 @@ $result = $engine->processCommand(
     $input['cmd'],
     $input['param'],
     $input['target'],
-    $ui
+    $ui,
+    $numericId ? (int)$numericId : null,
+    (bool)$isBot,
+    $isNewLogin,
+    $sessionEngineId
 );
+
+// Store the active in-memory player ID in session
+if (!empty($result['player']) && $result['player'] instanceof Dimx\Player) {
+    $_SESSION['dimx_engine_player_id'] = $result['player']->id;
+}
 
 // 9. If player logged out, clear active session
 if (!empty($result['logged_out'])) {
-    unset($_SESSION['dimx_player']);
+    unset(
+        $_SESSION['dimx_player'],
+        $_SESSION['dimx_authenticated'],
+        $_SESSION['dimx_numeric_id'],
+        $_SESSION['dimx_is_bot'],
+        $_SESSION['dimx_engine_player_id']
+    );
 }
 
 // 10. Attach UI to player and return outcome via the player's UI

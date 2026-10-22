@@ -151,8 +151,19 @@ Every command cycle follows this processing pipeline:
 * **Effect**: Stores score, location, attributes, and inventory IDs into persistence (`dimx_players`).
 
 ### 15. `login [password]`
-* **Intent**: Connects player character to world.
-* **Effect**: Validates credentials if required, places player in start room, and generates initial room snapshot.
+* **Intent**: Connects player or bot character to world.
+* **Credentials & Storage**:
+  * **Nickname**: Plaintext display name stored in `dimx_players.name`.
+  * **Database Account ID (`id`)**: Permanent auto-increment integer (`id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY`) indexing the account in the database.
+  * **Game Engine Player ID (`$player->id`)**: Ephemeral string identifier living only in engine memory (e.g. `p_17_859e69cf`) that is generated anew on every login session and changes each time the user connects.
+  * **Password**: One-way encrypted with cryptographically secure bcrypt (`password_hash($pass, PASSWORD_DEFAULT)`). Never stored or readable in plaintext.
+* **Dual-Mode Behavior**:
+  * **Existing Account**: If the nickname is already registered, verifies supplied password using `password_verify()`. If incorrect, rejects connection (HTML error alert or JSON `401 Unauthorized` with status `login_required`).
+  * **New Account**: If the nickname does not exist, registers and creates the account automatically, stores the hashed password and bot flag (`is_bot`), generates the unique numeric ID, and connects player to the world.
+* **Presentation Modes**:
+  * **Human Browser (`UIhtml`)**: Displays login form with dedicated Nickname and Password fields (password masked via `<input type="password">`). On failure, displays inline error alert and pre-fills nickname.
+  * **Bot API (`UIjson`)**: Accepts credentials via JSON body or query parameters (`username`, `password`). Returns structured JSON snapshot with player's `numeric_id` and `is_bot` boolean flag.
+* **Effect**: Validates credentials, places player in start room, and generates initial room snapshot. Fires `onLogin`.
 
 ### 16. `logout`
 * **Intent**: Leaves virtual world.

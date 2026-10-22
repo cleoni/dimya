@@ -102,6 +102,39 @@ class World extends DimxObject
     }
 
     /**
+     * Retrieve an active in-memory player by their database numerical account ID.
+     */
+    public function getPlayerByNumericId(mixed $numericId): ?Player
+    {
+        if ($numericId === null || $numericId === '' || $numericId === 0 || $numericId === '0') {
+            return null;
+        }
+        foreach ($this->players as $p) {
+            if ((string)$p->numericId === (string)$numericId) {
+                return $p;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Retrieve an active in-memory player by their display nickname.
+     */
+    public function getPlayerByName(string $name): ?Player
+    {
+        $target = strtolower(trim($name));
+        if ($target === '') {
+            return null;
+        }
+        foreach ($this->players as $p) {
+            if (strtolower(trim($p->name)) === $target) {
+                return $p;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Remove a player from world registry and their current room/container.
      */
     public function removePlayer(Player|string $player): ?Player

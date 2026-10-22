@@ -13,17 +13,19 @@ CREATE TABLE IF NOT EXISTS dimx_worlds (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS dimx_players (
-    player_id VARCHAR(64) NOT NULL,
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT 'Numeric auto-increment account ID in the database',
     world_id VARCHAR(64) NOT NULL,
     name VARCHAR(128) NOT NULL,
-    password VARCHAR(128) NOT NULL,
+    player_id VARCHAR(64) NOT NULL DEFAULT '' COMMENT 'Transient in-memory session player ID in game engine',
+    password VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'Bcrypt one-way password hash',
+    is_bot TINYINT(1) DEFAULT 0 COMMENT '1 if player is an automated bot/AI player',
     score INT DEFAULT 0,
-    container_id VARCHAR(64) NOT NULL COMMENT 'ID of room where player is currently located',
+    container_id VARCHAR(64) NOT NULL DEFAULT '' COMMENT 'ID of room where player is currently located',
     properties_json MEDIUMTEXT COMMENT 'Player attributes/properties (Health, Strength, etc.)',
     items_json MEDIUMTEXT COMMENT 'Inventory items owned by player',
     console_json MEDIUMTEXT COMMENT 'Pending console messages for this player',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (world_id, player_id),
+    UNIQUE KEY uq_world_name (world_id, name),
     INDEX idx_world (world_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

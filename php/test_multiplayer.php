@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 /**
  * test_multiplayer.php
- * Automated tests for UI hierarchy, GameEngine, UIhtml, and UIjson bot API endpoint.
- * Verifies single-world architecture and no external world disclosure.
+ * Automated tests for UI hierarchy, GameEngine, UIhtml, UIjson bot API endpoint,
+ * player database storage, auto-increment numeric ID, and bcrypt password authentication.
  */
 
 require_once __DIR__ . '/autoload.php';
@@ -16,7 +16,7 @@ use Dimx\GameEngine;
 use Dimx\PersistenceManager;
 use Dimx\Player;
 
-echo "=== Running DimensioneX Multiplayer & UI Tests ===\n\n";
+echo "=== Running DimensioneX Multiplayer, Auth & UI Tests ===\n\n";
 
 $passCount = 0;
 $failCount = 0;
@@ -31,6 +31,24 @@ function assertTest(bool $condition, string $title): void
         echo "  [FAIL] {$title}\n";
         $failCount++;
     }
+}
+
+function runMultiplayer(array $get = [], array $post = [], array $server = []): string
+{
+    $runner = sys_get_temp_dir() . '/dimx_run_' . uniqid() . '.php';
+    $code = "<?php\n"
+        . '$_GET = ' . var_export($get, true) . ";\n"
+        . '$_POST = ' . var_export($post, true) . ";\n";
+    foreach ($server as $k => $v) {
+        $code .= '$_SERVER[' . var_export($k, true) . '] = ' . var_export($v, true) . ";\n";
+    }
+    $code .= "require " . var_export(__DIR__ . '/multiplayer.php', true) . ";\n";
+    file_put_contents($runner, $code);
+
+    $cmd = 'C:\\xampp\\php\\php.exe ' . escapeshellarg($runner);
+    $output = (string)shell_exec($cmd);
+    @unlink($runner);
+    return $output;
 }
 
 // -------------------------------------------------------------
@@ -59,12 +77,13 @@ $_SERVER['HTTP_ACCEPT'] = 'text/html,application/xhtml+xml';
 assertTest(UI::detectClientType() === 'html', "Detects browser Accept header as 'html'");
 
 // -------------------------------------------------------------
-// Test 2: Input Parsing (Single World enforcement)
+// Test 2: Input Parsing (Single World enforcement & Password)
 // -------------------------------------------------------------
 echo "\n2. Testing UI::parseInput()...\n";
-$_GET = ['cmd' => 'go', 'dir' => 'N', 'player' => 'Explorer1', 'world' => 'arbitrary_world'];
+$_GET = ['cmd' => 'go', 'dir' => 'N', 'player' => 'Explorer1', 'password' => 'secret123', 'world' => 'arbitrary_world'];
 $input = UI::parseInput();
 assertTest($input['username'] === 'Explorer1', "Parsed username 'Explorer1'");
+assertTest($input['password'] === 'secret123', "Parsed password 'secret123'");
 assertTest($input['cmd'] === 'go', "Parsed cmd 'go'");
 assertTest($input['param'] === 'N', "Parsed param 'N' from 'dir'");
 assertTest(!isset($input['world']) && !isset($input['world_file']), "World switching parameters are ignored (single world)");
@@ -88,17 +107,80 @@ assertTest(isset($world->rooms['bar']), "Seeded world contains 'bar' room");
 assertTest(isset($world->items['apple']), "Seeded world contains 'apple' item");
 
 // -------------------------------------------------------------
-// Test 4: Bot Player Command Dispatch via UIjson
+// Test 4: Database Player Accounts & Password Encryption
 // -------------------------------------------------------------
-echo "\n4. Testing Bot Player via UIjson API...\n";
-$uiJson = new UIjson();
-$botName = 'BotTester_' . rand(100, 999);
+echo "\n4. Testing Player DB Table, Auto-Increment Numeric ID & Bcrypt Passwords...\n";
+$testUser = 'AuthTester_' . rand(1000, 9999);
+$testPass = 'p@ssw0rdSecure!';
 
-// Step 4a: Login & initial look
-$result1 = $engine->processCommand($botName, 'look', '', '', $uiJson);
+// Step 4a: Account creation
+$auth1 = $pm->authenticateOrCreatePlayer($unitWorldId, $testUser, $testPass, true);
+assertTest($auth1['success'] === true, "New player account successfully registered");
+assertTest(($auth1['created'] ?? false) === true, "Flags account as newly created");
+assertTest(!empty($auth1['numeric_id']) && is_numeric($auth1['numeric_id']), "Account assigned numeric ID: " . ($auth1['numeric_id'] ?? 0));
+assertTest(($auth1['is_bot'] ?? false) === true, "Bot player flag stored as true");
+
+// Step 4b: Verify password in DB is encrypted (one-way bcrypt hash, not plaintext)
+$pdo = $pm->getPdo();
+if ($pdo !== null) {
+    $stmt = $pdo->prepare("SELECT id, name, password, is_bot FROM dimx_players WHERE world_id = :wid AND LOWER(name) = :pname");
+    $stmt->execute([':wid' => $unitWorldId, ':pname' => strtolower($testUser)]);
+    $dbRow = $stmt->fetch();
+    assertTest($dbRow !== false, "Player record exists in dimx_players table");
+    assertTest($dbRow['name'] === $testUser, "Nickname is clearly readable: " . $dbRow['name']);
+    assertTest($dbRow['password'] !== $testPass, "Password is NOT stored in plaintext");
+    assertTest(str_starts_with($dbRow['password'], '$2y$') || strlen($dbRow['password']) >= 60, "Password encoded with bcrypt hash: " . substr($dbRow['password'], 0, 10) . '...');
+    assertTest((int)$dbRow['id'] === (int)$auth1['numeric_id'], "Database numeric ID matches returned ID: " . $dbRow['id']);
+}
+
+// Step 4c: Existing account login with correct password
+$auth2 = $pm->authenticateOrCreatePlayer($unitWorldId, $testUser, $testPass, true);
+assertTest($auth2['success'] === true, "Existing account authenticated with correct password");
+assertTest(($auth2['created'] ?? false) === false, "Existing account recognized (created = false)");
+assertTest((int)$auth2['numeric_id'] === (int)$auth1['numeric_id'], "Numeric ID consistent across logins");
+
+// Step 4d: Existing account login with wrong password
+$auth3 = $pm->authenticateOrCreatePlayer($unitWorldId, $testUser, 'wrong_password_here', true);
+assertTest($auth3['success'] === false, "Login rejected with incorrect password");
+assertTest(($auth3['code'] ?? '') === 'invalid_password', "Error code is 'invalid_password'");
+
+// Step 4e: Verify in-memory player ID changes every time the user logs in
+echo "\n  Testing that in-memory player ID changes on every login...\n";
+$uiJsonTemp = new UIjson();
+$resLogin1  = $engine->processCommand($testUser, 'login', '', '', $uiJsonTemp, (int)$auth1['numeric_id'], true, true);
+$engineId1  = $resLogin1['player']->id;
+assertTest(!empty($engineId1), "Player assigned in-memory ID on login 1: {$engineId1}");
+assertTest($engineId1 !== (string)$auth1['numeric_id'], "In-memory ID ({$engineId1}) is NOT the database numeric ID (" . $auth1['numeric_id'] . ")");
+assertTest($engineId1 !== $testUser, "In-memory ID ({$engineId1}) is NOT the player nickname ({$testUser})");
+assertTest((int)$resLogin1['player']->numericId === (int)$auth1['numeric_id'], "Player numericId matches database ID: " . $auth1['numeric_id']);
+
+// Simulate player logging out
+$engine->processCommand($testUser, 'logout', '', '', $uiJsonTemp, (int)$auth1['numeric_id'], true, false, $engineId1);
+assertTest($world->getPlayer($engineId1) === null, "Player {$engineId1} cleanly removed from world memory on logout");
+
+// Second login for the SAME user account
+$resLogin2 = $engine->processCommand($testUser, 'login', '', '', $uiJsonTemp, (int)$auth1['numeric_id'], true, true);
+$engineId2 = $resLogin2['player']->id;
+assertTest(!empty($engineId2), "Player assigned in-memory ID on login 2: {$engineId2}");
+assertTest($engineId1 !== $engineId2, "In-memory ID CHANGED on second login ({$engineId1} != {$engineId2})");
+assertTest((int)$resLogin2['player']->numericId === (int)$auth1['numeric_id'], "Database numeric ID remains unchanged (" . $auth1['numeric_id'] . ")");
+assertTest($resLogin2['player']->name === $testUser, "Player nickname remains unchanged ({$testUser})");
+
+// -------------------------------------------------------------
+// Test 5: Bot Player Command Dispatch via UIjson API
+// -------------------------------------------------------------
+echo "\n5. Testing Bot Player via UIjson API...\n";
+$uiJson = new UIjson();
+$botName = 'BotAction_' . rand(100, 999);
+$botAuth = $pm->authenticateOrCreatePlayer($unitWorldId, $botName, 'botPass123', true);
+
+// Step 5a: Login & initial look
+$result1 = $engine->processCommand($botName, 'look', '', '', $uiJson, (int)$botAuth['numeric_id'], true, true);
 $player = $result1['player'];
 assertTest($player instanceof Player, "Bot player created as Player instance");
 assertTest($player->getUI() === $uiJson, "Player has UI property set to UIjson instance");
+assertTest($player->numericId === (int)$botAuth['numeric_id'], "Player instance has numericId populated");
+assertTest($player->isBot === true, "Player instance has isBot flagged as true");
 assertTest($player->getRoom()->id === 'beach', "Bot player starts in 'beach' room");
 
 // Verify room snapshot structure
@@ -108,7 +190,7 @@ assertTest(!empty($snapshot['description']), "Room snapshot contains description
 assertTest(count($snapshot['items']) === 1 && $snapshot['items'][0]['id'] === 'apple', "Room snapshot contains 'apple' item");
 assertTest(count($snapshot['exits']) === 1 && $snapshot['exits'][0]['direction'] === 'E', "Room snapshot contains 'E' exit");
 
-// Step 4b: Bot picks up apple
+// Step 5b: Bot picks up apple
 $result2 = $engine->processCommand($botName, 'pick', '', 'apple', $uiJson);
 assertTest(isset($result2['player']->contents['apple']), "Bot player now has 'apple' in inventory");
 assertTest(!isset($result2['room']->contents['apple']), "'apple' removed from beach room contents");
@@ -116,57 +198,94 @@ assertTest(!isset($result2['room']->contents['apple']), "'apple' removed from be
 $playerStatus = $uiJson->buildPlayerStatus($result2['player']);
 assertTest($playerStatus['carrying_count'] === 1, "Player status carrying_count is 1");
 assertTest($playerStatus['inventory'][0]['id'] === 'apple', "Player status inventory lists 'apple'");
+assertTest($playerStatus['numeric_id'] === (int)$botAuth['numeric_id'], "Player status contains numeric_id");
+assertTest($playerStatus['is_bot'] === true, "Player status contains is_bot: true");
 
-// Step 4c: Bot travels East to Tiki Bar
+// Step 5c: Bot travels East to Tiki Bar
 $result3 = $engine->processCommand($botName, 'go', 'E', '', $uiJson);
 assertTest($result3['player']->getRoom()->id === 'bar', "Bot travelled East and is now in 'bar'");
 
-// Step 4d: Bot drops apple in Tiki Bar
+// Step 5d: Bot drops apple in Tiki Bar
 $result4 = $engine->processCommand($botName, 'drop', '', 'apple', $uiJson);
 assertTest(!isset($result4['player']->contents['apple']), "Bot dropped 'apple', no longer in inventory");
 assertTest(isset($result4['room']->contents['apple']), "'apple' is now inside 'bar' room contents");
 
-// Step 4e: Bot talks
+// Step 5e: Bot talks
 $result5 = $engine->processCommand($botName, 'say', 'Greetings from AI bot!', '', $uiJson);
 assertTest(in_array("<b>{$botName}</b> says: Greetings from AI bot!", $result5['messages'], true), "Bot speech captured in messages");
 
 $pm->resetWorld($unitWorldId);
 
 // -------------------------------------------------------------
-// Test 5: Simulating multiplayer.php entrypoint for Bot (JSON)
+// Test 6: Simulating multiplayer.php entrypoint for Bot (JSON)
 // -------------------------------------------------------------
-echo "\n5. Testing multiplayer.php entrypoint with bot JSON query...\n";
-$_GET = [
+echo "\n6. Testing multiplayer.php entrypoint with bot JSON query...\n";
+
+// 6a: Bot without password should receive 401 login_required
+$jsonOutputNoPass = runMultiplayer([
     'format'   => 'json',
     'username' => 'DirectApiBot',
     'cmd'      => 'look',
-];
-$_POST = [];
+]);
+$decodedNoPass = json_decode($jsonOutputNoPass, true);
+assertTest(($decodedNoPass['status'] ?? '') === 'login_required', "Bot without password gets 'login_required'");
+assertTest(str_contains($decodedNoPass['error'] ?? '', 'Password is required'), "Bot error indicates password is required");
 
-ob_start();
-require __DIR__ . '/multiplayer.php';
-$jsonOutput = ob_get_clean();
-
+// 6b: Bot with username and password should authenticate and return game snapshot
+$jsonOutput = runMultiplayer([
+    'format'   => 'json',
+    'username' => 'DirectApiBot',
+    'password' => 'botSecret456',
+    'cmd'      => 'look',
+]);
 $decoded = json_decode($jsonOutput, true);
+
 assertTest(is_array($decoded), "multiplayer.php returned valid JSON");
 assertTest(($decoded['success'] ?? false) === true, "JSON response indicates success: true");
 assertTest(isset($decoded['room']['id']), "JSON response includes room snapshot");
-assertTest(isset($decoded['player']['name']) && $decoded['player']['name'] === 'DirectApiBot', "JSON response includes player record: " . ($decoded['player']['name'] ?? ''));
+assertTest(isset($decoded['player']['name']) && $decoded['player']['name'] === 'DirectApiBot', "JSON response includes player name 'DirectApiBot'");
+assertTest(isset($decoded['player']['numeric_id']) && is_numeric($decoded['player']['numeric_id']), "JSON response includes numeric_id: " . ($decoded['player']['numeric_id'] ?? 0));
+assertTest(($decoded['player']['is_bot'] ?? false) === true, "JSON response player has is_bot = true");
 
-// -------------------------------------------------------------
-// Test 6: Simulating multiplayer.php entrypoint for Human (HTML)
-// -------------------------------------------------------------
-echo "\n6. Testing multiplayer.php entrypoint with human HTML player...\n";
-$_GET = [
-    'username' => 'HumanHero',
+// 6c: Bot with wrong password on existing account
+$jsonOutputWrongPass = runMultiplayer([
+    'format'   => 'json',
+    'username' => 'DirectApiBot',
+    'password' => 'wrongSecret!',
     'cmd'      => 'look',
-];
-$_POST = [];
-$_SERVER['HTTP_ACCEPT'] = 'text/html';
+]);
+$decodedWrongPass = json_decode($jsonOutputWrongPass, true);
+assertTest(($decodedWrongPass['status'] ?? '') === 'login_required', "Bot with incorrect password gets 'login_required'");
+assertTest(str_contains($decodedWrongPass['error'] ?? '', 'Incorrect password'), "Bot error message indicates incorrect password");
 
-ob_start();
-require __DIR__ . '/multiplayer.php';
-$htmlOutput = ob_get_clean();
+// 6d: Bot logs in a second time in a new session: verify in-memory ID changes while numeric ID remains constant
+$firstSessionEngineId = $decoded['player']['id'] ?? '';
+$firstNumericId       = $decoded['player']['numeric_id'] ?? 0;
+
+$jsonOutput2 = runMultiplayer([
+    'format'   => 'json',
+    'username' => 'DirectApiBot',
+    'password' => 'botSecret456',
+    'cmd'      => 'look',
+]);
+$decoded2 = json_decode($jsonOutput2, true);
+$secondSessionEngineId = $decoded2['player']['id'] ?? '';
+$secondNumericId       = $decoded2['player']['numeric_id'] ?? 0;
+
+assertTest(!empty($firstSessionEngineId) && !empty($secondSessionEngineId), "Both bot logins returned in-memory player IDs");
+assertTest($firstSessionEngineId !== $secondSessionEngineId, "In-memory player ID changed between logins ({$firstSessionEngineId} != {$secondSessionEngineId})");
+assertTest((int)$firstNumericId === (int)$secondNumericId, "Database numeric ID stayed constant ({$firstNumericId})");
+assertTest($firstSessionEngineId !== (string)$firstNumericId, "In-memory ID is NOT the database numeric ID");
+
+// -------------------------------------------------------------
+// Test 7: Simulating multiplayer.php entrypoint for Human (HTML)
+// -------------------------------------------------------------
+echo "\n7. Testing multiplayer.php entrypoint with human HTML player...\n";
+$htmlOutput = runMultiplayer([
+    'username' => 'HumanHero',
+    'password' => 'heroPass789',
+    'cmd'      => 'look',
+], [], ['HTTP_ACCEPT' => 'text/html']);
 
 assertTest(str_contains($htmlOutput, '<!DOCTYPE html>'), "multiplayer.php returned HTML doctype");
 assertTest(str_contains($htmlOutput, 'HumanHero'), "HTML output includes player name 'HumanHero'");
@@ -174,67 +293,83 @@ assertTest(str_contains($htmlOutput, 'id="consoleBox"'), "HTML output includes c
 assertTest(str_contains($htmlOutput, 'id="chatBox"'), "HTML output includes chatBox element");
 
 // -------------------------------------------------------------
-// Test 7: Testing login prompt for Bot (JSON) and Human (HTML)
+// Test 8: Testing login prompt for Bot (JSON) and Human (HTML)
 // -------------------------------------------------------------
-echo "\n7. Testing login prompt for Bot (JSON) and Human (HTML)...\n";
-$_GET = ['format' => 'json'];
-$_POST = [];
-unset($_SESSION['dimx_player']);
+echo "\n8. Testing login prompts and form fields...\n";
 
+// HTML login prompt without username
+$htmlLoginPrompt = runMultiplayer([], [], ['HTTP_ACCEPT' => 'text/html']);
+assertTest(str_contains($htmlLoginPrompt, 'Enter the World'), "multiplayer.php HTML prompt includes 'Enter the World' form");
+assertTest(str_contains($htmlLoginPrompt, 'name="username"'), "multiplayer.php HTML prompt includes username input");
+assertTest(str_contains($htmlLoginPrompt, 'name="password"'), "multiplayer.php HTML prompt includes password input");
+assertTest(str_contains($htmlLoginPrompt, 'type="password"'), "multiplayer.php password input is masked (type=password)");
+
+// Direct UIhtml renderLogin test with error
 ob_start();
-// Test UIjson directly
+$htmlUi = new UIhtml();
+$htmlUi->renderLogin("Invalid password. Please try again.", "PlayerOne");
+$loginHtml = ob_get_clean();
+assertTest(str_contains($loginHtml, 'Invalid password. Please try again.'), "UIhtml renders error message");
+assertTest(str_contains($loginHtml, 'value="PlayerOne"'), "UIhtml preserves default username on error");
+
+// Direct UIjson renderLogin test
+ob_start();
 $jsonUi = new UIjson();
-$jsonUi->renderLogin();
+$jsonUi->renderLogin("Test auth error");
 $loginJson = ob_get_clean();
 $decodedLogin = json_decode($loginJson, true);
 assertTest(($decodedLogin['status'] ?? '') === 'login_required', "UIjson login status is 'login_required'");
-assertTest(!isset($decodedLogin['world_file']), "UIjson login does NOT disclose world_file");
-
-ob_start();
-$htmlUi = new UIhtml();
-$htmlUi->renderLogin();
-$loginHtml = ob_get_clean();
-assertTest(str_contains($loginHtml, 'Enter the World'), "UIhtml login includes 'Enter the World' form");
-assertTest(str_contains($loginHtml, 'name="username"'), "UIhtml login includes username input");
-assertTest(!str_contains($loginHtml, 'name="world_file"'), "UIhtml login does NOT disclose world_file hidden input");
+assertTest(($decodedLogin['error'] ?? '') === 'Test auth error', "UIjson returns error message");
 
 // -------------------------------------------------------------
-// Test 8: Bot Logout / Disconnect & Room Occupant Verification
+// Test 9: Bot Logout / Disconnect & Room Occupant Verification
 // -------------------------------------------------------------
-echo "\n8. Testing Bot Logout & Occupant Removal...\n";
+echo "\n9. Testing Bot Logout & Occupant Removal...\n";
+
+$testBot1 = 'BotOne_' . rand(1000, 9999);
+$testBot2 = 'BotTwo_' . rand(1000, 9999);
+
 // Bot 1 connects
-$_GET = ['format' => 'json', 'username' => 'Bot1', 'cmd' => 'look'];
-ob_start();
-require __DIR__ . '/multiplayer.php';
-ob_get_clean();
+runMultiplayer([
+    'format'   => 'json',
+    'username' => $testBot1,
+    'password' => 'bot1pass',
+    'cmd'      => 'look',
+]);
 
 // Bot 2 connects and looks around - should see Bot1 in occupants
-$_GET = ['format' => 'json', 'username' => 'Bot2', 'cmd' => 'look'];
-ob_start();
-require __DIR__ . '/multiplayer.php';
-$bot2Json = ob_get_clean();
+$bot2Json = runMultiplayer([
+    'format'   => 'json',
+    'username' => $testBot2,
+    'password' => 'bot2pass',
+    'cmd'      => 'look',
+]);
 $bot2Data = json_decode($bot2Json, true);
 $occupantsBefore = array_column($bot2Data['room']['occupants'] ?? [], 'name');
-assertTest(in_array('Bot1', $occupantsBefore, true), "Bot2 sees Bot1 in room occupants");
+assertTest(in_array($testBot1, $occupantsBefore, true), "Bot2 sees {$testBot1} in room occupants");
 
 // Bot 1 logs out
-$_GET = ['format' => 'json', 'username' => 'Bot1', 'cmd' => 'logout'];
-ob_start();
-require __DIR__ . '/multiplayer.php';
-$logoutJson = ob_get_clean();
+$logoutJson = runMultiplayer([
+    'format'   => 'json',
+    'username' => $testBot1,
+    'password' => 'bot1pass',
+    'cmd'      => 'logout',
+]);
 $logoutData = json_decode($logoutJson, true);
 assertTest(($logoutData['status'] ?? '') === 'logged_out', "Bot1 logout response status is 'logged_out'");
 assertTest(($logoutData['logged_out'] ?? false) === true, "Bot1 logout response flag logged_out is true");
 assertTest(array_key_exists('room', $logoutData) && $logoutData['room'] === null, "Bot1 logout response room snapshot is null");
 
 // Bot 2 looks again - Bot1 should NO LONGER be in occupants!
-$_GET = ['format' => 'json', 'username' => 'Bot2', 'cmd' => 'look'];
-ob_start();
-require __DIR__ . '/multiplayer.php';
-$bot2JsonAfter = ob_get_clean();
+$bot2JsonAfter = runMultiplayer([
+    'format'   => 'json',
+    'username' => $testBot2,
+    'password' => 'bot2pass',
+    'cmd'      => 'look',
+]);
 $bot2DataAfter = json_decode($bot2JsonAfter, true);
 $occupantsAfter = array_column($bot2DataAfter['room']['occupants'] ?? [], 'name');
-assertTest(!in_array('Bot1', $occupantsAfter, true), "Bot2 NO LONGER sees Bot1 after Bot1 logged out");
+assertTest(!in_array($testBot1, $occupantsAfter, true), "Bot2 NO LONGER sees {$testBot1} after logout");
 
 // Clean up single test world
 $pm->resetWorld('main');

@@ -132,17 +132,19 @@ class PersistenceManager
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
             'create_players' => "CREATE TABLE IF NOT EXISTS dimx_players (
-                player_id       VARCHAR(64)  NOT NULL,
+                id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                 world_id        VARCHAR(64)  NOT NULL,
                 name            VARCHAR(128) NOT NULL,
-                password        VARCHAR(128) NOT NULL DEFAULT '',
+                player_id       VARCHAR(64)  NOT NULL DEFAULT '',
+                password        VARCHAR(255) NOT NULL DEFAULT '',
+                is_bot          TINYINT(1)   DEFAULT 0,
                 score           INT          DEFAULT 0,
                 container_id    VARCHAR(64)  NOT NULL DEFAULT '',
                 properties_json MEDIUMTEXT,
                 items_json      MEDIUMTEXT,
                 console_json    MEDIUMTEXT,
                 updated_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                PRIMARY KEY (world_id, player_id),
+                UNIQUE KEY uq_world_name (world_id, name),
                 INDEX idx_world (world_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
@@ -167,6 +169,9 @@ class PersistenceManager
             'alter_worlds_src'     => "ALTER TABLE dimx_worlds ADD COLUMN IF NOT EXISTS world_src VARCHAR(512) DEFAULT NULL",
             'alter_worlds_json'    => "ALTER TABLE dimx_worlds MODIFY COLUMN state_json LONGTEXT",
             'alter_players_console'=> "ALTER TABLE dimx_players ADD COLUMN IF NOT EXISTS console_json MEDIUMTEXT",
+            'alter_players_pass'   => "ALTER TABLE dimx_players MODIFY COLUMN password VARCHAR(255) NOT NULL DEFAULT ''",
+            'alter_players_bot'    => "ALTER TABLE dimx_players ADD COLUMN IF NOT EXISTS is_bot TINYINT(1) DEFAULT 0",
+            'alter_players_id'     => "ALTER TABLE dimx_players ADD COLUMN IF NOT EXISTS id INT UNSIGNED AUTO_INCREMENT UNIQUE FIRST",
         ];
 
         foreach ($statements as $key => $sql) {
@@ -343,46 +348,95 @@ class PersistenceManager
         // Drain any pending console lines and persist them
         $console        = $player->drainConsole();
         $consoleJson    = json_encode($console);
+        $isBotVal       = !empty($player->isBot) ? 1 : 0;
 
         if ($this->isConnected()) {
             try {
+                // If numericId is set, update account record by primary key
+                if ($player->numericId !== null && (int)$player->numericId > 0) {
+                    $stmt = $this->pdo->prepare("
+                        UPDATE dimx_players SET
+                            player_id       = :pid,
+                            name            = :name,
+                            is_bot          = :bot,
+                            score           = :score,
+                            container_id    = :cid,
+                            properties_json = :props,
+                            items_json      = :items,
+                            console_json    = :console
+                        WHERE id = :id
+                    ");
+                    return $stmt->execute([
+                        ':pid'     => $player->id,
+                        ':name'    => $player->name,
+                        ':bot'     => $isBotVal,
+                        ':score'   => $player->score,
+                        ':cid'     => $containerId,
+                        ':props'   => $propertiesJson,
+                        ':items'   => $itemsJson,
+                        ':console' => $consoleJson,
+                        ':id'      => (int)$player->numericId,
+                    ]);
+                }
+
+                // Otherwise insert or update by unique (world_id, name)
                 $stmt = $this->pdo->prepare("
                     INSERT INTO dimx_players
-                        (player_id, world_id, name, password, score, container_id, properties_json, items_json, console_json)
+                        (world_id, name, player_id, password, is_bot, score, container_id, properties_json, items_json, console_json)
                     VALUES
-                        (:pid, :wid, :name, :pass, :score, :cid, :props, :items, :console)
+                        (:wid, :name, :pid, :pass, :bot, :score, :cid, :props, :items, :console)
                     ON DUPLICATE KEY UPDATE
+                        player_id       = VALUES(player_id),
                         name            = VALUES(name),
-                        password        = VALUES(password),
+                        password        = CASE WHEN VALUES(password) != '' THEN VALUES(password) ELSE password END,
+                        is_bot          = VALUES(is_bot),
                         score           = VALUES(score),
                         container_id    = VALUES(container_id),
                         properties_json = VALUES(properties_json),
                         items_json      = VALUES(items_json),
                         console_json    = VALUES(console_json)
                 ");
-                return $stmt->execute([
-                    ':pid'     => $player->id,
+                $ok = $stmt->execute([
                     ':wid'     => $worldId,
                     ':name'    => $player->name,
+                    ':pid'     => $player->id,
                     ':pass'    => $player->password,
+                    ':bot'     => $isBotVal,
                     ':score'   => $player->score,
                     ':cid'     => $containerId,
                     ':props'   => $propertiesJson,
                     ':items'   => $itemsJson,
                     ':console' => $consoleJson,
                 ]);
+
+                if ($player->numericId === null) {
+                    $idStmt = $this->pdo->prepare("SELECT id FROM dimx_players WHERE world_id = :wid AND LOWER(name) = :name LIMIT 1");
+                    $idStmt->execute([':wid' => $worldId, ':name' => strtolower($player->name)]);
+                    $idVal = $idStmt->fetchColumn();
+                    if ($idVal !== false) {
+                        $player->numericId = (int)$idVal;
+                    }
+                }
+
+                return $ok;
             } catch (PDOException $e) {
                 error_log("PersistenceManager::savePlayer DB error: " . $e->getMessage());
             }
         }
 
         // File-based fallback
-        $file = "{$this->storageDir}/player_{$worldId}_{$player->id}.json";
+        $file = "{$this->storageDir}/player_{$worldId}_{$player->name}.json";
+        $existing = file_exists($file) ? (json_decode((string)file_get_contents($file), true) ?: []) : [];
+        if ($player->numericId === null) {
+            $player->numericId = $existing['numeric_id'] ?? time();
+        }
         $data = [
+            'numeric_id'  => $player->numericId,
             'player_id'   => $player->id,
             'world_id'    => $worldId,
             'name'        => $player->name,
-            'password'    => $player->password,
+            'password'    => !empty($player->password) ? $player->password : ($existing['password'] ?? ''),
+            'is_bot'      => !empty($player->isBot),
             'score'       => $player->score,
             'container_id'=> $containerId,
             'properties'  => $player->getProperties(),
@@ -391,6 +445,96 @@ class PersistenceManager
             'updated_at'  => date('Y-m-d H:i:s'),
         ];
         return file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT)) !== false;
+    }
+
+    /**
+     * Restore saved player profile (score, location, properties, inventory) from DB/file
+     * into an in-memory Player object.
+     */
+    public function loadPlayerProfile(World $world, Player $player): bool
+    {
+        $data = null;
+
+        if ($this->isConnected()) {
+            try {
+                if ($player->numericId !== null && (int)$player->numericId > 0) {
+                    $stmt = $this->pdo->prepare("SELECT * FROM dimx_players WHERE id = :id LIMIT 1");
+                    $stmt->execute([':id' => (int)$player->numericId]);
+                    $row = $stmt->fetch();
+                } else {
+                    $stmt = $this->pdo->prepare("SELECT * FROM dimx_players WHERE world_id = :wid AND LOWER(name) = :name LIMIT 1");
+                    $stmt->execute([':wid' => $world->id, ':name' => strtolower($player->name)]);
+                    $row = $stmt->fetch();
+                }
+                if ($row) {
+                    $data = [
+                        'numeric_id'   => (int)$row['id'],
+                        'is_bot'       => !empty($row['is_bot']),
+                        'name'         => $row['name'],
+                        'score'        => (int)$row['score'],
+                        'container_id' => $row['container_id'],
+                        'properties'   => json_decode($row['properties_json'] ?: '{}', true) ?: [],
+                        'items'        => json_decode($row['items_json']       ?: '[]', true) ?: [],
+                        'console'      => json_decode($row['console_json']     ?: '[]', true) ?: [],
+                    ];
+                }
+            } catch (PDOException $e) {
+                error_log("PersistenceManager::loadPlayerProfile DB error: " . $e->getMessage());
+            }
+        }
+
+        if ($data === null) {
+            $file = "{$this->storageDir}/player_{$world->id}_{$player->name}.json";
+            if (!file_exists($file)) {
+                $file = "{$this->storageDir}/player_{$world->id}_{$player->id}.json";
+            }
+            if (file_exists($file)) {
+                $data = json_decode((string)file_get_contents($file), true);
+            }
+        }
+
+        if ($data === null) {
+            return false;
+        }
+
+        if ($player->numericId === null && isset($data['numeric_id'])) {
+            $player->numericId = (int)$data['numeric_id'];
+        }
+        if (!empty($data['is_bot'])) {
+            $player->isBot = true;
+        }
+        $player->score = $data['score'] ?? 0;
+        if (!empty($data['properties'])) {
+            $player->setAttrList($data['properties']);
+        }
+
+        $targetRoom = !empty($data['container_id']) ? $world->getRoom($data['container_id']) : null;
+        if ($targetRoom instanceof Room) {
+            $player->move($targetRoom);
+        }
+
+        // Restore pending console lines
+        foreach ($data['console'] ?? [] as $line) {
+            $player->display($line);
+        }
+
+        // Auto-restore items
+        foreach ($data['items'] ?? [] as $itemData) {
+            $item = $world->getItem($itemData['id']);
+            if ($item === null) {
+                foreach ($world->items as $candidate) {
+                    if ($candidate->matchesType($itemData['type'] ?? '') && $candidate->container instanceof Room) {
+                        $item = $candidate;
+                        break;
+                    }
+                }
+            }
+            if ($item !== null) {
+                $item->restoreTo($player, $world);
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -409,6 +553,8 @@ class PersistenceManager
                 $row = $stmt->fetch();
                 if ($row) {
                     $data = [
+                        'numeric_id'   => isset($row['id']) ? (int)$row['id'] : null,
+                        'is_bot'       => !empty($row['is_bot']),
                         'player_id'    => $row['player_id'],
                         'name'         => $row['name'],
                         'password'     => $row['password'],
@@ -436,13 +582,18 @@ class PersistenceManager
         }
 
         // Validate password if supplied
-        if (!empty($data['password']) && !empty($password) && $data['password'] !== $password) {
-            return null;
+        if (!empty($data['password']) && !empty($password)) {
+            $storedHash = (string)$data['password'];
+            if (!password_verify($password, $storedHash) && $storedHash !== $password) {
+                return null;
+            }
         }
 
         $player = $world->getPlayer($playerId) ?? new Player($world, $data['name'], $playerId);
-        $player->password = $data['password'] ?? '';
-        $player->score    = $data['score'] ?? 0;
+        $player->numericId = $data['numeric_id'] ?? null;
+        $player->isBot     = !empty($data['is_bot']);
+        $player->password  = $data['password'] ?? '';
+        $player->score     = $data['score'] ?? 0;
         if (!empty($data['properties'])) {
             $player->setAttrList($data['properties']);
         }
@@ -476,6 +627,233 @@ class PersistenceManager
         }
 
         return $player;
+    }
+
+    /**
+     * Authenticate player credentials or register a new player account if nonexistent.
+     * Passwords are encrypted using bcrypt (password_hash).
+     *
+     * @param string $worldId
+     * @param string $playerName
+     * @param string $password
+     * @param bool $isBot
+     * @return array{
+     *   success: bool,
+     *   created?: bool,
+     *   numeric_id?: int,
+     *   player_id?: string,
+     *   name?: string,
+     *   is_bot?: bool,
+     *   error?: string,
+     *   code?: string
+     * }
+     */
+    public function authenticateOrCreatePlayer(
+        string $worldId,
+        string $playerName,
+        string $password,
+        bool $isBot = false
+    ): array {
+        $playerName = trim($playerName);
+        if ($playerName === '') {
+            return ['success' => false, 'error' => 'Player nickname cannot be empty.', 'code' => 'empty_username'];
+        }
+
+        if ($this->isConnected()) {
+            try {
+                $stmt = $this->pdo->prepare("
+                    SELECT id, player_id, name, password, is_bot
+                    FROM dimx_players
+                    WHERE world_id = :wid AND (player_id = :pid OR LOWER(name) = :pname)
+                    LIMIT 1
+                ");
+                $stmt->execute([
+                    ':wid'   => $worldId,
+                    ':pid'   => $playerName,
+                    ':pname' => strtolower($playerName),
+                ]);
+                $row = $stmt->fetch();
+
+                if ($row) {
+                    $hash = (string)$row['password'];
+                    $valid = false;
+                    if ($hash === '' && $password !== '') {
+                        // Unset password account being initialized
+                        $valid = true;
+                        $newHash = password_hash($password, PASSWORD_DEFAULT);
+                        $upStmt = $this->pdo->prepare("UPDATE dimx_players SET password = :p WHERE id = :id");
+                        $upStmt->execute([':p' => $newHash, ':id' => $row['id']]);
+                    } elseif ($hash === '' && $password === '') {
+                        $valid = true;
+                    } elseif ($hash !== '' && password_verify($password, $hash)) {
+                        $valid = true;
+                    } elseif ($hash === $password) {
+                        // Legacy unhashed entry — upgrade to password_hash
+                        $valid = true;
+                        $newHash = password_hash($password, PASSWORD_DEFAULT);
+                        $upStmt = $this->pdo->prepare("UPDATE dimx_players SET password = :p WHERE id = :id");
+                        $upStmt->execute([':p' => $newHash, ':id' => $row['id']]);
+                    }
+
+                    if (!$valid) {
+                        return [
+                            'success' => false,
+                            'error'   => 'Incorrect password for player "' . $playerName . '".',
+                            'code'    => 'invalid_password',
+                        ];
+                    }
+
+                    return [
+                        'success'    => true,
+                        'created'    => false,
+                        'numeric_id' => (int)$row['id'],
+                        'player_id'  => (string)$row['player_id'],
+                        'name'       => (string)$row['name'],
+                        'is_bot'     => !empty($row['is_bot']),
+                    ];
+                }
+
+                // Account does not exist — create account automatically
+                $hash = password_hash($password, PASSWORD_DEFAULT);
+                $ins = $this->pdo->prepare("
+                    INSERT INTO dimx_players
+                        (player_id, world_id, name, password, is_bot, score, container_id, properties_json, items_json, console_json)
+                    VALUES
+                        (:pid, :wid, :name, :pass, :bot, 0, '', '{}', '[]', '[]')
+                ");
+                $ins->execute([
+                    ':pid'  => $playerName,
+                    ':wid'  => $worldId,
+                    ':name' => $playerName,
+                    ':pass' => $hash,
+                    ':bot'  => $isBot ? 1 : 0,
+                ]);
+                $numericId = (int)$this->pdo->lastInsertId();
+
+                return [
+                    'success'    => true,
+                    'created'    => true,
+                    'numeric_id' => $numericId,
+                    'player_id'  => $playerName,
+                    'name'       => $playerName,
+                    'is_bot'     => $isBot,
+                ];
+            } catch (PDOException $e) {
+                error_log("PersistenceManager::authenticateOrCreatePlayer DB error: " . $e->getMessage());
+                return ['success' => false, 'error' => 'Database error: ' . $e->getMessage(), 'code' => 'db_error'];
+            }
+        }
+
+        // File-based fallback
+        $file = "{$this->storageDir}/player_{$worldId}_{$playerName}.json";
+        if (file_exists($file)) {
+            $data = json_decode((string)file_get_contents($file), true) ?: [];
+            $hash = (string)($data['password'] ?? '');
+            $valid = false;
+            if ($hash === '' && $password !== '') {
+                $valid = true;
+                $data['password'] = password_hash($password, PASSWORD_DEFAULT);
+                file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+            } elseif ($hash === '' && $password === '') {
+                $valid = true;
+            } elseif ($hash !== '' && (password_verify($password, $hash) || $hash === $password)) {
+                $valid = true;
+            }
+            if (!$valid) {
+                return [
+                    'success' => false,
+                    'error'   => 'Incorrect password for player "' . $playerName . '".',
+                    'code'    => 'invalid_password',
+                ];
+            }
+            return [
+                'success'    => true,
+                'created'    => false,
+                'numeric_id' => (int)($data['numeric_id'] ?? 1),
+                'player_id'  => $playerName,
+                'name'       => (string)($data['name'] ?? $playerName),
+                'is_bot'     => !empty($data['is_bot']),
+            ];
+        }
+
+        // Create new account in file fallback
+        $hash   = password_hash($password, PASSWORD_DEFAULT);
+        $idFile = "{$this->storageDir}/last_player_id.txt";
+        $nextId = file_exists($idFile) ? ((int)file_get_contents($idFile) + 1) : 1;
+        file_put_contents($idFile, (string)$nextId);
+
+        $data = [
+            'numeric_id'  => $nextId,
+            'player_id'   => $playerName,
+            'world_id'    => $worldId,
+            'name'        => $playerName,
+            'password'    => $hash,
+            'is_bot'      => $isBot,
+            'score'       => 0,
+            'container_id'=> '',
+            'properties'  => [],
+            'items'       => [],
+            'console'     => [],
+            'created_at'  => date('Y-m-d H:i:s'),
+        ];
+        file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+
+        return [
+            'success'    => true,
+            'created'    => true,
+            'numeric_id' => $nextId,
+            'player_id'  => $playerName,
+            'name'       => $playerName,
+            'is_bot'     => $isBot,
+        ];
+    }
+
+    /**
+     * Retrieve basic player account details including numeric ID and bot status.
+     *
+     * @return array{id: int, player_id: string, name: string, is_bot: bool}|null
+     */
+    public function getPlayerAccount(string $worldId, string $playerName): ?array
+    {
+        if ($this->isConnected()) {
+            try {
+                $stmt = $this->pdo->prepare("
+                    SELECT id, player_id, name, is_bot
+                    FROM dimx_players
+                    WHERE world_id = :wid AND (player_id = :pid OR LOWER(name) = :pname)
+                    LIMIT 1
+                ");
+                $stmt->execute([
+                    ':wid'   => $worldId,
+                    ':pid'   => $playerName,
+                    ':pname' => strtolower($playerName),
+                ]);
+                $row = $stmt->fetch();
+                if ($row) {
+                    return [
+                        'id'        => (int)$row['id'],
+                        'player_id' => (string)$row['player_id'],
+                        'name'      => (string)$row['name'],
+                        'is_bot'    => !empty($row['is_bot']),
+                    ];
+                }
+            } catch (PDOException $e) {
+                error_log("PersistenceManager::getPlayerAccount error: " . $e->getMessage());
+            }
+        }
+
+        $file = "{$this->storageDir}/player_{$worldId}_{$playerName}.json";
+        if (file_exists($file)) {
+            $data = json_decode((string)file_get_contents($file), true) ?: [];
+            return [
+                'id'        => (int)($data['numeric_id'] ?? 1),
+                'player_id' => (string)($data['player_id'] ?? $playerName),
+                'name'      => (string)($data['name'] ?? $playerName),
+                'is_bot'    => !empty($data['is_bot']),
+            ];
+        }
+
+        return null;
     }
 
     // =========================================================================

@@ -66,22 +66,38 @@ All core game entities reside in the `Dimx\` namespace under [`src/`](src/):
 
 ---
 
-## 3. Database Setup (MySQL)
+## 3. Database Setup (MySQL) & Player Accounts
 
 If using MySQL, create a database and import [`schema.sql`](schema.sql):
 
 ```bash
-mysql -u root -p dimx_game < schema.sql
+mysql -u root -p dimya < schema.sql
 ```
 
-Configure your credentials in `multiplayer.php` and `maint.php`:
+### Player Accounts (`dimx_players` table)
+All players (human and bot) are stored in `dimx_players`:
+* `id` (`INT UNSIGNED AUTO_INCREMENT PRIMARY KEY`): Permanent numeric account ID in the database for indexing and retrieval.
+* `name` (`VARCHAR(128)`): Clearly readable plaintext nickname.
+* `player_id` (`VARCHAR(64)`): Tracks the active in-memory session player ID from the game engine.
+* In-Memory Engine Player ID (`$player->id`): Lives strictly in engine memory (e.g. `p_17_859e69cf`) and changes every time the user logs in.
+* `password` (`VARCHAR(255)`): One-way cryptographically secure bcrypt password hash (`password_hash($pass, PASSWORD_DEFAULT)`). Never stored in plaintext.
+* `is_bot` (`TINYINT(1)`): Differentiates automated AI/bot clients (`1`) from human browser players (`0`).
+* `properties_json`, `items_json`, `console_json`: JSON-serialized profile state, inventory, and pending console buffers.
+
+**Dual-Mode Login Behavior:**
+* **Account exists**: Authenticates supplied password with `password_verify()`. If incorrect, connection is refused.
+* **Account does not exist**: Registers and creates the account automatically, hashing the password and generating a new numeric ID.
+
+Configure your credentials in `config.php`:
 ```php
-$dbConfig = [
-    'host' => '127.0.0.1',
-    'port' => 3306,
-    'dbname' => 'dimx_game',
-    'user' => 'root',
-    'pass' => 'your_password',
+return [
+    'db' => [
+        'host'   => '127.0.0.1',
+        'port'   => 3306,
+        'dbname' => 'dimya',
+        'user'   => 'root',
+        'pass'   => 'your_password',
+    ],
 ];
 ```
 *(If MySQL is not reachable, the engine will automatically store files in `php/data/`)*.
@@ -116,32 +132,32 @@ Supply any of the following to activate the JSON API endpoint:
 * **Login & Look**:
   ```bash
   curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
-    -d "username=BotAlpha&cmd=look"
+    -d "username=BotAlpha&password=botPassword123&cmd=look"
   ```
 * **Navigate / Go**:
   ```bash
   curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
-    -d "username=BotAlpha&cmd=go&param=E"
+    -d "username=BotAlpha&password=botPassword123&cmd=go&param=E"
   ```
 * **Pick Up Item**:
   ```bash
   curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
-    -d "username=BotAlpha&cmd=pick&target=apple"
+    -d "username=BotAlpha&password=botPassword123&cmd=pick&target=apple"
   ```
 * **Drop Item**:
   ```bash
   curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
-    -d "username=BotAlpha&cmd=drop&target=apple"
+    -d "username=BotAlpha&password=botPassword123&cmd=drop&target=apple"
   ```
 * **Chat / Speech**:
   ```bash
   curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
-    -d "username=BotAlpha&cmd=say&param=Hello+world!"
+    -d "username=BotAlpha&password=botPassword123&cmd=say&param=Hello+world!"
   ```
 * **Disconnect / Log Out**:
   ```bash
   curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
-    -d "username=BotAlpha&cmd=logout"
+    -d "username=BotAlpha&password=botPassword123&cmd=logout"
   ```
 
 ### JSON Response Format
@@ -149,10 +165,13 @@ Supply any of the following to activate the JSON API endpoint:
 {
   "success": true,
   "status": "ok",
+  "logged_out": false,
   "lock_error": false,
-  "world": { "id": "default", "name": "DimensioneX Demo World", "mode": 1, "tick_length": 30 },
+  "world": { "id": "main", "name": "DimensioneX Demo World", "mode": 1, "tick_length": 30 },
   "player": {
     "id": "BotAlpha",
+    "numeric_id": 12,
+    "is_bot": true,
     "name": "BotAlpha",
     "score": 0,
     "health": 100,

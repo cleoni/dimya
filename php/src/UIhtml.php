@@ -22,11 +22,12 @@ class UIhtml extends UI
     /**
      * Render the login form for human players.
      */
-    public function renderLogin(): void
+    public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null): void
     {
         if (!headers_sent()) {
             header('Content-Type: text/html; charset=utf-8');
         }
+        $valUser = htmlspecialchars($defaultUsername ?? '');
         ?>
         <!DOCTYPE html>
         <html lang="en">
@@ -36,20 +37,35 @@ class UIhtml extends UI
           <title>DimensioneX — Login</title>
           <style>
             body{background:#0f172a;color:#f8fafc;font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
-            .box{background:#1e293b;padding:36px 40px;border-radius:12px;border:1px solid #334155;width:320px;box-shadow:0 10px 25px rgba(0,0,0,0.5)}
-            h2{margin:0 0 20px;color:#38bdf8}
-            input{width:100%;padding:10px;background:#0f172a;border:1px solid #475569;border-radius:4px;color:#f8fafc;font-size:14px;box-sizing:border-box;margin-bottom:14px}
-            button{width:100%;padding:10px;background:#2563eb;color:#fff;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:14px}
+            .box{background:#1e293b;padding:36px 40px;border-radius:12px;border:1px solid #334155;width:340px;box-shadow:0 10px 25px rgba(0,0,0,0.5)}
+            h2{margin:0 0 8px;color:#38bdf8}
+            p.sub{margin:0 0 18px;font-size:13px;color:#94a3b8}
+            .err{background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fca5a5;padding:10px 12px;border-radius:6px;font-size:13px;margin-bottom:16px}
+            label{display:block;font-size:12px;color:#cbd5e1;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
+            input{width:100%;padding:10px 12px;background:#0f172a;border:1px solid #475569;border-radius:6px;color:#f8fafc;font-size:14px;box-sizing:border-box;margin-bottom:16px}
+            input:focus{outline:none;border-color:#38bdf8;box-shadow:0 0 0 2px rgba(56,189,248,0.25)}
+            button{width:100%;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:14px;transition:background 0.2s}
             button:hover{background:#1d4ed8}
+            .hint{font-size:11px;color:#64748b;margin-top:14px;text-align:center;line-height:1.4}
           </style>
         </head>
         <body>
           <div class="box">
             <h2>Enter the World</h2>
+            <p class="sub">Log in with your nickname or create a new account.</p>
+            <?php if (!empty($errorMessage)): ?>
+              <div class="err"><?= htmlspecialchars($errorMessage) ?></div>
+            <?php endif; ?>
             <form method="POST">
-              <input type="text" name="username" placeholder="Your name…" required autofocus maxlength="32" />
+              <label for="username">Nickname</label>
+              <input type="text" id="username" name="username" placeholder="Your nickname…" required autofocus maxlength="32" value="<?= $valUser ?>" />
+
+              <label for="password">Password</label>
+              <input type="password" id="password" name="password" placeholder="Your password…" required />
+
               <button type="submit">Play</button>
             </form>
+            <div class="hint">If the nickname does not exist, an account will be created automatically.</div>
           </div>
         </body>
         </html>

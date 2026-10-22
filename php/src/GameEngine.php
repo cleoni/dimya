@@ -104,31 +104,95 @@ class GameEngine
 
     /**
      * Ensure the player exists in the world, setting start room and UI if new.
+     * The in-memory player ID lives strictly in memory and changes every time the user logs in.
      */
-    public function ensurePlayer(World $world, string $playerName, mixed $ui = null): Player
-    {
-        $player = $world->getPlayer($playerName);
-        if ($player === null) {
-            $player = new Player($world, $playerName, $playerName, 'Adventurer');
-            $player->skin = new Skin('default', 'Ocean');
+    public function ensurePlayer(
+        World $world,
+        string $playerName,
+        mixed $ui = null,
+        ?int $numericId = null,
+        bool $isBot = false,
+        bool $isNewLogin = false,
+        ?string $existingEngineId = null
+    ): Player {
+        $player = null;
 
-            // Find starting room: one marked DEFAULT or the first room
-            $startRoom = null;
-            foreach ($world->rooms as $r) {
-                if ($r->getProperty('DEFAULT')) {
-                    $startRoom = $r;
-                    break;
+        if (!$isNewLogin) {
+            // Ongoing session: find existing in-memory player
+            if (!empty($existingEngineId)) {
+                $player = $world->getPlayer($existingEngineId);
+            }
+            if ($player === null) {
+                $player = $world->getPlayerByName($playerName);
+            }
+            if ($player === null && $numericId !== null && (int)$numericId > 0) {
+                $candidate = $world->getPlayerByNumericId($numericId);
+                if ($candidate !== null && strtolower(trim($candidate->name)) === strtolower(trim($playerName))) {
+                    $player = $candidate;
                 }
             }
-            if ($startRoom === null) {
-                $startRoom = reset($world->rooms) ?: null;
+        } else {
+            // New login: remove any stale in-memory player instance from a previous session
+            $stale = $world->getPlayerByName($playerName);
+            if ($stale === null && $numericId !== null && (int)$numericId > 0) {
+                $candidate = $world->getPlayerByNumericId($numericId);
+                if ($candidate !== null && strtolower(trim($candidate->name)) === strtolower(trim($playerName))) {
+                    $stale = $candidate;
+                }
             }
-            if ($startRoom !== null) {
-                $player->move($startRoom);
+            if ($stale !== null) {
+                $world->removePlayer($stale);
+            }
+        }
+
+        if ($player === null) {
+            // Player ID in game engine lives in memory and changes every time the user logs in
+            $engineId = 'p_' . ($numericId ?? '0') . '_' . bin2hex(random_bytes(4));
+            $player   = new Player($world, $playerName, $engineId, 'Adventurer');
+            $player->skin      = new Skin('default', 'Ocean');
+            $player->numericId = $numericId;
+            $player->isBot     = $isBot;
+
+            // Restore saved profile (score, location, properties, inventory) from persistence
+            $this->pm->loadPlayerProfile($world, $player);
+
+            // If player doesn't have a room yet, find starting room
+            if ($player->getRoom() === null) {
+                $startRoom = null;
+                foreach ($world->rooms as $r) {
+                    if ($r->getProperty('DEFAULT')) {
+                        $startRoom = $r;
+                        break;
+                    }
+                }
+                if ($startRoom === null) {
+                    $startRoom = reset($world->rooms) ?: null;
+                }
+                if ($startRoom !== null) {
+                    $player->move($startRoom);
+                }
             }
 
             $world->addPlayer($player);
             $player->display("Welcome to <b>{$world->name}</b>, {$player->name}!");
+        } else {
+            if ($player->numericId === null && $numericId !== null) {
+                $player->numericId = $numericId;
+            }
+            if ($isBot) {
+                $player->isBot = true;
+            }
+        }
+
+        // If numeric ID still unknown, query account table
+        if ($player->numericId === null) {
+            $acc = $this->pm->getPlayerAccount($this->worldId, $playerName);
+            if ($acc !== null) {
+                $player->numericId = $acc['id'];
+                if (!empty($acc['is_bot'])) {
+                    $player->isBot = true;
+                }
+            }
         }
 
         // Update player activity timestamp
@@ -149,6 +213,10 @@ class GameEngine
      * @param string $param Secondary parameter or direction
      * @param string $targetId Target item, link, or character ID
      * @param mixed $ui Optional UI instance to attach to player
+     * @param int|null $numericId Optional account numeric ID
+     * @param bool $isBot Whether player is a bot
+     * @param bool $isNewLogin Whether this request represents a new login connection
+     * @param string|null $existingEngineId Known in-memory player ID from active session
      * @return array<string, mixed> Execution outcome context
      */
     public function processCommand(
@@ -156,7 +224,11 @@ class GameEngine
         string $cmd = 'look',
         string $param = '',
         string $targetId = '',
-        mixed $ui = null
+        mixed $ui = null,
+        ?int $numericId = null,
+        bool $isBot = false,
+        bool $isNewLogin = false,
+        ?string $existingEngineId = null
     ): array {
         $cmd      = strtolower(trim($cmd ?: 'look'));
         $param    = trim($param);
@@ -169,10 +241,10 @@ class GameEngine
         // Concurrency-controlled execution via WorldLock (MySQL GET_LOCK)
         if ($this->pdo !== null && $this->lock !== null) {
             $result = $this->lock->executeAtomic($this->worldId, function (\PDO $pdo) use (
-                $playerName, $cmd, $param, $targetId, $ui, $loggedOut
+                $playerName, $cmd, $param, $targetId, $ui, $loggedOut, $numericId, $isBot, $isNewLogin, $existingEngineId
             ): array {
                 $world  = $this->loadOrSeedWorld();
-                $player = $this->ensurePlayer($world, $playerName, $ui);
+                $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId);
 
                 $this->executeCommandAction($world, $player, $cmd, $param, $targetId);
 
@@ -198,7 +270,11 @@ class GameEngine
                 $consoleMessages = ["<span style='color:#f87171'>⚠ The game world is busy. Please try again in a moment.</span>"];
                 $world  = $this->pm->loadWorld($this->worldId) ?? new World($this->worldId, 'DimensioneX');
                 $world->persistence = $this->pm;
-                $player = $world->getPlayer($playerName) ?? new Player($world, $playerName, $playerName);
+                $player = ($existingEngineId ? $world->getPlayer($existingEngineId) : null)
+                    ?? $world->getPlayerByName($playerName)
+                    ?? new Player($world, $playerName, $existingEngineId ?? ('p_' . ($numericId ?? '0') . '_' . bin2hex(random_bytes(4))));
+                $player->numericId = $numericId;
+                $player->isBot     = $isBot;
             } else {
                 $world           = $result['world'];
                 $player          = $result['player'];
@@ -213,7 +289,7 @@ class GameEngine
         } else {
             // Graceful degradation when DB is offline (session / memory fallback)
             $world  = $this->loadOrSeedWorld();
-            $player = $this->ensurePlayer($world, $playerName, $ui);
+            $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId);
 
             $this->executeCommandAction($world, $player, $cmd, $param, $targetId);
 

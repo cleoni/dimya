@@ -24,12 +24,13 @@ class UIjson extends UI
     /**
      * Render authentication required response.
      */
-    public function renderLogin(): void
+    public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null): void
     {
         $this->sendJson([
             'success' => false,
             'status'  => 'login_required',
-            'message' => "Player authentication required. Please supply a 'username' or 'player' parameter.",
+            'error'   => $errorMessage ?? "Player authentication required. Please supply 'username' (or 'player') and 'password'.",
+            'message' => $errorMessage ?? "Player authentication required. If the account does not exist, it will be created automatically.",
         ], 401);
     }
 
@@ -184,6 +185,8 @@ class UIjson extends UI
 
         return [
             'id'             => $player->id,
+            'numeric_id'     => $player->numericId,
+            'is_bot'         => (bool)$player->isBot,
             'name'           => $player->name,
             'score'          => $player->score,
             'health'         => $player->getProperty('Health') ?? 100,
@@ -198,7 +201,7 @@ class UIjson extends UI
      * Dispatch an incoming API request using the supplied GameEngine.
      *
      * @param GameEngine $engine
-     * @param array{username?: string, cmd?: string, param?: string, target?: string}|null $input
+     * @param array{username?: string, password?: string, cmd?: string, param?: string, target?: string}|null $input
      */
     public function handleApiRequest(GameEngine $engine, ?array $input = null): void
     {
@@ -210,12 +213,26 @@ class UIjson extends UI
             return;
         }
 
+        $password = $params['password'] ?? '';
+        if ($password === '') {
+            $this->renderLogin("Password is required for player '{$params['username']}'.");
+            return;
+        }
+
+        $auth = $engine->pm->authenticateOrCreatePlayer($engine->worldId, $params['username'], $password, true);
+        if (!$auth['success']) {
+            $this->renderLogin($auth['error'] ?? 'Authentication failed.');
+            return;
+        }
+
         $result = $engine->processCommand(
             $params['username'],
             $params['cmd'] ?? 'look',
             $params['param'] ?? '',
             $params['target'] ?? '',
-            $this
+            $this,
+            $auth['numeric_id'] ?? null,
+            true
         );
 
         $this->player = $result['player'] ?? null;

@@ -14,6 +14,8 @@ class Player extends Character
 {
     public ?string $remoteAddr = null;
     public string $password = '';
+    public mixed $numericId = null;
+    public mixed $isBot = false;
     public int $mute = 0;
     public int $score = 0;
     public ?Skin $skin = null;
