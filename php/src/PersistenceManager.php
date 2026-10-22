@@ -293,6 +293,26 @@ class PersistenceManager
         return null;
     }
 
+    /**
+     * Reset / delete a world record from MySQL and file cache.
+     */
+    public function resetWorld(string $worldId): bool
+    {
+        if ($this->isConnected()) {
+            try {
+                $stmt = $this->pdo->prepare("DELETE FROM dimx_worlds WHERE world_id = :wid");
+                $stmt->execute([':wid' => $worldId]);
+            } catch (PDOException $e) {
+                error_log("PersistenceManager::resetWorld DB error: " . $e->getMessage());
+            }
+        }
+        $file = "{$this->storageDir}/world_{$worldId}.bin";
+        if (file_exists($file)) {
+            @unlink($file);
+        }
+        return true;
+    }
+
     // =========================================================================
     // Player persistence (score, location, properties, inventory)
     // =========================================================================

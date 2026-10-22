@@ -10,9 +10,14 @@ Modern PHP 8.1+ implementation of the **DimensioneX** virtual world and multipla
   * All game scalar values (`int`, `bool`, `string`, `float`) are loosely typed as in standard PHP, allowing dynamic context-dependent coercion without strict typing restrictions.
   * The Java `Dict` / `DictSorted` associative collection has been replaced with PHP's native associative arrays (`array`).
   * The Java `Token` polymorphic type wrapper has been replaced with PHP's native dynamic typing and union types (`mixed`).
-* **Web Interfaces as Standalone Pages**:
-  * `multiplayer.php`: Replaces Java `cleoni.adv.multiplayer` servlet as a responsive web interface for players (renders the scene view, exits, carried inventory, commands panel, and incoming chat stream).
+* **Web Interfaces & Player Types**:
+  * `multiplayer.php`: General frontend gateway that dynamically detects player type:
+    * **Human players** receive full graphical HTML with images, layout, action forms, and polling chat via [`UIhtml`](src/UIhtml.php).
+    * **Bot / AI players** receive structured JSON responses (room snapshot, items, occupants, exits, messages) via [`UIjson`](src/UIjson.php) acting as a REST API endpoint.
   * `maint.php`: Replaces Java `cleoni.adv.Maint` servlet as an administrative console for checking MySQL connectivity, initializing tables, and managing saved profiles.
+* **Separation of Concerns & Concurrency**:
+  * [`GameEngine`](src/GameEngine.php): Central processor encapsulating world loading, transaction locking (`WorldLock::executeAtomic`), entity mutations, events, and persistence, completely separated from UI presentation.
+  * [`UI`](src/UI.php), [`UIhtml`](src/UIhtml.php), [`UIjson`](src/UIjson.php): Pluggable presentation hierarchy attached to the `Player::$ui` property.
 * **Persistent Storage**:
   * Handled by [`PersistenceManager`](src/PersistenceManager.php) using **MySQL via PDO**.
   * Implements transparent automatic fallback to structured JSON file storage if MySQL is unconfigured or offline (matching DimensioneX's fallback on `onDbDown`).
@@ -94,3 +99,76 @@ php -S localhost:8000
 Then visit:
 * Game Client: `http://localhost:8000/multiplayer.php`
 * Admin Console: `http://localhost:8000/maint.php`
+
+---
+
+## 5. Bot & AI Player API Usage
+
+Bot players or AI agents can interact with the engine via `multiplayer.php` without HTML overhead:
+
+### Request Parameters
+Supply any of the following to activate the JSON API endpoint:
+* Query/POST flag: `?format=json` or `?ui=json` or `?bot=1` or `?api=1`
+* Header: `Accept: application/json` or `Content-Type: application/json`
+
+### Example Commands
+* **Login & Look**:
+  ```bash
+  curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
+    -d "username=BotAlpha&cmd=look"
+  ```
+* **Navigate / Go**:
+  ```bash
+  curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
+    -d "username=BotAlpha&cmd=go&param=E"
+  ```
+* **Pick Up Item**:
+  ```bash
+  curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
+    -d "username=BotAlpha&cmd=pick&target=apple"
+  ```
+* **Drop Item**:
+  ```bash
+  curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
+    -d "username=BotAlpha&cmd=drop&target=apple"
+  ```
+* **Chat / Speech**:
+  ```bash
+  curl -s -X POST "http://localhost:8000/multiplayer.php?ui=json" \
+    -d "username=BotAlpha&cmd=say&param=Hello+world!"
+  ```
+
+### JSON Response Format
+```json
+{
+  "success": true,
+  "status": "ok",
+  "lock_error": false,
+  "world": { "id": "default", "name": "DimensioneX Demo World", "mode": 1, "tick_length": 30 },
+  "player": {
+    "id": "BotAlpha",
+    "name": "BotAlpha",
+    "score": 0,
+    "health": 100,
+    "capacity": 5,
+    "volume": 10,
+    "carrying_count": 0,
+    "inventory": []
+  },
+  "room": {
+    "id": "beach",
+    "name": "Sunny Beach",
+    "description": "A warm sandy beach with gentle waves.",
+    "image": null,
+    "items": [
+      { "id": "apple", "name": "Fresh Apple", "pickable": true, "volume": 1, "type": "food.apple" }
+    ],
+    "occupants": [],
+    "exits": [
+      { "direction": "E", "link_id": "path_bar", "name": "Path to Bar", "target_room_id": "bar", "open": true }
+    ]
+  },
+  "messages": ["Welcome to DimensioneX Demo World, BotAlpha!"],
+  "command": { "cmd": "look", "param": "", "target": "" }
+}
+```

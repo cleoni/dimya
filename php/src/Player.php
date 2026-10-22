@@ -6,9 +6,9 @@ namespace Dimx;
 /**
  * Player
  *
- * Implements a human-controlled player character connected via web session.
+ * Implements a human-controlled or bot player character connected via web session/API.
  * Manages player profile, authentication, client display buffers, cookies,
- * and command dispatch.
+ * active UI instance, and command dispatch.
  */
 class Player extends Character
 {
@@ -20,6 +20,9 @@ class Player extends Character
     public ?Panel $panel = null;
     public ?string $prevPanelId = null;
     public bool $listening = true;
+
+    /** @var mixed Active UI instance (UIhtml or UIjson) */
+    public mixed $ui = null;
 
     /** @var array<string, mixed> Player cookies */
     public array $cookies = [];
@@ -45,6 +48,31 @@ class Player extends Character
             $world, $name, $id, $description, $icon, $attrList,
             $capacity, $volume, $defContainer
         );
+    }
+
+    /**
+     * Set the player's active UI handler.
+     */
+    public function setUI(mixed $ui): void
+    {
+        $this->ui = $ui;
+    }
+
+    /**
+     * Get the player's active UI handler.
+     */
+    public function getUI(): mixed
+    {
+        return $this->ui;
+    }
+
+    /**
+     * Prevent serializing the runtime UI instance into DB or persistent storage.
+     */
+    public function __sleep(): array
+    {
+        $vars = array_keys(get_object_vars($this));
+        return array_values(array_diff($vars, ['ui']));
     }
 
     /**
