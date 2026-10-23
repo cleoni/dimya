@@ -94,6 +94,35 @@ class World extends DimxObject
         return $this->display($msg);
     }
 
+    /** @var array<array{id: int|string, sender: string, text: string, time: string}> In-memory recent chat messages queue */
+    public array $chatQueue = [];
+
+    /**
+     * Post a chat message from a player or character to the world message queue.
+     */
+    public function postChatMessage(string $sender, string $text, ?string $recipient = null): bool
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return false;
+        }
+
+        $msg = [
+            'id'        => (int)(microtime(true) * 1000),
+            'sender'    => $sender,
+            'recipient' => $recipient,
+            'text'      => $text,
+            'time'      => date('H:i:s'),
+        ];
+        $this->chatQueue[] = $msg;
+
+        if ($this->persistence !== null) {
+            $this->persistence->postMessage($this->id, $sender, $text, $recipient);
+        }
+
+        return true;
+    }
+
     /**
      * Prevent serializing runtime service instances (like PersistenceManager/PDO).
      */
@@ -213,6 +242,24 @@ class World extends DimxObject
     public function getLink(string $id): ?Link
     {
         return $this->links[$id] ?? null;
+    }
+
+    /**
+     * Resolves an object by ID across all world collections (rooms, items, characters, players, links, contents).
+     */
+    public function getObjectExt(string $id): ?DimxObject
+    {
+        $id = trim($id);
+        if ($id === '' || strcasecmp($id, 'world') === 0 || strcasecmp($id, '$world') === 0) {
+            return $this;
+        }
+        return $this->contents[$id]
+            ?? $this->rooms[$id]
+            ?? $this->items[$id]
+            ?? $this->characters[$id]
+            ?? $this->players[$id]
+            ?? $this->links[$id]
+            ?? null;
     }
 
     public function registerEvent(Event $event): void

@@ -584,7 +584,15 @@ class UIhtml extends UI
             <div class="dimx-row-bottom">
               <!-- CELL C: Messages -->
               <div class="dimx-cell-c" id="cellC">
-                <div id="chatBox"></div>
+                <div id="chatBox">
+                  <?php foreach (($context['chat'] ?? []) as $chatMsg): ?>
+                    <div>
+                      <span class="chat-line-time">[<?= htmlspecialchars($chatMsg['time'] ?? '') ?>]</span>
+                      <span class="chat-line-sender"><?= htmlspecialchars($chatMsg['sender'] ?? '') ?>:</span>
+                      <?= htmlspecialchars($chatMsg['text'] ?? '') ?>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
               </div>
             </div>
 
@@ -612,7 +620,18 @@ class UIhtml extends UI
             // ---- Async chat ----
             const WORLD_ID   = <?= json_encode($worldId) ?>;
             const PLAYER_NAME = <?= json_encode($playerName) ?>;
-            let lastMsgId = 0;
+            <?php
+            $initialChat = $context['chat'] ?? [];
+            $initLastId = 0;
+            if (!empty($initialChat)) {
+                $lastItem = end($initialChat);
+                $initLastId = (int)($lastItem['id'] ?? 0);
+            }
+            ?>
+            let lastMsgId = <?= $initLastId ?>;
+
+            const cellC = document.getElementById('cellC');
+            if (cellC) cellC.scrollTop = cellC.scrollHeight;
 
             function renderMessage(msg) {
               const div = document.createElement('div');
@@ -629,6 +648,7 @@ class UIhtml extends UI
             async function pollChat() {
               try {
                 const url = 'chat.php?world_id=' + encodeURIComponent(WORLD_ID)
+                          + '&player=' + encodeURIComponent(PLAYER_NAME)
                           + '&after=' + lastMsgId;
                 const resp = await fetch(url);
                 if (!resp.ok) return;

@@ -288,11 +288,6 @@ class GameEngine
                 $consoleMessages = $result['msgs'];
                 $loggedOut       = $result['logged_out'] ?? $loggedOut;
             }
-
-            // Post chat messages outside the world lock
-            if ($cmd === 'say' && !empty($param) && !$lockError) {
-                $this->pm->postMessage($this->worldId, $playerName, htmlspecialchars($param));
-            }
         } else {
             // Graceful degradation when DB is offline (session / memory fallback)
             $world  = $this->loadOrSeedWorld();
@@ -311,11 +306,20 @@ class GameEngine
 
         $storageLabel = $this->pm->checkConnection()['type'];
 
+        $chatMessages = !empty($this->pm) ? $this->pm->getMessages($this->worldId, 0, 50, $player->name) : [];
+        if (empty($chatMessages) && !empty($world->chatQueue)) {
+            $chatMessages = array_values(array_filter($world->chatQueue, function($c) use ($player) {
+                $recip = $c['recipient'] ?? null;
+                return empty($recip) || $recip === $player->name || ($c['sender'] ?? '') === $player->name;
+            }));
+        }
+
         return [
             'world'        => $world,
             'player'       => $player,
             'room'         => $player->getRoom(),
             'messages'     => $consoleMessages,
+            'chat'         => $chatMessages,
             'lockError'    => $lockError,
             'cmd'          => $cmd,
             'param'        => $param,
@@ -453,9 +457,11 @@ class GameEngine
                         if ($targetObj instanceof Player) {
                             $targetObj->display("<b>{$player->name}</b> says to you: " . htmlspecialchars($param));
                         }
+                        $world->postChatMessage($player->name, "@{$targetObj->name}: " . $param);
                         $world->fireEvent('onHear', $targetObj, $player, $param);
                     } else {
                         // Broadcast aloud to all players in the world
+                        $world->postChatMessage($player->name, $param);
                         foreach ($world->players as $p) {
                             $p->display("<b>{$player->name}</b> says: " . htmlspecialchars($param));
                         }

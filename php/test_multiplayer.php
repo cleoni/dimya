@@ -441,6 +441,13 @@ assertTest(
 // -------------------------------------------------------------
 echo "\n11. Testing onStart Event & Chat PANEL Enforcement...\n";
 
+// Purge any stale chat messages from previous runs
+if ($pm->getPdo() !== null) {
+    try {
+        $pm->getPdo()->exec("DELETE FROM dimx_messages WHERE world_id = 'main'");
+    } catch (\Throwable $e) {}
+}
+
 // Verify prebuilt panels in World
 assertTest($world2->getPanel('default') !== null, "World contains prebuilt 'default' panel");
 assertTest($world2->getPanel('chat') !== null, "World contains prebuilt 'chat' panel");
@@ -549,11 +556,38 @@ $lookData = json_decode($lookJson, true);
 $lookMsg = implode(' ', $lookData['messages'] ?? []);
 assertTest(
     str_contains($lookMsg, "Walks up and down, I'd say he's got nothing to do."),
-    "Bot successfully looks at surfer in chat panel: '{$lookMsg}'"
+    "Bot successfully looks at surfer: character description is in messages"
 );
 assertTest(
-    str_contains($lookMsg, "staring at me") || str_contains($lookMsg, "Please look elsewhere!"),
-    "surfer.onLook script event fired on look: '{$lookMsg}'"
+    !str_contains($lookMsg, "staring at me") && !str_contains($lookMsg, "Please look elsewhere!"),
+    "surfer.onLook spoken message is NOT in room description / messages"
+);
+
+// Verify surfer.onLook Speak output is delivered in chat messages
+$chatTexts = array_column($lookData['chat'] ?? [], 'text');
+$chatAll   = implode(' ', $chatTexts);
+assertTest(
+    str_contains($chatAll, "staring at me") || str_contains($chatAll, "Please look elsewhere!"),
+    "surfer.onLook spoken message IS heard in chat messages: '{$chatAll}'"
+);
+$surferChat = array_filter($lookData['chat'] ?? [], fn($c) => ($c['sender'] ?? '') === 'a surfer');
+assertTest(!empty($surferChat), "surfer.onLook speech has sender 'a surfer' in chat");
+$surferMsgItem = end($surferChat);
+assertTest(($surferMsgItem['recipient'] ?? null) === $botW2, "surfer speaks to \$AGENT ({$botW2}) when second parameter is missing");
+
+// Verify that another player does NOT receive this private message directed to $botW2
+$otherChatJson = runMultiplayer([
+    'format'   => 'json',
+    'username' => 'EavesdropperBot',
+    'password' => 'secret123',
+    'cmd'      => 'look',
+]);
+$otherChatData = json_decode($otherChatJson, true);
+$otherChatTexts = array_column($otherChatData['chat'] ?? [], 'text');
+$otherChatAll = implode(' ', $otherChatTexts);
+assertTest(
+    !str_contains($otherChatAll, "staring at me") && !str_contains($otherChatAll, "Please look elsewhere!"),
+    "Other player does NOT hear the private speech directed to \$AGENT"
 );
 
 // Bot uses 'click' on surfer in chat panel - should also succeed
@@ -869,6 +903,60 @@ ob_start();
 include __DIR__ . '/maint.php';
 $maintSuccess = ob_get_clean();
 assertTest(str_contains($maintSuccess, 'The game world has been reset'), "maint.php authorizes action with correct adminPasswd");
+
+// -------------------------------------------------------------
+// Test 14: Event Model Roles ($OWNER, $AGENT, $TARGET, $WORLD) & Return (§4.1.3 & §4.1.4)
+// -------------------------------------------------------------
+echo "\n14. Testing Event Model Roles (\$OWNER, \$AGENT, \$TARGET, \$WORLD) & Return Values...\n";
+
+// Verify World::getObjectExt
+assertTest($world->getObjectExt('beach') !== null, "getObjectExt resolves room 'beach'");
+assertTest($world->getObjectExt('apple') !== null, "getObjectExt resolves item 'apple'");
+assertTest($world->getObjectExt('$WORLD') === $world, "getObjectExt resolves '\$WORLD' to World instance");
+
+// Test ActionsRunner execution with role variables and expressions
+$runnerOwner = $world->items['apple'] ?? new \Dimx\Item('apple', 'Apple');
+$runnerAgent = new \Dimx\Player($world, 'TestHero', 'p_test');
+$runnerAgent->score = 42;
+$runnerTarget = 'explicit';
+
+// 1. Script accessing $OWNER, $AGENT, $TARGET, $WORLD and modifying properties
+$runner = new \Dimx\ActionsRunner($world, $runnerOwner, $runnerAgent, $runnerTarget);
+$script1 = <<<DXW
+' Modify agent score and world property
+If \$TARGET = "explicit"
+    \$AGENT.score = \$AGENT.score + 8
+    \$WORLD.mode = 2
+End_If
+DXW;
+$res1 = $runner->run($script1);
+assertTest($res1 === true, "ActionsRunner returns true by default (§4.1.4)");
+assertTest($runnerAgent->score === 50, "Script successfully reads and updates \$AGENT.score using arithmetic: 50");
+assertTest($world->mode === 2, "Script successfully reads and updates \$WORLD.mode: 2");
+
+// 2. Cancellable Return statement returning 0 / False (§4.1.4)
+$scriptCancel = <<<DXW
+If \$AGENT.score >= 50
+    Return 0
+End_If
+Return 1
+DXW;
+$runner2 = new \Dimx\ActionsRunner($world, $runnerOwner, $runnerAgent, $runnerTarget);
+$resCancel = $runner2->run($scriptCancel);
+assertTest($resCancel == 0, "ActionsRunner Return 0 successfully evaluates and returns cancellation result (§4.1.4)");
+
+// 3. Living event pattern from §4.3: Health calculation and condition return
+$testChar = new \Dimx\Character($world, 'TestNPC', 'npc1');
+$testChar->setProperty('Health', 8.5);
+$livingRunner = new \Dimx\ActionsRunner($world, $testChar, $testChar, $testChar);
+$livingScript = <<<DXW
+\$OWNER.Health = \$OWNER.Health + 0.5
+Return \$OWNER.Health > 5
+DXW;
+$livingRes = $livingRunner->run($livingScript);
+assertTest($livingRes === true, "Living script evaluates condition and returns true: character lives");
+assertTest((float)$testChar->getProperty('Health') === 9.0, "Living script updated \$OWNER.Health to 9.0");
+
 
 $pm->resetWorld($testWorldId);
 

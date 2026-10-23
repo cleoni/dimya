@@ -157,21 +157,23 @@ class PersistenceManager
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
             'create_messages' => "CREATE TABLE IF NOT EXISTS dimx_messages (
-                message_id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                world_id     VARCHAR(64)  NOT NULL,
-                sender_name  VARCHAR(128) NOT NULL,
-                message_text TEXT         NOT NULL,
-                created_at   TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+                message_id     BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                world_id       VARCHAR(64)  NOT NULL,
+                sender_name    VARCHAR(128) NOT NULL,
+                recipient_name VARCHAR(128) DEFAULT NULL,
+                message_text   TEXT         NOT NULL,
+                created_at     TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
                 INDEX idx_world_time (world_id, message_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
             // ---- ALTER: add missing columns (each in its own statement) ----
-            'alter_worlds_src'     => "ALTER TABLE dimx_worlds ADD COLUMN IF NOT EXISTS world_src VARCHAR(512) DEFAULT NULL",
-            'alter_worlds_json'    => "ALTER TABLE dimx_worlds MODIFY COLUMN state_json LONGTEXT",
-            'alter_players_console'=> "ALTER TABLE dimx_players ADD COLUMN IF NOT EXISTS console_json MEDIUMTEXT",
-            'alter_players_pass'   => "ALTER TABLE dimx_players MODIFY COLUMN password VARCHAR(255) NOT NULL DEFAULT ''",
-            'alter_players_bot'    => "ALTER TABLE dimx_players ADD COLUMN IF NOT EXISTS is_bot TINYINT(1) DEFAULT 0",
-            'alter_players_id'     => "ALTER TABLE dimx_players ADD COLUMN IF NOT EXISTS id INT UNSIGNED AUTO_INCREMENT UNIQUE FIRST",
+            'alter_worlds_src'      => "ALTER TABLE dimx_worlds ADD COLUMN IF NOT EXISTS world_src VARCHAR(512) DEFAULT NULL",
+            'alter_worlds_json'     => "ALTER TABLE dimx_worlds MODIFY COLUMN state_json LONGTEXT",
+            'alter_players_console' => "ALTER TABLE dimx_players ADD COLUMN IF NOT EXISTS console_json MEDIUMTEXT",
+            'alter_players_pass'    => "ALTER TABLE dimx_players MODIFY COLUMN password VARCHAR(255) NOT NULL DEFAULT ''",
+            'alter_players_bot'     => "ALTER TABLE dimx_players ADD COLUMN IF NOT EXISTS is_bot TINYINT(1) DEFAULT 0",
+            'alter_players_id'      => "ALTER TABLE dimx_players ADD COLUMN IF NOT EXISTS id INT UNSIGNED AUTO_INCREMENT UNIQUE FIRST",
+            'alter_messages_recip'  => "ALTER TABLE dimx_messages ADD COLUMN IF NOT EXISTS recipient_name VARCHAR(128) DEFAULT NULL",
         ];
 
         foreach ($statements as $key => $sql) {
@@ -307,6 +309,8 @@ class PersistenceManager
             try {
                 $stmt = $this->pdo->prepare("DELETE FROM dimx_worlds WHERE world_id = :wid");
                 $stmt->execute([':wid' => $worldId]);
+                $stmt = $this->pdo->prepare("DELETE FROM dimx_messages WHERE world_id = :wid");
+                $stmt->execute([':wid' => $worldId]);
             } catch (PDOException $e) {
                 error_log("PersistenceManager::resetWorld DB error: " . $e->getMessage());
             }
@@ -314,6 +318,10 @@ class PersistenceManager
         $file = "{$this->storageDir}/world_{$worldId}.bin";
         if (file_exists($file)) {
             @unlink($file);
+        }
+        $msgFile = "{$this->storageDir}/messages_{$worldId}.jsonl";
+        if (file_exists($msgFile)) {
+            @unlink($msgFile);
         }
         return true;
     }
@@ -917,16 +925,22 @@ class PersistenceManager
 
     /**
      * Post a chat message from a player. No lock needed — INSERT is atomic.
+     * If $recipientName is provided, the message is privately directed to that player/character.
      */
-    public function postMessage(string $worldId, string $senderName, string $text): bool
+    public function postMessage(string $worldId, string $senderName, string $text, ?string $recipientName = null): bool
     {
         if ($this->isConnected()) {
             try {
                 $stmt = $this->pdo->prepare("
-                    INSERT INTO dimx_messages (world_id, sender_name, message_text)
-                    VALUES (:wid, :sender, :text)
+                    INSERT INTO dimx_messages (world_id, sender_name, recipient_name, message_text)
+                    VALUES (:wid, :sender, :recip, :text)
                 ");
-                return $stmt->execute([':wid' => $worldId, ':sender' => $senderName, ':text' => $text]);
+                return $stmt->execute([
+                    ':wid'    => $worldId,
+                    ':sender' => $senderName,
+                    ':recip'  => $recipientName,
+                    ':text'   => $text,
+                ]);
             } catch (PDOException $e) {
                 error_log("PersistenceManager::postMessage error: " . $e->getMessage());
             }
@@ -935,51 +949,65 @@ class PersistenceManager
         // File-based fallback (append to JSONL)
         $file = "{$this->storageDir}/chat_{$worldId}.jsonl";
         $line = json_encode([
-            'id'      => time(),
-            'sender'  => $senderName,
-            'text'    => $text,
-            'time'    => date('Y-m-d H:i:s'),
+            'id'        => time(),
+            'sender'    => $senderName,
+            'recipient' => $recipientName,
+            'text'      => $text,
+            'time'      => date('Y-m-d H:i:s'),
         ]) . "\n";
         return file_put_contents($file, $line, FILE_APPEND | LOCK_EX) !== false;
     }
 
     /**
      * Fetch chat messages newer than $afterId (message_id, not timestamp).
-     * Returns array of ['id', 'sender', 'text', 'time'] sorted ascending.
+     * If $playerName is provided, includes broadcast messages plus private messages to/from this player.
+     * Returns array of ['id', 'sender', 'text', 'time', 'recipient'] sorted ascending.
      *
-     * @param string $worldId
-     * @param int    $afterId  Last known message_id (0 = return last $limit messages)
-     * @param int    $limit    Max rows to return
+     * @param string      $worldId
+     * @param int         $afterId     Last known message_id (0 = return last $limit messages)
+     * @param int         $limit       Max rows to return
+     * @param string|null $playerName  Optional player name to filter private recipient messages
      */
-    public function getMessages(string $worldId, int $afterId = 0, int $limit = 50): array
+    public function getMessages(string $worldId, int $afterId = 0, int $limit = 50, ?string $playerName = null): array
     {
         if ($this->isConnected()) {
             try {
+                $recipSql = "";
+                $params   = [':wid' => $worldId];
+                $limInt   = max(1, (int)$limit);
+
+                if ($playerName !== null && $playerName !== '') {
+                    $recipSql = " AND (recipient_name IS NULL OR recipient_name = '' OR recipient_name = :pname1 OR sender_name = :pname2)";
+                    $params[':pname1'] = $playerName;
+                    $params[':pname2'] = $playerName;
+                }
+
                 if ($afterId > 0) {
+                    $params[':after'] = (int)$afterId;
                     $stmt = $this->pdo->prepare("
-                        SELECT message_id AS id, sender_name AS sender, message_text AS text,
-                               DATE_FORMAT(created_at, '%H:%i:%s') AS time
+                        SELECT message_id AS id, sender_name AS sender, recipient_name AS recipient,
+                               message_text AS text, DATE_FORMAT(created_at, '%H:%i:%s') AS time
                         FROM dimx_messages
-                        WHERE world_id = :wid AND message_id > :after
+                        WHERE world_id = :wid AND message_id > :after {$recipSql}
                         ORDER BY message_id ASC
-                        LIMIT :lim
+                        LIMIT {$limInt}
                     ");
-                    $stmt->execute([':wid' => $worldId, ':after' => $afterId, ':lim' => $limit]);
+                    $stmt->execute($params);
                 } else {
                     // Initial load: return last $limit messages
                     $stmt = $this->pdo->prepare("
-                        SELECT message_id AS id, sender_name AS sender, message_text AS text,
-                               DATE_FORMAT(created_at, '%H:%i:%s') AS time
+                        SELECT message_id AS id, sender_name AS sender, recipient_name AS recipient,
+                               message_text AS text, DATE_FORMAT(created_at, '%H:%i:%s') AS time
                         FROM (
-                            SELECT message_id, sender_name, message_text, created_at
+                            SELECT message_id, sender_name, recipient_name, message_text, created_at
                             FROM dimx_messages
-                            WHERE world_id = :wid
+                            WHERE world_id = :wid {$recipSql}
                             ORDER BY message_id DESC
-                            LIMIT :lim
+                            LIMIT {$limInt}
                         ) sub
                         ORDER BY message_id ASC
                     ");
-                    $stmt->execute([':wid' => $worldId, ':lim' => $limit]);
+                    $stmt->execute($params);
                 }
                 return $stmt->fetchAll();
             } catch (PDOException $e) {
@@ -994,11 +1022,22 @@ class PersistenceManager
         }
         $lines  = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         $result = [];
-        $i      = 0;
         foreach ($lines as $line) {
             $msg = json_decode($line, true);
             if ($msg && $msg['id'] > $afterId) {
-                $result[] = ['id' => $msg['id'], 'sender' => $msg['sender'], 'text' => $msg['text'], 'time' => $msg['time'] ?? ''];
+                if ($playerName !== null && $playerName !== '') {
+                    $recip = $msg['recipient'] ?? null;
+                    if ($recip !== null && $recip !== '' && $recip !== $playerName && ($msg['sender'] ?? '') !== $playerName) {
+                        continue;
+                    }
+                }
+                $result[] = [
+                    'id'        => $msg['id'],
+                    'sender'    => $msg['sender'],
+                    'recipient' => $msg['recipient'] ?? null,
+                    'text'      => $msg['text'],
+                    'time'      => $msg['time'] ?? '',
+                ];
             }
         }
         return array_slice($result, -$limit);

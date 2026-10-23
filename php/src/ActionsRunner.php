@@ -17,6 +17,9 @@ class ActionsRunner
     protected mixed $target = null;
     protected array $input = [];
 
+    protected bool $hasReturned = false;
+    protected mixed $returnValue = true;
+
     public function __construct(
         World $world,
         ?DimxObject $owner = null,
@@ -50,7 +53,7 @@ class ActionsRunner
         $i = 0;
         $result = true;
 
-        while ($i < $count) {
+        while ($i < $count && !$this->hasReturned) {
             $line = $lines[$i];
 
             // Check for If block
@@ -93,16 +96,22 @@ class ActionsRunner
                 if (!empty($execLines)) {
                     $subScript = implode("\n", $execLines);
                     $result = $this->run($subScript);
+                    if ($this->hasReturned) {
+                        return $this->returnValue;
+                    }
                 }
                 continue;
             }
 
             // Normal single statement execution
             $result = $this->executeStatement($line);
+            if ($this->hasReturned) {
+                return $this->returnValue;
+            }
             $i++;
         }
 
-        return $result;
+        return $this->hasReturned ? $this->returnValue : $result;
     }
 
     /**
@@ -110,6 +119,15 @@ class ActionsRunner
      */
     protected function executeStatement(string $line): mixed
     {
+        // Check for Return statement (e.g. "Return 0", "Return False", "Return $OWNER.Health > 0")
+        if (preg_match('/^RETURN(\s+(.*))?$/i', $line, $m)) {
+            $expr = trim($m[2] ?? '');
+            $val = ($expr === '') ? true : $this->evalCondition($expr);
+            $this->hasReturned = true;
+            $this->returnValue = $val;
+            return $val;
+        }
+
         // 1. Property assignment e.g. "$WORLD.mode = 1" or "box.open = 0"
         if (preg_match('/^(\$?[A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*=\s*(.*)$/', $line, $m)) {
             $targetName = $m[1];
@@ -142,8 +160,17 @@ class ActionsRunner
             'BROADCAST' => $this->actBroadcast($args),
             'MOVE'      => $this->actMove($args),
             'GOAL'      => $this->actGoal($args),
+            'RETURN'    => $this->actReturn($args),
             default     => true,
         };
+    }
+
+    protected function actReturn(array $args): mixed
+    {
+        $val = !empty($args) ? $this->evalCondition(implode(' ', $args)) : true;
+        $this->hasReturned = true;
+        $this->returnValue = $val;
+        return $val;
     }
 
     /**
@@ -168,8 +195,10 @@ class ActionsRunner
     }
 
     /**
-     * Speak msg1 [, msg2, ...]
-     * Picks one random message if multiple provided, and outputs to agent.
+     * Speak [speaker,] [destination,] msg1 [, msg2, ...]
+     * As per Developer's Reference §3.9.29:
+     * If the second parameter (destination) is missing, the implicit target is $AGENT.
+     * The phrase is spoken to $AGENT, not to the room or to the world.
      */
     protected function actSpeak(array $args): bool
     {
@@ -177,26 +206,99 @@ class ActionsRunner
             return false;
         }
 
+        $speaker = ($this->owner instanceof ManageableObject && !empty($this->owner->name))
+            ? $this->owner->name
+            : 'Someone';
+        $speakerObj = $this->owner;
+        $destination = $this->agent; // Default implicit target is $AGENT
+
+        $isLiteral = function(string $s): bool {
+            $t = trim($s);
+            return str_starts_with($t, '"') || str_starts_with($t, "'");
+        };
+
+        // Check if first argument is an explicit speaker ID (and not a message literal)
+        if (count($args) > 1 && is_string($args[0]) && !$isLiteral($args[0])) {
+            $p0 = trim($args[0]);
+            $charObj = $this->world->getCharacter($p0) ?? $this->world->getPlayer($p0);
+            if ($charObj instanceof ManageableObject) {
+                $speakerObj = $charObj;
+                $speaker = $charObj->name;
+                array_shift($args);
+
+                // Check if next argument is an explicit destination ID
+                if (count($args) > 1 && is_string($args[0]) && !$isLiteral($args[0])) {
+                    $p1 = trim($args[0]);
+                    $p1Upper = strtoupper($p1);
+                    if ($p1Upper === '$WORLD' || $p1Upper === 'WORLD') {
+                        $destination = $this->world;
+                        array_shift($args);
+                    } elseif ($p1Upper === '$AGENT' || $p1Upper === 'AGENT') {
+                        $destination = $this->agent;
+                        array_shift($args);
+                    } else {
+                        $destObj = $this->world->getCharacter($p1)
+                            ?? $this->world->getPlayer($p1)
+                            ?? $this->world->getRoom($p1);
+                        if ($destObj !== null) {
+                            $destination = $destObj;
+                            array_shift($args);
+                        }
+                    }
+                }
+                // If destination was omitted, implicit target remains $AGENT
+            } elseif (strtoupper($p0) === '$WORLD' || strtoupper($p0) === 'WORLD') {
+                $destination = $this->world;
+                array_shift($args);
+            }
+        }
+
+        if (empty($args)) {
+            return false;
+        }
+
         // Random selection if multiple messages provided (dialogue variation)
         $chosen = $args[array_rand($args)];
         $chosen = (string)$this->evalValue((string)$chosen);
+        $chosen = trim($chosen, "\"'");
 
-        $speaker = ($this->owner instanceof ManageableObject) ? $this->owner->name : 'Someone';
-        $message = "<b>{$speaker}</b>: {$chosen}";
-
-        if ($this->agent instanceof Player) {
-            $this->agent->display($message);
-            return true;
+        // Determine recipient name: if destination is $AGENT or a Player, deliver privately to that player
+        $recipientName = null;
+        if ($destination instanceof Player) {
+            $recipientName = $destination->name;
+        } elseif ($destination instanceof Character) {
+            $recipientName = $destination->name;
+        } elseif ($destination === null && $this->agent instanceof Player) {
+            $recipientName = $this->agent->name;
         }
 
-        // Fallback: broadcast to current room
-        $room = ($this->owner instanceof AdvObject) ? $this->owner->getRoom() : null;
-        if ($room !== null) {
-            $room->display($message);
-            return true;
+        // If destination is explicitly $WORLD, recipientName is null (broadcast to all)
+        if ($destination instanceof World) {
+            $recipientName = null;
         }
 
-        $this->world->broadcast($message);
+        // Spoken messages are inserted into the chat messages queue for the target
+        $this->world->postChatMessage($speaker, $chosen, $recipientName);
+
+        // Fire onHear on destination if applicable (avoid cascading onHear)
+        static $speaking = false;
+        if (!$speaking) {
+            $speaking = true;
+            try {
+                if ($destination instanceof ManageableObject && $destination !== $speakerObj) {
+                    $this->world->fireEvent('onHear', $destination, $speakerObj, $chosen);
+                } elseif ($destination instanceof Room) {
+                    foreach ($destination->getOccupants() as $occ) {
+                        if ($occ !== $speakerObj) {
+                            $this->world->fireEvent('onHear', $occ, $speakerObj, $chosen);
+                        }
+                    }
+                }
+            } finally {
+                $speaking = false;
+            }
+        }
+
         return true;
     }
 
@@ -296,27 +398,41 @@ class ActionsRunner
         if ($upper === '$WORLD' || $upper === 'WORLD') {
             return $this->world;
         }
-        if ($upper === '$OWNER' && $this->owner instanceof DimxObject) {
-            return $this->owner;
+        if ($upper === '$OWNER') {
+            if ($this->owner instanceof DimxObject) {
+                return $this->owner;
+            }
+            if (is_string($this->owner) && $this->owner !== '') {
+                return $this->world->getObjectExt($this->owner);
+            }
+            return null;
         }
-        if ($upper === '$AGENT' && $this->agent instanceof DimxObject) {
-            return $this->agent;
+        if ($upper === '$AGENT') {
+            if ($this->agent instanceof DimxObject) {
+                return $this->agent;
+            }
+            if (is_string($this->agent) && $this->agent !== '') {
+                return $this->world->getObjectExt($this->agent);
+            }
+            return null;
         }
-        if ($upper === '$TARGET' && $this->target instanceof DimxObject) {
-            return $this->target;
+        if ($upper === '$TARGET') {
+            if ($this->target instanceof DimxObject) {
+                return $this->target;
+            }
+            if (is_string($this->target) && $this->target !== '') {
+                return $this->world->getObjectExt($this->target);
+            }
+            return null;
         }
 
-        return $this->world->contents[$name]
-            ?? $this->world->rooms[$name]
-            ?? $this->world->items[$name]
-            ?? $this->world->characters[$name]
-            ?? null;
+        return $this->world->getObjectExt($name);
     }
 
     /**
      * Evaluate condition expression like "$WORLD.mode <> 1" or "open = 0"
      */
-    protected function evalCondition(string $expr): bool
+    protected function evalCondition(string $expr): mixed
     {
         $expr = trim($expr);
 
@@ -340,7 +456,7 @@ class ActionsRunner
             }
         }
 
-        return (bool)$this->evalValue($expr);
+        return $this->evalValue($expr);
     }
 
     /**
@@ -354,11 +470,49 @@ class ActionsRunner
             return substr($val, 1, -1);
         }
 
+        if (str_starts_with($val, "'") && str_ends_with($val, "'") && strlen($val) >= 2) {
+            return substr($val, 1, -1);
+        }
+
         if (is_numeric($val)) {
             return str_contains($val, '.') ? (float)$val : (int)$val;
         }
 
-        // Property access e.g. "$WORLD.mode" or "box.open"
+        $upper = strtoupper($val);
+        if ($upper === 'TRUE') {
+            return true;
+        }
+        if ($upper === 'FALSE') {
+            return false;
+        }
+        if ($upper === 'NULL') {
+            return null;
+        }
+
+        // Special system variables: $WORLD, $OWNER, $AGENT, $TARGET
+        if ($upper === '$WORLD') {
+            return $this->world->id;
+        }
+        if ($upper === '$OWNER') {
+            if ($this->owner instanceof DimxObject) {
+                return $this->owner->id ?? $this->owner->name;
+            }
+            return (string)($this->owner ?? '');
+        }
+        if ($upper === '$AGENT') {
+            if ($this->agent instanceof DimxObject) {
+                return $this->agent->id ?? $this->agent->name;
+            }
+            return (string)($this->agent ?? '');
+        }
+        if ($upper === '$TARGET') {
+            if ($this->target instanceof DimxObject) {
+                return $this->target->id ?? $this->target->name;
+            }
+            return (string)($this->target ?? '');
+        }
+
+        // Property access e.g. "$WORLD.mode", "$OWNER.Health", "box.open"
         if (preg_match('/^(\$?[A-Za-z0-9_]+)\.([A-Za-z0-9_]+)$/', $val, $m)) {
             $obj = $this->resolveObject($m[1]);
             $prop = $m[2];
@@ -369,6 +523,22 @@ class ActionsRunner
                 return $obj->getProperty($prop);
             }
             return null;
+        }
+
+        // Simple binary arithmetic: left [+-*/] right (e.g. "$OWNER.Health + 0.2")
+        if (preg_match('/^(.+?)\s*([\+\-\*\/])\s*(.+)$/', $val, $am)) {
+            $left = $this->evalValue($am[1]);
+            $op = $am[2];
+            $right = $this->evalValue($am[3]);
+            if (is_numeric($left) && is_numeric($right)) {
+                return match ($op) {
+                    '+' => $left + $right,
+                    '-' => $left - $right,
+                    '*' => $left * $right,
+                    '/' => $right != 0 ? $left / $right : 0,
+                    default => $val,
+                };
+            }
         }
 
         return $val;

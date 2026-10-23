@@ -149,6 +149,7 @@ Every command cycle follows this processing pipeline:
   * If `target` is omitted: broadcasts speech to current room or world (subject to world interphone settings).
   * If `target` is a room ID: delivers message to that room.
   * If `target` is a player/character name: whispers privately.
+  * Speech messages from chat controls (`say`, speech textbox) and script instructions (`Speak`) are delivered directly to the chat messages queue (`dimx-cell-c` / `chat.php` / UIjson `'chat'`) and do not pollute the room description / console space.
 * **Events**: Fires `onHear` on each receiving occupant.
 
 ### 14. `save`
@@ -220,3 +221,77 @@ When a player or bot issues a custom command (e.g. `cmd=scan`):
    - `world.events["cmd_scan"]`
    - `world.events["onScan"]`
 3. Dispatches event with `$OWNER = $player`, `$AGENT = $player`, `$TARGET = $targetId`, and dynamic parameters passed in `$param`.
+
+---
+
+## 6. The Event Model & Special Script Variables (Developer's Reference §4.1.3 & §4.1.4)
+
+SmallBasic scripts in DimensioneX and DimensioneY rely fundamentally on the system event model and four special variables: **`$OWNER`**, **`$AGENT`**, **`$TARGET`**, and **`$WORLD`**.
+
+### 6.1 Event Parameter Roles (§4.1.3, Developer's Reference pp. 102–103)
+
+Whenever an event fires (e.g. `onLook`, `onUseWith`, `onEnter`, `whenPicked`, `Living`), the engine automatically instantiates and binds the participating objects into predefined roles:
+
+| Special Variable | Role Description | Concrete Examples |
+|:---|:---|:---|
+| **`$OWNER`** | The object that **owns** the event (the object to which the event is directly associated). | In `surfer.onLook`, the surfer is `$OWNER`. In `altar.onUseWith`, the altar is `$OWNER`. In container `chapel.onLooseItem`, the chapel is `$OWNER`. |
+| **`$AGENT`** | The object (usually a `Player` or `Character`) that **caused** the action or triggered the event. | When a player clicks or looks at the surfer, the interacting player is `$AGENT`. When a player drops an apple, that player is `$AGENT`. When a character moves through a link, that character is `$AGENT`. |
+| **`$TARGET`** | The secondary object, destination link/room, or situational argument involved in the interaction. | In `key.onUseWith`, the door being unlocked is `$TARGET`. In `onLook`, `$TARGET` is `"explicit"` if the Look command was invoked via button/command, or `""` (empty string) if triggered by clicking the object. In `onLooseItem`, `$TARGET` is the item leaving the container. In `onSpeechFinish`, `$TARGET` is the character who received the speech. |
+| **`$WORLD`** | The global `World` instance representing the environment. | Provides direct access to world properties and configuration (e.g. `$WORLD.mode`, `$WORLD.name`, `$WORLD.tick_length`), world-wide broadcasting (`Broadcast`), and panel switching (`SetPanel $WORLD, "chat"`). |
+
+#### Summary of Standard Roles by Event:
+
+| Event | $OWNER | $AGENT | $TARGET | Cancellable? (Return 0) | Notes |
+|:---|:---|:---|:---|:---:|:---|
+| `onLook` | Object looked at | Character/Player looking | `"explicit"` (via Look button) or `""` (via click) | Yes | Returning `0` / `false` cancels description display |
+| `onUse` | Item being used | Character using item | Target or `null` | No | Single item activation |
+| `onUseWith` | First item / tool | Character using | Second item / target object | No | Combines or applies tool on target |
+| `beforeOpen` | Item being opened | Character opening item | Unused | Yes | Returning `0` / `false` keeps item locked/closed |
+| `onOpen` | Item being opened | Character opening item | Unused | No | Post-open trigger |
+| `onClose` | Item being closed | Character closing item | Unused | No | Post-close trigger |
+| `whenPicked` | Item being picked | Character picking up item | Character receiving item | No | Executes right before `onReceiveItem` |
+| `whenDropped`| Item being dropped | Character dropping item | Container receiving item | No | Executes right before `onLooseItem` |
+| `onEnter` | Object entering container | Character moving object | Container entered | No | Precedes `onReceive` |
+| `onExit` | Object exiting container | Character moving object | Container exited | Yes | Returning `0` / `false` aborts movement |
+| `onReceive` | Container receiving | Character causing move | Object entering container | Yes | Default `true`; returning `false` rejects receipt |
+| `onLoose` | Container losing character | Character causing move | Destination Link or object | Yes | Returning `0` / `false` aborts departure |
+| `onReceiveItem`| Container receiving item | Character causing move | Item being received | Yes | Triggers right after `whenPicked` |
+| `onLooseItem` | Container losing item | Character causing move | Item being lost | Yes | Returning `0` / `false` cancels pickup/loss |
+| `onSave` | Player saving | Player | Player (if Save) or `""` (if exit) | Yes | Returning `0` / `false` aborts save operation |
+| `onSearch` | Item to be found | Character searching | Unused | Yes | Returning `0` / `false` leaves item hidden |
+| `Living` | Character evaluated | Same character | Same character | Yes | Evaluated each tick; returning `0` / `false` causes NPC death |
+| `onSpeechFinish`| Character speaking | Character speaking | Character receiving speech | No | Triggered when NPC finishes `Speak "*"` sequence |
+
+---
+
+### 6.2 Script Return Values & Action Cancellation (§4.1.4, Developer's Reference p. 103)
+
+1. **Default Success Semantics**:
+   All SmallBasic event scripts implicitly return success (`true` / `1`) when execution completes without an explicit `Return` statement.
+2. **Action Cancellation**:
+   For cancellable events (listed in the table above), scripts can return `0` or `false` using the `Return` instruction:
+   ```dxw
+   EVENT Living
+   ACTIONS
+       ' Restores health slightly each clock tick
+       $OWNER.Health = $OWNER.Health + 0.2
+       If $OWNER.Health > 10
+           $OWNER.Health = 10
+       End_If
+       ' Return non-zero to keep character alive; return 0/false causes character to die
+       Return $OWNER.Health > 0
+   END_EVENT
+   ```
+   ```dxw
+   EVENT chest.beforeOpen
+   ACTIONS
+       If $AGENT.has_key <> 1
+           Display "The chest is firmly locked! You need a golden key."
+           Return 0    ' Cancels open action; chest remains closed
+       End_If
+       Return 1        ' Chest unlocks and opens
+   END_EVENT
+   ```
+3. **Execution Termination**:
+   Executing `Return <expression>` immediately terminates execution of the event script, returning the evaluated boolean or numeric scalar back to the engine caller.
+
