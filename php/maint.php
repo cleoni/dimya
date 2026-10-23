@@ -9,60 +9,76 @@ declare(strict_types=1);
  * and inspecting server diagnostics including lock state and chat.
  */
 
+if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    session_start();
+}
+
 require_once __DIR__ . '/autoload.php';
 
 use Dimx\PersistenceManager;
 
-$config   = file_exists(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
-$dbConfig = $config['db'] ?? [];
-$pm       = new PersistenceManager($dbConfig, __DIR__ . '/data');
+$config      = file_exists(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
+$dbConfig    = $config['db'] ?? [];
+$adminPasswd = (string)($config['adminPasswd'] ?? '');
+$pm          = new PersistenceManager($dbConfig, __DIR__ . '/data');
 
-$action  = $_POST['action'] ?? $_GET['action'] ?? '';
-$message = '';
+$action          = $_POST['action'] ?? $_GET['action'] ?? '';
+$inputPasswd     = (string)($_POST['adminPasswd'] ?? $_SESSION['adminPasswd'] ?? '');
+$isAuthenticated = ($adminPasswd !== '' && hash_equals($adminPasswd, $inputPasswd));
+$message         = '';
+$messageType     = 'alert';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    switch ($action) {
-        case 'init_db':
-            if ($pm->isConnected()) {
-                $res     = $pm->initTables();
-                $message = $res ? "Database tables successfully initialized (all 4 tables)." : "Failed to initialize tables.";
-            } else {
-                $message = "Cannot initialize tables: MySQL is not connected.";
-            }
-            break;
-
-        case 'clear_file_cache':
-            $files = array_merge(
-                glob(__DIR__ . '/data/*.json') ?: [],
-                glob(__DIR__ . '/data/*.bin')  ?: [],
-                glob(__DIR__ . '/data/*.jsonl') ?: []
-            );
-            foreach ($files as $f) { @unlink($f); }
-            $message = "Local file cache cleared (" . count($files) . " files removed).";
-            break;
-
-        case 'reset_world':
-            $worldId = 'main';
-            $pm->resetWorld($worldId);
-            $message = "The game world has been reset. It will be re-seeded from server configuration on the next player connection.";
-            break;
-
-        case 'clear_chat':
-            $worldId = 'main';
-            if ($pm->isConnected()) {
-                try {
-                    $pdo = $pm->getPdo();
-                    $pdo->prepare("DELETE FROM dimx_messages WHERE world_id = :w")->execute([':w' => $worldId]);
-                    $message = "Chat history cleared for the game world.";
-                } catch (\Throwable $e) {
-                    $message = "Error: " . $e->getMessage();
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($action)) {
+    if (!$isAuthenticated) {
+        $message     = "Access denied: incorrect or missing admin password. Please enter the valid admin password.";
+        $messageType = 'err';
+    } else {
+        $_SESSION['adminPasswd'] = $inputPasswd;
+        switch ($action) {
+            case 'init_db':
+                if ($pm->isConnected()) {
+                    $res     = $pm->initTables();
+                    $message = $res ? "Database tables successfully initialized (all 4 tables)." : "Failed to initialize tables.";
+                } else {
+                    $message     = "Cannot initialize tables: MySQL is not connected.";
+                    $messageType = 'err';
                 }
-            } else {
-                $file = __DIR__ . "/data/chat_{$worldId}.jsonl";
-                if (file_exists($file)) { @unlink($file); }
-                $message = "Local chat history cleared.";
-            }
-            break;
+                break;
+
+            case 'clear_file_cache':
+                $files = array_merge(
+                    glob(__DIR__ . '/data/*.json') ?: [],
+                    glob(__DIR__ . '/data/*.bin')  ?: [],
+                    glob(__DIR__ . '/data/*.jsonl') ?: []
+                );
+                foreach ($files as $f) { @unlink($f); }
+                $message = "Local file cache cleared (" . count($files) . " files removed).";
+                break;
+
+            case 'reset_world':
+                $worldId = 'main';
+                $pm->resetWorld($worldId);
+                $message = "The game world has been reset. It will be re-seeded from server configuration on the next player connection.";
+                break;
+
+            case 'clear_chat':
+                $worldId = 'main';
+                if ($pm->isConnected()) {
+                    try {
+                        $pdo = $pm->getPdo();
+                        $pdo->prepare("DELETE FROM dimx_messages WHERE world_id = :w")->execute([':w' => $worldId]);
+                        $message = "Chat history cleared for the game world.";
+                    } catch (\Throwable $e) {
+                        $message     = "Error: " . $e->getMessage();
+                        $messageType = 'err';
+                    }
+                } else {
+                    $file = __DIR__ . "/data/chat_{$worldId}.jsonl";
+                    if (file_exists($file)) { @unlink($file); }
+                    $message = "Local chat history cleared.";
+                }
+                break;
+        }
     }
 }
 
@@ -110,6 +126,7 @@ if ($pm->isConnected()) {
     .status-badge{display:inline-block;padding:4px 10px;border-radius:4px;font-weight:600;font-size:13px}
     .badge-ok{background:#065f46;color:#34d399}.badge-warn{background:#854d0e;color:#fde047}
     .alert{padding:12px;border-radius:6px;margin-bottom:16px;background:#1e40af;color:#dbeafe}
+    .alert-err{background:#991b1b;color:#fecaca}
     table{width:100%;border-collapse:collapse;font-size:13px}
     th,td{padding:6px 10px;text-align:left;border-bottom:1px solid #334155}
     th{color:#94a3b8;text-transform:uppercase;font-size:11px;letter-spacing:.05em}
@@ -129,8 +146,23 @@ if ($pm->isConnected()) {
   </div>
 
   <?php if (!empty($message)): ?>
-    <div class="alert"><?= htmlspecialchars($message) ?></div>
+    <div class="alert <?= $messageType === 'err' ? 'alert-err' : '' ?>"><?= htmlspecialchars($message) ?></div>
   <?php endif; ?>
+
+  <!-- Admin Authentication Card -->
+  <div class="maint-card" style="border-left:4px solid #38bdf8">
+    <h3>🔑 Administrator Authentication</h3>
+    <p style="font-size:13px;color:#94a3b8">Enter the <code>adminPasswd</code> configured in <code>config.php</code> to authorize world reset and maintenance operations.</p>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <label for="adminPasswd" style="font-size:13px;font-weight:600">Admin Password:</label>
+      <input type="password" id="adminPasswd" name="adminPasswd" value="<?= htmlspecialchars($inputPasswd) ?>" placeholder="Enter admin password…" style="padding:6px 10px;background:#0f172a;border:1px solid #475569;border-radius:4px;color:#fff;font-size:14px;width:240px" oninput="updateAllFormPasswords(this.value)" />
+      <?php if ($isAuthenticated): ?>
+        <span class="status-badge badge-ok">✔ Authenticated</span>
+      <?php else: ?>
+        <span class="status-badge badge-warn">🔒 Authentication Required</span>
+      <?php endif; ?>
+    </div>
+  </div>
 
   <!-- Storage diagnostics -->
   <div class="maint-card">
@@ -155,8 +187,9 @@ if ($pm->isConnected()) {
     </div>
     <?php endif; ?>
 
-    <form method="POST" style="display:inline">
+    <form method="POST" style="display:inline" onsubmit="return syncPasswd(this)">
       <input type="hidden" name="action" value="init_db" />
+      <input type="hidden" name="adminPasswd" class="form-admin-passwd" value="<?= htmlspecialchars($inputPasswd) ?>" />
       <button type="submit" class="btn">Initialize / Upgrade MySQL Tables</button>
     </form>
   </div>
@@ -183,8 +216,9 @@ if ($pm->isConnected()) {
   <div class="maint-card">
     <h3>🌍 World Management</h3>
     <p style="font-size:13px;color:#94a3b8">Reset the game world. On the next player connection, the authoritative state will be re-seeded from the server's configured definition file. All in-game modifications (moved items, player positions) will be reset.</p>
-    <form method="POST" onsubmit="return confirm('Reset the game world? All in-game state will be lost.')">
+    <form method="POST" onsubmit="return confirmAction(this, 'Reset the game world? All in-game state will be lost.')">
       <input type="hidden" name="action" value="reset_world" />
+      <input type="hidden" name="adminPasswd" class="form-admin-passwd" value="<?= htmlspecialchars($inputPasswd) ?>" />
       <button type="submit" class="btn btn-danger">🔄 Reset Game World</button>
     </form>
   </div>
@@ -193,8 +227,9 @@ if ($pm->isConnected()) {
   <div class="maint-card">
     <h3>💬 Chat Management</h3>
     <p style="font-size:13px;color:#94a3b8">Clear the world chat log history.</p>
-    <form method="POST" onsubmit="return confirm('Clear all chat messages for the world?')">
+    <form method="POST" onsubmit="return confirmAction(this, 'Clear all chat messages for the world?')">
       <input type="hidden" name="action" value="clear_chat" />
+      <input type="hidden" name="adminPasswd" class="form-admin-passwd" value="<?= htmlspecialchars($inputPasswd) ?>" />
       <button type="submit" class="btn btn-danger">Clear Chat History</button>
     </form>
   </div>
@@ -211,8 +246,9 @@ if ($pm->isConnected()) {
       </ul>
     <?php endif; ?>
     <form method="POST" style="margin-top:10px"
-          onsubmit="return confirm('Erase all local cache files?')">
+          onsubmit="return confirmAction(this, 'Erase all local cache files?')">
       <input type="hidden" name="action" value="clear_file_cache" />
+      <input type="hidden" name="adminPasswd" class="form-admin-passwd" value="<?= htmlspecialchars($inputPasswd) ?>" />
       <button type="submit" class="btn btn-danger">Clear Local File Cache</button>
     </form>
   </div>
@@ -229,11 +265,38 @@ return [
         'user'   => 'root',
         'pass'   => 'secret',
     ],
-    'world_file' => __DIR__ . '/../docs/dxw-examples/world2.dxw',
-    'base_url'   => 'http://localhost',
+    'adminPasswd' => 'admin123',
+    'world_file'  => __DIR__ . '/../docs/dxw-examples/world2.dxw',
+    'base_url'    => 'http://localhost',
 ];</pre>
   </div>
 
 </div>
+
+<script>
+  function updateAllFormPasswords(val) {
+    document.querySelectorAll('.form-admin-passwd').forEach(function(el) {
+      el.value = val;
+    });
+  }
+
+  function syncPasswd(form) {
+    var pwdInput = document.getElementById('adminPasswd');
+    var pwd = pwdInput ? pwdInput.value : '';
+    var hidden = form.querySelector('.form-admin-passwd');
+    if (hidden) hidden.value = pwd;
+    if (!pwd) {
+      alert('Please enter the admin password first.');
+      if (pwdInput) pwdInput.focus();
+      return false;
+    }
+    return true;
+  }
+
+  function confirmAction(form, msg) {
+    if (!syncPasswd(form)) return false;
+    return confirm(msg);
+  }
+</script>
 </body>
 </html>

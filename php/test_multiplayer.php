@@ -826,6 +826,50 @@ assertTest(array_key_exists('tick_length', $stdWorld), "Standard bot world secti
 assertTest(!array_key_exists('id', $stdWorld), "Standard bot world section omits 'id'");
 assertTest(!array_key_exists('mode', $stdWorld), "Standard bot world section omits 'mode'");
 
+// -------------------------------------------------------------
+// Test 13: Maintenance Console Authentication & UIhtml Title Bar
+// -------------------------------------------------------------
+echo "\n13. Testing adminPasswd in config and maint.php authentication...\n";
+
+$cfg = file_exists(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
+assertTest(isset($cfg['adminPasswd']) && is_string($cfg['adminPasswd']) && $cfg['adminPasswd'] !== '', "config.php defines non-empty 'adminPasswd'");
+
+// UIhtml title bar does not expose Maint or Reset links
+$testW = new Dimx\World('w_title_test', 'Title Test');
+$testR = new Dimx\Room($testW, 'Quiet Room', 'quiet_rm');
+$testP = new Dimx\Player($testW, 'TitlePlayer', 'p_title');
+$testP->container = $testR;
+$testR->contents[$testP->id] = $testP;
+$testUi = new Dimx\UIhtml($testP);
+ob_start();
+$testUi->render(['world' => $testW, 'player' => $testP, 'room' => $testR]);
+$titleHtml = ob_get_clean();
+
+assertTest(!str_contains($titleHtml, 'maint.php'), "UIhtml title bar omits Maint link");
+assertTest(!str_contains($titleHtml, '?reset=1'), "UIhtml title bar omits Reset link");
+
+// Test maint.php denial without password
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_POST = ['action' => 'reset_world'];
+ob_start();
+include __DIR__ . '/maint.php';
+$maintDeniedNoPass = ob_get_clean();
+assertTest(str_contains($maintDeniedNoPass, 'Access denied: incorrect or missing admin password'), "maint.php denies action without adminPasswd");
+
+// Test maint.php denial with incorrect password
+$_POST = ['action' => 'reset_world', 'adminPasswd' => 'incorrectSecret999'];
+ob_start();
+include __DIR__ . '/maint.php';
+$maintDeniedBadPass = ob_get_clean();
+assertTest(str_contains($maintDeniedBadPass, 'Access denied: incorrect or missing admin password'), "maint.php denies action with incorrect adminPasswd");
+
+// Test maint.php authorization with correct password
+$_POST = ['action' => 'reset_world', 'adminPasswd' => $cfg['adminPasswd']];
+ob_start();
+include __DIR__ . '/maint.php';
+$maintSuccess = ob_get_clean();
+assertTest(str_contains($maintSuccess, 'The game world has been reset'), "maint.php authorizes action with correct adminPasswd");
+
 $pm->resetWorld($testWorldId);
 
 // Clean up single test world
