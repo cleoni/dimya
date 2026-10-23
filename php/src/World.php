@@ -17,7 +17,7 @@ class World extends DimxObject
     public string $bgcolor = '#9DB9E9';
     public int $interphone = 1; // 0=room only, 1=world with vehicle privacy, 2=global
     public int $tickLength = 30; // Seconds between clock ticks
-    public int $mode = 1; // 1 = running, 0 = game won (Goal)
+    public int $mode = 0; // 0 = stopped / lobby / won (Goal), 1 = adventure running
     public int $savegamePersistence = 2; // 0=restart only, 1=version only, 2=permanent
 
     /** @var array<string> Blacklisted client IPs */

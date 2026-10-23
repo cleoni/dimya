@@ -192,9 +192,9 @@ Panels define the authoritative command sets accepted by the engine and exposed 
    - The full adventure gameplay command set.
    - Includes: `look`, `go`, `use`, `pick`, `drop`, `open`, `close`, `search`, `say` (`txtBox`), `help`, `save`, and `exit`.
 2. **`chat` PANEL**:
-   - A reduced communication and session command set.
-   - Allows only: speech box (`txtBox`), `say`, `save`, and `exit`.
-   - Core adventure actions (`look`, `go`, `pick`, `use`, etc.) are disallowed and rejected while this panel is active.
+   - A communication, inspection, and session command set.
+   - Includes: `look`, `click`, `use`, speech box (`txtBox`), `say`, `save`, and `exit` (movement `go` is also always valid).
+   - Inventory-altering actions (`pick`, `drop`, `open`, `close`, `search`, etc.) are disallowed and rejected while this panel is active.
 
 ### Script Instruction: `SetPanel`
 Scripts can switch panels globally for the world or for specific containers/players:

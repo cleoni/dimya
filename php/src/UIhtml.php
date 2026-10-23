@@ -232,11 +232,11 @@ class UIhtml extends UI
                 <div style="position:absolute;bottom:12px;left:12px;display:flex;flex-wrap:wrap;gap:6px">
                   <?php foreach ($occupants as $char): ?>
                     <?php if ($char !== $player): ?>
-                      <span class="dimx-tag" onclick="sendCmd('look','','<?= htmlspecialchars($char->id) ?>')">👤 <?= htmlspecialchars($char->name) ?></span>
+                      <span class="dimx-tag" onclick="sendCmd('click','','<?= htmlspecialchars($char->id) ?>')">👤 <?= htmlspecialchars($char->name) ?></span>
                     <?php endif; ?>
                   <?php endforeach; ?>
                   <?php foreach ($roomItems as $itm): ?>
-                    <span class="dimx-tag" onclick="sendCmd('pick','','<?= htmlspecialchars($itm->id) ?>')">📦 <?= htmlspecialchars($itm->name) ?></span>
+                    <span class="dimx-tag" onclick="sendCmd('click','','<?= htmlspecialchars($itm->id) ?>')">📦 <?= htmlspecialchars($itm->name) ?></span>
                   <?php endforeach; ?>
                 </div>
               </div>

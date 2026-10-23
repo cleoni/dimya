@@ -447,10 +447,12 @@ $chatCmds = $chatPanel->getAvailableCommands();
 assertTest(in_array('say', $chatCmds, true), "Chat panel allows 'say' command");
 assertTest(in_array('save', $chatCmds, true), "Chat panel allows 'save' command");
 assertTest(in_array('exit', $chatCmds, true), "Chat panel allows 'exit' command");
+assertTest(in_array('look', $chatCmds, true), "Chat panel allows 'look' command");
+assertTest(in_array('click', $chatCmds, true), "Chat panel allows 'click' command");
+assertTest(in_array('use', $chatCmds, true), "Chat panel allows 'use' command");
 assertTest(in_array('go', $chatCmds, true), "Move commands ('go') are always valid");
-assertTest(!in_array('look', $chatCmds, true), "Chat panel DOES NOT allow 'look' command");
 assertTest(!in_array('pick', $chatCmds, true), "Chat panel DOES NOT allow 'pick' command");
-assertTest(!in_array('use', $chatCmds, true), "Chat panel DOES NOT allow 'use' command");
+assertTest(!in_array('drop', $chatCmds, true), "Chat panel DOES NOT allow 'drop' command");
 
 // Seed world2 using GameEngine to trigger onStart
 $testWorldId = 'test_w2_' . rand(1000, 9999);
@@ -473,8 +475,20 @@ $botData = json_decode($botJsonOutput, true);
 assertTest(($botData['status'] ?? '') === 'ok', "Bot login response status is 'ok'");
 assertTest(($botData['panel']['id'] ?? '') === 'chat', "Bot received active panel 'chat'");
 assertTest(
+    in_array('look', $botData['panel']['commands'] ?? [], true),
+    "Bot panel commands include 'look': " . json_encode($botData['panel']['commands'] ?? [])
+);
+assertTest(
+    in_array('click', $botData['panel']['commands'] ?? [], true),
+    "Bot panel commands include 'click': " . json_encode($botData['panel']['commands'] ?? [])
+);
+assertTest(
     in_array('go', $botData['panel']['commands'] ?? [], true),
     "Bot panel commands include 'go': " . json_encode($botData['panel']['commands'] ?? [])
+);
+assertTest(
+    in_array('use', $botData['panel']['commands'] ?? [], true),
+    "Bot panel commands include 'use': " . json_encode($botData['panel']['commands'] ?? [])
 );
 
 // Verify Bot inspecting surfer receives the complete description
@@ -491,30 +505,72 @@ assertTest(
     "Bot room snapshot surfer description is complete: '{$surferOcc['description']}'"
 );
 
-// Bot tries disallowed command 'look' in chat panel
-$disallowedJson = runMultiplayer([
+// Bot uses 'look' on surfer in chat panel - should succeed and trigger surfer.onLook
+$lookJson = runMultiplayer([
     'format'   => 'json',
     'username' => $botW2,
     'password' => 'botPass123',
     'cmd'      => 'look',
+    'target'   => 'surfer',
 ]);
-$disallowedData = json_decode($disallowedJson, true);
-$disallowedMsg = implode(' ', $disallowedData['messages'] ?? []);
+$lookData = json_decode($lookJson, true);
+$lookMsg = implode(' ', $lookData['messages'] ?? []);
 assertTest(
-    str_contains($disallowedMsg, "Command 'look' is not allowed in current panel (chat)"),
-    "Bot sending 'look' is rejected in chat panel: '{$disallowedMsg}'"
+    str_contains($lookMsg, "Walks up and down, I'd say he's got nothing to do."),
+    "Bot successfully looks at surfer in chat panel: '{$lookMsg}'"
+);
+assertTest(
+    str_contains($lookMsg, "staring at me") || str_contains($lookMsg, "Please look elsewhere!"),
+    "surfer.onLook script event fired on look: '{$lookMsg}'"
 );
 
-// Bot moves using 'go U' (Up to rocca) - move command is valid and succeeds
-$goJson = runMultiplayer([
+// Bot uses 'click' on surfer in chat panel - should also succeed
+$clickJson = runMultiplayer([
     'format'   => 'json',
     'username' => $botW2,
     'password' => 'botPass123',
-    'cmd'      => 'go',
-    'param'    => 'U',
+    'cmd'      => 'click',
+    'target'   => 'surfer',
 ]);
-$goData = json_decode($goJson, true);
-assertTest(($goData['room']['id'] ?? '') === 'rocca', "Move command 'go U' took player to 'rocca': " . ($goData['room']['id'] ?? 'none'));
+$clickData = json_decode($clickJson, true);
+$clickMsg = implode(' ', $clickData['messages'] ?? []);
+assertTest(
+    str_contains($clickMsg, "Walks up and down, I'd say he's got nothing to do."),
+    "Bot successfully clicks on surfer in chat panel: '{$clickMsg}'"
+);
+
+// Bot tries disallowed command 'pick' in chat panel
+$disallowedPickJson = runMultiplayer([
+    'format'   => 'json',
+    'username' => $botW2,
+    'password' => 'botPass123',
+    'cmd'      => 'pick',
+    'target'   => 'box',
+]);
+$disallowedPickData = json_decode($disallowedPickJson, true);
+$disallowedPickMsg = implode(' ', $disallowedPickData['messages'] ?? []);
+assertTest(
+    str_contains($disallowedPickMsg, "Command 'pick' is not allowed in current panel (chat)"),
+    "Bot sending 'pick' is rejected in chat panel: '{$disallowedPickMsg}'"
+);
+
+// Test continuous session navigation and using switch to start game
+$resGo1 = $engineW2->processCommand('SessionBot', 'go', 'U', '', $uiJson, null, true, true);
+$botSessionId = $resGo1['player']->id;
+assertTest($resGo1['room']?->id === 'rocca', "Move command 'go U' took player to 'rocca'");
+
+$resGo2 = $engineW2->processCommand('SessionBot', 'go', 'E', '', $uiJson, null, true, false, $botSessionId);
+assertTest($resGo2['room']?->id === 'bungalow', "Move command 'go E' took player to 'bungalow'");
+
+// Use switch in bungalow: triggers switch.onUse and transitions world to default panel!
+$resUse = $engineW2->processCommand('SessionBot', 'use', '', 'switch', $uiJson, null, true, false, $botSessionId);
+$useSwitchMsg = implode(' ', $resUse['messages'] ?? []);
+assertTest(
+    str_contains($useSwitchMsg, "The adventure has started!"),
+    "switch.onUse fired and broadcasted: '{$useSwitchMsg}'"
+);
+assertTest($resUse['world']->defaultPanel->id === 'default', "switch.onUse successfully switched panel to 'default'");
+assertTest($resUse['world']->defaultPanel->isCommandAllowed('pick'), "Default panel now allows 'pick'");
 
 // Human HTML verification: Navigation exits remain visible and active
 $humanHtmlOutput = runMultiplayer([
@@ -524,13 +580,14 @@ $humanHtmlOutput = runMultiplayer([
 ]);
 assertTest(str_contains($humanHtmlOutput, 'id="panel_chat"'), "Human player gets HTML panel with id='panel_chat'");
 assertTest(str_contains($humanHtmlOutput, 'name="txtBox"'), "Human player gets speech textbox");
+assertTest(str_contains($humanHtmlOutput, "sendCmd('look')"), "Human player sees Look button");
+assertTest(str_contains($humanHtmlOutput, "sendCmd('click')"), "Human player sees Click button");
+assertTest(str_contains($humanHtmlOutput, "sendCmd('use')"), "Human player sees Use button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('say')"), "Human player gets Say button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('save')"), "Human player gets Save button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('exit')"), "Human player gets Exit button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('go','U')"), "Human player STILL SEES exit button for [U] to the rock");
-assertTest(!str_contains($humanHtmlOutput, "sendCmd('look')"), "Human player DOES NOT see Look button");
 assertTest(!str_contains($humanHtmlOutput, "sendCmd('pick')"), "Human player DOES NOT see Pick button");
-assertTest(!str_contains($humanHtmlOutput, "sendCmd('use')"), "Human player DOES NOT see Use button");
 
 $pm->resetWorld($testWorldId);
 

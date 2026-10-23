@@ -334,7 +334,7 @@ class GameEngine
     ): void {
         $panel = $player->getPanel() ?? $world->defaultPanel;
         $isCoreCommand = in_array($cmd, [
-            'look', 'examine', 'go', 'pick', 'take', 'get', 'drop',
+            'look', 'examine', 'click', 'go', 'pick', 'take', 'get', 'drop',
             'use', 'open', 'close', 'search', 'say', 'talk', 'inv',
             'inventory', 'help', 'save', 'exit', 'quit', 'logout', 'disconnect'
         ], true);
@@ -349,6 +349,7 @@ class GameEngine
         switch ($cmd) {
             case 'look':
             case 'examine':
+            case 'click':
                 if (!empty($targetId)) {
                     $targetObj = $currentRoom?->contents[$targetId]
                               ?? $player->contents[$targetId]
@@ -420,8 +421,9 @@ class GameEngine
                 break;
 
             case 'use':
-                if (!empty($targetId)) {
-                    $item = $player->contents[$targetId] ?? $currentRoom?->contents[$targetId] ?? null;
+                $useTarget = !empty($targetId) ? $targetId : $param;
+                if (!empty($useTarget)) {
+                    $item = $player->contents[$useTarget] ?? $currentRoom?->contents[$useTarget] ?? null;
                     if ($item instanceof Item) {
                         $res = $world->fireEvent('onUse', $item, $player, null);
                         if (!$res) {

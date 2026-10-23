@@ -57,6 +57,7 @@ class Panel
     {
         $panel = new self('default');
         $panel->addButton(new Ctrl('look', Ctrl::TYPE_BUTTON, 'Look', 'Look around or inspect object', 'onLook'));
+        $panel->addButton(new Ctrl('click', Ctrl::TYPE_BUTTON, 'Click', 'Inspect or interact with object', 'onLook'));
         $panel->addButton(new Ctrl('go', Ctrl::TYPE_BUTTON, 'Go', 'Travel in a direction or passage', 'onGo'));
         $panel->addButton(new Ctrl('use', Ctrl::TYPE_BUTTON, 'Use', 'Use an item or activate mechanism', 'onUse'));
         $panel->addButton(new Ctrl('pick', Ctrl::TYPE_BUTTON, 'Pick', 'Pick up item from room', 'whenPicked'));
@@ -74,11 +75,14 @@ class Panel
 
     /**
      * Factory to generate the DimensioneX prebuilt 'chat' command panel.
-     * Allows speech box (txtBox), Say, Save, and Exit commands.
+     * Allows Look, Click, Use, speech box (txtBox), Say, Save, and Exit commands.
      */
     public static function createChatPanel(): self
     {
         $panel = new self('chat');
+        $panel->addButton(new Ctrl('look', Ctrl::TYPE_BUTTON, 'Look', 'Look around or inspect object', 'onLook'));
+        $panel->addButton(new Ctrl('click', Ctrl::TYPE_BUTTON, 'Click', 'Inspect or interact with object', 'onLook'));
+        $panel->addButton(new Ctrl('use', Ctrl::TYPE_BUTTON, 'Use', 'Use an item or activate mechanism', 'onUse'));
         $panel->addButton(new Ctrl('txtBox', Ctrl::TYPE_TEXTBOX, '', 'Enter speech...'));
         $panel->addButton(new Ctrl('say', Ctrl::TYPE_BUTTON, 'Say', 'Speak to characters in the room', 'onSay'));
         $panel->addButton(new Ctrl('save', Ctrl::TYPE_BUTTON, 'Save', 'Save current player data', 'onSave'));
@@ -110,6 +114,11 @@ class Panel
                     }
                     if ($cmdId === 'look') {
                         $cmds[] = 'examine';
+                        $cmds[] = 'click';
+                    }
+                    if ($cmdId === 'click') {
+                        $cmds[] = 'look';
+                        $cmds[] = 'examine';
                     }
                     if ($cmdId === 'pick') {
                         $cmds[] = 'take';
@@ -137,6 +146,10 @@ class Panel
         }
         // Move commands are always valid and produce effect whenever there is a valid link
         if ($cmd === 'go' || in_array($cmd, ['n', 's', 'e', 'w', 'u', 'd', 'north', 'south', 'east', 'west', 'up', 'down'], true)) {
+            return true;
+        }
+        // Look and click commands are always valid to inspect objects
+        if (in_array($cmd, ['look', 'click', 'examine'], true)) {
             return true;
         }
         $allowed = $this->getAvailableCommands();
