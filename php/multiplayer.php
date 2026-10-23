@@ -23,6 +23,7 @@ require_once __DIR__ . '/autoload.php';
 use Dimx\UI;
 use Dimx\UIhtml;
 use Dimx\UIjson;
+use Dimx\UIbot;
 use Dimx\GameEngine;
 use Dimx\PersistenceManager;
 
@@ -30,17 +31,25 @@ use Dimx\PersistenceManager;
 $config   = file_exists(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
 $dbConfig = $config['db'] ?? [];
 $baseUrl  = $config['base_url'] ?? '';
+$testBots = (array)($config['testBots'] ?? ['BotAlpha']);
 $pm       = new PersistenceManager($dbConfig, __DIR__ . '/data');
 
-// 2. Determine client type (bot / JSON API vs human / HTML browser)
-$clientType = UI::detectClientType();
-$ui = ($clientType === 'json') ? new UIjson() : new UIhtml();
+// Helper to instantiate appropriate Bot UI (UIjson for test bots, UIbot for standard bots)
+$createBotUi = function (string $name) use ($testBots): UI {
+    return in_array($name, $testBots, true) ? new UIjson() : new UIbot();
+};
 
-// 3. Parse and sanitize input parameters (POST, GET, and JSON body)
+// 2. Parse and sanitize input parameters (POST, GET, and JSON body)
 $input         = UI::parseInput();
 $requestedUser = $input['username'];
 $password      = $input['password'];
 $resetWorld    = $input['reset'] || (isset($_GET['reset']) && $_GET['reset'] === '1');
+
+// 3. Determine client type (bot / JSON API vs human / HTML browser)
+$clientType     = UI::detectClientType();
+$sessionUser    = (string)($_SESSION['dimx_player'] ?? '');
+$activeUsername = !empty($requestedUser) ? $requestedUser : $sessionUser;
+$ui             = ($clientType === 'json') ? $createBotUi($activeUsername) : new UIhtml();
 
 // 4. Single authoritative world per installation (configured strictly on server)
 $worldFile = $config['world_file'] ?? $config['default_world'] ?? null;
@@ -95,6 +104,11 @@ if (!empty($requestedUser)) {
 
 $_SESSION['dimx_player'] = $playerName;
 $_SESSION['dimx_world']  = $worldId;
+
+// Ensure UI instance matches finalized playerName
+if ($clientType === 'json') {
+    $ui = $createBotUi($playerName);
+}
 
 // 6. Handle world reset request if invoked
 if ($resetWorld) {

@@ -44,7 +44,7 @@ Every command cycle follows this processing pipeline:
 | **`click`** | `target` | - | Context-sensitive click on an object | `onClick` (defaults to `go` for Links, `look` for others) |
 | **`go`** | `link_or_dir` | `walk`, `move` | Traverses a Link or direction (`N`, `S`, `E`, `W`, `U`, `D`) | `onExit`, `onEnter` |
 | **`rotate`** | `[direction]` | `rotr`, `rotl` | Rotates player facing orientation (N ➔ E ➔ S ➔ W) | `onRotate` |
-| **`look`** | `[target]` | `examine`, `l` | Inspects an object or current room, returning description and items | `onLook` |
+| **`look`** | `[target]` | `l` | Inspects an object or current room, returning description and items | `onLook` |
 | **`use`** | `target` | - | Uses a single item | `item.onUse`, `onUse` |
 | **`use2`** | `item1`, `item2` | `usewith`, `combine`| Uses item1 with item2 (tool with target) | `item1.onUseWith(item2)` |
 | **`open`** | `target` | - | Opens a container, door, or link | `onOpen` |
@@ -57,10 +57,10 @@ Every command cycle follows this processing pipeline:
 | **`give`** | `item`, `character`| - | Offers an item to an NPC or another player | `whenGiven`, `whenReceived` |
 | **`enter`** | `vehicle` | `board` | Enters a vehicle item | `onEnterVehicle` |
 | **`exit`** | - | `leave`, `disembark` | Disembarks vehicle into the surrounding room | `onExitVehicle` |
-| **`say`** | `text`, `[target]` | `talk`, `shout` | Speaks to room, world, or whispers to a specific person | `onHear` |
+| **`say`** | `text`, `[target]` | - | Speaks aloud to room/world, or directly to a specific person if target provided | `onHear` |
 | **`save`** | - | - | Saves current player data (location, inventory, properties, score) | `onSave` |
 | **`login`** | `[password]` | - | Authenticates player and displays initial room snapshot | `onLogin` |
-| **`exit`** | - | `logout`, `quit`, `disconnect` | Exits virtual world (logout); carried items drop to the floor | `onQuit`, `onExit` |
+| **`exit`** | - | `logout` | Exits virtual world (logout); carried items drop to the floor | `onQuit`, `onExit` |
 
 > [!IMPORTANT]
 > **Legacy DimensioneX `savexit` Removed**: The old combined `savexit` ("Save & Exit") command from DimensioneX has been completely removed. It is replaced by two distinct, independent commands:
@@ -174,7 +174,7 @@ Every command cycle follows this processing pipeline:
 
 ### 16. `exit` (alias `logout`)
 * **Intent**: Exits the virtual world (logout).
-* **Aliases**: `logout`, `quit`, `disconnect`.
+* **Aliases**: `logout`.
 * **Effect**:
   * **Drops all carried items in inventory onto the current room floor** (firing `whenDropped` for each item).
   * Notifies other room occupants that the player has left the game.

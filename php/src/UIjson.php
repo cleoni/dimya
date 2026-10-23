@@ -132,13 +132,7 @@ class UIjson extends UI
             if ($occ === $player) {
                 continue;
             }
-            $occupants[] = [
-                'id'          => $occ->id,
-                'name'        => $occ->name,
-                'description' => $occ->evalDescription($player),
-                'is_player'   => ($occ instanceof Player),
-                'icon'        => $occ->icon,
-            ];
+            $occupants[] = $this->buildOccupantSnapshot($occ, $player);
         }
 
         // Room exits / links
@@ -166,6 +160,22 @@ class UIjson extends UI
             'items'       => $items,
             'occupants'   => $occupants,
             'exits'       => $exits,
+        ];
+    }
+
+    /**
+     * Build occupant snapshot record.
+     *
+     * @return array<string, mixed>
+     */
+    protected function buildOccupantSnapshot(Character $occ, Player $player): array
+    {
+        return [
+            'id'          => $occ->id,
+            'name'        => $occ->name,
+            'description' => $occ->evalDescription($player),
+            'is_player'   => ($occ instanceof Player),
+            'icon'        => $occ->icon,
         ];
     }
 

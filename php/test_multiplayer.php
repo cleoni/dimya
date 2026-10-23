@@ -490,6 +490,30 @@ assertTest(
     in_array('use', $botData['panel']['commands'] ?? [], true),
     "Bot panel commands include 'use': " . json_encode($botData['panel']['commands'] ?? [])
 );
+assertTest(
+    !in_array('examine', $botData['panel']['commands'] ?? [], true),
+    "Bot panel commands DO NOT include 'examine'"
+);
+assertTest(
+    !in_array('talk', $botData['panel']['commands'] ?? [], true),
+    "Bot panel commands DO NOT include 'talk'"
+);
+assertTest(
+    !in_array('quit', $botData['panel']['commands'] ?? [], true),
+    "Bot panel commands DO NOT include 'quit'"
+);
+assertTest(
+    !in_array('disconnect', $botData['panel']['commands'] ?? [], true),
+    "Bot panel commands DO NOT include 'disconnect'"
+);
+assertTest(
+    in_array('exit', $botData['panel']['commands'] ?? [], true),
+    "Bot panel commands include 'exit'"
+);
+assertTest(
+    in_array('logout', $botData['panel']['commands'] ?? [], true),
+    "Bot panel commands include 'logout'"
+);
 
 // Verify Bot inspecting surfer receives the complete description
 $surferOcc = null;
@@ -588,6 +612,82 @@ assertTest(str_contains($humanHtmlOutput, "sendCmd('save')"), "Human player gets
 assertTest(str_contains($humanHtmlOutput, "sendCmd('exit')"), "Human player gets Exit button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('go','U')"), "Human player STILL SEES exit button for [U] to the rock");
 assertTest(!str_contains($humanHtmlOutput, "sendCmd('pick')"), "Human player DOES NOT see Pick button");
+
+// Test 12: Testing UIbot vs UIjson and testBots Configuration
+echo "\n12. Testing UIbot vs UIjson and testBots Configuration...\n";
+use Dimx\UIbot;
+
+$uiBot = new UIbot();
+assertTest($uiBot instanceof Dimx\UIjson, "UIbot inherits from UIjson");
+assertTest($uiBot->getType() === 'bot', "UIbot type is 'bot'");
+
+// Create mock room with both NPC Character and Player occupant
+$w = $seededWorld;
+$mockRoom = new Dimx\Room($w, 'Test Room', 'test_room');
+$npcChar  = new Dimx\Character($w, 'NpcDude', 'npc_dude');
+$npcChar->move($mockRoom);
+$otherPlayer = new Dimx\Player($w, 'OtherPlayer', 'p_other');
+$otherPlayer->move($mockRoom);
+$observerPlayer = new Dimx\Player($w, 'Observer', 'p_observer');
+$observerPlayer->move($mockRoom);
+
+$uiBotSnapshot = $uiBot->buildRoomSnapshot($mockRoom, $observerPlayer);
+$uiJsonSnapshot = $uiJson->buildRoomSnapshot($mockRoom, $observerPlayer);
+
+// UIbot must NOT have 'is_player' in any occupant
+$uiBotOccupants = $uiBotSnapshot['occupants'] ?? [];
+assertTest(count($uiBotOccupants) === 2, "UIbot snapshot contains 2 occupants");
+$hasIsPlayerInBot = false;
+foreach ($uiBotOccupants as $occ) {
+    if (array_key_exists('is_player', $occ)) {
+        $hasIsPlayerInBot = true;
+    }
+}
+assertTest(!$hasIsPlayerInBot, "UIbot occupant snapshot omits 'is_player' (NPCs and players indistinguishable)");
+
+// UIjson MUST have 'is_player' in occupants
+$uiJsonOccupants = $uiJsonSnapshot['occupants'] ?? [];
+$hasIsPlayerInJson = true;
+foreach ($uiJsonOccupants as $occ) {
+    if (!array_key_exists('is_player', $occ)) {
+        $hasIsPlayerInJson = false;
+    }
+}
+assertTest($hasIsPlayerInJson, "UIjson occupant snapshot retains 'is_player' for diagnostic/testing");
+
+// Test via multiplayer.php gateway: BotAlpha in testBots gets UIjson
+$botAlphaJson = runMultiplayer([
+    'bot'      => '1',
+    'username' => 'BotAlpha',
+    'password' => 'test123',
+    'cmd'      => 'look',
+]);
+$botAlphaData = json_decode($botAlphaJson, true);
+$botAlphaOccupants = $botAlphaData['room']['occupants'] ?? [];
+$botAlphaHasIsPlayer = false;
+foreach ($botAlphaOccupants as $occ) {
+    if (array_key_exists('is_player', $occ)) {
+        $botAlphaHasIsPlayer = true;
+    }
+}
+assertTest($botAlphaHasIsPlayer, "BotAlpha (in testBots) receives UIjson with 'is_player' visible");
+
+// Test via multiplayer.php gateway: Standard bot (not in testBots) gets UIbot
+$standardBotJson = runMultiplayer([
+    'bot'      => '1',
+    'username' => 'StandardBot_' . rand(100, 999),
+    'password' => 'std123',
+    'cmd'      => 'look',
+]);
+$standardBotData = json_decode($standardBotJson, true);
+$standardBotOccupants = $standardBotData['room']['occupants'] ?? [];
+$standardBotHasIsPlayer = false;
+foreach ($standardBotOccupants as $occ) {
+    if (array_key_exists('is_player', $occ)) {
+        $standardBotHasIsPlayer = true;
+    }
+}
+assertTest(!$standardBotHasIsPlayer, "Standard bot receives UIbot without 'is_player'");
 
 $pm->resetWorld($testWorldId);
 

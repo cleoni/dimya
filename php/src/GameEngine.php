@@ -239,7 +239,7 @@ class GameEngine
 
         $consoleMessages = [];
         $lockError       = false;
-        $loggedOut       = in_array($cmd, ['logout', 'quit', 'exit', 'disconnect'], true);
+        $loggedOut       = in_array($cmd, ['logout', 'exit'], true);
 
         // Concurrency-controlled execution via WorldLock (MySQL GET_LOCK)
         if ($this->pdo !== null && $this->lock !== null) {
@@ -334,9 +334,9 @@ class GameEngine
     ): void {
         $panel = $player->getPanel() ?? $world->defaultPanel;
         $isCoreCommand = in_array($cmd, [
-            'look', 'examine', 'click', 'go', 'pick', 'take', 'get', 'drop',
-            'use', 'open', 'close', 'search', 'say', 'talk', 'inv',
-            'inventory', 'help', 'save', 'exit', 'quit', 'logout', 'disconnect'
+            'look', 'click', 'go', 'pick', 'take', 'get', 'drop',
+            'use', 'open', 'close', 'search', 'say', 'inv',
+            'inventory', 'help', 'save', 'exit', 'logout'
         ], true);
 
         if ($panel !== null && ($isCoreCommand || isset($world->events["cmd_{$cmd}"])) && !$panel->isCommandAllowed($cmd)) {
@@ -348,7 +348,6 @@ class GameEngine
 
         switch ($cmd) {
             case 'look':
-            case 'examine':
             case 'click':
                 if (!empty($targetId)) {
                     $targetObj = $currentRoom?->contents[$targetId]
@@ -438,17 +437,30 @@ class GameEngine
                 break;
 
             case 'say':
-            case 'talk':
                 if (!empty($param)) {
-                    // Broadcast to all players in the world
-                    foreach ($world->players as $p) {
-                        $p->display("<b>{$player->name}</b> says: " . htmlspecialchars($param));
-                    }
-                    // Fire onHear on other occupants in the same room
-                    if ($currentRoom !== null) {
-                        foreach ($currentRoom->getOccupants() as $occ) {
-                            if ($occ !== $player) {
-                                $world->fireEvent('onHear', $occ, $player, $param);
+                    // Check if an explicit target was specified (say to someone)
+                    $targetObj = !empty($targetId)
+                        ? ($currentRoom?->getOccupants()[$targetId] ?? $world->getCharacter($targetId) ?? $currentRoom?->contents[$targetId] ?? null)
+                        : null;
+
+                    if ($targetObj instanceof Character) {
+                        // Spoken directly to someone
+                        $player->display("You say to <b>{$targetObj->name}</b>: " . htmlspecialchars($param));
+                        if ($targetObj instanceof Player) {
+                            $targetObj->display("<b>{$player->name}</b> says to you: " . htmlspecialchars($param));
+                        }
+                        $world->fireEvent('onHear', $targetObj, $player, $param);
+                    } else {
+                        // Broadcast aloud to all players in the world
+                        foreach ($world->players as $p) {
+                            $p->display("<b>{$player->name}</b> says: " . htmlspecialchars($param));
+                        }
+                        // Fire onHear on other occupants in the same room
+                        if ($currentRoom !== null) {
+                            foreach ($currentRoom->getOccupants() as $occ) {
+                                if ($occ !== $player) {
+                                    $world->fireEvent('onHear', $occ, $player, $param);
+                                }
                             }
                         }
                     }
@@ -469,9 +481,7 @@ class GameEngine
                 break;
 
             case 'logout':
-            case 'quit':
             case 'exit':
-            case 'disconnect':
                 // Notify other occupants in room & drop carried inventory to the floor
                 if ($currentRoom !== null) {
                     foreach ($player->contents as $item) {

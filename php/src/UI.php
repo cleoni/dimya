@@ -93,7 +93,7 @@ abstract class UI
         $bot    = $_GET['bot'] ?? $_POST['bot'] ?? null;
         $api    = $_GET['api'] ?? $_POST['api'] ?? null;
 
-        if ($format === 'json' || $ui === 'json') {
+        if ($format === 'json' || $ui === 'json' || $format === 'bot' || $ui === 'bot') {
             return 'json';
         }
         if ($bot !== null && $bot !== '' && $bot !== '0' && $bot !== 'false') {

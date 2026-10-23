@@ -128,6 +128,17 @@ Supply any of the following to activate the JSON API endpoint:
 * Query/POST flag: `?format=json` or `?ui=json` or `?bot=1` or `?api=1`
 * Header: `Accept: application/json` or `Content-Type: application/json`
 
+### Automated PHP Bot Client (`bot.php`)
+A standalone PHP script demonstrating automated bot interaction via cURL is provided in [`bot.php`](bot.php):
+* Configured with top-level variables (`$gameUrl`, `$username`, `$password`, `$logFile`).
+* Automatically logs every HTTP request and response payload to [`conversation.log`](conversation.log).
+* Logs into the game, greets with `"Hello!"`, detects available exits, moves to a new room, greets the room with `"Nice to be in (room name)"`, and disconnects with `exit`.
+
+Run the bot with:
+```bash
+php bot.php
+```
+
 ### Example Commands
 * **Login & Look**:
   ```bash

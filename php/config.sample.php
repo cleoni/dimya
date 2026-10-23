@@ -21,4 +21,8 @@ return [
     'default_world' => 'https://test.dimensionex.net/worlds/world1.dxw',
     // Base URL for images when IMAGESFOLDER is relative
     'base_url' => 'https://test.dimensionex.net',
+    // Usernames of test bots that receive UIjson (with diagnostic fields) instead of UIbot
+    'testBots' => [
+        'BotAlpha',
+    ],
 ];

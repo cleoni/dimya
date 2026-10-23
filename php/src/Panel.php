@@ -104,21 +104,14 @@ class Panel
                 $cmdId = strtolower($ctrl->id);
                 if (!empty($cmdId)) {
                     $cmds[] = $cmdId;
-                    if ($cmdId === 'say') {
-                        $cmds[] = 'talk';
-                    }
                     if ($cmdId === 'exit') {
                         $cmds[] = 'logout';
-                        $cmds[] = 'quit';
-                        $cmds[] = 'disconnect';
                     }
                     if ($cmdId === 'look') {
-                        $cmds[] = 'examine';
                         $cmds[] = 'click';
                     }
                     if ($cmdId === 'click') {
                         $cmds[] = 'look';
-                        $cmds[] = 'examine';
                     }
                     if ($cmdId === 'pick') {
                         $cmds[] = 'take';
@@ -149,7 +142,7 @@ class Panel
             return true;
         }
         // Look and click commands are always valid to inspect objects
-        if (in_array($cmd, ['look', 'click', 'examine'], true)) {
+        if (in_array($cmd, ['look', 'click'], true)) {
             return true;
         }
         $allowed = $this->getAvailableCommands();
