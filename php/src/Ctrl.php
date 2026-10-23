@@ -26,6 +26,7 @@ class Ctrl extends ManageableObject
     public string $tooltip = '';
     public string $event = '';
     public ?string $icon = null;
+    public string $eventModel = '';
     public ?Image $image = null;
     public array $options = []; // For dropdowns: [value => label]
 
@@ -35,7 +36,8 @@ class Ctrl extends ManageableObject
         string $caption = '',
         string $tooltip = '',
         string $event = '',
-        ?string $icon = null
+        ?string $icon = null,
+        string $eventModel = ''
     ) {
         parent::__construct();
         $this->id = $id;
@@ -44,6 +46,7 @@ class Ctrl extends ManageableObject
         $this->tooltip = $tooltip;
         $this->event = $event;
         $this->icon = $icon;
+        $this->eventModel = $eventModel;
     }
 
     /**
@@ -66,13 +69,14 @@ class Ctrl extends ManageableObject
         $idEsc = htmlspecialchars($this->id, ENT_QUOTES);
         $titleEsc = htmlspecialchars($this->tooltip ?: $this->caption, ENT_QUOTES);
         $captionEsc = htmlspecialchars($this->caption, ENT_QUOTES);
+        $modelEsc = htmlspecialchars($this->eventModel, ENT_QUOTES);
 
         $iconHtml = '';
         if ($this->icon !== null) {
             $iconHtml = "<img src=\"" . htmlspecialchars($this->icon, ENT_QUOTES) . "\" class=\"dimx-btn-icon\" alt=\"\" /> ";
         }
 
-        return "<button type=\"button\" class=\"dimx-btn\" id=\"btn_{$idEsc}\" title=\"{$titleEsc}\" onclick=\"sendCmd('{$idEsc}');\">{$iconHtml}{$captionEsc}</button>\n";
+        return "<button type=\"button\" class=\"dimx-btn\" id=\"btn_{$idEsc}\" data-cmd=\"{$idEsc}\" data-model=\"{$modelEsc}\" title=\"{$titleEsc}\" onclick=\"sendCmd('{$idEsc}');\">{$iconHtml}{$captionEsc}</button>\n";
     }
 
     protected function renderDropdown(): string

@@ -329,6 +329,16 @@ class DxwLoader
                                     }
                                 }
                                 $item->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
+                            } elseif ($subDir === 'SHOW') {
+                                $rest = trim(substr($subLine, strlen($subTokens[0])));
+                                if (preg_match('/^(ICON|ONSCREEN|OFFSCREEN)?\s*(\d+)\s*,\s*(\d+)/i', $rest, $m)) {
+                                    $mode = strtoupper($m[1] ?: 'ONSCREEN');
+                                    $item->showmode = ($mode === 'ICON') ? AdvObject::SHOW_ICON : AdvObject::SHOW_ONSCREEN;
+                                    $item->showX = (int)$m[2];
+                                    $item->showY = (int)$m[3];
+                                } elseif (stripos($rest, 'OFFSCREEN') !== false) {
+                                    $item->showmode = AdvObject::SHOW_OFFSCREEN;
+                                }
                             }
                             $i++;
                         }
@@ -397,6 +407,16 @@ class DxwLoader
                                     }
                                 }
                                 $char->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
+                            } elseif ($subDir === 'SHOW') {
+                                $rest = trim(substr($subLine, strlen($subTokens[0])));
+                                if (preg_match('/^(ICON|ONSCREEN|OFFSCREEN)?\s*(\d+)\s*,\s*(\d+)/i', $rest, $m)) {
+                                    $mode = strtoupper($m[1] ?: 'ONSCREEN');
+                                    $char->showmode = ($mode === 'ICON') ? AdvObject::SHOW_ICON : AdvObject::SHOW_ONSCREEN;
+                                    $char->showX = (int)$m[2];
+                                    $char->showY = (int)$m[3];
+                                } elseif (stripos($rest, 'OFFSCREEN') !== false) {
+                                    $char->showmode = AdvObject::SHOW_OFFSCREEN;
+                                }
                             }
                             $i++;
                         }

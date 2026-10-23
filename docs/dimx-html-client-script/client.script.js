@@ -1,7 +1,11 @@
 // Dimensione X Client Code
 // For DimensioneX version 7.1.0+
-// https://www.dimensionex.net
-//
+// note: in the following code:
+// Dimensione X UI item -> corresponding DimensioneY item
+// ctrls -> DIV dimx-cell-b
+// locate_on_map - currently unimplemented
+
+
 // Config
 //
 var navUrl = "$NavigatorUrl$"; 
@@ -51,16 +55,6 @@ function locate_on_map(a,b) {
 			ctrls.frames['mapiframe'].document.getElementById("map").src = map;
 		} 
 	}
-}
-
-function startup() {
-	// Startup code for the client
-	setTimeout("refreshMessages();",$MsgRefreshRate$);
-}
-
-function refreshMessages() {
-	this.msgs.location.href = navUrl + "?view=msgs";
-	if ($MsgRefreshRate$>0) setTimeout("refreshMessages();",$MsgRefreshRate$);
 }
 
 function playSound(what,loop) {
@@ -422,5 +416,3 @@ function toggle_vis(id,visible) {
 	return;
 }
 
-
-startup();

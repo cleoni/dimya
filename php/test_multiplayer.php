@@ -957,6 +957,41 @@ $livingRes = $livingRunner->run($livingScript);
 assertTest($livingRes === true, "Living script evaluates condition and returns true: character lives");
 assertTest((float)$testChar->getProperty('Health') === 9.0, "Living script updated \$OWNER.Health to 9.0");
 
+echo "\n15. Testing UIhtml Cell B Command Buttons & On-Screen Object Targeting...\n";
+// Load world2.dxw to test bungalow and switch
+$dxwFile = dirname(__DIR__) . '/docs/dxw-examples/world2.dxw';
+$w2Loader = new \Dimx\DxwLoader();
+$w2 = $w2Loader->load($dxwFile);
+$bungalow = $w2->getRoom('bungalow');
+assertTest($bungalow !== null, "World 2 contains 'bungalow' room");
+$switch = $bungalow->contents['switch'] ?? null;
+assertTest($switch instanceof \Dimx\Item, "Bungalow contains 'switch' item");
+assertTest($switch->showX === 62 && $switch->showY === 68, "Switch item has parsed coordinates SHOW ICON 62,68");
+assertTest($switch->showmode === \Dimx\AdvObject::SHOW_ICON, "Switch item has parsed showmode SHOW_ICON");
+
+// Render UIhtml for player in bungalow
+$w2Player = new \Dimx\Player($w2, 'TesterInBungalow', 'p_bungalow_1');
+$w2Player->move($bungalow);
+$w2Ui = new \Dimx\UIhtml($w2Player);
+ob_start();
+$w2Ui->render([
+    'world'    => $w2,
+    'player'   => $w2Player,
+    'room'     => $bungalow,
+    'messages' => [],
+]);
+$bungalowHtml = ob_get_clean();
+
+assertTest(str_contains($bungalowHtml, 'jquery-3.7.1.min.js'), "UIhtml includes jQuery library");
+assertTest(str_contains($bungalowHtml, 'id="cmdPrompt"'), "UIhtml cell B contains cmdPrompt div");
+assertTest(str_contains($bungalowHtml, 'const COMMAND_DEFS = {'), "UIhtml defines generic COMMAND_DEFS dictionary");
+assertTest(str_contains($bungalowHtml, "function identifyObject("), "UIhtml includes identifyObject function");
+assertTest(str_contains($bungalowHtml, "function clickObject("), "UIhtml includes clickObject function");
+assertTest(str_contains($bungalowHtml, "function handleCommand("), "UIhtml includes handleCommand function");
+assertTest(str_contains($bungalowHtml, "data-cmd=\"use\" data-model=\"O\""), "UIhtml cell B USE button has data-cmd='use' and data-model='O'");
+assertTest(str_contains($bungalowHtml, "data-cmd=\"look\" data-model=\"O\""), "UIhtml cell B LOOK button has data-cmd='look' and data-model='O'");
+assertTest(str_contains($bungalowHtml, 'data-obj-id="switch"') && str_contains($bungalowHtml, 'data-obj-type="i"'), "UIhtml renders switch as on-screen object with id='switch' and type='i'");
+assertTest(str_contains($bungalowHtml, "left:62px;top:68px;"), "UIhtml positions switch on scene at left:62px;top:68px;");
 
 $pm->resetWorld($testWorldId);
 

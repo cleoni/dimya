@@ -400,9 +400,38 @@ class UIhtml extends UI
               background: #d8d8d8;
               box-shadow: 1px 1px 0 #333 inset;
             }
+            .dimx-cell-b .dimx-btn.dimx-btn-active {
+              background: #2563eb !important;
+              color: #ffffff !important;
+              border-color: #1d4ed8 !important;
+              box-shadow: inset 0 2px 4px rgba(0,0,0,0.3) !important;
+              font-weight: bold;
+            }
+            .dimx-cmd-prompt {
+              font-size: 12px;
+              color: #1e3a8a;
+              background: #dbeafe;
+              border: 1px solid #93c5fd;
+              border-radius: 4px;
+              padding: 5px 8px;
+              margin-bottom: 8px;
+              display: none;
+              cursor: pointer;
+              line-height: 1.3;
+            }
+            .dimx-cmd-prompt.dimx-prompt-visible {
+              display: block;
+            }
+            .dimx-onscreen-obj {
+              transition: filter 0.15s ease, transform 0.15s ease;
+            }
+            .dimx-onscreen-obj:hover {
+              filter: brightness(1.2) drop-shadow(0 0 3px #38bdf8);
+            }
             .chat-line-sender { color: #38bdf8; font-weight: 600; margin-right: 4px; }
             .chat-line-time { color: #64748b; font-size: 11px; margin-right: 6px; }
           </style>
+          <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
         </head>
         <body>
 
@@ -433,7 +462,7 @@ class UIhtml extends UI
                         </div>
                       <?php endif; ?>
 
-                      <!-- Characters & items on scene -->
+                      <!-- Characters on scene -->
                       <?php foreach ($occupants as $char): ?>
                         <?php if ($char !== $player): ?>
                           <?php
@@ -447,12 +476,44 @@ class UIhtml extends UI
                             <img src="<?= htmlspecialchars($charImg->src) ?>"
                                  alt="<?= htmlspecialchars($char->name) ?>"
                                  title="<?= htmlspecialchars($char->name) ?>"
+                                 class="dimx-onscreen-obj"
+                                 data-obj-id="<?= htmlspecialchars($char->id) ?>"
+                                 data-obj-type="c"
+                                 data-obj-name="<?= htmlspecialchars($char->name) ?>"
                                  style="position:absolute;left:<?= $posX ?>;top:<?= $posY ?>;<?= $imgW ?><?= $imgH ?>cursor:pointer;z-index:10"
-                                 onclick="sendCmd('click','','<?= htmlspecialchars($char->id) ?>')" />
+                                 onclick="clickObject(this)" />
                           <?php else: ?>
-                            <span class="dimx-tag" style="position:absolute;bottom:8px;left:8px;cursor:pointer;z-index:10" onclick="sendCmd('click','','<?= htmlspecialchars($char->id) ?>')">👤 <?= htmlspecialchars($char->name) ?></span>
+                            <span class="dimx-tag dimx-onscreen-obj"
+                                  data-obj-id="<?= htmlspecialchars($char->id) ?>"
+                                  data-obj-type="c"
+                                  data-obj-name="<?= htmlspecialchars($char->name) ?>"
+                                  style="position:absolute;bottom:8px;left:8px;cursor:pointer;z-index:10"
+                                  onclick="clickObject(this)">👤 <?= htmlspecialchars($char->name) ?></span>
                           <?php endif; ?>
                         <?php endif; ?>
+                      <?php endforeach; ?>
+
+                      <!-- Items on scene (positioned) -->
+                      <?php foreach ($roomItems as $itm): ?>
+                        <?php
+                          if ($itm->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && $itm->showX >= 0 && $itm->showY >= 0):
+                            $imgSrc = ($itm->showmode === \Dimx\AdvObject::SHOW_ICON && !empty($itm->icon))
+                              ? $itm->icon
+                              : ($itm->images['N']->src ?? $itm->icon ?? null);
+                            if ($imgSrc):
+                              $imgW = (!empty($itm->images['N']->width) && $itm->showmode !== \Dimx\AdvObject::SHOW_ICON) ? "width:{$itm->images['N']->width}px;" : '';
+                              $imgH = (!empty($itm->images['N']->height) && $itm->showmode !== \Dimx\AdvObject::SHOW_ICON) ? "height:{$itm->images['N']->height}px;" : '';
+                        ?>
+                          <img src="<?= htmlspecialchars($imgSrc) ?>"
+                               alt="<?= htmlspecialchars($itm->name) ?>"
+                               title="<?= htmlspecialchars($itm->name) ?>"
+                               class="dimx-onscreen-obj"
+                               data-obj-id="<?= htmlspecialchars($itm->id) ?>"
+                               data-obj-type="i"
+                               data-obj-name="<?= htmlspecialchars($itm->name) ?>"
+                               style="position:absolute;left:<?= $itm->showX ?>px;top:<?= $itm->showY ?>px;<?= $imgW ?><?= $imgH ?>cursor:pointer;z-index:10"
+                               onclick="clickObject(this)" />
+                        <?php endif; endif; ?>
                       <?php endforeach; ?>
                     </div>
 
@@ -491,7 +552,7 @@ class UIhtml extends UI
                             default => '🚪',
                           };
                         ?>
-                        <button type="button" class="dimx-btn" onclick="sendCmd('go','<?= htmlspecialchars($dir) ?>')">
+                        <button type="button" class="dimx-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($dir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($link->name) ?>" onclick="sendCmd('go','<?= htmlspecialchars($dir) ?>')">
                           <?= $dirIcon ?> [<?= htmlspecialchars($dir) ?>] <?= htmlspecialchars($link->name) ?>
                         </button>
                       <?php endforeach; ?>
@@ -506,7 +567,13 @@ class UIhtml extends UI
                       <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:10px">
                         <?php foreach ($roomItems as $itm): ?>
                           <div>
-                            <a href="javascript:void(0)" onclick="sendCmd('click','','<?= htmlspecialchars($itm->id) ?>')" style="color:#e2e8f0;text-decoration:none;font-size:12px;cursor:pointer">
+                            <a href="javascript:void(0)"
+                               class="dimx-onscreen-obj"
+                               data-obj-id="<?= htmlspecialchars($itm->id) ?>"
+                               data-obj-type="i"
+                               data-obj-name="<?= htmlspecialchars($itm->name) ?>"
+                               onclick="clickObject(this)"
+                               style="color:#e2e8f0;text-decoration:none;font-size:12px;cursor:pointer">
                               📦 <?= htmlspecialchars($itm->name) ?>
                             </a>
                           </div>
@@ -519,7 +586,15 @@ class UIhtml extends UI
                     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
                       <?php foreach ($inventory as $item): ?>
                         <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.06);padding:3px 6px;border-radius:3px;font-size:12px">
-                          <span><b><?= htmlspecialchars($item->name) ?></b></span>
+                          <span class="dimx-onscreen-obj"
+                                data-obj-id="<?= htmlspecialchars($item->id) ?>"
+                                data-obj-type="i"
+                                data-obj-name="<?= htmlspecialchars($item->name) ?>"
+                                onclick="clickObject(this)"
+                                style="cursor:pointer"
+                                title="Click to select this item">
+                            <b><?= htmlspecialchars($item->name) ?></b>
+                          </span>
                           <div style="display:flex;gap:3px">
                             <?php if ($activePanel?->isCommandAllowed('use')): ?>
                               <button type="button" class="dimx-mini-btn" onclick="sendCmd('use','','<?= htmlspecialchars($item->id) ?>')">Use</button>
@@ -567,6 +642,7 @@ class UIhtml extends UI
               <!-- CELL B: Right cell of top row (300px wide, ACTIONS panel) -->
               <div class="dimx-cell-b" id="cellB">
                 <?php $activePanel = $player->getPanel() ?? $world->defaultPanel; ?>
+                <div id="cmdPrompt" class="dimx-cmd-prompt" title="Click to cancel pending command" onclick="clearPendingCmd()"></div>
                 <form id="cmdForm" method="POST" action="multiplayer.php" style="margin:0">
                   <input type="hidden" name="cmd"    id="cmdInput"    value="look" />
                   <input type="hidden" name="param"  id="paramInput"  value="" />
@@ -599,8 +675,278 @@ class UIhtml extends UI
           </div>
 
           <script>
+            // ---- Command definitions and argument models ----
+            const COMMAND_DEFS = {
+              'use': {
+                noArgs: 1,
+                model: 'O',
+                allowDouble: false,
+                desc: 'Use ...',
+                prompt: '👉 Click an object on screen to USE (or click another command to cancel)'
+              },
+              'look': {
+                noArgs: 1,
+                model: 'O',
+                allowDouble: true,
+                desc: 'Look ...',
+                prompt: '👉 Click an object to LOOK at (or click Look again to inspect the room)'
+              },
+              'click': {
+                noArgs: 1,
+                model: 'O',
+                allowDouble: false,
+                desc: 'Click ...'
+              },
+              'pick': {
+                noArgs: 1,
+                model: 'O',
+                allowDouble: true,
+                desc: 'Pick ...',
+                prompt: '👉 Click an item to PICK up (or click Pick again to pick everything)'
+              },
+              'drop': {
+                noArgs: 1,
+                model: 'O',
+                allowDouble: false,
+                desc: 'Drop ...',
+                prompt: '👉 Click an item in inventory to DROP'
+              },
+              'open': {
+                noArgs: 1,
+                model: 'O',
+                allowDouble: false,
+                desc: 'Open ...',
+                prompt: '👉 Click an object or door to OPEN'
+              },
+              'close': {
+                noArgs: 1,
+                model: 'O',
+                allowDouble: false,
+                desc: 'Close ...',
+                prompt: '👉 Click an object or door to CLOSE'
+              },
+              'search': { noArgs: 0, model: '',  desc: 'Search' },
+              'help':   { noArgs: 0, model: '',  desc: 'Help' },
+              'save':   { noArgs: 0, model: 'T', desc: 'Save' },
+              'exit':   { noArgs: 0, model: '',  desc: 'Exit' },
+              'clear':  { noArgs: 0, model: '',  desc: 'Clear' },
+              'say':    { noArgs: 0, model: 'T', desc: 'Say' }
+            };
+
+            // Pending command state
+            let pendingCmd   = '';
+            let pendingArgs  = [];
+            let pendingNames = [];
+
+            /**
+             * Identify an on-screen object from a DOM element, jQuery wrapper, or DimensioneX string ref.
+             * Returns { id: string, type: string, name: string, fullId: string } or null.
+             */
+            function identifyObject(target) {
+              if (!target) return null;
+              let type = 'i';
+              let id = '';
+              let name = '';
+
+              if (typeof target === 'string') {
+                // DimensioneX string format: "type!id|name" or "type!id" or just "id"
+                const bang = target.indexOf('!');
+                const pipe = target.indexOf('|', bang + 1);
+                if (bang >= 0) {
+                  type = target.substring(0, bang);
+                  if (pipe > bang) {
+                    id = target.substring(bang + 1, pipe);
+                    name = target.substring(pipe + 1);
+                  } else {
+                    id = target.substring(bang + 1);
+                    name = id;
+                  }
+                } else {
+                  id = target;
+                  name = target;
+                }
+              } else if (typeof target === 'object') {
+                // DOM element or jQuery object
+                const el = (target.jquery ? target[0] : target);
+                const host = (el.closest ? el.closest('.dimx-onscreen-obj') : null) || el;
+                id = host.dataset?.objId || host.dataset?.id || host.getAttribute('data-obj-id') || host.getAttribute('data-id') || '';
+                type = host.dataset?.objType || host.dataset?.type || host.getAttribute('data-obj-type') || 'i';
+                name = host.dataset?.objName || host.dataset?.name || host.getAttribute('data-obj-name') || host.title || host.alt || host.innerText || id;
+              }
+
+              id = String(id).trim();
+              if (!id) return null;
+
+              return {
+                id: id,
+                type: String(type).trim().toLowerCase(),
+                name: String(name).trim(),
+                fullId: type + '!' + id
+              };
+            }
+
+            /**
+             * Handle interaction with any on-screen object (character, room item, inventory, link).
+             */
+            function clickObject(target, fallbackParam = '') {
+              const obj = identifyObject(target);
+              if (!obj) {
+                return;
+              }
+
+              // 1. If no command is currently awaiting target:
+              if (!pendingCmd) {
+                if (obj.type === 'w') {
+                  sendCmd('go', fallbackParam || obj.id);
+                } else {
+                  // Direct click on object inspects it (click / onLook)
+                  sendCmd('click', '', obj.id);
+                }
+                return;
+              }
+
+              // 2. A command is currently awaiting a target:
+              // DimensioneX special rule: 'use' on a link/way waypoint translates to 'go'
+              if (pendingCmd === 'use' && obj.type === 'w') {
+                const dir = fallbackParam || obj.id;
+                clearPendingCmd();
+                sendCmd('go', dir);
+                return;
+              }
+
+              // Collect target argument
+              pendingArgs.push(obj.id);
+              pendingNames.push(obj.name);
+
+              const def = COMMAND_DEFS[pendingCmd] || { noArgs: 1 };
+              if (pendingArgs.length >= (def.noArgs || 1)) {
+                // All required arguments acquired -> execute command!
+                const cmdToSubmit = pendingCmd;
+                const targetObjId = pendingArgs[0];
+                const secondArg   = pendingArgs.length > 1 ? pendingArgs[1] : '';
+                clearPendingCmd();
+                submitCmd(cmdToSubmit, secondArg, targetObjId);
+              } else {
+                updatePrompt();
+              }
+            }
+
+            /**
+             * Generic command button handler for cell B panel buttons.
+             */
+            function handleCommand(cmd) {
+              const def = COMMAND_DEFS[cmd] || { noArgs: 0, allowDouble: false };
+
+              // Double-click check: if user presses the same button twice
+              if (pendingCmd === cmd && def.allowDouble) {
+                clearPendingCmd();
+                if (cmd === 'look') {
+                  // Look around current room
+                  submitCmd('look', '', '');
+                  return;
+                } else if (cmd === 'pick') {
+                  // Pick everything
+                  submitCmd('pick', '', '*');
+                  return;
+                }
+              }
+
+              // If another command was pending, reset before switching
+              if (pendingCmd && pendingCmd !== cmd) {
+                clearPendingCmd();
+              }
+
+              // Special command: clear cancels pending command
+              if (cmd === 'clear') {
+                clearPendingCmd();
+                return;
+              }
+
+              // If command requires 0 arguments (instant execution)
+              if (!def.noArgs || def.noArgs === 0) {
+                clearPendingCmd();
+                if (cmd === 'say') {
+                  const tb = document.getElementById('txtBox');
+                  const text = (tb && tb.value) ? tb.value : '';
+                  submitCmd('say', text);
+                } else {
+                  submitCmd(cmd);
+                }
+                return;
+              }
+
+              // Command requires 1 or more arguments (e.g. 'use', 'look') -> await on-screen target
+              pendingCmd   = cmd;
+              pendingArgs  = [];
+              pendingNames = [];
+
+              highlightButton(cmd, true);
+              updatePrompt();
+            }
+
+            function highlightButton(cmd, isActive) {
+              document.querySelectorAll('.dimx-cell-b .dimx-btn').forEach(btn => {
+                btn.classList.remove('dimx-btn-active');
+              });
+
+              if (isActive && cmd) {
+                const btn = document.getElementById('btn_' + cmd);
+                if (btn) {
+                  btn.classList.add('dimx-btn-active');
+                }
+              }
+            }
+
+            function updatePrompt() {
+              const pBox = document.getElementById('cmdPrompt');
+              if (!pBox) return;
+
+              if (!pendingCmd) {
+                pBox.innerText = '';
+                pBox.classList.remove('dimx-prompt-visible');
+                return;
+              }
+
+              const def = COMMAND_DEFS[pendingCmd] || {};
+              let msg = def.prompt || ('Select target object for ' + pendingCmd.toUpperCase() + ' (Click to cancel)');
+              if (pendingNames.length > 0) {
+                msg = pendingCmd.toUpperCase() + ' ' + pendingNames.join(', ') + '...';
+              }
+              pBox.innerText = msg;
+              pBox.classList.add('dimx-prompt-visible');
+            }
+
+            function clearPendingCmd() {
+              if (pendingCmd) {
+                highlightButton(pendingCmd, false);
+              }
+              pendingCmd   = '';
+              pendingArgs  = [];
+              pendingNames = [];
+              updatePrompt();
+            }
+
+            // Keyboard shortcut: Escape cancels pending command
+            document.addEventListener('keydown', function(e) {
+              if (e.key === 'Escape' && pendingCmd) {
+                clearPendingCmd();
+              }
+            });
+
             // ---- Game command submission ----
             function sendCmd(cmd, param = '', target = '') {
+              // If target or param is already explicitly supplied (e.g. from exit button or inventory button)
+              if (param !== '' || target !== '') {
+                clearPendingCmd();
+                submitCmd(cmd, param, target);
+                return;
+              }
+
+              // Called without target or param (e.g. from cell B button click)
+              handleCommand(cmd);
+            }
+
+            function submitCmd(cmd, param = '', target = '') {
               if (cmd === 'say' && !param) {
                 const tb = document.getElementById('txtBox');
                 if (tb && tb.value) {
@@ -612,6 +958,14 @@ class UIhtml extends UI
               document.getElementById('targetInput').value = target;
               document.getElementById('cmdForm').submit();
             }
+
+            // Global window exports
+            window.identifyObject  = identifyObject;
+            window.clickObject     = clickObject;
+            window.handleCommand   = handleCommand;
+            window.sendCmd         = sendCmd;
+            window.submitCmd       = submitCmd;
+            window.clearPendingCmd = clearPendingCmd;
 
             // Auto-scroll console
             const cBox = document.getElementById('consoleBox');
