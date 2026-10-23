@@ -349,6 +349,22 @@ class UIhtml extends UI
               cursor: pointer;
             }
             .dimx-mini-btn:hover { opacity: 0.9; }
+            .dimx-subcell-e .dimx-btn {
+              background: #1e40af;
+              color: #f8fafc;
+              border: 1px solid #3b82f6;
+              padding: 4px 8px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 12px;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+            }
+            .dimx-subcell-e .dimx-btn:hover {
+              background: #1d4ed8;
+              border-color: #60a5fa;
+            }
             /* Cell B controls styling */
             .dimx-cell-b .dimx-panel {
               background: transparent;
@@ -455,22 +471,32 @@ class UIhtml extends UI
                   <!-- Subcell E: Navigation controls, inventory, stats (250px wide) -->
                   <div class="dimx-subcell-e">
                     <!-- Navigation / Exits -->
-                    <div class="dimx-nav-compass" style="width:50px;height:50px;background:#808080;border:1px solid #999;margin-bottom:8px;display:flex;align-items:center;justify-content:center;color:#222;font-size:16px">
-                      🧭
-                    </div>
-
-                    <div class="dimx-section-title" style="color:#38bdf8">More ways</div>
-                    <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:10px">
+                    <div class="dimx-section-title" style="color:#38bdf8;margin-top:0">🗺 Exits</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
                       <?php foreach ($links as $link): ?>
-                        <?php $dir = $link->getDirection($currentRoom->id); ?>
-                        <div>
-                          <a href="javascript:void(0)" onclick="sendCmd('go','<?= htmlspecialchars($dir) ?>')" style="color:#38bdf8;text-decoration:none;font-size:12px;display:inline-flex;align-items:center;gap:4px">
-                            <span>⮵</span> <?= htmlspecialchars($link->name ?: $dir) ?>
-                          </a>
-                        </div>
+                        <?php
+                          $dir = $link->getDirection($currentRoom->id);
+                          $dirUpper = strtoupper(trim($dir));
+                          $dirIcon = match($dirUpper) {
+                            'N' => '⬆',
+                            'S' => '⬇',
+                            'E' => '➡',
+                            'W' => '⬅',
+                            'NE' => '↗',
+                            'NW' => '↖',
+                            'SE' => '↘',
+                            'SW' => '↙',
+                            'U', 'UP' => '⮵',
+                            'D', 'DOWN' => '⮶',
+                            default => '🚪',
+                          };
+                        ?>
+                        <button type="button" class="dimx-btn" onclick="sendCmd('go','<?= htmlspecialchars($dir) ?>')">
+                          <?= $dirIcon ?> [<?= htmlspecialchars($dir) ?>] <?= htmlspecialchars($link->name) ?>
+                        </button>
                       <?php endforeach; ?>
                       <?php if (empty($links)): ?>
-                        <span style="font-size:11px;color:#64748b">No visible exits.</span>
+                        <span style="font-size:12px;color:#64748b">No visible exits.</span>
                       <?php endif; ?>
                     </div>
 
