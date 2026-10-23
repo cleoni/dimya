@@ -44,6 +44,11 @@ class Panel
     {
         $html = "<div class=\"dimx-panel\" id=\"panel_" . htmlspecialchars($this->id, ENT_QUOTES) . "\">\n";
         foreach ($this->buttons as $ctrl) {
+            // In the HTML presentation layer, clicking an object/character triggers the click action directly;
+            // an explicit 'Click' button is redundant for human players.
+            if (strtolower($ctrl->id) === 'click') {
+                continue;
+            }
             $html .= $ctrl->toHtml($skin);
         }
         $html .= "</div>\n";

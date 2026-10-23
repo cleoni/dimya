@@ -156,6 +156,10 @@ class GameEngine
             $player->numericId = $numericId;
             $player->isBot     = $isBot;
 
+            if (!empty($world->charactersDefaultAttrlist)) {
+                $player->setAttrList($world->charactersDefaultAttrlist);
+            }
+
             // Restore saved profile (score, location, properties, inventory) from persistence
             $this->pm->loadPlayerProfile($world, $player);
 

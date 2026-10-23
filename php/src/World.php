@@ -44,6 +44,9 @@ class World extends DimxObject
     /** @var array<string, Panel> Available command panels */
     public array $panels = [];
 
+    /** @var string|null Default attributes string for characters and players defined under CHARACTERS section */
+    public ?string $charactersDefaultAttrlist = null;
+
     public ?Panel $defaultPanel = null;
     public ?PersistenceManager $persistence = null;
 

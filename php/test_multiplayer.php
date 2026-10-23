@@ -311,6 +311,9 @@ $htmlOutput = runMultiplayer([
 assertTest(str_contains($htmlOutput, '<!DOCTYPE html>'), "multiplayer.php returned HTML doctype");
 assertTest(str_contains($htmlOutput, 'HumanHero'), "HTML output includes player name 'HumanHero'");
 assertTest(str_contains($htmlOutput, '👤 <b>HumanHero</b>'), "Header displays human-readable player name 'HumanHero'");
+assertTest(!str_contains($htmlOutput, '(Score:'), "Header does NOT display Score next to player name");
+assertTest(!str_contains($htmlOutput, '💾'), "Header does NOT display storage diskette icon / method");
+assertTest(!str_contains($htmlOutput, 'Carrying:'), "STATS box does NOT display Carrying 0/5");
 assertTest(!preg_match('/👤\s*<b>p_\d+_[a-f0-9]+<\/b>/', $htmlOutput), "Header does NOT display internal engine player ID");
 assertTest(str_contains($htmlOutput, 'Welcome to <b>World 2</b>, HumanHero!'), "Action console displays greeting with player nickname HumanHero");
 assertTest(!preg_match('/\[p_\d+_[a-f0-9]+\]/', $htmlOutput), "HTML output does NOT expose internal player IDs in visible brackets");
@@ -607,13 +610,36 @@ $humanHtmlOutput = runMultiplayer([
 assertTest(str_contains($humanHtmlOutput, 'id="panel_chat"'), "Human player gets HTML panel with id='panel_chat'");
 assertTest(str_contains($humanHtmlOutput, 'name="txtBox"'), "Human player gets speech textbox");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('look')"), "Human player sees Look button");
-assertTest(str_contains($humanHtmlOutput, "sendCmd('click')"), "Human player sees Click button");
+assertTest(!str_contains($humanHtmlOutput, 'id="btn_click"'), "Human player DOES NOT see explicit Click button (click is implicit on objects)");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('use')"), "Human player sees Use button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('say')"), "Human player gets Say button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('save')"), "Human player gets Save button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('exit')"), "Human player gets Exit button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('go','U')"), "Human player STILL SEES exit button for [U] to the rock");
 assertTest(!str_contains($humanHtmlOutput, "sendCmd('pick')"), "Human player DOES NOT see Pick button");
+
+// Test STATS box rendering in UIhtml (Capital letter rule & no Carrying)
+$statsWorld = new Dimx\World('stats_world', 'Stats World');
+$statsPlayer = new Dimx\Player($statsWorld, 'StatsTester', 'p_stats_1');
+$statsPlayer->setAttrList('Health=100,Skill=5,open=0,locked=1,Score=50');
+$statsRoom = new Dimx\Room($statsWorld, 'Stats Room', 'stats_room');
+$statsPlayer->container = $statsRoom;
+ob_start();
+$htmlUiInstance = new Dimx\UIhtml($statsPlayer);
+$htmlUiInstance->render([
+    'world'     => $statsWorld,
+    'player'    => $statsPlayer,
+    'room'      => $statsRoom,
+    'messages'  => [],
+    'lockError' => false,
+]);
+$statsHtml = ob_get_clean();
+assertTest(!str_contains($statsHtml, 'Carrying:'), "UIhtml STATS box omits Carrying");
+assertTest(str_contains($statsHtml, '<b>Health:</b> 100'), "UIhtml STATS box displays capitalized attribute 'Health: 100'");
+assertTest(str_contains($statsHtml, '<b>Skill:</b> 5'), "UIhtml STATS box displays capitalized attribute 'Skill: 5'");
+assertTest(str_contains($statsHtml, '<b>Score:</b> 50'), "UIhtml STATS box displays capitalized attribute 'Score: 50'");
+assertTest(!str_contains($statsHtml, '<b>open:</b>'), "UIhtml STATS box omits lowercase attribute 'open'");
+assertTest(!str_contains($statsHtml, '<b>locked:</b>'), "UIhtml STATS box omits lowercase attribute 'locked'");
 
 // Test 12: Testing UIbot vs UIjson and testBots Configuration
 echo "\n12. Testing UIbot vs UIjson and testBots Configuration...\n";

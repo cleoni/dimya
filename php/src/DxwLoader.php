@@ -339,9 +339,17 @@ class DxwLoader
                     break;
 
                 case 'CHARACTERS':
+                    if ($directive === 'ATTRLIST') {
+                        $world->charactersDefaultAttrlist = trim(substr($line, strlen($tokens[0])));
+                        $i++;
+                        break;
+                    }
                     if ($directive === 'CHARACTER') {
                         $charId = $tokens[1] ?? 'char_' . count($world->characters);
                         $char = new Character($world, $charId, $charId);
+                        if (!empty($world->charactersDefaultAttrlist)) {
+                            $char->setAttrList($world->charactersDefaultAttrlist);
+                        }
                         $position = '';
 
                         $i++;

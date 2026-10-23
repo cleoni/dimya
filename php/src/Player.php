@@ -78,6 +78,20 @@ class Player extends Character
     }
 
     /**
+     * Return all dynamic properties, keeping any defined 'Score' attribute in sync with score.
+     *
+     * @return array<string, mixed>
+     */
+    public function getProperties(): array
+    {
+        $props = parent::getProperties();
+        if (isset($props['Score'])) {
+            $props['Score'] = $this->score;
+        }
+        return $props;
+    }
+
+    /**
      * Display a system message or text output on the player's main console.
      */
     public function display(string $msg): bool

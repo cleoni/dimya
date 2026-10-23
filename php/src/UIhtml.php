@@ -118,7 +118,6 @@ class UIhtml extends UI
         $currentRoom     = $context['room'] ?? $player->getRoom();
         $consoleMessages = $context['messages'] ?? [];
         $lockError       = (bool)($context['lockError'] ?? false);
-        $storageLabel    = $context['storageLabel'] ?? 'Storage';
         $worldId         = $context['worldId'] ?? $world->id;
         $playerName      = $player->name;
 
@@ -180,11 +179,10 @@ class UIhtml extends UI
             .dimx-scene-img{width:100%;height:350px;object-fit:cover;display:block}
             .dimx-console{background:#090d16;border:1px solid #334155;border-radius:8px;padding:12px;height:150px;overflow-y:auto;font-size:13px;margin-top:12px;line-height:1.6}
             .dimx-chat-box{background:#090d16;border:1px solid #334155;border-radius:8px;padding:12px;height:150px;overflow-y:auto;font-size:13px;margin-top:12px;line-height:1.6}
-            .dimx-chat-input{display:flex;gap:6px;margin-top:6px}
-            .dimx-chat-input input{flex:1;padding:6px 10px;background:#1e293b;border:1px solid #475569;border-radius:4px;color:#f8fafc;font-size:13px}
-            .dimx-chat-input button{padding:6px 12px;background:#0ea5e9;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px}
             .dimx-sidebar-box{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:14px;margin-bottom:12px}
             .dimx-sidebar-box h4{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8}
+            .dimx-sidebar-box .dimx-panel{background:transparent;padding:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+            .dimx-sidebar-box .dimx-textbox{flex:1 1 160px;min-width:120px;padding:6px 10px;border-radius:4px;border:1px solid #475569;background:#0f172a;color:#f8fafc;font-size:13px;box-sizing:border-box}
             .dimx-tag{display:inline-flex;align-items:center;gap:4px;background:#334155;padding:3px 8px;border-radius:4px;font-size:12px;margin:2px;cursor:pointer}
             .dimx-tag:hover{background:#475569}
             .dimx-btn{background:#1e40af;color:#f8fafc;border:1px solid #3b82f6;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px}
@@ -202,9 +200,8 @@ class UIhtml extends UI
               <h2 style="margin:0;font-size:18px;font-weight:700;color:#38bdf8"><?= htmlspecialchars($world->name) ?></h2>
               <span style="font-size:12px;color:#94a3b8">
                 📍 <b><?= htmlspecialchars($currentRoom->name ?? 'Unknown') ?></b> &nbsp;|&nbsp;
-                👤 <b><?= htmlspecialchars($player->name) ?></b> (Score: <?= $player->score ?>)
-                &nbsp;|&nbsp; 💾 <?= htmlspecialchars($storageLabel) ?>
-                <?php if ($lockError): ?><span style="color:#f87171"> ⚠ Lock busy</span><?php endif; ?>
+                👤 <b><?= htmlspecialchars($player->name) ?></b>
+                <?php if ($lockError): ?><span style="color:#f87171"> &nbsp;|&nbsp; ⚠ Lock busy</span><?php endif; ?>
               </span>
             </div>
             <div>
@@ -248,31 +245,16 @@ class UIhtml extends UI
                 <?php endforeach; ?>
               </div>
 
-              <!-- Command form (hidden inputs) -->
-              <div style="margin-top:12px">
-                <form id="cmdForm" method="POST" action="multiplayer.php">
-                  <input type="hidden" name="cmd"    id="cmdInput"    value="look" />
-                  <input type="hidden" name="param"  id="paramInput"  value="" />
-                  <input type="hidden" name="target" id="targetInput" value="" />
-                  <?= $player->getPanel()?->toHtml($skin) ?>
-                </form>
-              </div>
-
               <!-- Chat box (shared, async-polled) -->
               <div style="margin-top:16px">
                 <div style="font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">💬 World Chat</div>
                 <div class="dimx-chat-box" id="chatBox"></div>
-                <div class="dimx-chat-input">
-                  <input type="text" id="chatInput" placeholder="Say something…" maxlength="256"
-                         onkeydown="if(event.key==='Enter'){sendChat();event.preventDefault()}" />
-                  <button onclick="sendChat()">Send</button>
-                </div>
               </div>
             </div>
 
             <!-- Right Column -->
             <div>
-              <?php $activePanel = $player->getPanel(); ?>
+              <?php $activePanel = $player->getPanel() ?? $world->defaultPanel; ?>
               <!-- Exits -->
               <div class="dimx-sidebar-box">
                 <h4>🗺 Exits</h4>
@@ -316,26 +298,41 @@ class UIhtml extends UI
               <div class="dimx-sidebar-box">
                 <h4>📊 Stats</h4>
                 <div style="font-size:13px;line-height:1.8">
-                  <div><b>Health:</b> <?= $player->getProperty('Health') ?? 100 ?></div>
-                  <div><b>Score:</b> <?= $player->score ?></div>
-                  <div><b>Carrying:</b> <?= count($player->contents) ?> / <?= $player->capacity ?></div>
+                  <?php
+                  $hasStats = false;
+                  foreach ($player->getProperties() as $statKey => $statVal) {
+                      if (is_string($statKey) && $statKey !== '' && $statKey[0] >= 'A' && $statKey[0] <= 'Z') {
+                          $hasStats = true;
+                          if (is_bool($statVal)) {
+                              $valDisplay = $statVal ? '1' : '0';
+                          } elseif (is_scalar($statVal)) {
+                              $valDisplay = (string)$statVal;
+                          } else {
+                              $valDisplay = json_encode($statVal);
+                          }
+                          ?>
+                          <div><b><?= htmlspecialchars($statKey) ?>:</b> <?= htmlspecialchars($valDisplay) ?></div>
+                          <?php
+                      }
+                  }
+                  if (!$hasStats) {
+                      ?>
+                      <span style="font-size:12px;color:#64748b">None.</span>
+                      <?php
+                  }
+                  ?>
                 </div>
               </div>
 
-              <!-- Quick actions -->
+              <!-- Actions -->
               <div class="dimx-sidebar-box">
                 <h4>⚡ Actions</h4>
-                <div style="display:flex;flex-wrap:wrap;gap:6px">
-                  <?php if ($activePanel?->isCommandAllowed('look')): ?>
-                    <button class="dimx-btn" onclick="sendCmd('look')">👁 Look</button>
-                  <?php endif; ?>
-                  <?php if ($activePanel?->isCommandAllowed('save')): ?>
-                    <button class="dimx-btn" onclick="sendCmd('save')">💾 Save</button>
-                  <?php endif; ?>
-                  <?php if ($activePanel?->isCommandAllowed('exit')): ?>
-                    <button class="dimx-btn" onclick="sendCmd('exit')">🚪 Exit</button>
-                  <?php endif; ?>
-                </div>
+                <form id="cmdForm" method="POST" action="multiplayer.php" style="margin:0">
+                  <input type="hidden" name="cmd"    id="cmdInput"    value="look" />
+                  <input type="hidden" name="param"  id="paramInput"  value="" />
+                  <input type="hidden" name="target" id="targetInput" value="" />
+                  <?= $activePanel?->toHtml($skin) ?>
+                </form>
               </div>
             </div>
 
@@ -393,24 +390,6 @@ class UIhtml extends UI
                   box.scrollTop = box.scrollHeight;
                 }
               } catch (e) { /* network error — silent */ }
-            }
-
-            async function sendChat() {
-              const input = document.getElementById('chatInput');
-              const text  = input.value.trim();
-              if (!text) return;
-              input.value = '';
-              try {
-                await fetch('chat.php', {
-                  method: 'POST',
-                  headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                  body: 'world_id=' + encodeURIComponent(WORLD_ID)
-                      + '&sender='   + encodeURIComponent(PLAYER_NAME)
-                      + '&text='     + encodeURIComponent(text)
-                });
-                // Poll immediately so sender sees their own message
-                await pollChat();
-              } catch (e) { /* silent */ }
             }
 
             // Initial load + recurring poll every 3 seconds

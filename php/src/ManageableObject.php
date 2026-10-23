@@ -113,19 +113,24 @@ class ManageableObject
                 } elseif ($typeName === 'bool') {
                     $coerced = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
                     $this->{$propName} = $coerced ?? (bool)$value;
+                    $this->properties[$name] = $this->{$propName};
                     return $this->{$propName};
                 } elseif ($typeName === 'int') {
                     $this->{$propName} = (int)$value;
+                    $this->properties[$name] = $this->{$propName};
                     return $this->{$propName};
                 } elseif ($typeName === 'float') {
                     $this->{$propName} = (float)$value;
+                    $this->properties[$name] = $this->{$propName};
                     return $this->{$propName};
                 } elseif ($typeName === 'string') {
                     $this->{$propName} = (string)$value;
+                    $this->properties[$name] = $this->{$propName};
                     return $this->{$propName};
                 } elseif ($meta['isClass']) {
                     if ($value instanceof $typeName) {
                         $this->{$propName} = $value;
+                        $this->properties[$name] = $value;
                         return $value;
                     }
                     // Non-compatible object/scalar assigned to typed object property; store dynamically
@@ -135,6 +140,7 @@ class ManageableObject
             }
 
             $this->{$propName} = $value;
+            $this->properties[$name] = $value;
             return $value;
         }
 

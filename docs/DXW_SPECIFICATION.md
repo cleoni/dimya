@@ -448,10 +448,11 @@ ATTRLIST  pickable, open=0, locked=1, Health=100, Price=15.50
 
 ---
 
-### 7.3 Display Rules (Capital Letter Rule)
+### 7.3 Display Rules (Capital Letter Rule & STATS Box)
 
-* **Automatic Stats Display**: Any property whose name begins with an **uppercase letter** (e.g. `Health`, `Strength`, `Cash`, `Score`) is automatically rendered in the player's stats sidebar.
-* Properties starting with lowercase letters are treated as private/internal variables unless explicitly exposed via `SHOW PROPERTIES`.
+* **Automatic Stats Display**: As a rule of thumb, all player attributes defined in the DXW source with the `ATTRLIST` directive (either globally under `CHARACTERS` or specifically on a character/player) are displayed in the **📊 Stats** sidebar box in the HTML client (`UIhtml`) **if and only if** their names begin with an **uppercase letter** (e.g. `Health`, `Strength`, `Skill`, `Score`, `Magic`).
+* **Hidden Internal Attributes**: Properties starting with lowercase letters (e.g. `open`, `locked`, `hidden`, `mapx`, `type`) are treated as internal engine or private variables and are never shown in the player's Stats box.
+* **Carrying & Capacity Hidden from STATS**: Player carrying count and capacity limits (e.g. `Carrying: 0/5`) are internal physics engine constraints and are never displayed in the STATS box. Players see what items they carry directly in their Inventory list, without being told the exact numeric storage cap.
 
 ---
 
