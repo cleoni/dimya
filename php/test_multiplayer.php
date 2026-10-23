@@ -1032,6 +1032,193 @@ assertTest($box->isOpen(), "ActionsRunner 'Open box' successfully opened the box
 $scriptRunner->run("Close box");
 assertTest(!$box->isOpen(), "ActionsRunner 'Close box' successfully closed the box");
 
+echo "\n17. Testing World 2 Full Flow: Look at Closed Box, Use Switch in Bungalow, Open Box & Pick Apple...\n";
+
+// Fresh engine & world 2 instance
+$w2FlowWorld = $loader->load($dxwFile, 'w2_flow_world');
+$w2FlowEngine = new \Dimx\GameEngine($pm, 'w2_flow', $dxwFile);
+// Player enters at spiaggia
+$pFlow = new \Dimx\Player($w2FlowWorld, 'FlowHero', 'p_flow_1');
+$pFlow->setPanel($w2FlowWorld->defaultPanel ?? \Dimx\Panel::createDefaultPanel());
+$spiaggiaRoom = $w2FlowWorld->getRoom('spiaggia');
+$pFlow->move($spiaggiaRoom);
+
+$flowBox = $spiaggiaRoom->contents['box'] ?? null;
+assertTest($flowBox instanceof \Dimx\Item, "Spiaggia contains 'box' item");
+assertTest($flowBox->isOpenable(), "Box is recognized as openable");
+assertTest(!$flowBox->isOpen(), "Box is initially closed");
+
+// 1. Look at box: verify game engine prints that the box is closed
+$w2FlowEngine->executeCommandAction($w2FlowWorld, $pFlow, 'look', '', 'box');
+$lookBoxMsgs = implode(' ', $pFlow->drainConsole());
+assertTest(
+    str_contains(strtolower($lookBoxMsgs), 'box is closed') || str_contains(strtolower($lookBoxMsgs), 'is closed'),
+    "Game engine prints that box is closed when looked at: '{$lookBoxMsgs}'"
+);
+$evalBoxDesc = $flowBox->evalDescription($pFlow);
+assertTest(
+    str_contains(strtolower($evalBoxDesc), 'is closed'),
+    "AdvObject::evalDescription() includes 'is closed' hint: '{$evalBoxDesc}'"
+);
+
+// Render in UIhtml: verify subcell D console output formats line break before 'a cardboard box is closed.'
+ob_start();
+$htmlUiEarly = new \Dimx\UIhtml($pFlow);
+$htmlUiEarly->render([
+    'world'     => $w2FlowWorld,
+    'player'    => $pFlow,
+    'room'      => $spiaggiaRoom,
+    'messages'  => [$lookBoxMsgs],
+    'lockError' => false,
+]);
+$lookBoxClosedHtml = ob_get_clean();
+assertTest(
+    str_contains($lookBoxClosedHtml, '<br />') && str_contains($lookBoxClosedHtml, 'a cardboard box is closed.'),
+    "UIhtml console in subcell D formats line breaks so 'a cardboard box is closed.' appears on a new line"
+);
+
+// 2. Move to bungalow room: go U (to rocca), then go E (to bungalow)
+$w2FlowEngine->executeCommandAction($w2FlowWorld, $pFlow, 'go', 'U', '');
+assertTest($pFlow->getRoom()?->id === 'rocca', "Move 'go U' took player to 'rocca'");
+$w2FlowEngine->executeCommandAction($w2FlowWorld, $pFlow, 'go', 'E', '');
+assertTest($pFlow->getRoom()?->id === 'bungalow', "Move 'go E' took player to 'bungalow'");
+
+// 3. Use the switch in bungalow: triggers switch.onUse
+$w2FlowEngine->executeCommandAction($w2FlowWorld, $pFlow, 'use', '', 'switch');
+$useMsgs = implode(' ', $pFlow->drainConsole());
+assertTest((int)$w2FlowWorld->mode === 1, "switch.onUse set \$WORLD.mode = 1");
+assertTest(!$flowBox->isOpen(), "switch.onUse ensured box.open = 0");
+$appleItem = $w2FlowWorld->getItem('apple');
+assertTest($appleItem !== null, "World 2 defines 'apple' item");
+assertTest($appleItem->container === $flowBox, "switch.onUse moved apple inside box");
+
+// 4. Return to beach room: go W (to rocca), then go D (to spiaggia)
+$w2FlowEngine->executeCommandAction($w2FlowWorld, $pFlow, 'go', 'W', '');
+assertTest($pFlow->getRoom()?->id === 'rocca', "Move 'go W' took player back to 'rocca'");
+$w2FlowEngine->executeCommandAction($w2FlowWorld, $pFlow, 'go', 'D', '');
+assertTest($pFlow->getRoom()?->id === 'spiaggia', "Move 'go D' took player back to 'spiaggia'");
+
+// While box is closed, verify apple is concealed in bot snapshot
+$botUi = new \Dimx\UIbot();
+$closedSnapshot = $botUi->buildRoomSnapshot($spiaggiaRoom, $pFlow);
+$closedItems = array_column($closedSnapshot['items'], 'id');
+assertTest(in_array('box', $closedItems, true), "Closed snapshot lists 'box'");
+assertTest(!in_array('apple', $closedItems, true), "Closed snapshot conceals 'apple'");
+
+// 5. Open the box
+$w2FlowEngine->executeCommandAction($w2FlowWorld, $pFlow, 'open', '', 'box');
+assertTest($flowBox->isOpen(), "Box is now open after 'open box'");
+$openBoxMsgsList = $pFlow->drainConsole();
+$openBoxMsgs = implode(' ', $openBoxMsgsList);
+assertTest(str_contains($openBoxMsgs, "You opened"), "Player receives open confirmation: '{$openBoxMsgs}'");
+assertTest(str_contains($openBoxMsgs, "Containing:"), "Open output includes 'Containing:'");
+assertTest(str_contains($openBoxMsgs, "icoMela.gif"), "Containing message includes icon for apple");
+assertTest(str_contains($openBoxMsgs, 'data-obj-id="apple"'), "Containing message includes data-obj-id='apple'");
+
+// 6. Direct contents of box displayed on screen with clickable icon
+// a) UIhtml rendering
+ob_start();
+$htmlUi = new \Dimx\UIhtml($pFlow);
+$htmlUi->render([
+    'world'     => $w2FlowWorld,
+    'player'    => $pFlow,
+    'room'      => $spiaggiaRoom,
+    'messages'  => $openBoxMsgsList,
+    'lockError' => false,
+]);
+$spiaggiaHtml = ob_get_clean();
+
+// Contained items must NOT appear in the room items list in cell B / subcell E
+$itemsListStart = strpos($spiaggiaHtml, 'dimx-section-title" style="color:#38bdf8">Items</div>');
+$invListStart = strpos($spiaggiaHtml, '🎒 Inventory</div>');
+$itemsListSection = ($itemsListStart !== false && $invListStart !== false)
+    ? substr($spiaggiaHtml, $itemsListStart, $invListStart - $itemsListStart)
+    : '';
+assertTest(
+    !str_contains($itemsListSection, 'an apple') && !str_contains($itemsListSection, 'data-obj-id="apple"'),
+    "Contained object 'apple' does NOT appear in the room items list"
+);
+assertTest(
+    !str_contains($itemsListSection, '(open)') && !str_contains($itemsListSection, '(closed)'),
+    "Items list in subcell E omits (open)/(closed) status as requested"
+);
+
+// Look at box in UIhtml: verify subcell D console output formats line break before 'a cardboard box is open.'
+ob_start();
+$htmlUi->render([
+    'world'     => $w2FlowWorld,
+    'player'    => $pFlow,
+    'room'      => $spiaggiaRoom,
+    'messages'  => ["<b>a cardboard box</b>: " . $flowBox->evalDescription($pFlow)],
+    'lockError' => false,
+]);
+$lookBoxHtml = ob_get_clean();
+assertTest(
+    str_contains($lookBoxHtml, '<br />') && str_contains($lookBoxHtml, 'a cardboard box is open.'),
+    "UIhtml console in subcell D formats line breaks so 'a cardboard box is open.' appears on a new line"
+);
+
+// Contained items appear directly after/below open message in console
+assertTest(str_contains($spiaggiaHtml, 'dimx-console'), "UIhtml includes console");
+assertTest(str_contains($spiaggiaHtml, 'Containing:'), "UIhtml console displays 'Containing:' below open message");
+assertTest(str_contains($spiaggiaHtml, 'data-obj-id="apple"'), "UIhtml displays apple with data-obj-id='apple'");
+assertTest(str_contains($spiaggiaHtml, 'data-obj-type="i"'), "UIhtml displays apple with data-obj-type='i'");
+assertTest(str_contains($spiaggiaHtml, 'onclick="clickObject(this)"'), "UIhtml displays apple with clickable onclick handler");
+assertTest(str_contains($spiaggiaHtml, 'icoMela.gif'), "UIhtml displays clickable icon for apple (icoMela.gif)");
+assertTest(str_contains($spiaggiaHtml, 'an apple'), "UIhtml displays name 'an apple'");
+assertTest(str_contains($spiaggiaHtml, "\$(document).on('click', '.dimx-onscreen-obj, [data-obj-id]'"), "UIhtml includes delegated point-and-click handler for objects anywhere including cell B");
+
+// b) Bot UIs: bots can see apple item id
+$openSnapshot = $botUi->buildRoomSnapshot($spiaggiaRoom, $pFlow);
+$openItems = array_column($openSnapshot['items'], 'id');
+assertTest(in_array('apple', $openItems, true), "Bot UI snapshot reveals 'apple' inside open box");
+
+$jsonUiFlow = new \Dimx\UIjson();
+$jsonSnapshot = $jsonUiFlow->buildRoomSnapshot($spiaggiaRoom, $pFlow);
+$jsonItemIds = array_column($jsonSnapshot['items'], 'id');
+assertTest(in_array('apple', $jsonItemIds, true), "UIjson snapshot reveals 'apple' inside open box");
+
+// 7. Pick apple via PICK command/button using its ID
+$w2FlowEngine->executeCommandAction($w2FlowWorld, $pFlow, 'pick', '', 'apple');
+$pickMsgs = implode(' ', $pFlow->drainConsole());
+assertTest(str_contains($pickMsgs, "You picked up"), "Player receives pickup confirmation: '{$pickMsgs}'");
+assertTest($appleItem->container === $pFlow, "Apple is now carried by player in inventory");
+assertTest(!isset($flowBox->contents['apple']), "Apple is no longer inside box");
+assertTest($w2FlowWorld->defaultPanel?->id === 'chat' || $pFlow->getPanel()?->id === 'chat', "apple.whenPicked triggered Goal and switched panel to 'chat'");
+
+// Verify UIhtml render with item in inventory does not trigger Undefined variable $activePanel warning
+ob_start();
+$htmlUiAfterPick = new \Dimx\UIhtml($pFlow);
+$htmlUiAfterPick->render([
+    'world'     => $w2FlowWorld,
+    'player'    => $pFlow,
+    'room'      => $spiaggiaRoom,
+    'messages'  => $pickMsgs ? [$pickMsgs] : [],
+    'lockError' => false,
+]);
+$htmlAfterPick = ob_get_clean();
+assertTest(!str_contains($htmlAfterPick, 'Undefined variable $activePanel'), "UIhtml renders with items in inventory without 'Undefined variable \$activePanel' warning");
+assertTest(str_contains($htmlAfterPick, '🎒 Inventory'), "UIhtml renders inventory section");
+assertTest(str_contains($htmlAfterPick, 'an apple'), "UIhtml renders 'an apple' in inventory section");
+assertTest(str_contains($htmlAfterPick, 'data-obj-id="apple"'), "UIhtml inventory renders apple as on-screen object with data-obj-id='apple'");
+assertTest(!str_contains($htmlAfterPick, 'dimx-mini-btn'), "UIhtml inventory omits inline 'Use' and 'Drop' buttons beside carried items");
+
+// Verify UIbot render with item in inventory renders cleanly without errors
+ob_start();
+$uiBot->render([
+    'world'     => $w2FlowWorld,
+    'player'    => $pFlow,
+    'room'      => $spiaggiaRoom,
+    'messages'  => $pickMsgs ? [$pickMsgs] : [],
+    'lockError' => false,
+]);
+$botAfterPickRaw = ob_get_clean();
+$botAfterPick = json_decode($botAfterPickRaw, true);
+assertTest(($botAfterPick['status'] ?? '') === 'ok', "UIbot renders status 'ok' after game completion");
+assertTest(is_array($botAfterPick['commands'] ?? null), "UIbot payload contains commands list");
+assertTest(!str_contains($botAfterPickRaw, 'Warning'), "UIbot output contains no PHP warnings");
+assertTest(!str_contains($botAfterPickRaw, 'activePanel'), "UIbot output contains no activePanel errors");
+
 $pm->resetWorld($testWorldId);
 
 // Clean up single test world

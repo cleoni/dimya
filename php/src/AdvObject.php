@@ -261,16 +261,28 @@ class AdvObject extends DimxObject
 
     /**
      * Evaluates description. If description starts with '@', invokes dynamic callback/function.
+     * Openable items append open/closed state as a hint to the player.
      */
     public function evalDescription(?AdvObject $agent = null): string
     {
-        if (str_starts_with($this->description, '@')) {
-            $funcExpr = substr($this->description, 1);
+        $desc = $this->description;
+        if (str_starts_with($desc, '@')) {
+            $funcExpr = substr($desc, 1);
             if ($this->world !== null && isset($this->world->events[$funcExpr])) {
-                return (string)$this->world->fireEvent($funcExpr, $this, $agent);
+                $desc = (string)$this->world->fireEvent($funcExpr, $this, $agent);
             }
         }
-        return $this->description;
+
+        if ($this->isanItem() && $this->isOpenable()) {
+            $name = !empty($this->name) ? $this->name : $this->id;
+            $status = $this->isOpen() ? 'is open.' : 'is closed.';
+            if (!empty($desc)) {
+                $desc .= "\n\n";
+            }
+            $desc .= "{$name} {$status}";
+        }
+
+        return $desc;
     }
 
     public function isaCharacter(): bool

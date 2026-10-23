@@ -159,6 +159,7 @@ class UIhtml extends UI
         $roomItems    = $currentRoom ? $currentRoom->getItems()     : [];
         $inventory    = $player->contents;
         $links        = $currentRoom ? $currentRoom->getLinks()     : [];
+        $activePanel  = $player->getPanel() ?? $world->defaultPanel;
 
         if (!headers_sent()) {
             header('Content-Type: text/html; charset=utf-8');
@@ -339,16 +340,7 @@ class UIhtml extends UI
               cursor: pointer;
             }
             .dimx-tag:hover { background: #475569; }
-            .dimx-mini-btn {
-              background: #2563eb;
-              color: #ffffff;
-              border: none;
-              border-radius: 3px;
-              padding: 2px 6px;
-              font-size: 11px;
-              cursor: pointer;
-            }
-            .dimx-mini-btn:hover { opacity: 0.9; }
+
             .dimx-subcell-e .dimx-btn {
               background: #1e40af;
               color: #f8fafc;
@@ -521,10 +513,10 @@ class UIhtml extends UI
                     <div class="dimx-console" id="consoleBox">
                       <?php if (!empty($consoleMessages)): ?>
                         <?php foreach ($consoleMessages as $line): ?>
-                          <div class="dimx-console-line"><?= $line ?></div>
+                          <div class="dimx-console-line"><?= nl2br($line) ?></div>
                         <?php endforeach; ?>
                       <?php elseif ($currentRoom && !empty($currentRoom->evalDescription($player))): ?>
-                        <div class="dimx-room-desc"><?= htmlspecialchars($currentRoom->evalDescription($player)) ?></div>
+                        <div class="dimx-room-desc"><?= nl2br(htmlspecialchars($currentRoom->evalDescription($player))) ?></div>
                       <?php endif; ?>
                     </div>
                   </div>
@@ -564,7 +556,7 @@ class UIhtml extends UI
                     <!-- Items in room -->
                     <?php if (!empty($roomItems)): ?>
                       <div class="dimx-section-title" style="color:#38bdf8">Items</div>
-                      <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:10px">
+                      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
                         <?php foreach ($roomItems as $itm): ?>
                           <div>
                             <a href="javascript:void(0)"
@@ -573,36 +565,36 @@ class UIhtml extends UI
                                data-obj-type="i"
                                data-obj-name="<?= htmlspecialchars($itm->name) ?>"
                                onclick="clickObject(this)"
-                               style="color:#e2e8f0;text-decoration:none;font-size:12px;cursor:pointer">
-                              📦 <?= htmlspecialchars($itm->name) ?>
+                               style="color:#e2e8f0;text-decoration:none;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+                               <?php if (!empty($itm->icon)): ?>
+                                 <img src="<?= htmlspecialchars($itm->icon) ?>" alt="<?= htmlspecialchars($itm->name) ?>" style="width:20px;height:20px;object-fit:contain;vertical-align:middle;border-radius:2px" />
+                               <?php else: ?>
+                                 <span>📦</span>
+                               <?php endif; ?>
+                               <span><?= htmlspecialchars($itm->name) ?></span>
                             </a>
                           </div>
                         <?php endforeach; ?>
                       </div>
                     <?php endif; ?>
-
                     <!-- Inventory -->
                     <div class="dimx-section-title" style="color:#94a3b8;text-transform:uppercase">🎒 Inventory</div>
                     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
                       <?php foreach ($inventory as $item): ?>
-                        <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.06);padding:3px 6px;border-radius:3px;font-size:12px">
-                          <span class="dimx-onscreen-obj"
-                                data-obj-id="<?= htmlspecialchars($item->id) ?>"
-                                data-obj-type="i"
-                                data-obj-name="<?= htmlspecialchars($item->name) ?>"
-                                onclick="clickObject(this)"
-                                style="cursor:pointer"
-                                title="Click to select this item">
+                        <div style="background:rgba(255,255,255,0.06);padding:3px 6px;border-radius:3px;font-size:12px">
+                          <a href="javascript:void(0)"
+                             class="dimx-onscreen-obj"
+                             data-obj-id="<?= htmlspecialchars($item->id) ?>"
+                             data-obj-type="i"
+                             data-obj-name="<?= htmlspecialchars($item->name) ?>"
+                             onclick="clickObject(this)"
+                             style="color:#e2e8f0;text-decoration:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px"
+                             title="Click to select this item">
+                            <?php if (!empty($item->icon)): ?>
+                              <img src="<?= htmlspecialchars($item->icon) ?>" alt="<?= htmlspecialchars($item->name) ?>" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;border-radius:2px" />
+                            <?php endif; ?>
                             <b><?= htmlspecialchars($item->name) ?></b>
-                          </span>
-                          <div style="display:flex;gap:3px">
-                            <?php if ($activePanel?->isCommandAllowed('use')): ?>
-                              <button type="button" class="dimx-mini-btn" onclick="sendCmd('use','','<?= htmlspecialchars($item->id) ?>')">Use</button>
-                            <?php endif; ?>
-                            <?php if ($activePanel?->isCommandAllowed('drop')): ?>
-                              <button type="button" class="dimx-mini-btn" style="background:#b91c1c;color:#fff" onclick="sendCmd('drop','','<?= htmlspecialchars($item->id) ?>')">Drop</button>
-                            <?php endif; ?>
-                          </div>
+                          </a>
                         </div>
                       <?php endforeach; ?>
                       <?php if (empty($inventory)): ?>
@@ -785,14 +777,26 @@ class UIhtml extends UI
               };
             }
 
+            let lastClickedObjTime = 0;
+            let lastClickedObjId = null;
+
             /**
              * Handle interaction with any on-screen object (character, room item, inventory, link).
+             * Works for objects placed anywhere on screen: scene, console messages, cell B, or subcell E.
              */
             function clickObject(target, fallbackParam = '') {
+              const now = Date.now();
               const obj = identifyObject(target);
               if (!obj) {
                 return;
               }
+
+              // Debounce duplicate invocations from inline onclick + delegated listener
+              if (obj.id === lastClickedObjId && (now - lastClickedObjTime) < 150) {
+                return;
+              }
+              lastClickedObjTime = now;
+              lastClickedObjId = obj.id;
 
               // 1. If no command is currently awaiting target:
               if (!pendingCmd) {
@@ -931,6 +935,15 @@ class UIhtml extends UI
               if (e.key === 'Escape' && pendingCmd) {
                 clearPendingCmd();
               }
+            });
+
+            // Delegated click handler: point-and-click system works for objects anywhere on screen (cell B, console, subcell E, scene)
+            $(document).on('click', '.dimx-onscreen-obj, [data-obj-id]', function(e) {
+              if (this.tagName === 'BUTTON' && this.hasAttribute('data-cmd') && !this.hasAttribute('data-obj-id')) {
+                return;
+              }
+              clickObject(this);
+              e.preventDefault();
             });
 
             // ---- Game command submission ----

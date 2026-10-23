@@ -145,8 +145,14 @@ class Character extends AdvObject
             $this->display("You opened <b>{$obj->name}</b>.");
             $contents = $obj->getContents(true);
             if (!empty($contents)) {
-                $names = array_map(fn($it) => "<b>{$it->name}</b>", $contents);
-                $this->display("Containing: " . implode(', ', $names));
+                $itemLinks = [];
+                foreach ($contents as $it) {
+                    $iconImg = !empty($it->icon)
+                        ? "<img src=\"" . htmlspecialchars($it->icon) . "\" alt=\"" . htmlspecialchars($it->name) . "\" style=\"width:20px;height:20px;object-fit:contain;vertical-align:middle;margin-right:4px;border-radius:2px\" />"
+                        : "📦 ";
+                    $itemLinks[] = "<a href=\"javascript:void(0)\" class=\"dimx-onscreen-obj\" data-obj-id=\"" . htmlspecialchars($it->id) . "\" data-obj-type=\"i\" data-obj-name=\"" . htmlspecialchars($it->name) . "\" onclick=\"clickObject(this)\" style=\"color:#38bdf8;text-decoration:none;display:inline-flex;align-items:center;cursor:pointer;\">{$iconImg}<b>" . htmlspecialchars($it->name) . "</b></a>";
+                }
+                $this->display("Containing: " . implode(', ', $itemLinks));
             }
             return true;
         }

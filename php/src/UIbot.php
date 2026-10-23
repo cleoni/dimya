@@ -130,6 +130,13 @@ class UIbot extends UIjson
             'description' => $item->evalDescription($player),
         ];
 
+        if ($item->isOpenable()) {
+            $data['open'] = $item->isOpen();
+        }
+        if ($item->container instanceof AdvObject && $item->container->isanItem()) {
+            $data['container_id'] = $item->container->id;
+        }
+
         if ($item->icon !== null && $item->icon !== '') {
             $data['icon'] = $item->icon;
         }

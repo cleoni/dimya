@@ -26,6 +26,11 @@ class DimxObject extends ManageableObject
         $this->world = $world;
     }
 
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
     /**
      * Display a message to players in or connected to this entity.
      * Default returns false unless overridden by World, Room, or Player.

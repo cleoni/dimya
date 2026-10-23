@@ -143,10 +143,13 @@ class UIjson extends UI
             return null;
         }
 
-        // Room items
+        // Room items (including accessible items inside open containers)
         $items = [];
         foreach ($room->getItems() as $item) {
             $items[] = $this->buildItemSnapshot($item, $player);
+            if ($item->isOpen()) {
+                $this->collectVisibleContents($item, $player, $items);
+            }
         }
 
         // Room occupants (other players and NPCs)
@@ -178,13 +181,30 @@ class UIjson extends UI
     }
 
     /**
+     * Recursively collect items inside open containers.
+     *
+     * @param array<int, array<string, mixed>> $items
+     */
+    protected function collectVisibleContents(AdvObject $container, Player $player, array &$items): void
+    {
+        foreach ($container->getContents(true) as $contained) {
+            if ($contained instanceof Item) {
+                $items[] = $this->buildItemSnapshot($contained, $player);
+                if ($contained->isOpen()) {
+                    $this->collectVisibleContents($contained, $player, $items);
+                }
+            }
+        }
+    }
+
+    /**
      * Build single item snapshot record.
      *
      * @return array<string, mixed>
      */
     protected function buildItemSnapshot(Item $item, Player $player): array
     {
-        return [
+        $data = [
             'id'          => $item->id,
             'name'        => $item->name,
             'description' => $item->evalDescription($player),
@@ -193,6 +213,13 @@ class UIjson extends UI
             'type'        => $item->type ?? '',
             'icon'        => $item->icon,
         ];
+        if ($item->isOpenable()) {
+            $data['open'] = $item->isOpen();
+        }
+        if ($item->container instanceof AdvObject && $item->container->isanItem()) {
+            $data['container_id'] = $item->container->id;
+        }
+        return $data;
     }
 
     /**
