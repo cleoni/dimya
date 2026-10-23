@@ -153,9 +153,10 @@ try {
 
     $direction   = $selectedExit['direction'] ?? '';
     $exitName    = $selectedExit['name'] ?? $direction;
-    $destName    = $selectedExit['target_room_name'] ?? 'next area';
+    $destName    = $selectedExit['target_room_name'] ?? null;
+    $destDesc    = $destName !== null ? " towards '{$destName}'" : '';
 
-    echo "      -> Found exit: '{$exitName}' heading [{$direction}] towards '{$destName}'.\n";
+    echo "      -> Found exit: '{$exitName}' heading [{$direction}]{$destDesc}.\n";
     echo "      -> Moving direction [{$direction}]...\n";
 
     $moveResponse = callGameApi($gameUrl, [
@@ -168,7 +169,7 @@ try {
     // Step 4: Read the room it's in
     // ------------------------------------------------------------------------
     $newRoom     = $moveResponse['room'] ?? null;
-    $newRoomName = $newRoom['name'] ?? $destName;
+    $newRoomName = $newRoom['name'] ?? 'Unknown Room';
     echo "      -> Arrived in room: \"{$newRoomName}\"\n\n";
 
     // ------------------------------------------------------------------------

@@ -252,11 +252,11 @@ $decodedNoPass = json_decode($jsonOutputNoPass, true);
 assertTest(($decodedNoPass['status'] ?? '') === 'login_required', "Bot without password gets 'login_required'");
 assertTest(str_contains($decodedNoPass['error'] ?? '', 'Password is required'), "Bot error indicates password is required");
 
-// 6b: Bot with username and password should authenticate and return game snapshot
+// 6b: Test Bot (BotAlpha) with username and password should authenticate and return game snapshot via UIjson
 $jsonOutput = runMultiplayer([
     'format'   => 'json',
-    'username' => 'DirectApiBot',
-    'password' => 'botSecret456',
+    'username' => 'BotAlpha',
+    'password' => 'test123',
     'cmd'      => 'look',
 ]);
 $decoded = json_decode($jsonOutput, true);
@@ -264,14 +264,14 @@ $decoded = json_decode($jsonOutput, true);
 assertTest(is_array($decoded), "multiplayer.php returned valid JSON");
 assertTest(($decoded['success'] ?? false) === true, "JSON response indicates success: true");
 assertTest(isset($decoded['room']['id']), "JSON response includes room snapshot");
-assertTest(isset($decoded['player']['name']) && $decoded['player']['name'] === 'DirectApiBot', "JSON response includes player name 'DirectApiBot'");
+assertTest(isset($decoded['player']['name']) && $decoded['player']['name'] === 'BotAlpha', "JSON response includes player name 'BotAlpha'");
 assertTest(isset($decoded['player']['numeric_id']) && is_numeric($decoded['player']['numeric_id']), "JSON response includes numeric_id: " . ($decoded['player']['numeric_id'] ?? 0));
 assertTest(($decoded['player']['is_bot'] ?? false) === true, "JSON response player has is_bot = true");
 
 // 6c: Bot with wrong password on existing account
 $jsonOutputWrongPass = runMultiplayer([
     'format'   => 'json',
-    'username' => 'DirectApiBot',
+    'username' => 'BotAlpha',
     'password' => 'wrongSecret!',
     'cmd'      => 'look',
 ]);
@@ -285,8 +285,8 @@ $firstNumericId       = $decoded['player']['numeric_id'] ?? 0;
 
 $jsonOutput2 = runMultiplayer([
     'format'   => 'json',
-    'username' => 'DirectApiBot',
-    'password' => 'botSecret456',
+    'username' => 'BotAlpha',
+    'password' => 'test123',
     'cmd'      => 'look',
 ]);
 $decoded2 = json_decode($jsonOutput2, true);
@@ -473,46 +473,48 @@ $botJsonOutput = runMultiplayer([
 
 $botData = json_decode($botJsonOutput, true);
 assertTest(($botData['status'] ?? '') === 'ok', "Bot login response status is 'ok'");
-assertTest(($botData['panel']['id'] ?? '') === 'chat', "Bot received active panel 'chat'");
+assertTest(!array_key_exists('panel', $botData), "Bot output omits internal 'panel' structure (no panel ID exposed)");
+assertTest(array_key_exists('commands', $botData), "Bot output exposes simplified top-level 'commands' list");
+$botCmds = $botData['commands'] ?? [];
 assertTest(
-    in_array('look', $botData['panel']['commands'] ?? [], true),
-    "Bot panel commands include 'look': " . json_encode($botData['panel']['commands'] ?? [])
+    in_array('look', $botCmds, true),
+    "Bot commands include 'look': " . json_encode($botCmds)
 );
 assertTest(
-    in_array('click', $botData['panel']['commands'] ?? [], true),
-    "Bot panel commands include 'click': " . json_encode($botData['panel']['commands'] ?? [])
+    in_array('click', $botCmds, true),
+    "Bot commands include 'click': " . json_encode($botCmds)
 );
 assertTest(
-    in_array('go', $botData['panel']['commands'] ?? [], true),
-    "Bot panel commands include 'go': " . json_encode($botData['panel']['commands'] ?? [])
+    in_array('go', $botCmds, true),
+    "Bot commands include 'go': " . json_encode($botCmds)
 );
 assertTest(
-    in_array('use', $botData['panel']['commands'] ?? [], true),
-    "Bot panel commands include 'use': " . json_encode($botData['panel']['commands'] ?? [])
+    in_array('use', $botCmds, true),
+    "Bot commands include 'use': " . json_encode($botCmds)
 );
 assertTest(
-    !in_array('examine', $botData['panel']['commands'] ?? [], true),
-    "Bot panel commands DO NOT include 'examine'"
+    !in_array('examine', $botCmds, true),
+    "Bot commands DO NOT include 'examine'"
 );
 assertTest(
-    !in_array('talk', $botData['panel']['commands'] ?? [], true),
-    "Bot panel commands DO NOT include 'talk'"
+    !in_array('talk', $botCmds, true),
+    "Bot commands DO NOT include 'talk'"
 );
 assertTest(
-    !in_array('quit', $botData['panel']['commands'] ?? [], true),
-    "Bot panel commands DO NOT include 'quit'"
+    !in_array('quit', $botCmds, true),
+    "Bot commands DO NOT include 'quit'"
 );
 assertTest(
-    !in_array('disconnect', $botData['panel']['commands'] ?? [], true),
-    "Bot panel commands DO NOT include 'disconnect'"
+    !in_array('disconnect', $botCmds, true),
+    "Bot commands DO NOT include 'disconnect'"
 );
 assertTest(
-    in_array('exit', $botData['panel']['commands'] ?? [], true),
-    "Bot panel commands include 'exit'"
+    in_array('exit', $botCmds, true),
+    "Bot commands include 'exit'"
 );
 assertTest(
-    in_array('logout', $botData['panel']['commands'] ?? [], true),
-    "Bot panel commands include 'logout'"
+    in_array('logout', $botCmds, true),
+    "Bot commands include 'logout'"
 );
 
 // Verify Bot inspecting surfer receives the complete description
@@ -624,6 +626,8 @@ assertTest($uiBot->getType() === 'bot', "UIbot type is 'bot'");
 // Create mock room with both NPC Character and Player occupant
 $w = $seededWorld;
 $mockRoom = new Dimx\Room($w, 'Test Room', 'test_room');
+$targetRoom = new Dimx\Room($w, 'Secret Target', 'secret_target');
+$mockLink = new Dimx\Link($w, 'Test Door', 'test_door', $mockRoom, $targetRoom, true, 'E');
 $npcChar  = new Dimx\Character($w, 'NpcDude', 'npc_dude');
 $npcChar->move($mockRoom);
 $otherPlayer = new Dimx\Player($w, 'OtherPlayer', 'p_other');
@@ -645,6 +649,30 @@ foreach ($uiBotOccupants as $occ) {
 }
 assertTest(!$hasIsPlayerInBot, "UIbot occupant snapshot omits 'is_player' (NPCs and players indistinguishable)");
 
+// UIbot must NOT have 'target_room_id' or 'target_room_name' in exits
+$uiBotExits = $uiBotSnapshot['exits'] ?? [];
+assertTest(count($uiBotExits) === 1, "UIbot snapshot contains 1 exit");
+$hasTargetInBotExit = false;
+foreach ($uiBotExits as $ex) {
+    if (array_key_exists('target_room_id', $ex) || array_key_exists('target_room_name', $ex)) {
+        $hasTargetInBotExit = true;
+    }
+}
+assertTest(!$hasTargetInBotExit, "UIbot exit snapshot omits 'target_room_id' and 'target_room_name'");
+
+// UIbot player status must NOT have 'id', 'numeric_id', 'is_bot', 'capacity', 'volume', 'carrying_count'
+$uiBotPlayerStatus = $uiBot->buildPlayerStatus($observerPlayer);
+$uiBotHasInternalPlayerFields = (
+    array_key_exists('id', $uiBotPlayerStatus) ||
+    array_key_exists('numeric_id', $uiBotPlayerStatus) ||
+    array_key_exists('is_bot', $uiBotPlayerStatus) ||
+    array_key_exists('capacity', $uiBotPlayerStatus) ||
+    array_key_exists('volume', $uiBotPlayerStatus) ||
+    array_key_exists('carrying_count', $uiBotPlayerStatus)
+);
+assertTest(!$uiBotHasInternalPlayerFields, "UIbot player status omits id, numeric_id, is_bot, capacity, volume, carrying_count");
+assertTest(array_key_exists('name', $uiBotPlayerStatus) && array_key_exists('inventory', $uiBotPlayerStatus), "UIbot player status retains name, score, health, inventory");
+
 // UIjson MUST have 'is_player' in occupants
 $uiJsonOccupants = $uiJsonSnapshot['occupants'] ?? [];
 $hasIsPlayerInJson = true;
@@ -654,6 +682,28 @@ foreach ($uiJsonOccupants as $occ) {
     }
 }
 assertTest($hasIsPlayerInJson, "UIjson occupant snapshot retains 'is_player' for diagnostic/testing");
+
+// UIjson MUST have 'target_room_id' and 'target_room_name' in exits
+$uiJsonExits = $uiJsonSnapshot['exits'] ?? [];
+$hasTargetInJsonExit = true;
+foreach ($uiJsonExits as $ex) {
+    if (!array_key_exists('target_room_id', $ex) || !array_key_exists('target_room_name', $ex)) {
+        $hasTargetInJsonExit = false;
+    }
+}
+assertTest($hasTargetInJsonExit, "UIjson exit snapshot retains 'target_room_id' and 'target_room_name'");
+
+// UIjson player status retains internal diagnostic player fields
+$uiJsonPlayerStatus = $uiJson->buildPlayerStatus($observerPlayer);
+$uiJsonHasInternalPlayerFields = (
+    array_key_exists('id', $uiJsonPlayerStatus) &&
+    array_key_exists('numeric_id', $uiJsonPlayerStatus) &&
+    array_key_exists('is_bot', $uiJsonPlayerStatus) &&
+    array_key_exists('capacity', $uiJsonPlayerStatus) &&
+    array_key_exists('volume', $uiJsonPlayerStatus) &&
+    array_key_exists('carrying_count', $uiJsonPlayerStatus)
+);
+assertTest($uiJsonHasInternalPlayerFields, "UIjson player status retains diagnostic fields (id, numeric_id, is_bot, capacity, volume, carrying_count)");
 
 // Test via multiplayer.php gateway: BotAlpha in testBots gets UIjson
 $botAlphaJson = runMultiplayer([
@@ -672,6 +722,17 @@ foreach ($botAlphaOccupants as $occ) {
 }
 assertTest($botAlphaHasIsPlayer, "BotAlpha (in testBots) receives UIjson with 'is_player' visible");
 
+$botAlphaExits = $botAlphaData['room']['exits'] ?? [];
+$botAlphaHasTarget = false;
+foreach ($botAlphaExits as $ex) {
+    if (array_key_exists('target_room_id', $ex) || array_key_exists('target_room_name', $ex)) {
+        $botAlphaHasTarget = true;
+    }
+}
+assertTest($botAlphaHasTarget, "BotAlpha (in testBots) receives UIjson with target room info in exits");
+assertTest(isset($botAlphaData['panel']['id']), "BotAlpha (in testBots) receives UIjson with panel id: " . ($botAlphaData['panel']['id'] ?? ''));
+assertTest(isset($botAlphaData['player']['numeric_id']), "BotAlpha (in testBots) receives UIjson with numeric_id in player");
+
 // Test via multiplayer.php gateway: Standard bot (not in testBots) gets UIbot
 $standardBotJson = runMultiplayer([
     'bot'      => '1',
@@ -688,6 +749,29 @@ foreach ($standardBotOccupants as $occ) {
     }
 }
 assertTest(!$standardBotHasIsPlayer, "Standard bot receives UIbot without 'is_player'");
+
+$standardBotExits = $standardBotData['room']['exits'] ?? [];
+$standardBotHasTarget = false;
+foreach ($standardBotExits as $ex) {
+    if (array_key_exists('target_room_id', $ex) || array_key_exists('target_room_name', $ex)) {
+        $standardBotHasTarget = true;
+    }
+}
+assertTest(!$standardBotHasTarget, "Standard bot receives UIbot without target room info in exits");
+assertTest(!array_key_exists('panel', $standardBotData), "Standard bot receives UIbot without 'panel' structure (no panel ID)");
+assertTest(array_key_exists('commands', $standardBotData) && is_array($standardBotData['commands']), "Standard bot receives UIbot with top-level 'commands' array");
+
+$stdPlayer = $standardBotData['player'] ?? [];
+$stdBotHasInternalFields = (
+    array_key_exists('id', $stdPlayer) ||
+    array_key_exists('numeric_id', $stdPlayer) ||
+    array_key_exists('is_bot', $stdPlayer) ||
+    array_key_exists('capacity', $stdPlayer) ||
+    array_key_exists('volume', $stdPlayer) ||
+    array_key_exists('carrying_count', $stdPlayer)
+);
+assertTest(!$stdBotHasInternalFields, "Standard bot receives UIbot without internal player fields (id, numeric_id, is_bot, capacity, volume, carrying_count)");
+assertTest(array_key_exists('name', $stdPlayer) && array_key_exists('health', $stdPlayer), "Standard bot receives UIbot with name, health, score, inventory in player");
 
 $pm->resetWorld($testWorldId);
 

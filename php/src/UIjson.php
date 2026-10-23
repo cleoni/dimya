@@ -69,6 +69,36 @@ class UIjson extends UI
 
         $panel = $player->getPanel() ?? $world->defaultPanel;
 
+        $response = $this->buildResponsePayload(
+            $context,
+            $world,
+            $player,
+            $room,
+            $panel,
+            $status,
+            $loggedOut,
+            $lockError
+        );
+
+        $this->sendJson($response, $lockError ? 503 : 200);
+    }
+
+    /**
+     * Build the full response array before JSON encoding.
+     *
+     * @param array<string, mixed> $context
+     * @return array<string, mixed>
+     */
+    protected function buildResponsePayload(
+        array $context,
+        World $world,
+        Player $player,
+        ?Room $room,
+        ?Panel $panel,
+        string $status,
+        bool $loggedOut,
+        bool $lockError
+    ): array {
         $response = [
             'success'    => !$lockError,
             'status'     => $status,
@@ -98,7 +128,7 @@ class UIjson extends UI
             $response['error'] = 'World is temporarily locked by another transaction. Please retry.';
         }
 
-        $this->sendJson($response, $lockError ? 503 : 200);
+        return $response;
     }
 
     /**
@@ -138,16 +168,7 @@ class UIjson extends UI
         // Room exits / links
         $exits = [];
         foreach ($room->getLinks() as $link) {
-            $direction = $link->getDirection($room->id);
-            $targetRoom = $link->getTarget($room->id);
-            $exits[] = [
-                'direction'        => $direction,
-                'link_id'          => $link->id,
-                'name'             => $link->name,
-                'target_room_id'   => $targetRoom?->id,
-                'target_room_name' => $targetRoom?->name,
-                'open'             => $link->isOpen(),
-            ];
+            $exits[] = $this->buildExitSnapshot($link, $room, $player);
         }
 
         $sceneImg = !empty($room->images['N']) ? $room->images['N']->src : null;
@@ -176,6 +197,26 @@ class UIjson extends UI
             'description' => $occ->evalDescription($player),
             'is_player'   => ($occ instanceof Player),
             'icon'        => $occ->icon,
+        ];
+    }
+
+    /**
+     * Build exit snapshot record.
+     *
+     * @return array<string, mixed>
+     */
+    protected function buildExitSnapshot(Link $link, Room $room, Player $player): array
+    {
+        $direction = $link->getDirection($room->id);
+        $targetRoom = $link->getTarget($room->id);
+
+        return [
+            'direction'        => $direction,
+            'link_id'          => $link->id,
+            'name'             => $link->name,
+            'target_room_id'   => $targetRoom?->id,
+            'target_room_name' => $targetRoom?->name,
+            'open'             => $link->isOpen(),
         ];
     }
 
