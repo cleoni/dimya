@@ -47,6 +47,7 @@ error_log
 *.pdf
 *.zip
 *.tar.gz
+/docs/dimensionex-developers-reference-717.pdf
 
 # ==========================================
 # DATABASE E DUMP DI DATI
