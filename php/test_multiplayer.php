@@ -993,6 +993,45 @@ assertTest(str_contains($bungalowHtml, "data-cmd=\"look\" data-model=\"O\""), "U
 assertTest(str_contains($bungalowHtml, 'data-obj-id="switch"') && str_contains($bungalowHtml, 'data-obj-type="i"'), "UIhtml renders switch as on-screen object with id='switch' and type='i'");
 assertTest(str_contains($bungalowHtml, "left:62px;top:68px;"), "UIhtml positions switch on scene at left:62px;top:68px;");
 
+echo "\n16. Testing 'open' and 'close' Commands & actOpen / actClose on 'box' in World 2...\n";
+$spiaggia = $w2->getRoom('spiaggia');
+assertTest($spiaggia !== null, "World 2 contains 'spiaggia' room");
+$box = $spiaggia->contents['box'] ?? null;
+assertTest($box instanceof \Dimx\Item, "Spiaggia contains 'box' item");
+assertTest($box->isOpenable(), "Box is recognized as openable");
+assertTest(!$box->isOpen(), "Box is initially closed (open=0)");
+assertTest(empty($box->getContents(true)), "Box contents are concealed when box is closed");
+
+// Test Player using GameEngine executeCommandAction for 'open box'
+$pOpenTester = new \Dimx\Player($w2, 'BoxTester', 'p_box_1');
+$pOpenTester->move($spiaggia);
+$w2Engine = new \Dimx\GameEngine($pm, 'w2_test', $dxwFile);
+// Switch panel to default so open/close commands are allowed
+$w2->defaultPanel = \Dimx\Panel::createDefaultPanel();
+$pOpenTester->setPanel($w2->defaultPanel);
+
+// Process 'open box'
+$w2Engine->executeCommandAction($w2, $pOpenTester, 'open', '', 'box');
+assertTest($box->isOpen(), "Box is now open after 'open box' command");
+assertTest((int)$box->getProperty('open') === 1, "Box property 'open' equals 1");
+$boxMessages = $pOpenTester->drainConsole();
+assertTest(str_contains(implode(' ', $boxMessages), "You opened"), "Player receives confirmation message 'You opened'");
+assertTest(!empty($box->getContents(true)), "Box contents (apple) are revealed after opening");
+
+// Process 'close box'
+$w2Engine->executeCommandAction($w2, $pOpenTester, 'close', '', 'box');
+assertTest(!$box->isOpen(), "Box is closed after 'close box' command");
+assertTest((int)$box->getProperty('open') === 0, "Box property 'open' equals 0");
+$closeMessages = $pOpenTester->drainConsole();
+assertTest(str_contains(implode(' ', $closeMessages), "You closed"), "Player receives confirmation message 'You closed'");
+
+// Test SmallBasic script instructions 'Open box' and 'Close box' via ActionsRunner
+$scriptRunner = new \Dimx\ActionsRunner($w2, $box, $pOpenTester, $box);
+$scriptRunner->run("Open box");
+assertTest($box->isOpen(), "ActionsRunner 'Open box' successfully opened the box");
+$scriptRunner->run("Close box");
+assertTest(!$box->isOpen(), "ActionsRunner 'Close box' successfully closed the box");
+
 $pm->resetWorld($testWorldId);
 
 // Clean up single test world

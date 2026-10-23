@@ -345,11 +345,12 @@ class DxwLoader
 
                         $world->addItem($item);
 
-                        // Position item in room if specified
+                        // Position item in room or container if specified
                         if (!empty($position)) {
-                            $room = $world->getRoom($position);
-                            if ($room !== null) {
-                                $item->move($room);
+                            $item->defContainer = $position;
+                            $target = $world->getRoom($position) ?? $world->contents[$position] ?? null;
+                            if ($target instanceof AdvObject) {
+                                $item->move($target);
                             }
                         }
                     } else {

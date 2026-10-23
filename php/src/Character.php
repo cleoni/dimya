@@ -117,6 +117,72 @@ class Character extends AdvObject
     }
 
     /**
+     * Open an adventure object (door, chest, container, link).
+     */
+    public function actOpen(AdvObject $obj): bool
+    {
+        if (!$obj->isAccessibleFrom($this)) {
+            $this->display("You cannot reach that.");
+            return false;
+        }
+
+        if (!$obj->isOpenable()) {
+            $this->display("<b>{$obj->name}</b> cannot be opened.");
+            return false;
+        }
+
+        if ($obj->isLocked()) {
+            $this->display("<b>{$obj->name}</b> is locked.");
+            return false;
+        }
+
+        if ($obj->isOpen()) {
+            $this->display("<b>{$obj->name}</b> is already open.");
+            return false;
+        }
+
+        if ($obj->open($this)) {
+            $this->display("You opened <b>{$obj->name}</b>.");
+            $contents = $obj->getContents(true);
+            if (!empty($contents)) {
+                $names = array_map(fn($it) => "<b>{$it->name}</b>", $contents);
+                $this->display("Containing: " . implode(', ', $names));
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Close an opened adventure object.
+     */
+    public function actClose(AdvObject $obj): bool
+    {
+        if (!$obj->isAccessibleFrom($this)) {
+            $this->display("You cannot reach that.");
+            return false;
+        }
+
+        if (!$obj->isOpenable()) {
+            $this->display("<b>{$obj->name}</b> cannot be closed.");
+            return false;
+        }
+
+        if (!$obj->isOpen()) {
+            $this->display("<b>{$obj->name}</b> is already closed.");
+            return false;
+        }
+
+        if ($obj->close($this)) {
+            $this->display("You closed <b>{$obj->name}</b>.");
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Display a message directly to this character (e.g. system notification or speech).
      */
     public function display(string $msg): bool

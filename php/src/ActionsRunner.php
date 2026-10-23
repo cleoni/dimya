@@ -161,8 +161,44 @@ class ActionsRunner
             'MOVE'      => $this->actMove($args),
             'GOAL'      => $this->actGoal($args),
             'RETURN'    => $this->actReturn($args),
+            'OPEN'      => $this->actOpen($args),
+            'CLOSE'     => $this->actClose($args),
             default     => true,
         };
+    }
+
+    public function actOpen(array $args): bool
+    {
+        if (empty($args)) {
+            return false;
+        }
+        $targetName = $args[0];
+        $obj = $this->resolveObject($targetName);
+        if ($obj instanceof AdvObject) {
+            $agent = ($this->agent instanceof Character) ? $this->agent : null;
+            if ($agent !== null) {
+                return $agent->actOpen($obj);
+            }
+            return $obj->open(null);
+        }
+        return false;
+    }
+
+    public function actClose(array $args): bool
+    {
+        if (empty($args)) {
+            return false;
+        }
+        $targetName = $args[0];
+        $obj = $this->resolveObject($targetName);
+        if ($obj instanceof AdvObject) {
+            $agent = ($this->agent instanceof Character) ? $this->agent : null;
+            if ($agent !== null) {
+                return $agent->actClose($obj);
+            }
+            return $obj->close(null);
+        }
+        return false;
     }
 
     protected function actReturn(array $args): mixed

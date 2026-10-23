@@ -333,7 +333,7 @@ class GameEngine
     /**
      * Internal dispatcher for player commands mutating game objects.
      */
-    protected function executeCommandAction(
+    public function executeCommandAction(
         World $world,
         Player $player,
         string $cmd,
@@ -358,13 +358,24 @@ class GameEngine
             case 'look':
             case 'click':
                 if (!empty($targetId)) {
-                    $targetObj = $currentRoom?->contents[$targetId]
-                              ?? $player->contents[$targetId]
-                              ?? $world->contents[$targetId]
-                              ?? null;
+                    $targetObj = $this->findAccessibleObject($player, $targetId);
 
                     if ($targetObj instanceof AdvObject) {
-                        $player->display("<b>{$targetObj->name}</b>: {$targetObj->evalDescription($player)}");
+                        $desc = $targetObj->evalDescription($player);
+                        $msg = "<b>{$targetObj->name}</b>: {$desc}";
+                        if ($targetObj->isOpenable()) {
+                            $msg .= " It is " . ($targetObj->isOpen() ? "open" : "closed") . ".";
+                        }
+                        $player->display($msg);
+
+                        if ($targetObj->isOpen()) {
+                            $contents = $targetObj->getContents(true);
+                            if (!empty($contents)) {
+                                $names = array_map(fn($it) => "<b>{$it->name}</b>", $contents);
+                                $player->display("Containing: " . implode(', ', $names));
+                            }
+                        }
+
                         $world->fireEvent('onLook', $targetObj, $player, null);
                     } else {
                         $player->display("You do not see that here.");
@@ -397,8 +408,8 @@ class GameEngine
             case 'take':
             case 'get':
                 if (!empty($targetId) && $currentRoom !== null) {
-                    $item = $currentRoom->contents[$targetId] ?? null;
-                    if ($item instanceof Item && $item->container === $currentRoom && $item->pickable) {
+                    $item = $this->findAccessibleObject($player, $targetId);
+                    if ($item instanceof Item && $item->isAccessibleFrom($player) && $item->pickable) {
                         if ($item->move($player)) {
                             $player->display("You picked up the <b>{$item->name}</b>.");
                             $world->fireEvent('whenPicked', $item, $player, $player);
@@ -424,6 +435,34 @@ class GameEngine
                     }
                 } else {
                     $player->display("Specify an item to drop.");
+                }
+                break;
+
+            case 'open':
+                $openTarget = !empty($targetId) ? $targetId : $param;
+                if (!empty($openTarget)) {
+                    $targetObj = $this->findAccessibleObject($player, $openTarget);
+                    if ($targetObj instanceof AdvObject) {
+                        $this->actOpen($targetObj, $player);
+                    } else {
+                        $player->display("You do not see that here.");
+                    }
+                } else {
+                    $player->display("Specify what you want to open.");
+                }
+                break;
+
+            case 'close':
+                $closeTarget = !empty($targetId) ? $targetId : $param;
+                if (!empty($closeTarget)) {
+                    $targetObj = $this->findAccessibleObject($player, $closeTarget);
+                    if ($targetObj instanceof AdvObject) {
+                        $this->actClose($targetObj, $player);
+                    } else {
+                        $player->display("You do not see that here.");
+                    }
+                } else {
+                    $player->display("Specify what you want to close.");
                 }
                 break;
 
@@ -539,5 +578,62 @@ class GameEngine
                 }
                 break;
         }
+    }
+
+    /**
+     * Find an object accessible to the player (in inventory, room, open containers, or room links).
+     */
+    public function findAccessibleObject(Player $player, string $targetId): ?AdvObject
+    {
+        $currentRoom = $player->getRoom();
+        // 1. Carried in player inventory
+        if (isset($player->contents[$targetId])) {
+            return $player->contents[$targetId];
+        }
+        // 2. Directly in current room
+        if ($currentRoom !== null && isset($currentRoom->contents[$targetId])) {
+            return $currentRoom->contents[$targetId];
+        }
+        // 3. Inside an open container in the room or player inventory
+        if ($currentRoom !== null) {
+            foreach ($currentRoom->contents as $cont) {
+                if ($cont instanceof AdvObject && $cont->isOpen() && isset($cont->contents[$targetId])) {
+                    return $cont->contents[$targetId];
+                }
+            }
+        }
+        foreach ($player->contents as $cont) {
+            if ($cont instanceof AdvObject && $cont->isOpen() && isset($cont->contents[$targetId])) {
+                return $cont->contents[$targetId];
+            }
+        }
+        // 4. Directional way or link in the room
+        if ($currentRoom !== null) {
+            $way = $currentRoom->getWay($targetId) ?? $currentRoom->getLinkByDirection($targetId);
+            if ($way !== null) {
+                return $way;
+            }
+        }
+        // 5. Global world occupants or items
+        if ($this->world !== null) {
+            return $this->world->contents[$targetId] ?? $this->world->getCharacter($targetId) ?? null;
+        }
+        return null;
+    }
+
+    /**
+     * Open an adventure object for the given player.
+     */
+    public function actOpen(AdvObject $targetObj, Player $player): bool
+    {
+        return $player->actOpen($targetObj);
+    }
+
+    /**
+     * Close an adventure object for the given player.
+     */
+    public function actClose(AdvObject $targetObj, Player $player): bool
+    {
+        return $player->actClose($targetObj);
     }
 }

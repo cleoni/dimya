@@ -95,6 +95,141 @@ class AdvObject extends DimxObject
     }
 
     /**
+     * Check if this object can be opened and closed (has 'open' declared or dynamic property).
+     */
+    public function isOpenable(): bool
+    {
+        return property_exists($this, 'open') || $this->getProperty('open') !== null;
+    }
+
+    /**
+     * Check if this object is currently open. Non-openable objects are open by default.
+     */
+    public function isOpen(): bool
+    {
+        if ($this->isOpenable()) {
+            $val = property_exists($this, 'open') ? $this->open : $this->getProperty('open');
+            if (is_bool($val)) {
+                return $val;
+            }
+            if (is_numeric($val)) {
+                return (int)$val !== 0;
+            }
+            return !empty($val) && strtolower((string)$val) !== 'false';
+        }
+        return true;
+    }
+
+    /**
+     * Check if this object is currently locked.
+     */
+    public function isLocked(): bool
+    {
+        $val = property_exists($this, 'locked') ? $this->locked : $this->getProperty('locked');
+        if ($val === null) {
+            return false;
+        }
+        if (is_bool($val)) {
+            return $val;
+        }
+        if (is_numeric($val)) {
+            return (int)$val !== 0;
+        }
+        return !empty($val) && strtolower((string)$val) !== 'false';
+    }
+
+    /**
+     * Check if this object is physically accessible to the specified entity.
+     */
+    public function isAccessibleFrom(AdvObject $from): bool
+    {
+        if (isset($from->contents[$this->id])) {
+            return true;
+        }
+        $myCont = $from->container;
+        $cont   = $this->container;
+        if ($myCont !== null && ($myCont === $cont || $myCont === $this)) {
+            return true;
+        }
+        if ($cont instanceof AdvObject && $cont->isanItem()) {
+            if ($cont->isOpen() && ($cont->container === $myCont || $cont->container === $from)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Open this object. Fires beforeOpen and onOpen events.
+     */
+    public function open(?Character $agent = null): bool
+    {
+        if (!$this->isOpenable()) {
+            return false;
+        }
+
+        if ($agent !== null && $this->world !== null) {
+            $allow = $this->world->fireEvent('beforeOpen', $this, $agent, null);
+            if ($allow === false || $allow === 0 || $allow === '0') {
+                return false;
+            }
+        }
+
+        if ($this->isOpen() || $this->isLocked()) {
+            return false;
+        }
+
+        if (property_exists($this, 'open')) {
+            $this->open = true;
+        }
+        $this->setProperty('open', 1);
+
+        if ($this->world !== null) {
+            $this->world->fireEvent('onOpen', $this, $agent, null);
+        }
+
+        return true;
+    }
+
+    /**
+     * Close this object. Fires onClose event.
+     */
+    public function close(?Character $agent = null): bool
+    {
+        if (!$this->isOpenable()) {
+            return false;
+        }
+
+        if (!$this->isOpen()) {
+            return false;
+        }
+
+        if (property_exists($this, 'open')) {
+            $this->open = false;
+        }
+        $this->setProperty('open', 0);
+
+        if ($this->world !== null) {
+            $this->world->fireEvent('onClose', $this, $agent, null);
+        }
+
+        return true;
+    }
+
+    /**
+     * Get contents, optionally hiding contents of closed containers.
+     *
+     * @return array<string, AdvObject>
+     */
+    public function getContents(bool $checkOpen = false): array
+    {
+        if ($checkOpen && $this->isanItem() && !$this->isOpen()) {
+            return [];
+        }
+        return $this->contents;
+    }
+
+    /**
      * Move this object into target container, checking volume and capacity.
      */
     public function move(AdvObject $target): bool
