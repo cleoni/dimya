@@ -1,6 +1,6 @@
 # DimensioneX Game Engine Command Specification & Reference
 
-This document defines the authoritative command catalog and execution model for the **DimensioneX** game engine. All commands are processed through [`GameEngine::processCommand()`](file:///c:/xampp/htdocs/dimya/php/src/GameEngine.php) within concurrency-guarded critical sections, dispatching events to game objects and formatting output through [`UIhtml`](file:///c:/xampp/htdocs/dimya/php/src/UIhtml.php) or [`UIjson`](file:///c:/xampp/htdocs/dimya/php/src/UIjson.php).
+This document defines the authoritative command catalog and execution model for the **DimensioneX** game engine. All commands are processed through [`GameEngine::processCommand()`](file:///c:/xampp/htdocs/dimya/php/src/GameEngine.php) within concurrency-guarded critical sections, dispatching events to game objects and formatting output through [`UIhtml`](file:///c:/xampp/htdocs/dimya/php/src/UIhtml.php), [`UIbot`](file:///c:/xampp/htdocs/dimya/php/src/UIbot.php), or [`UIjson`](file:///c:/xampp/htdocs/dimya/php/src/UIjson.php).
 
 ---
 

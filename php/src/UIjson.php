@@ -145,15 +145,7 @@ class UIjson extends UI
         // Room items
         $items = [];
         foreach ($room->getItems() as $item) {
-            $items[] = [
-                'id'          => $item->id,
-                'name'        => $item->name,
-                'description' => $item->evalDescription($player),
-                'pickable'    => (bool)$item->pickable,
-                'volume'      => $item->volume,
-                'type'        => $item->type ?? '',
-                'icon'        => $item->icon,
-            ];
+            $items[] = $this->buildItemSnapshot($item, $player);
         }
 
         // Room occupants (other players and NPCs)
@@ -181,6 +173,24 @@ class UIjson extends UI
             'items'       => $items,
             'occupants'   => $occupants,
             'exits'       => $exits,
+        ];
+    }
+
+    /**
+     * Build single item snapshot record.
+     *
+     * @return array<string, mixed>
+     */
+    protected function buildItemSnapshot(Item $item, Player $player): array
+    {
+        return [
+            'id'          => $item->id,
+            'name'        => $item->name,
+            'description' => $item->evalDescription($player),
+            'pickable'    => (bool)$item->pickable,
+            'volume'      => $item->volume,
+            'type'        => $item->type ?? '',
+            'icon'        => $item->icon,
         ];
     }
 

@@ -529,10 +529,13 @@ foreach ($botData['room']['occupants'] ?? [] as $occ) {
     }
 }
 assertTest($surferOcc !== null, "Bot sees surfer in room occupants");
-assertTest(
-    ($surferOcc['description'] ?? '') === "Walks up and down, I'd say he's got nothing to do.",
-    "Bot room snapshot surfer description is complete: '{$surferOcc['description']}'"
-);
+assertTest(!array_key_exists('description', $surferOcc), "Bot room snapshot surfer description is hidden (must look at character to read it)");
+assertTest(!array_key_exists('icon', $surferOcc), "Bot room snapshot surfer omits null icon");
+assertTest(isset($surferOcc['image']), "Bot room snapshot surfer includes image");
+assertTest(!array_key_exists('dimensions', $surferOcc['image']), "Bot room snapshot surfer image omits 'dimensions'");
+assertTest(($surferOcc['image']['width'] ?? 0) === 120, "Bot room snapshot surfer image width is 120");
+assertTest(($surferOcc['image']['height'] ?? 0) === 120, "Bot room snapshot surfer image height is 120");
+assertTest(str_contains($surferOcc['image']['url'] ?? '', 'chrSurfista.gif'), "Bot room snapshot surfer image URL contains 'chrSurfista.gif'");
 
 // Bot uses 'look' on surfer in chat panel - should succeed and trigger surfer.onLook
 $lookJson = runMultiplayer([
@@ -675,6 +678,14 @@ foreach ($uiBotOccupants as $occ) {
 }
 assertTest(!$hasIsPlayerInBot, "UIbot occupant snapshot omits 'is_player' (NPCs and players indistinguishable)");
 
+$hasDescInBot = false;
+foreach ($uiBotOccupants as $occ) {
+    if (array_key_exists('description', $occ)) {
+        $hasDescInBot = true;
+    }
+}
+assertTest(!$hasDescInBot, "UIbot occupant snapshot omits 'description' (bot must look at character)");
+
 // UIbot must NOT have 'target_room_id' or 'target_room_name' in exits
 $uiBotExits = $uiBotSnapshot['exits'] ?? [];
 assertTest(count($uiBotExits) === 1, "UIbot snapshot contains 1 exit");
@@ -686,18 +697,14 @@ foreach ($uiBotExits as $ex) {
 }
 assertTest(!$hasTargetInBotExit, "UIbot exit snapshot omits 'target_room_id' and 'target_room_name'");
 
-// UIbot player status must NOT have 'id', 'numeric_id', 'is_bot', 'capacity', 'volume', 'carrying_count'
-$uiBotPlayerStatus = $uiBot->buildPlayerStatus($observerPlayer);
-$uiBotHasInternalPlayerFields = (
-    array_key_exists('id', $uiBotPlayerStatus) ||
-    array_key_exists('numeric_id', $uiBotPlayerStatus) ||
-    array_key_exists('is_bot', $uiBotPlayerStatus) ||
-    array_key_exists('capacity', $uiBotPlayerStatus) ||
-    array_key_exists('volume', $uiBotPlayerStatus) ||
-    array_key_exists('carrying_count', $uiBotPlayerStatus)
-);
-assertTest(!$uiBotHasInternalPlayerFields, "UIbot player status omits id, numeric_id, is_bot, capacity, volume, carrying_count");
-assertTest(array_key_exists('name', $uiBotPlayerStatus) && array_key_exists('inventory', $uiBotPlayerStatus), "UIbot player status retains name, score, health, inventory");
+// UIbot stats must display only attributes starting with capital letters (like UIhtml)
+$statsTestPlayer = new Dimx\Player($w, 'StatsBot', 'p_stats_bot');
+$statsTestPlayer->setAttrList('Health=100,Strength=15,open=0,locked=1');
+$uiBotStats = $uiBot->buildPlayerStats($statsTestPlayer);
+assertTest(isset($uiBotStats['Health']) && $uiBotStats['Health'] === 100, "UIbot buildPlayerStats includes capitalized attribute 'Health'");
+assertTest(isset($uiBotStats['Strength']) && $uiBotStats['Strength'] === 15, "UIbot buildPlayerStats includes capitalized attribute 'Strength'");
+assertTest(!isset($uiBotStats['open']), "UIbot buildPlayerStats omits lowercase attribute 'open'");
+assertTest(!isset($uiBotStats['locked']), "UIbot buildPlayerStats omits lowercase attribute 'locked'");
 
 // UIjson MUST have 'is_player' in occupants
 $uiJsonOccupants = $uiJsonSnapshot['occupants'] ?? [];
@@ -730,6 +737,27 @@ $uiJsonHasInternalPlayerFields = (
     array_key_exists('carrying_count', $uiJsonPlayerStatus)
 );
 assertTest($uiJsonHasInternalPlayerFields, "UIjson player status retains diagnostic fields (id, numeric_id, is_bot, capacity, volume, carrying_count)");
+
+// Test room items: UIbot omits 'pickable', 'volume', 'type' while UIjson retains them
+$mockItem = new Dimx\Item($w, 'Magic Wand', 'magic_wand');
+$mockItem->volume = 2;
+$mockItem->pickable = true;
+$mockItem->move($mockRoom);
+
+$uiBotSnapshotWithItem = $uiBot->buildRoomSnapshot($mockRoom, $observerPlayer);
+$uiJsonSnapshotWithItem = $uiJson->buildRoomSnapshot($mockRoom, $observerPlayer);
+
+$botItem = $uiBotSnapshotWithItem['items'][0] ?? [];
+$jsonItem = $uiJsonSnapshotWithItem['items'][0] ?? [];
+
+assertTest(!array_key_exists('pickable', $botItem), "UIbot item snapshot omits 'pickable'");
+assertTest(!array_key_exists('volume', $botItem), "UIbot item snapshot omits 'volume'");
+assertTest(!array_key_exists('type', $botItem), "UIbot item snapshot omits 'type'");
+assertTest(isset($botItem['name']) && $botItem['name'] === 'Magic Wand', "UIbot item snapshot retains 'name'");
+
+assertTest(array_key_exists('pickable', $jsonItem) && $jsonItem['pickable'] === true, "UIjson item snapshot retains 'pickable'");
+assertTest(array_key_exists('volume', $jsonItem) && $jsonItem['volume'] === 2, "UIjson item snapshot retains 'volume'");
+assertTest(array_key_exists('type', $jsonItem), "UIjson item snapshot retains 'type'");
 
 // Test via multiplayer.php gateway: BotAlpha in testBots gets UIjson
 $botAlphaJson = runMultiplayer([
@@ -787,17 +815,16 @@ assertTest(!$standardBotHasTarget, "Standard bot receives UIbot without target r
 assertTest(!array_key_exists('panel', $standardBotData), "Standard bot receives UIbot without 'panel' structure (no panel ID)");
 assertTest(array_key_exists('commands', $standardBotData) && is_array($standardBotData['commands']), "Standard bot receives UIbot with top-level 'commands' array");
 
-$stdPlayer = $standardBotData['player'] ?? [];
-$stdBotHasInternalFields = (
-    array_key_exists('id', $stdPlayer) ||
-    array_key_exists('numeric_id', $stdPlayer) ||
-    array_key_exists('is_bot', $stdPlayer) ||
-    array_key_exists('capacity', $stdPlayer) ||
-    array_key_exists('volume', $stdPlayer) ||
-    array_key_exists('carrying_count', $stdPlayer)
-);
-assertTest(!$stdBotHasInternalFields, "Standard bot receives UIbot without internal player fields (id, numeric_id, is_bot, capacity, volume, carrying_count)");
-assertTest(array_key_exists('name', $stdPlayer) && array_key_exists('health', $stdPlayer), "Standard bot receives UIbot with name, health, score, inventory in player");
+assertTest(!array_key_exists('player', $standardBotData), "Standard bot receives UIbot without 'player' structure (replaced by 'stats')");
+assertTest(array_key_exists('stats', $standardBotData) && is_array($standardBotData['stats']), "Standard bot receives UIbot with 'stats' structure");
+assertTest($standardBotData['stats'] === [], "Standard bot receives empty stats list for World 2");
+
+// Standard bot world section displays only 'name' and 'tick_length'
+$stdWorld = $standardBotData['world'] ?? [];
+assertTest(array_key_exists('name', $stdWorld), "Standard bot world section displays 'name'");
+assertTest(array_key_exists('tick_length', $stdWorld), "Standard bot world section displays 'tick_length'");
+assertTest(!array_key_exists('id', $stdWorld), "Standard bot world section omits 'id'");
+assertTest(!array_key_exists('mode', $stdWorld), "Standard bot world section omits 'mode'");
 
 $pm->resetWorld($testWorldId);
 

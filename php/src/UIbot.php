@@ -8,16 +8,16 @@ namespace Dimx;
  *
  * REST / JSON API presentation layer for standard bot and AI players.
  *
- * Inherits the full structured JSON API capabilities from UIjson,
- * but omits:
- *  - 'is_player' from room occupants (preserving DimensioneX uniformity
+ * Inherits the structured JSON API capabilities from UIjson,
+ * but applies player-facing uniformity:
+ *  - 'is_player' omitted from room occupants (preserving DimensioneX uniformity
  *    between human players, bots, and NPCs).
- *  - 'target_room_id' and 'target_room_name' from room exits (preventing
+ *  - 'target_room_id' and 'target_room_name' omitted from room exits (preventing
  *    premature knowledge of unseen target rooms).
- *  - 'panel' structure (simplifying output to a top-level 'commands' list
- *    so panel internals like panel id remain hidden).
- *  - 'id', 'numeric_id', 'is_bot', 'capacity', 'volume', and 'carrying_count'
- *    from the 'player' object (keeping player status clean and simple).
+ *  - 'panel' structure replaced by top-level 'commands' list.
+ *  - 'world' section displays only 'name' and 'tick_length'.
+ *  - 'player' structure replaced by 'stats' structure, showing only capitalized attributes
+ *    defined in ATTRLIST (matching UIhtml STATS panel).
  */
 class UIbot extends UIjson
 {
@@ -28,30 +28,27 @@ class UIbot extends UIjson
     }
 
     /**
-     * Build player status representation for bots without exposing internal
-     * IDs, bot flags, or capacity/volume constraints.
+     * Build player stats representation for bots, exposing only attributes
+     * beginning with an uppercase letter (matching UIhtml STATS box).
      *
      * @return array<string, mixed>
      */
-    public function buildPlayerStatus(Player $player): array
+    public function buildPlayerStats(Player $player): array
     {
-        $status = parent::buildPlayerStatus($player);
-
-        unset(
-            $status['id'],
-            $status['numeric_id'],
-            $status['is_bot'],
-            $status['capacity'],
-            $status['volume'],
-            $status['carrying_count']
-        );
-
-        return $status;
+        $stats = [];
+        foreach ($player->getProperties() as $key => $val) {
+            if (is_string($key) && $key !== '' && $key[0] >= 'A' && $key[0] <= 'Z') {
+                $stats[$key] = $val;
+            }
+        }
+        return $stats;
     }
 
     /**
      * Build bot-specific response payload:
-     * Replaces the internal 'panel' structure with a simplified top-level 'commands' list.
+     *  - Filters 'world' to only 'name' and 'tick_length'.
+     *  - Replaces internal 'panel' structure with a simplified top-level 'commands' list.
+     *  - Replaces 'player' structure with 'stats' (capitalized attributes only).
      *
      * @param array<string, mixed> $context
      * @return array<string, mixed>
@@ -70,11 +67,17 @@ class UIbot extends UIjson
 
         $commands = $payload['panel']['commands'] ?? ($panel?->getAvailableCommands() ?? []);
 
-        // Replace 'panel' key with 'commands' at the same position in payload
         $botPayload = [];
         foreach ($payload as $key => $value) {
-            if ($key === 'panel') {
+            if ($key === 'world') {
+                $botPayload['world'] = [
+                    'name'        => $world->name,
+                    'tick_length' => $world->tickLength,
+                ];
+            } elseif ($key === 'panel') {
                 $botPayload['commands'] = $commands;
+            } elseif ($key === 'player') {
+                $botPayload['stats'] = $this->buildPlayerStats($player);
             } else {
                 $botPayload[$key] = $value;
             }
@@ -84,18 +87,63 @@ class UIbot extends UIjson
     }
 
     /**
-     * Build single occupant snapshot without revealing whether character is a player.
+     * Build single occupant snapshot without revealing whether character is a player,
+     * hiding premature character description and null icons, and exposing images.
      *
      * @return array<string, mixed>
      */
     protected function buildOccupantSnapshot(Character $occ, Player $player): array
     {
-        return [
-            'id'          => $occ->id,
-            'name'        => $occ->name,
-            'description' => $occ->evalDescription($player),
-            'icon'        => $occ->icon,
+        $data = [
+            'id'   => $occ->id,
+            'name' => $occ->name,
         ];
+
+        if ($occ->icon !== null && $occ->icon !== '') {
+            $data['icon'] = $occ->icon;
+        }
+
+        $img = $occ->images[$occ->facing] ?? ($occ->images['N'] ?? (reset($occ->images) ?: null));
+        if ($img instanceof Image && !empty($img->src)) {
+            $data['image'] = [
+                'url'    => $img->src,
+                'width'  => $img->width,
+                'height' => $img->height,
+            ];
+        }
+
+        return $data;
+    }
+
+    /**
+     * Build single item snapshot record for standard bots.
+     * Omits internal physical properties ('pickable', 'volume', 'type')
+     * so bots must attempt interaction in order to discover them.
+     *
+     * @return array<string, mixed>
+     */
+    protected function buildItemSnapshot(Item $item, Player $player): array
+    {
+        $data = [
+            'id'          => $item->id,
+            'name'        => $item->name,
+            'description' => $item->evalDescription($player),
+        ];
+
+        if ($item->icon !== null && $item->icon !== '') {
+            $data['icon'] = $item->icon;
+        }
+
+        $img = $item->images[$item->facing] ?? ($item->images['N'] ?? (reset($item->images) ?: null));
+        if ($img instanceof Image && !empty($img->src)) {
+            $data['image'] = [
+                'url'    => $img->src,
+                'width'  => $img->width,
+                'height' => $img->height,
+            ];
+        }
+
+        return $data;
     }
 
     /**

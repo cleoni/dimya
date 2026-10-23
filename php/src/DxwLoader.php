@@ -319,7 +319,16 @@ class DxwLoader
                                 $rest = trim(substr($subLine, strlen($subTokens[0])));
                                 $imgTokens = preg_split('/\s+/', $rest);
                                 $last = end($imgTokens);
-                                $item->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder));
+                                $imgW = 0;
+                                $imgH = 0;
+                                foreach ($imgTokens as $tok) {
+                                    if (preg_match('/^(\d+)x(\d+)$/i', $tok, $dimMatch)) {
+                                        $imgW = (int)$dimMatch[1];
+                                        $imgH = (int)$dimMatch[2];
+                                        break;
+                                    }
+                                }
+                                $item->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
                             }
                             $i++;
                         }
@@ -378,7 +387,16 @@ class DxwLoader
                                 $rest = trim(substr($subLine, strlen($subTokens[0])));
                                 $imgTokens = preg_split('/\s+/', $rest);
                                 $last = end($imgTokens);
-                                $char->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder));
+                                $imgW = 0;
+                                $imgH = 0;
+                                foreach ($imgTokens as $tok) {
+                                    if (preg_match('/^(\d+)x(\d+)$/i', $tok, $dimMatch)) {
+                                        $imgW = (int)$dimMatch[1];
+                                        $imgH = (int)$dimMatch[2];
+                                        break;
+                                    }
+                                }
+                                $char->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
                             }
                             $i++;
                         }
