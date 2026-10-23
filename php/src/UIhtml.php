@@ -272,6 +272,7 @@ class UIhtml extends UI
 
             <!-- Right Column -->
             <div>
+              <?php $activePanel = $player->getPanel(); ?>
               <!-- Exits -->
               <div class="dimx-sidebar-box">
                 <h4>🗺 Exits</h4>
@@ -296,8 +297,12 @@ class UIhtml extends UI
                     <div style="display:flex;justify-content:space-between;align-items:center;background:#0f172a;padding:6px 10px;border-radius:4px;font-size:12px">
                       <span><b><?= htmlspecialchars($item->name) ?></b> (vol: <?= $item->volume ?>)</span>
                       <div style="display:flex;gap:4px">
-                        <button type="button" class="dimx-btn" onclick="sendCmd('use','','<?= htmlspecialchars($item->id) ?>')">Use</button>
-                        <button type="button" class="dimx-btn" style="background:#b91c1c;border-color:#ef4444" onclick="sendCmd('drop','','<?= htmlspecialchars($item->id) ?>')">Drop</button>
+                        <?php if ($activePanel?->isCommandAllowed('use')): ?>
+                          <button type="button" class="dimx-btn" onclick="sendCmd('use','','<?= htmlspecialchars($item->id) ?>')">Use</button>
+                        <?php endif; ?>
+                        <?php if ($activePanel?->isCommandAllowed('drop')): ?>
+                          <button type="button" class="dimx-btn" style="background:#b91c1c;border-color:#ef4444" onclick="sendCmd('drop','','<?= htmlspecialchars($item->id) ?>')">Drop</button>
+                        <?php endif; ?>
                       </div>
                     </div>
                   <?php endforeach; ?>
@@ -321,9 +326,15 @@ class UIhtml extends UI
               <div class="dimx-sidebar-box">
                 <h4>⚡ Actions</h4>
                 <div style="display:flex;flex-wrap:wrap;gap:6px">
-                  <button class="dimx-btn" onclick="sendCmd('look')">👁 Look</button>
-                  <button class="dimx-btn" onclick="sendCmd('save')">💾 Save</button>
-                  <button class="dimx-btn" onclick="sendCmd('exit')">🚪 Exit</button>
+                  <?php if ($activePanel?->isCommandAllowed('look')): ?>
+                    <button class="dimx-btn" onclick="sendCmd('look')">👁 Look</button>
+                  <?php endif; ?>
+                  <?php if ($activePanel?->isCommandAllowed('save')): ?>
+                    <button class="dimx-btn" onclick="sendCmd('save')">💾 Save</button>
+                  <?php endif; ?>
+                  <?php if ($activePanel?->isCommandAllowed('exit')): ?>
+                    <button class="dimx-btn" onclick="sendCmd('exit')">🚪 Exit</button>
+                  <?php endif; ?>
                 </div>
               </div>
             </div>
@@ -333,6 +344,12 @@ class UIhtml extends UI
           <script>
             // ---- Game command submission ----
             function sendCmd(cmd, param = '', target = '') {
+              if (cmd === 'say' && !param) {
+                const tb = document.getElementById('txtBox');
+                if (tb && tb.value) {
+                  param = tb.value;
+                }
+              }
               document.getElementById('cmdInput').value   = cmd;
               document.getElementById('paramInput').value  = param;
               document.getElementById('targetInput').value = target;

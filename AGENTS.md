@@ -13,7 +13,11 @@ Detailed documentation and diagrams have been generated and saved to the [`docs/
 - [**docs/uml_explorer.html**](docs/uml_explorer.html) — Standalone, interactive HTML UML explorer with dynamic search, subsystem filters, and class inspector.
 - [**docs/uml_specifications.puml**](docs/uml_specifications.puml) — Full PlantUML source code for rendering in PlantUML or IDE UML tools.
 - [**docs/dimensionex-developers-reference-717.pdf**](docs/dimensionex-developers-reference-717.pdf) — DimensioneX Developer's Reference (v7.1.7).
+- [**docs/dimx-classes/**](docs/dimx-classes/) — Original DimensioneX source classes (Java), reference for engine behavior and class mapping.
 
 ## Implementation Recommendations & Rules
 - NO scalar values in the game have to be strict typed. They all must be handled like PHP does, as int, bool or string depending on the context.
-- When in doubt regarding the behavior of instructions, base events, commands, etc., consult [`docs/dimensionex-developers-reference-717.pdf`](docs/dimensionex-developers-reference-717.pdf). DimensioneY is derived from DimensioneX, and the original behavior must be preserved to a certain extent.
+- When in doubt regarding the behavior of instructions, base events, commands, etc., consult [`docs/dimensionex-developers-reference-717.pdf`](docs/dimensionex-developers-reference-717.pdf) and the original Java classes in [`docs/dimx-classes/`](docs/dimx-classes/). DimensioneY is derived from DimensioneX, and original behavior must be preserved to a certain extent. Mapping from DimensioneX classes to DimensioneY classes is advisable.
+- **Do NOT re-introduce intentionally dropped features**:
+  - `Cluster` / clustering features.
+  - `Dict` / `DictSorted` classes (replaced with PHP native arrays and built-in types).

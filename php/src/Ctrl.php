@@ -12,6 +12,7 @@ namespace Dimx;
 class Ctrl extends ManageableObject
 {
     public const TYPE_BUTTON   = 'BUTTON';
+    public const TYPE_SUBMIT   = 'SUBMIT';
     public const TYPE_TEXTBOX  = 'TEXTBOX';
     public const TYPE_DROPDOWN = 'DROPDOWN';
     public const TYPE_LABEL    = 'LABEL';
@@ -53,7 +54,7 @@ class Ctrl extends ManageableObject
         return match ($this->type) {
             self::TYPE_CR => "<br />\n",
             self::TYPE_LABEL => "<span class=\"dimx-label\">{$this->caption}</span>\n",
-            self::TYPE_TEXTBOX => "<input type=\"text\" name=\"" . htmlspecialchars($this->id, ENT_QUOTES) . "\" id=\"" . htmlspecialchars($this->id, ENT_QUOTES) . "\" class=\"dimx-textbox\" placeholder=\"" . htmlspecialchars($this->tooltip, ENT_QUOTES) . "\" />\n",
+            self::TYPE_TEXTBOX => "<input type=\"text\" name=\"" . htmlspecialchars($this->id, ENT_QUOTES) . "\" id=\"" . htmlspecialchars($this->id, ENT_QUOTES) . "\" class=\"dimx-textbox\" placeholder=\"" . htmlspecialchars($this->tooltip, ENT_QUOTES) . "\" onkeydown=\"if(event.key==='Enter'){sendCmd('say');event.preventDefault();}\" />\n",
             self::TYPE_DROPDOWN => $this->renderDropdown(),
             self::TYPE_CMD => "<!-- Hidden CMD {$this->id} -->\n",
             default => $this->renderButton($skin),

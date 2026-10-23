@@ -59,9 +59,13 @@ class PeopleContainer extends AdvObject
     /**
      * Set active UI command panel.
      */
-    public function setPanel(?Panel $panel): void
+    public function setPanel(string|Panel|null $panel): bool
     {
+        if (is_string($panel)) {
+            $panel = $this->world?->getPanel($panel);
+        }
         $this->panel = $panel;
+        return true;
     }
 
     /**

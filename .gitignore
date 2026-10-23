@@ -48,6 +48,7 @@ error_log
 *.zip
 *.tar.gz
 /docs/dimensionex-developers-reference-717.pdf
+/docs/dimx-classes/
 
 # ==========================================
 # DATABASE E DUMP DI DATI

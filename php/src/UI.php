@@ -150,7 +150,8 @@ abstract class UI
         // Extract normalized fields
         $username = trim((string)($merged['username'] ?? $merged['player'] ?? $merged['player_id'] ?? ''));
         $password = trim((string)($merged['password'] ?? $merged['pass'] ?? ''));
-        $cmd      = strtolower(trim((string)($merged['cmd'] ?? $merged['command'] ?? $merged['action'] ?? 'look')));
+        $rawCmd   = $merged['cmd'] ?? $merged['command'] ?? $merged['action'] ?? null;
+        $cmd      = ($rawCmd !== null && trim((string)$rawCmd) !== '') ? strtolower(trim((string)$rawCmd)) : 'login';
         $param    = trim((string)($merged['param'] ?? $merged['direction'] ?? $merged['dir'] ?? $merged['value'] ?? ''));
         $target   = trim((string)($merged['target'] ?? $merged['target_id'] ?? $merged['item'] ?? ''));
         $reset    = isset($merged['reset']) && ($merged['reset'] === '1' || $merged['reset'] === 1 || $merged['reset'] === 'true' || $merged['reset'] === true);

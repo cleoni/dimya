@@ -396,6 +396,144 @@ $bot2DataAfter = json_decode($bot2JsonAfter, true);
 $occupantsAfter = array_column($bot2DataAfter['room']['occupants'] ?? [], 'name');
 assertTest(!in_array($testBot1, $occupantsAfter, true), "Bot2 NO LONGER sees {$testBot1} after logout");
 
+// -------------------------------------------------------------
+// Test 10: world2.dxw Description Parsing (Apostrophe handling)
+// -------------------------------------------------------------
+echo "\n10. Testing world2.dxw Description Parsing...\n";
+
+$world2Path = __DIR__ . '/../docs/dxw-examples/world2.dxw';
+$loader = new Dimx\DxwLoader('http://localhost');
+$world2 = $loader->load($world2Path);
+
+$surfer = $world2->getCharacter('surfer');
+assertTest($surfer !== null, "World 2 contains 'surfer' character");
+assertTest(
+    $surfer->description === "Walks up and down, I'd say he's got nothing to do.",
+    "Surfer description parsed entirely without stopping at apostrophe: '{$surfer->description}'"
+);
+
+$box = $world2->items['box'] ?? null;
+assertTest($box !== null, "World 2 contains 'box' item");
+assertTest(
+    $box->description === "It's just an ordinary cardboard box",
+    "Box description parsed entirely: '{$box->description}'"
+);
+
+$bungalow = $world2->getRoom('bungalow');
+assertTest($bungalow !== null, "World 2 contains 'bungalow' room");
+assertTest(
+    str_contains($bungalow->description, "There's a switch on the left wall."),
+    "Bungalow description contains full text with apostrophe: '{$bungalow->description}'"
+);
+
+$apple = $world2->items['apple'] ?? null;
+assertTest($apple !== null, "World 2 contains 'apple' item");
+assertTest(
+    str_contains($apple->description, "maybe it's good and tasty"),
+    "Apple description contains full text with apostrophe: '{$apple->description}'"
+);
+
+// -------------------------------------------------------------
+// Test 11: onStart Event & Chat PANEL Enforcement
+// -------------------------------------------------------------
+echo "\n11. Testing onStart Event & Chat PANEL Enforcement...\n";
+
+// Verify prebuilt panels in World
+assertTest($world2->getPanel('default') !== null, "World contains prebuilt 'default' panel");
+assertTest($world2->getPanel('chat') !== null, "World contains prebuilt 'chat' panel");
+
+$chatPanel = $world2->getPanel('chat');
+$chatCmds = $chatPanel->getAvailableCommands();
+assertTest(in_array('say', $chatCmds, true), "Chat panel allows 'say' command");
+assertTest(in_array('save', $chatCmds, true), "Chat panel allows 'save' command");
+assertTest(in_array('exit', $chatCmds, true), "Chat panel allows 'exit' command");
+assertTest(in_array('go', $chatCmds, true), "Move commands ('go') are always valid");
+assertTest(!in_array('look', $chatCmds, true), "Chat panel DOES NOT allow 'look' command");
+assertTest(!in_array('pick', $chatCmds, true), "Chat panel DOES NOT allow 'pick' command");
+assertTest(!in_array('use', $chatCmds, true), "Chat panel DOES NOT allow 'use' command");
+
+// Seed world2 using GameEngine to trigger onStart
+$testWorldId = 'test_w2_' . rand(1000, 9999);
+$engineW2 = new Dimx\GameEngine($pm, $testWorldId, $world2Path);
+$seededWorld = $engineW2->loadOrSeedWorld();
+
+assertTest($seededWorld->defaultPanel !== null, "Seeded world has active panel");
+assertTest($seededWorld->defaultPanel->id === 'chat', "onStart event executed SetPanel: active panel is 'chat'");
+
+// Test Bot login via UIjson on world2
+$botW2 = 'ChatBot_' . rand(1000, 9999);
+$botJsonOutput = runMultiplayer([
+    'format'   => 'json',
+    'username' => $botW2,
+    'password' => 'botPass123',
+    'reset'    => '1', // Reset main world to world2.dxw configuration
+]);
+
+$botData = json_decode($botJsonOutput, true);
+assertTest(($botData['status'] ?? '') === 'ok', "Bot login response status is 'ok'");
+assertTest(($botData['panel']['id'] ?? '') === 'chat', "Bot received active panel 'chat'");
+assertTest(
+    in_array('go', $botData['panel']['commands'] ?? [], true),
+    "Bot panel commands include 'go': " . json_encode($botData['panel']['commands'] ?? [])
+);
+
+// Verify Bot inspecting surfer receives the complete description
+$surferOcc = null;
+foreach ($botData['room']['occupants'] ?? [] as $occ) {
+    if (($occ['id'] ?? '') === 'surfer') {
+        $surferOcc = $occ;
+        break;
+    }
+}
+assertTest($surferOcc !== null, "Bot sees surfer in room occupants");
+assertTest(
+    ($surferOcc['description'] ?? '') === "Walks up and down, I'd say he's got nothing to do.",
+    "Bot room snapshot surfer description is complete: '{$surferOcc['description']}'"
+);
+
+// Bot tries disallowed command 'look' in chat panel
+$disallowedJson = runMultiplayer([
+    'format'   => 'json',
+    'username' => $botW2,
+    'password' => 'botPass123',
+    'cmd'      => 'look',
+]);
+$disallowedData = json_decode($disallowedJson, true);
+$disallowedMsg = implode(' ', $disallowedData['messages'] ?? []);
+assertTest(
+    str_contains($disallowedMsg, "Command 'look' is not allowed in current panel (chat)"),
+    "Bot sending 'look' is rejected in chat panel: '{$disallowedMsg}'"
+);
+
+// Bot moves using 'go U' (Up to rocca) - move command is valid and succeeds
+$goJson = runMultiplayer([
+    'format'   => 'json',
+    'username' => $botW2,
+    'password' => 'botPass123',
+    'cmd'      => 'go',
+    'param'    => 'U',
+]);
+$goData = json_decode($goJson, true);
+assertTest(($goData['room']['id'] ?? '') === 'rocca', "Move command 'go U' took player to 'rocca': " . ($goData['room']['id'] ?? 'none'));
+
+// Human HTML verification: Navigation exits remain visible and active
+$humanHtmlOutput = runMultiplayer([
+    'format'   => 'html',
+    'username' => 'HumanChatHero',
+    'password' => 'humanPass123',
+]);
+assertTest(str_contains($humanHtmlOutput, 'id="panel_chat"'), "Human player gets HTML panel with id='panel_chat'");
+assertTest(str_contains($humanHtmlOutput, 'name="txtBox"'), "Human player gets speech textbox");
+assertTest(str_contains($humanHtmlOutput, "sendCmd('say')"), "Human player gets Say button");
+assertTest(str_contains($humanHtmlOutput, "sendCmd('save')"), "Human player gets Save button");
+assertTest(str_contains($humanHtmlOutput, "sendCmd('exit')"), "Human player gets Exit button");
+assertTest(str_contains($humanHtmlOutput, "sendCmd('go','U')"), "Human player STILL SEES exit button for [U] to the rock");
+assertTest(!str_contains($humanHtmlOutput, "sendCmd('look')"), "Human player DOES NOT see Look button");
+assertTest(!str_contains($humanHtmlOutput, "sendCmd('pick')"), "Human player DOES NOT see Pick button");
+assertTest(!str_contains($humanHtmlOutput, "sendCmd('use')"), "Human player DOES NOT see Use button");
+
+$pm->resetWorld($testWorldId);
+
 // Clean up single test world
 $pm->resetWorld('main');
 

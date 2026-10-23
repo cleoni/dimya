@@ -41,6 +41,9 @@ class World extends DimxObject
     /** @var array<string, Event> Registered script events, functions, and hooks */
     public array $events = [];
 
+    /** @var array<string, Panel> Available command panels */
+    public array $panels = [];
+
     public ?Panel $defaultPanel = null;
     public ?PersistenceManager $persistence = null;
 
@@ -52,7 +55,40 @@ class World extends DimxObject
         parent::__construct($id, $name, null);
         $this->world = $this;
         $this->instanceId = uniqid('dimx_inst_', true);
-        $this->defaultPanel = Panel::createDefaultPanel();
+
+        // Build prebuilt DimensioneY panels (default and chat)
+        $this->panels['default'] = Panel::createDefaultPanel();
+        $this->panels['chat']    = Panel::createChatPanel();
+        $this->defaultPanel      = $this->panels['default'];
+    }
+
+    public function getPanel(string $id): ?Panel
+    {
+        return $this->panels[strtolower(trim($id))] ?? null;
+    }
+
+    public function addPanel(Panel $panel): void
+    {
+        $this->panels[strtolower($panel->id)] = $panel;
+    }
+
+    public function setPanel(string|Panel $panel): bool
+    {
+        if (is_string($panel)) {
+            $p = $this->getPanel($panel);
+            if ($p === null) {
+                return false;
+            }
+            $this->defaultPanel = $p;
+            return true;
+        }
+        $this->defaultPanel = $panel;
+        return true;
+    }
+
+    public function broadcast(string $msg): bool
+    {
+        return $this->display($msg);
     }
 
     /**

@@ -131,6 +131,18 @@ class Player extends Character
     }
 
     /**
+     * Set player's active command panel.
+     */
+    public function setPanel(string|Panel|null $panel): bool
+    {
+        if (is_string($panel)) {
+            $panel = $this->world?->getPanel($panel);
+        }
+        $this->panel = $panel;
+        return true;
+    }
+
+    /**
      * Print text or image at specified (x,y) screen coordinates.
      */
     public function printXY(string|Image $stuff, int $x, int $y): void

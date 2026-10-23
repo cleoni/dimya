@@ -82,6 +82,9 @@ class GameEngine
         $world->id          = $this->worldId;
         $world->persistence = $this->pm;
 
+        // Trigger onStart event at world initialization (as in DimensioneX World.start())
+        $world->fireEvent('onStart', $world, null, null);
+
         // Persist seed so future requests read from persistence
         $this->pm->saveWorld($world, $this->worldFile);
 
@@ -329,6 +332,18 @@ class GameEngine
         string $param,
         string $targetId
     ): void {
+        $panel = $player->getPanel() ?? $world->defaultPanel;
+        $isCoreCommand = in_array($cmd, [
+            'look', 'examine', 'go', 'pick', 'take', 'get', 'drop',
+            'use', 'open', 'close', 'search', 'say', 'talk', 'inv',
+            'inventory', 'help', 'save', 'exit', 'quit', 'logout', 'disconnect'
+        ], true);
+
+        if ($panel !== null && ($isCoreCommand || isset($world->events["cmd_{$cmd}"])) && !$panel->isCommandAllowed($cmd)) {
+            $player->display("Command '{$cmd}' is not allowed in current panel ({$panel->id}).");
+            return;
+        }
+
         $currentRoom = $player->getRoom();
 
         switch ($cmd) {

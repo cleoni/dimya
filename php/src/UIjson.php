@@ -67,6 +67,8 @@ class UIjson extends UI
             $status = 'logged_out';
         }
 
+        $panel = $player->getPanel() ?? $world->defaultPanel;
+
         $response = [
             'success'    => !$lockError,
             'status'     => $status,
@@ -77,6 +79,10 @@ class UIjson extends UI
                 'name'        => $world->name,
                 'mode'        => $world->mode,
                 'tick_length' => $world->tickLength,
+            ],
+            'panel'      => [
+                'id'       => $panel?->id ?? 'default',
+                'commands' => $panel?->getAvailableCommands() ?? [],
             ],
             'player'     => $this->buildPlayerStatus($player),
             'room'       => $loggedOut ? null : $this->buildRoomSnapshot($room, $player),

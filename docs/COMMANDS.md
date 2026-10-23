@@ -184,7 +184,26 @@ Every command cycle follows this processing pipeline:
 
 ---
 
-## 4. Custom Panel Button Commands
+## 4. Prebuilt Panels & Command Sets
+
+Panels define the authoritative command sets accepted by the engine and exposed to human/bot players. In DimensioneY, two prebuilt panels are maintained:
+
+1. **`default` PANEL**:
+   - The full adventure gameplay command set.
+   - Includes: `look`, `go`, `use`, `pick`, `drop`, `open`, `close`, `search`, `say` (`txtBox`), `help`, `save`, and `exit`.
+2. **`chat` PANEL**:
+   - A reduced communication and session command set.
+   - Allows only: speech box (`txtBox`), `say`, `save`, and `exit`.
+   - Core adventure actions (`look`, `go`, `pick`, `use`, etc.) are disallowed and rejected while this panel is active.
+
+### Script Instruction: `SetPanel`
+Scripts can switch panels globally for the world or for specific containers/players:
+```dxw
+SetPanel $WORLD, "chat"      ' Enforces reduced chat-only command set globally
+SetPanel $WORLD, "default"   ' Restores normal adventure gameplay command set
+```
+
+## 5. Custom Panel Button Commands
 
 World developers can define new buttons and commands in `.dxw` world definitions:
 

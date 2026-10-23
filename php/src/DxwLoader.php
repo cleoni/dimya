@@ -84,11 +84,29 @@ class DxwLoader
             if ($line === '' || str_starts_with($line, "'")) {
                 continue;
             }
-            // Strip inline comments if outside quotes
+            // If the line starts with DESCRIPTION, read entire line up to end of line
+            if (preg_match('/^DESCRIPTION\b/i', $line)) {
+                $cleanLines[] = $line;
+                continue;
+            }
+            // Strip inline comments only if outside double quotes
             if (str_contains($line, "'")) {
-                $parts = explode("'", $line, 2);
-                $line = trim($parts[0]);
-                if ($line === '') continue;
+                $inQuote = false;
+                $commentPos = -1;
+                $len = strlen($line);
+                for ($ci = 0; $ci < $len; $ci++) {
+                    $ch = $line[$ci];
+                    if ($ch === '"') {
+                        $inQuote = !$inQuote;
+                    } elseif ($ch === "'" && !$inQuote) {
+                        $commentPos = $ci;
+                        break;
+                    }
+                }
+                if ($commentPos !== -1) {
+                    $line = trim(substr($line, 0, $commentPos));
+                    if ($line === '') continue;
+                }
             }
             $cleanLines[] = $line;
         }
@@ -165,6 +183,17 @@ class DxwLoader
                 continue;
             }
             if ($directive === 'END_CHARACTERS') {
+                $currentSection = 'WORLD';
+                $i++;
+                continue;
+            }
+
+            if ($directive === 'SCRIPTS' || $directive === 'EVENTS') {
+                $currentSection = 'SCRIPTS';
+                $i++;
+                continue;
+            }
+            if ($directive === 'END_SCRIPTS' || $directive === 'END_EVENTS') {
                 $currentSection = 'WORLD';
                 $i++;
                 continue;
@@ -337,6 +366,11 @@ class DxwLoader
                                 $char->setAttrList(trim(substr($subLine, strlen($subTokens[0]))));
                             } elseif ($subDir === 'ICON') {
                                 $char->icon = $this->resolveImageUrl(trim(substr($subLine, strlen($subTokens[0]))), $imagesFolder);
+                            } elseif ($subDir === 'IMAGE') {
+                                $rest = trim(substr($subLine, strlen($subTokens[0])));
+                                $imgTokens = preg_split('/\s+/', $rest);
+                                $last = end($imgTokens);
+                                $char->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder));
                             }
                             $i++;
                         }
@@ -349,6 +383,41 @@ class DxwLoader
                                 $char->move($room);
                             }
                         }
+                    } else {
+                        $i++;
+                    }
+                    break;
+
+                case 'SCRIPTS':
+                    if ($directive === 'EVENT' || $directive === 'SUB' || $directive === 'FUNCTION') {
+                        $eventQual = $tokens[1] ?? '';
+                        $eventType = $directive;
+                        $actionLines = [];
+                        $i++;
+                        while ($i < $total) {
+                            $subLine = $cleanLines[$i];
+                            $subTokens = preg_split('/\s+/', $subLine);
+                            $subDir = strtoupper($subTokens[0] ?? '');
+
+                            if (in_array($subDir, ['EVENT', 'SUB', 'FUNCTION', 'END_SCRIPTS', 'END_EVENTS', 'ROOMS', 'ITEMS', 'CHARACTERS', 'LINKS'])) {
+                                break;
+                            }
+                            if ($subDir === 'END_EVENT' || $subDir === 'END_SUB' || $subDir === 'END_FUNCTION') {
+                                $i++;
+                                break;
+                            }
+                            $actionLines[] = $subLine;
+                            $i++;
+                        }
+
+                        $actionText = implode("\n", $actionLines);
+                        $event = new Event($eventQual, $eventType);
+                        $event->actions = $actionText;
+                        $event->setHandler(function (?DimxObject $owner, mixed $agent, mixed $target, array $input = []) use ($actionText, $world) {
+                            $runner = new ActionsRunner($world, $owner, $agent, $target, $input);
+                            return $runner->run($actionText);
+                        });
+                        $world->registerEvent($event);
                     } else {
                         $i++;
                     }

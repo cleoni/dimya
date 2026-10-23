@@ -16,6 +16,7 @@ class Event extends ManageableObject
     public string $type = 'EVENT'; // 'EVENT', 'FUNCTION', 'SUB'
     public ?string $attachedEventsId = null;
     public array $formalParams = [];
+    public ?string $actions = null;
 
     /** @var callable|null PHP closure or callable executing the event */
     protected $handler = null;
@@ -39,7 +40,7 @@ class Event extends ManageableObject
      */
     public function __sleep(): array
     {
-        $props = ['id', 'type', 'attachedEventsId', 'formalParams', 'properties'];
+        $props = ['id', 'type', 'attachedEventsId', 'formalParams', 'actions', 'properties'];
         if ($this->handler !== null && !($this->handler instanceof \Closure)) {
             $props[] = 'handler';
         }
@@ -65,6 +66,13 @@ class Event extends ManageableObject
     ): mixed {
         if ($this->handler !== null) {
             return ($this->handler)($owner, $agent, $target, $input);
+        }
+        if (!empty($this->actions)) {
+            $world = ($owner instanceof DimxObject) ? $owner->world : null;
+            if ($world instanceof World) {
+                $runner = new ActionsRunner($world, $owner, $agent, $target, $input);
+                return $runner->run($this->actions);
+            }
         }
         return $defaultResult;
     }
