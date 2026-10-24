@@ -170,7 +170,7 @@ Every command cycle follows this processing pipeline:
   * **Existing Account**: If the nickname is already registered, verifies supplied password using `password_verify()`. If incorrect, rejects connection (HTML error alert or JSON `401 Unauthorized` with status `login_required`).
   * **New Account**: If the nickname does not exist, registers and creates the account automatically, stores the hashed password and bot flag (`is_bot`), generates the unique numeric ID, and connects player to the world.
 * **Presentation Modes**:
-  * **Human Browser (`UIhtml`)**: Displays login form with dedicated Nickname and Password fields (password masked via `<input type="password">`). On failure, displays inline error alert and pre-fills nickname.
+  * **Human Browser (`UIhtml`)**: Displays login form with dedicated Nickname and Password fields (password masked via `<input type="password">`). On failure, displays inline error alert and pre-fills nickname. The web UI is **fully responsive**; there is no dropdown list to choose screen sizes on the login form, and no `width` or `height` query parameters on the calling `multiplayer.php` URL are needed.
   * **Bot API (`UIjson`)**: Accepts credentials via JSON body or query parameters (`username`, `password`). Returns structured JSON snapshot with player's `numeric_id` and `is_bot` boolean flag.
 * **Effect**: Validates credentials, places player in start room, and generates initial room snapshot. Fires `onLogin`.
 

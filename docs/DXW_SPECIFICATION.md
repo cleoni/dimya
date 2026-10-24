@@ -180,14 +180,23 @@ END_GUI
 
 * **`SCENE SIZE <W>x<H>`**: Dimensions in pixels for the default room scene view (default: `350x235`). Used as fallback dimensions if a room's `IMAGE` declaration omits explicit dimensions.
 * **`SCREEN SIZE <W>x<H>`**: Target design screen resolution (default: `800x600`). Specifies the monitor resolution the world designer tested against.
-* **Proportional Screen Scaling (`factorx`)**:
-  * In the engine (`Client.java` / `UIhtml`), viewport elements are scaled based on the ratio between the client's screen width and the world's design screen width:
+* **Responsive Web Browser UI (`UIhtml`)**:
+  * The web interface is **fully responsive** and adapts automatically to any browser viewport, desktop screen, tablet, or smartphone.
+  * **No URL Parameters / No Login Dropdown**: There is **no dropdown list in the login form** to choose a screen size, nor are `width` or `height` query parameters required when calling `multiplayer.php`. The client browser automatically measures viewport dimensions and dynamically applies responsive CSS layouts.
+  * **Landscape Layout**:
+    * **Row 1 (Top, 85% height)**: Divided horizontally into **Cell A** (left, filling available width, containing Subcell D room scene/description and Subcell E navigation/occupants/inventory/stats side-by-side) and **Cell B** (right, 300px controls panel).
+    * **Row 2 (Bottom, 15% height)**: **Cell C** spanning full width (messages console with alternating `#101040` / `#313161` row stripes and dismiss buttons).
+  * **Portrait / Mobile Layout (`width < height`)**:
+    * Automatically rearranges the three main cells into vertically stacked, full-width rows:
+      1. **Cell A (Scene Frame)**: Placed on top across full width, dynamically receiving all remaining height (`*`). Inside Cell A, row disposition is preserved with Subcell D (scene + description) on the left and Subcell E (navigation + inventory + stats) on the right.
+      2. **Cell B (Controls Frame)**: Positioned directly below Cell A across full width, occupying **35%** of total viewport height (`35vh`).
+      3. **Cell C (Messages Frame)**: Bottom row across full width, occupying **15%** of total viewport height (`15vh`).
+* **Proportional Scene & Sprite Scaling (`factorx`)**:
+  * In the engine (`Client.java` / `UIhtml`), viewport scene elements and on-screen coordinates are proportionally scaled based on the ratio between the client's screen width and the world's design screen width:
     $$\text{factorx} = \frac{\text{client.screenwidth}}{\text{world.screenwidth}}$$
   * Notice that only **width** is used to determine `factorx` for uniform aspect-ratio scaling.
-  * Standard predefined screen resolutions supported by DimensioneX:
-    `1024x768`, `1280x800`, `800x600`, `640x480`, `480x272`, `400x800` (`Const.screenSizes`).
-  * **Example (1366x768 Screen)**:
-    When a player accesses the game on a standard 1366x768 desktop monitor, the closest matching standard resolution is `1280x800` (`client.screenwidth = 1280`).
+  * **Example (1366x768 Screen / 1280px Viewport)**:
+    When a player accesses the game on a standard 1366x768 desktop monitor, the client viewport width is 1280px (`client.screenwidth = 1280`).
     $$\text{factorx} = \frac{1280}{800} = 1.6$$
     For a default room scene with dimensions $350 \times 235$, the scene picture is dynamically scaled on the player's screen to:
     $$\text{width} = 350 \times 1.6 = 560\text{px}$$

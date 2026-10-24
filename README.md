@@ -26,6 +26,7 @@ Comprehensive technical documentation and formal specifications reside in the [`
 ## Implementation Principles & Type Handling
 
 - **Loose Scalar Typing**: In accordance with the DimensioneX design and PHP idiomatic behavior, **no scalar values in the game are strictly typed**. Attributes and properties (`int`, `bool`, `string`, `float`) are evaluated and coerced dynamically based on runtime context (e.g., `open=0` coerces cleanly to boolean `false`, `pickable` or `pickable=1` to boolean `true`, and numbers to their appropriate integer or string representations).
+- **Responsive Web UI (`UIhtml`)**: Fully responsive web interface adapting automatically to any browser viewport, desktop screen, or mobile device without requiring manual screen size dropdowns or URL parameters. Features automatic landscape (desktop) and portrait (mobile `*, 35%, 15%`) orientation layouts, dynamic scene scaling, and dismissed message queues.
 - **Native Data Structures**: Java `Dict` / `DictSorted` collections are represented via native PHP associative arrays with case-insensitive property lookup.
 - **Persistent State**: Managed by `Dimx\PersistenceManager` with MySQL (PDO) support and transparent JSON file-based fallback.
 
