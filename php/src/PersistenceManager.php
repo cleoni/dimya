@@ -959,6 +959,24 @@ class PersistenceManager
     }
 
     /**
+     * Get the highest current message ID in the dimx_messages table for the world.
+     */
+    public function getLatestMessageId(string $worldId): int
+    {
+        if ($this->isConnected()) {
+            try {
+                $stmt = $this->pdo->prepare("SELECT MAX(message_id) AS max_id FROM dimx_messages WHERE world_id = :wid");
+                $stmt->execute([':wid' => $worldId]);
+                $val = $stmt->fetchColumn();
+                return $val !== false ? (int)$val : 0;
+            } catch (PDOException $e) {
+                error_log("PersistenceManager::getLatestMessageId error: " . $e->getMessage());
+            }
+        }
+        return 0;
+    }
+
+    /**
      * Fetch chat messages newer than $afterId (message_id, not timestamp).
      * If $playerName is provided, includes broadcast messages plus private messages to/from this player.
      * Returns array of ['id', 'sender', 'text', 'time', 'recipient'] sorted ascending.

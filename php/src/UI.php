@@ -152,7 +152,7 @@ abstract class UI
         $password = trim((string)($merged['password'] ?? $merged['pass'] ?? ''));
         $rawCmd   = $merged['cmd'] ?? $merged['command'] ?? $merged['action'] ?? null;
         $cmd      = ($rawCmd !== null && trim((string)$rawCmd) !== '') ? strtolower(trim((string)$rawCmd)) : 'login';
-        $param    = trim((string)($merged['param'] ?? $merged['direction'] ?? $merged['dir'] ?? $merged['value'] ?? ''));
+        $param    = trim((string)($merged['param'] ?? $merged['direction'] ?? $merged['dir'] ?? $merged['value'] ?? $merged['msgid'] ?? ''));
         $target   = trim((string)($merged['target'] ?? $merged['target_id'] ?? $merged['item'] ?? ''));
         $reset    = isset($merged['reset']) && ($merged['reset'] === '1' || $merged['reset'] === 1 || $merged['reset'] === 'true' || $merged['reset'] === true);
 

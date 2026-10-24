@@ -33,6 +33,11 @@ $worldId = 'main'; // Single world per installation
 if ($method === 'GET') {
     $afterId    = max(0, (int)($_GET['after'] ?? 0));
     $playerName = trim((string)($_GET['player'] ?? $_GET['username'] ?? ''));
+    if ($afterId === 0) {
+        // Newly connected player: do not dump historical room messages from before spawn
+        echo json_encode(['messages' => []], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     $messages   = $pm->getMessages($worldId, $afterId, 60, $playerName !== '' ? $playerName : null);
     echo json_encode(['messages' => $messages], JSON_UNESCAPED_UNICODE);
     exit;

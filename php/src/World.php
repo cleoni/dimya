@@ -106,23 +106,55 @@ class World extends DimxObject
     public array $chatQueue = [];
 
     /**
-     * Post a chat message from a player or character to the world message queue.
+     * Post a chat message from a player, character, or the system to the world message queue
+     * and delivers it directly to each relevant connected player's incoming message queue.
+     *
+     * @param string      $sender    Name of character, player, or system voice speaking
+     * @param string      $text      The spoken text
+     * @param string|null $recipient Optional specific recipient player name
+     * @param string|null $roomId    Optional specific room ID to broadcast speech within
      */
-    public function postChatMessage(string $sender, string $text, ?string $recipient = null): bool
+    public function postChatMessage(string $sender, string $text, ?string $recipient = null, ?string $roomId = null): bool
     {
         $text = trim($text);
         if ($text === '') {
             return false;
         }
 
+        $msgId   = (string)(int)(microtime(true) * 1000);
+        $msgTime = date('H:i:s');
+
         $msg = [
-            'id'        => (int)(microtime(true) * 1000),
+            'id'        => $msgId,
             'sender'    => $sender,
             'recipient' => $recipient,
             'text'      => $text,
-            'time'      => date('H:i:s'),
+            'time'      => $msgTime,
         ];
         $this->chatQueue[] = $msg;
+
+        // Deliver directly to target player(s) incoming message queue
+        if ($recipient !== null && $recipient !== '') {
+            $p = $this->getPlayerByName($recipient);
+            if ($p instanceof Player) {
+                $p->deliverMessage($sender, $text, $msgId, $msgTime, $recipient);
+            }
+        } elseif ($roomId !== null && $roomId !== '') {
+            $room = $this->getRoom($roomId);
+            if ($room instanceof Room) {
+                foreach ($room->getOccupants() as $occ) {
+                    if ($occ instanceof Player) {
+                        $occ->deliverMessage($sender, $text, $msgId, $msgTime, null);
+                    }
+                }
+            }
+        } else {
+            foreach ($this->players as $p) {
+                if ($p instanceof Player) {
+                    $p->deliverMessage($sender, $text, $msgId, $msgTime, null);
+                }
+            }
+        }
 
         if ($this->persistence !== null) {
             $this->persistence->postMessage($this->id, $sender, $text, $recipient);

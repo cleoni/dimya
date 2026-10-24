@@ -439,8 +439,39 @@ class UIhtml extends UI
             .dimx-onscreen-obj:hover {
               filter: brightness(1.2) drop-shadow(0 0 3px #38bdf8);
             }
+            .chat-line {
+              margin: 0;
+              padding: 3px 6px;
+              line-height: 1.4;
+              border-radius: 2px;
+            }
+            .chat-line:nth-child(odd) {
+              background-color: #101040;
+            }
+            .chat-line:nth-child(even) {
+              background-color: #313161;
+            }
+            .chat-pop-btn {
+              color: #f87171;
+              text-decoration: none;
+              font-weight: bold;
+              font-size: 11px;
+              cursor: pointer;
+              margin-right: 6px;
+              display: inline-block;
+              line-height: 1;
+              padding: 1px 4px;
+              border: 1px solid rgba(248, 113, 113, 0.4);
+              border-radius: 3px;
+              background: rgba(248, 113, 113, 0.1);
+              vertical-align: middle;
+            }
+            .chat-pop-btn:hover {
+              background: rgba(239, 68, 68, 0.35);
+              color: #ffffff;
+              border-color: #ef4444;
+            }
             .chat-line-sender { color: #38bdf8; font-weight: 600; margin-right: 4px; }
-            .chat-line-time { color: #64748b; font-size: 11px; margin-right: 6px; }
 
             /* Vertical / Portrait Layout (*, 35%, 15% share for cells A, B, C) */
             .dimx-portrait {
@@ -915,8 +946,8 @@ class UIhtml extends UI
               <div class="dimx-cell-c" id="cellC">
                 <div id="chatBox">
                   <?php foreach (($context['chat'] ?? []) as $chatMsg): ?>
-                    <div>
-                      <span class="chat-line-time">[<?= htmlspecialchars($chatMsg['time'] ?? '') ?>]</span>
+                    <div id="msg_<?= htmlspecialchars((string)($chatMsg['id'] ?? '')) ?>" class="chat-line">
+                      <a href="javascript:void(0)" class="chat-pop-btn" onclick="popMsg('<?= htmlspecialchars((string)($chatMsg['id'] ?? '')) ?>')" title="Dismiss message">✕</a>
                       <span class="chat-line-sender"><?= htmlspecialchars($chatMsg['sender'] ?? '') ?>:</span>
                       <?= htmlspecialchars($chatMsg['text'] ?? '') ?>
                     </div>
@@ -1250,10 +1281,12 @@ class UIhtml extends UI
             const PLAYER_NAME = <?= json_encode($playerName) ?>;
             <?php
             $initialChat = $context['chat'] ?? [];
-            $initLastId = 0;
+            $initLastId = (int)($player->spawnMessageId ?? 0);
             if (!empty($initialChat)) {
                 $lastItem = end($initialChat);
-                $initLastId = (int)($lastItem['id'] ?? 0);
+                if (isset($lastItem['id']) && is_numeric($lastItem['id'])) {
+                    $initLastId = max($initLastId, (int)$lastItem['id']);
+                }
             }
             ?>
             let lastMsgId = <?= $initLastId ?>;
@@ -1261,9 +1294,24 @@ class UIhtml extends UI
             const cellC = document.getElementById('cellC');
             if (cellC) cellC.scrollTop = cellC.scrollHeight;
 
+            function popMsg(msgId) {
+              const el = document.getElementById('msg_' + msgId);
+              if (el) {
+                el.remove();
+              }
+              // Issue popmsg command to engine
+              fetch('multiplayer.php?format=json', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'cmd=popmsg&param=' + encodeURIComponent(msgId)
+              }).catch(function() {});
+            }
+
             function renderMessage(msg) {
               const div = document.createElement('div');
-              div.innerHTML = '<span class="chat-line-time">[' + (msg.time || '') + ']</span> '
+              div.id = 'msg_' + msg.id;
+              div.className = 'chat-line';
+              div.innerHTML = '<a href="javascript:void(0)" class="chat-pop-btn" onclick="popMsg(\'' + escHtml(msg.id) + '\')" title="Dismiss message">✕</a> '
                             + '<span class="chat-line-sender">' + escHtml(msg.sender) + ':</span> '
                             + escHtml(msg.text);
               return div;
@@ -1285,7 +1333,13 @@ class UIhtml extends UI
                   const box = document.getElementById('chatBox');
                   for (const msg of data.messages) {
                     box.appendChild(renderMessage(msg));
-                    lastMsgId = Math.max(lastMsgId, msg.id);
+                    if (msg.id && !isNaN(msg.id)) {
+                      lastMsgId = Math.max(lastMsgId, Number(msg.id));
+                    }
+                  }
+                  // Cap message box display to 10 most recent messages
+                  while (box.children.length > 10) {
+                    box.removeChild(box.firstChild);
                   }
                   const cellC = document.getElementById('cellC');
                   if (cellC) cellC.scrollTop = cellC.scrollHeight;

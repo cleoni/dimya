@@ -37,6 +37,7 @@ $sections = [
     17 => ['title' => 'Testing World 2 Full Flow: Look at Closed Box, Use Switch in Bungalow, Open Box & Pick Apple...', 'keywords' => ['flow', 'box', 'switch', 'bungalow', 'open', 'pick', 'apple', 'goal', 'uibot', 'evaldescription', 'is closed', 'is open', 'containing', 'rocca', 'spiaggia']],
     18 => ['title' => 'Testing Speak Instruction Behavior & Inanimate Object Fallback...', 'keywords' => ['speak', 'surfer', 'switch', 'voice', 'system', 'sound', 'sys', 'fallback', 'inanimate', 'bungalow']],
     19 => ['title' => 'Testing UIhtml Smartphone Portrait / Vertical Layout (*, 35%, 15%)...', 'keywords' => ['portrait', 'vertical', 'smartphone', 'uihtml', 'layout', '35%', '15%']],
+    20 => ['title' => 'Testing Messages Box (Cell C), popmsg Command & Per-Player Incoming Message Queue...', 'keywords' => ['cell c', 'popmsg', 'messages', 'queue', 'trim', '10', 'dismiss', 'x', 'incoming', 'speak', 'broadcast']],
 ];
 
 // CLI Options parsing
@@ -1542,6 +1543,96 @@ if (shouldRun(19)) {
 
     assertTest($pDesktop->isPortrait === false, "Player isPortrait is false when screenWidth > screenHeight (1366 > 768)");
     assertTest(!str_contains($desktopHtml, 'dimx-root dimx-portrait'), "UIhtml root does not have dimx-portrait class in landscape");
+}
+
+// --------------------------------------------------------------------------
+// 20. Messages Box (Cell C), popmsg Command & Per-Player Incoming Message Queue
+// --------------------------------------------------------------------------
+if (shouldRun(20)) {
+    echo "\n20. Testing Messages Box (Cell C), popmsg Command & Per-Player Incoming Message Queue...\n";
+
+    $msgWorld = new \Dimx\World('msg_test_world', 'Message Test World');
+    $roomLounge = new \Dimx\Room($msgWorld, 'The Lounge', 'lounge');
+    $msgWorld->addRoom($roomLounge);
+    $roomGarden = new \Dimx\Room($msgWorld, 'The Garden', 'garden');
+    $msgWorld->addRoom($roomGarden);
+
+    // 1. Queue is empty upon connection
+    $pA = new Player($msgWorld, 'PlayerA', 'p_msg_a');
+    $pA->move($roomLounge);
+    $msgWorld->addPlayer($pA);
+
+    $pB = new Player($msgWorld, 'PlayerB', 'p_msg_b');
+    $pB->move($roomLounge);
+    $msgWorld->addPlayer($pB);
+
+    $pC = new Player($msgWorld, 'PlayerC', 'p_msg_c');
+    $pC->move($roomGarden);
+    $msgWorld->addPlayer($pC);
+
+    assertTest(count($pA->getMessages()) === 0, "PlayerA message queue is empty upon connection");
+    assertTest(count($pB->getMessages()) === 0, "PlayerB message queue is empty upon connection");
+    assertTest(count($pC->getMessages()) === 0, "PlayerC message queue is empty upon connection");
+
+    // 2. Pre-spawn message: spoken before PlayerD spawns
+    $msgWorld->postChatMessage('Oracle', 'Old ancient whisper from centuries ago');
+    assertTest(count($pA->getMessages()) === 1, "PlayerA received the world broadcast");
+
+    $pD = new Player($msgWorld, 'PlayerD', 'p_msg_d');
+    $pD->move($roomLounge);
+    $msgWorld->addPlayer($pD);
+    assertTest(count($pD->getMessages()) === 0, "PlayerD spawned later and does NOT see messages said before spawn");
+
+    // 3. Spoken to all players in a specific room
+    $msgWorld->postChatMessage('LoungeMaster', 'Drinks are on the house in the lounge!', null, 'lounge');
+    $msgsA = $pA->getMessages();
+    $msgsB = $pB->getMessages();
+    $msgsC = $pC->getMessages();
+    $msgsD = $pD->getMessages();
+
+    assertTest(end($msgsA)['text'] === 'Drinks are on the house in the lounge!', "PlayerA in lounge received room broadcast");
+    assertTest(end($msgsB)['text'] === 'Drinks are on the house in the lounge!', "PlayerB in lounge received room broadcast");
+    assertTest(end($msgsD)['text'] === 'Drinks are on the house in the lounge!', "PlayerD in lounge received room broadcast");
+    assertTest(count($msgsC) === 1 && $msgsC[0]['text'] === 'Old ancient whisper from centuries ago', "PlayerC in garden did NOT receive lounge room broadcast");
+
+    // 4. Trimming to 10 most recent messages, oldest discarded first, arrival order
+    for ($i = 1; $i <= 12; $i++) {
+        $pA->deliverMessage('Announcer', "Message number {$i}", "id_{$i}");
+    }
+    $queueA = $pA->getMessages();
+    assertTest(count($queueA) === 10, "Queue is capped at exactly 10 messages");
+    assertTest($queueA[0]['text'] === 'Message number 3', "Oldest messages 1 and 2 were discarded (first message is now number 3)");
+    assertTest(end($queueA)['text'] === 'Message number 12', "Most recent message is number 12 (arrival order maintained)");
+
+    // 5. popmsg command discards / deletes the message from the player's queue
+    $engine = new GameEngine($pm ?? null, 'msg_test_world');
+    $targetPopId = $queueA[0]['id']; // "id_3"
+    $engine->executeCommandAction($msgWorld, $pA, 'popmsg', $targetPopId, '');
+
+    $queueAfterPop = $pA->getMessages();
+    assertTest(count($queueAfterPop) === 9, "popmsg reduced message queue count from 10 to 9");
+    assertTest($queueAfterPop[0]['id'] !== $targetPopId, "Target message '{$targetPopId}' was completely removed from the queue");
+
+    // 6. UIhtml rendering with clickable '✕' before each message
+    ob_start();
+    $ui = new \Dimx\UIhtml($pA);
+    $ui->render([
+        'world'     => $msgWorld,
+        'player'    => $pA,
+        'room'      => $roomLounge,
+        'messages'  => [],
+        'chat'      => $pA->getMessages(),
+        'lockError' => false,
+    ]);
+    $cellHtml = ob_get_clean();
+
+    assertTest(str_contains($cellHtml, 'class="chat-pop-btn"'), "UIhtml renders clickable '✕' buttons with class chat-pop-btn");
+    assertTest(str_contains($cellHtml, 'onclick="popMsg('), "UIhtml '✕' button calls popMsg() JavaScript handler");
+    assertTest(str_contains($cellHtml, 'function popMsg('), "UIhtml script contains popMsg() implementation issuing cmd=popmsg");
+    assertTest(str_contains($cellHtml, 'cmd=popmsg'), "UIhtml script sends cmd=popmsg to engine");
+    assertTest(str_contains($cellHtml, '#101040') && str_contains($cellHtml, ':nth-child(odd)'), "UIhtml styles odd message lines with #101040");
+    assertTest(str_contains($cellHtml, '#313161') && str_contains($cellHtml, ':nth-child(even)'), "UIhtml styles even message lines with #313161");
+    assertTest(!str_contains($cellHtml, 'chat-line-time'), "UIhtml omits timestamp from message box lines");
 }
 
 // Clean up test worlds

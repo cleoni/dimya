@@ -38,10 +38,13 @@ class Player extends Character
     /** @var array<string, mixed> Player cookies */
     public array $cookies = [];
 
+    /** @var int Highest message ID recorded when player spawned/connected */
+    public int $spawnMessageId = 0;
+
     /** @var array<string> Main game console text buffer (room description, action outputs) */
     public array $clientConsole = [];
 
-    /** @var array<array{id: string, sender: string, text: string, time: int}> Chat/speech messages buffer */
+    /** @var array<array{id: string, sender: string, text: string, time: string}> Incoming messages queue (max 10, oldest first) */
     public array $messagesQueue = [];
 
     public function __construct(
@@ -110,16 +113,55 @@ class Player extends Character
     }
 
     /**
-     * Deliver a speech or whisper message to this player's message stream.
+     * Deliver an incoming message to this player's message stream.
+     * Trims the queue to at most 10 messages, discarding older messages from the front.
+     *
+     * @return array{id: string, sender: string, text: string, time: string, recipient?: ?string}
      */
-    public function deliverMessage(string $sender, string $text): void
+    public function deliverMessage(string $sender, string $text, ?string $id = null, ?string $time = null, ?string $recipient = null): array
     {
-        $this->messagesQueue[] = [
-            'id' => uniqid('msg_', true),
-            'sender' => $sender,
-            'text' => $text,
-            'time' => time(),
+        $msg = [
+            'id'        => $id ?? ('m_' . bin2hex(random_bytes(4))),
+            'sender'    => $sender,
+            'recipient' => $recipient,
+            'text'      => $text,
+            'time'      => $time ?? date('H:i:s'),
         ];
+        $this->messagesQueue[] = $msg;
+        while (count($this->messagesQueue) > 10) {
+            array_shift($this->messagesQueue);
+        }
+        return $msg;
+    }
+
+    /**
+     * Remove / discard a message by its ID from the player's message queue.
+     *
+     * @param string|int $msgId
+     * @return array|null The popped message if found, null otherwise.
+     */
+    public function popMessage(string|int $msgId): ?array
+    {
+        $strId = (string)$msgId;
+        foreach ($this->messagesQueue as $idx => $m) {
+            if ((string)($m['id'] ?? '') === $strId) {
+                $popped = $m;
+                unset($this->messagesQueue[$idx]);
+                $this->messagesQueue = array_values($this->messagesQueue);
+                return $popped;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get the player's current messages queue (arrival order, oldest first, up to 10).
+     *
+     * @return array<array{id: string, sender: string, text: string, time: string}>
+     */
+    public function getMessages(): array
+    {
+        return array_values($this->messagesQueue);
     }
 
     /**

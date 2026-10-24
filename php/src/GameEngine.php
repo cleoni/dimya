@@ -155,6 +155,8 @@ class GameEngine
             $player->skin      = new Skin('default', 'Ocean');
             $player->numericId = $numericId;
             $player->isBot     = $isBot;
+            $player->messagesQueue  = []; // Empty upon connection
+            $player->spawnMessageId = !empty($this->pm) ? $this->pm->getLatestMessageId($world->id) : 0;
 
             if (!empty($world->charactersDefaultAttrlist)) {
                 $player->setAttrList($world->charactersDefaultAttrlist);
@@ -306,13 +308,8 @@ class GameEngine
 
         $storageLabel = $this->pm->checkConnection()['type'];
 
-        $chatMessages = !empty($this->pm) ? $this->pm->getMessages($this->worldId, 0, 50, $player->name) : [];
-        if (empty($chatMessages) && !empty($world->chatQueue)) {
-            $chatMessages = array_values(array_filter($world->chatQueue, function($c) use ($player) {
-                $recip = $c['recipient'] ?? null;
-                return empty($recip) || $recip === $player->name || ($c['sender'] ?? '') === $player->name;
-            }));
-        }
+        // Messages box (Cell C) displays the player's 10 most recent incoming messages only (arrival order)
+        $chatMessages = $player->getMessages();
 
         return [
             'world'        => $world,
@@ -499,13 +496,15 @@ class GameEngine
                         if ($targetObj instanceof Player) {
                             $targetObj->display("<b>{$player->name}</b> says to you: " . htmlspecialchars($param));
                         }
-                        $world->postChatMessage($player->name, "@{$targetObj->name}: " . $param);
+                        $world->postChatMessage($player->name, "@{$targetObj->name}: " . $param, $targetObj->name, $currentRoom?->id);
                         $world->fireEvent('onHear', $targetObj, $player, $param);
                     } else {
-                        // Broadcast aloud to all players in the world
-                        $world->postChatMessage($player->name, $param);
+                        // Broadcast aloud to all players in the room
+                        $world->postChatMessage($player->name, $param, null, $currentRoom?->id);
                         foreach ($world->players as $p) {
-                            $p->display("<b>{$player->name}</b> says: " . htmlspecialchars($param));
+                            if ($p->getRoom() === $currentRoom) {
+                                $p->display("<b>{$player->name}</b> says: " . htmlspecialchars($param));
+                            }
                         }
                         // Fire onHear on other occupants in the same room
                         if ($currentRoom !== null) {
@@ -570,6 +569,13 @@ class GameEngine
                 // Initial login / connection handshake: show current room description
                 if ($currentRoom !== null) {
                     $player->display("<b>{$currentRoom->name}</b>: {$currentRoom->evalDescription($player)}");
+                }
+                break;
+
+            case 'popmsg':
+                $msgId = !empty($param) ? $param : (!empty($targetId) ? $targetId : ($_REQUEST['msgid'] ?? ''));
+                if ($msgId !== '') {
+                    $player->popMessage((string)$msgId);
                 }
                 break;
 

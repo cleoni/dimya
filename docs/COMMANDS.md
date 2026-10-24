@@ -59,6 +59,7 @@ Every command cycle follows this processing pipeline:
 | **`exit`** | - | `leave`, `disembark` | Disembarks vehicle into the surrounding room | `onExitVehicle` |
 | **`say`** | `text`, `[target]` | - | Speaks aloud to room/world, or directly to a specific person if target provided | `onHear` |
 | **`save`** | - | - | Saves current player data (location, inventory, properties, score) | `onSave` |
+| **`popmsg`** | `msgid` | - | Discards/deletes a message from the player's incoming message queue after reading | - |
 | **`login`** | `[password]` | - | Authenticates player and displays initial room snapshot | `onLogin` |
 | **`exit`** | - | `logout` | Exits virtual world (logout); carried items drop to the floor | `onQuit`, `onExit` |
 
@@ -182,6 +183,15 @@ Every command cycle follows this processing pipeline:
   * Fires `onQuit` and `onExit`.
   * Removes player from active world memory and clears the active session.
 * **Legacy Replacement**: Completely replaces the old legacy DimensioneX combined `savexit` ("Save & Exit") command. Saving progress is an independent action performed via `save`.
+
+### 17. `popmsg (msgid)`
+* **Intent**: Dismiss/delete an incoming message from the player's private message queue (Cell C) after reading.
+* **Parameters**: `msgid` (the identifier of the message to remove).
+* **Behavior**:
+  * Looks up the message by `id` in the player's incoming messages queue (`$player->messagesQueue`).
+  * If found, removes that message from the player's queue.
+  * In `UIhtml`, each message in Cell C is rendered with a clickable red/grey `✕` button (`chat-pop-btn`). Clicking it immediately removes the message from the client view and dispatches `cmd=popmsg&param=<msgid>` asynchronously to the engine.
+  * The player's incoming message queue is empty upon connection, retains at most the 10 most recent incoming messages in arrival order (oldest first), and older messages are automatically discarded when new ones arrive. Messages spoken before a player spawns in the game are never delivered to that player's queue.
 
 ---
 

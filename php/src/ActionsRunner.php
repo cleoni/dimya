@@ -345,12 +345,16 @@ class ActionsRunner
             return true;
         }
 
-        // Determine recipient name: if destination is $AGENT or a Player/Character, deliver privately
+        // Determine recipient name / room:
         $recipientName = null;
+        $roomId = null;
         if ($destination instanceof Player) {
             $recipientName = $destination->name;
         } elseif ($destination instanceof Character) {
             $recipientName = $destination->name;
+        } elseif ($destination instanceof Room) {
+            $roomId = $destination->id;
+            $recipientName = null;
         } elseif ($destination === null && $this->agent instanceof Player) {
             $recipientName = $this->agent->name;
         }
@@ -358,10 +362,11 @@ class ActionsRunner
         // If destination is explicitly World, broadcast to all
         if ($destination instanceof World) {
             $recipientName = null;
+            $roomId = null;
         }
 
         // Spoken messages are inserted into the chat messages queue for the target
-        $this->world->postChatMessage($speaker, $chosen, $recipientName);
+        $this->world->postChatMessage($speaker, $chosen, $recipientName, $roomId);
 
         // Fire onHear on destination if applicable (avoid cascading onHear)
         static $speaking = false;
