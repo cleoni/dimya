@@ -23,6 +23,12 @@ class Player extends Character
     public ?string $prevPanelId = null;
     public bool $listening = true;
 
+    /** @var int Client viewport screen width in pixels (default 1280) */
+    public int $screenWidth = 1280;
+
+    /** @var int Client viewport screen height in pixels (default 800) */
+    public int $screenHeight = 800;
+
     /** @var mixed Active UI instance (UIhtml or UIjson) */
     public mixed $ui = null;
 
@@ -174,6 +180,15 @@ class Player extends Character
         $out = $this->clientConsole;
         $this->clientConsole = [];
         return $out;
+    }
+
+    /**
+     * Compute horizontal viewport scaling factor (factorx).
+     */
+    public function getFactorX(): float
+    {
+        $worldWidth = ($this->world && $this->world->screenwidth > 0) ? $this->world->screenwidth : 800;
+        return (float)($this->screenWidth / $worldWidth);
     }
 
     /**

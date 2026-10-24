@@ -152,6 +152,18 @@ if (!empty($result['logged_out'])) {
 // 10. Attach UI to player and return outcome via the player's UI
 $player = $result['player'] ?? null;
 if ($player !== null) {
+    if (isset($_REQUEST['width']) && (int)$_REQUEST['width'] > 0) {
+        $_SESSION['dimx_screenwidth'] = (int)$_REQUEST['width'];
+    } elseif (isset($_REQUEST['screensize']) && preg_match('/^(\d+)x(\d+)$/i', (string)$_REQUEST['screensize'], $sm)) {
+        $_SESSION['dimx_screenwidth'] = (int)$sm[1];
+        $_SESSION['dimx_screenheight'] = (int)$sm[2];
+    }
+    if (isset($_SESSION['dimx_screenwidth'])) {
+        $player->screenWidth = (int)$_SESSION['dimx_screenwidth'];
+    }
+    if (isset($_SESSION['dimx_screenheight'])) {
+        $player->screenHeight = (int)$_SESSION['dimx_screenheight'];
+    }
     $player->setUI($ui);
     $ui->setPlayer($player);
 }

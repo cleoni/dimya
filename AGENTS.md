@@ -10,6 +10,7 @@ Detailed documentation and diagrams have been generated and saved to the [`docs/
 
 - [**docs/SMALLBASIC.md**](docs/SMALLBASIC.md) — Definitive SmallBasic language reference (types, operators, statements, and complete catalog of all 55 built-in functions).
 - [**docs/COMMANDS.md**](docs/COMMANDS.md) — Complete game engine commands reference, built-in verbs, event models, and execution semantics.
+- [**docs/SKINS.md**](docs/SKINS.md) — Complete skins and `.dxs` specification, directive rules, media directories, and attribute reference.
 - [**docs/CLASS_HIERARCHY.md**](docs/CLASS_HIERARCHY.md) — Complete class hierarchy mapping, Mermaid diagrams, subsystem breakdowns, and catalog of all 46 classes with line references.
 - [**docs/uml_explorer.html**](docs/uml_explorer.html) — Standalone, interactive HTML UML explorer with dynamic search, subsystem filters, and class inspector.
 - [**docs/uml_specifications.puml**](docs/uml_specifications.puml) — Full PlantUML source code for rendering in PlantUML or IDE UML tools.

@@ -165,7 +165,7 @@ The `GUI ... END_GUI` block configures the graphical client appearance, screen r
 ```text
 GUI
     [ SCENE SIZE       350x235 ]
-    [ SCREEN SIZE      640x480 ]
+    [ SCREEN SIZE      800x600 ]
     [ SCENE LOOK       1STPERSON | 3RDPERSON ]
     [ LOGOSRC          gamelogo.jpg ]
     [ MAP              gamemap.jpg ]
@@ -178,8 +178,21 @@ GUI
 END_GUI
 ```
 
-* **`SCENE SIZE <W>x<H>`**: Default dimensions in pixels for room scenes (default: `350x235`).
-* **`SCREEN SIZE <W>x<H>`**: Target design resolution (e.g. `640x480`, `800x600`, `1024x768`). The engine auto-scales viewport elements proportionally for larger monitors.
+* **`SCENE SIZE <W>x<H>`**: Dimensions in pixels for the default room scene view (default: `350x235`). Used as fallback dimensions if a room's `IMAGE` declaration omits explicit dimensions.
+* **`SCREEN SIZE <W>x<H>`**: Target design screen resolution (default: `800x600`). Specifies the monitor resolution the world designer tested against.
+* **Proportional Screen Scaling (`factorx`)**:
+  * In the engine (`Client.java` / `UIhtml`), viewport elements are scaled based on the ratio between the client's screen width and the world's design screen width:
+    $$\text{factorx} = \frac{\text{client.screenwidth}}{\text{world.screenwidth}}$$
+  * Notice that only **width** is used to determine `factorx` for uniform aspect-ratio scaling.
+  * Standard predefined screen resolutions supported by DimensioneX:
+    `1024x768`, `1280x800`, `800x600`, `640x480`, `480x272`, `400x800` (`Const.screenSizes`).
+  * **Example (1366x768 Screen)**:
+    When a player accesses the game on a standard 1366x768 desktop monitor, the closest matching standard resolution is `1280x800` (`client.screenwidth = 1280`).
+    $$\text{factorx} = \frac{1280}{800} = 1.6$$
+    For a default room scene with dimensions $350 \times 235$, the scene picture is dynamically scaled on the player's screen to:
+    $$\text{width} = 350 \times 1.6 = 560\text{px}$$
+    $$\text{height} = 235 \times 1.6 = 376\text{px}$$
+    (matching exactly the $560 \times 376$ display observed on original DimensioneX installations).
 * **`SCENE LOOK <mode>`**: 
   * `1STPERSON` (default): Standard view; avatar is not drawn inside the room scene.
   * `3RDPERSON`: Avatar is rendered inside the room scene.
@@ -389,8 +402,53 @@ SHOW <showMode> [showX,showY [FOR showForUrl]]
 | `ONSCREEN` | `1` | `CHARACTER` (default) | Rendered as a full sprite directly over the room scene image. |
 | `ICON` | `2` | Interactive props | Rendered as a clickable icon placed directly on the scene image. |
 
-* **Coordinates (`showX, showY`)**: Pixel offset `(X, Y)` where `(0, 0)` is the **bottom-left** corner of the scene picture.
-* **`FOR <showForUrl>`**: Restricts sprite placement to a specific scene image file.
+#### Coordinate System & Positioning (`showX, showY`):
+* **Cartesian Origin**: Coordinates `(0, 0)` represent the **lower-left** corner of the scene picture at the target design resolution (e.g. `800x600` design screen, `350x235` scene).
+* **HTML Top-Down Transformation** (from Cartesian Y to screen pixels):
+  $$\text{screenX} = 1 + \text{showX}$$
+  $$\text{screenY} = \text{roomHeight} - \text{showY} - \text{objectHeight}$$
+* **Proportional Viewport Scaling (`factorx`)**:
+  When rendered for a client with scaling factor $\text{factorx} = \frac{\text{client.screenwidth}}{\text{world.screenwidth}}$:
+  $$\text{left} = \text{round}(\text{factorx} \times \text{screenX})$$
+  $$\text{top} = \text{round}(\text{factorx} \times \text{screenY})$$
+  $$\text{objectWidth} = \text{round}(\text{factorx} \times \text{designWidth})$$
+  $$\text{objectHeight} = \text{round}(\text{factorx} \times \text{designHeight})$$
+  *(For `ICON` mode, `designWidth = designHeight = world.iconSize`, default 32px).*
+
+#### Concrete Example (`world2.dxw` — `switch`):
+```text
+ITEM switch
+    NAME        a switch
+    DESCRIPTION What is this switch for?
+    POSITION    bungalow
+    ICON        icoInterruttore.gif
+    IMAGE       77x111  interruttore.gif
+    SHOW        ICON 62,68
+```
+1. **At Design Baseline (800x600 display, 350x235 room)**:
+   * $\text{showX} = 62$, $\text{showY} = 68$.
+   * $\text{objectWidth} = 32$, $\text{objectHeight} = 32$ (from `ICON`).
+   * $\text{screenX} = 1 + 62 = 63\text{px}$.
+   * $\text{screenY} = 235 - 68 - 32 = 135\text{px}$.
+2. **On Player's 1366x768 Display** (scaled to 1280x800 profile $\rightarrow \text{factorx} = 1.6$):
+   * Room image: $350 \times 1.6 = \mathbf{560\text{px}}$ wide, $235 \times 1.6 = \mathbf{376\text{px}}$ high.
+   * Switch icon position: $\text{left} = \text{round}(1.6 \times 63) = \mathbf{101\text{px}}$, $\text{top} = \text{round}(1.6 \times 135) = \mathbf{216\text{px}}$.
+   * Switch icon dimensions: $32 \times 1.6 = \mathbf{51\text{px}} \times \mathbf{51\text{px}}$.
+
+#### Stacking Order (HTML z-index Layers):
+In `UIhtml`, scene graphics are stacked in layers from bottom to top:
+1. **Layer 0 (`z-index: 0`)**: Background color box (`.scene_background`), rendered if scene image has transparency (`.gif` / `.png`). Uses `BGCOLOR` (default `#9DB9E9`).
+2. **Layer 2 (`z-index: 2`)**: Main room scene picture (`.scene_image`).
+3. **Layer 3 (`z-index: 3`)**: Room atmospheric/weather effect image (`.scene_effect`).
+4. **Layers 6–14 (`z-index: 6..14`)**: Room links, exits, and passages.
+5. **Layers 15–204 (`z-index: 15..204`)**: Room contents (items and characters). Depth-sorted by vertical position so entities closer to the viewer (lower in the frame) render on top of entities farther back:
+   $$\text{stackpos} = \text{proportion}(\text{imheight} - \text{showY}, 0, \text{imheight}, 15, 204)$$
+6. **Layer 201 (`z-index: 201`)**: Vehicle and container interior graphics (`.vehicle_interiors`).
+7. **Layers 206–254 (`z-index: 206..254`)**: Internal contents of vehicles and containers.
+8. **Layer 255 (`z-index: 255`)**: Fader overlay mask (`.fader_box` using `picFader`).
+9. **Layers 256–260 (`z-index: 256..260`)**: Currently focused / inspected object (`focus`).
+
+* **`FOR <showForUrl>`**: Restricts sprite placement to a specific scene image file (e.g. only show when facing North).
 
 ---
 

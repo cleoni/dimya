@@ -214,6 +214,41 @@ class DxwLoader
                     $i++;
                     break;
 
+                case 'GUI':
+                    if ($directive === 'SCREEN') {
+                        if (isset($tokens[1]) && strtoupper($tokens[1]) === 'SIZE' && isset($tokens[2])) {
+                            if (preg_match('/^(\d+)x(\d+)$/i', $tokens[2], $dimM)) {
+                                $world->screenwidth = (int)$dimM[1];
+                                $world->screenheight = (int)$dimM[2];
+                            }
+                        }
+                    } elseif ($directive === 'SCENE') {
+                        if (isset($tokens[1]) && strtoupper($tokens[1]) === 'SIZE' && isset($tokens[2])) {
+                            if (preg_match('/^(\d+)x(\d+)$/i', $tokens[2], $dimM)) {
+                                $world->sceneWidth = (int)$dimM[1];
+                                $world->sceneHeight = (int)$dimM[2];
+                            }
+                        } elseif (isset($tokens[1]) && strtoupper($tokens[1]) === 'LOOK' && isset($tokens[2])) {
+                            $world->setProperty('sceneLook', strtoupper($tokens[2]));
+                        }
+                    } elseif ($directive === 'LOGOSRC') {
+                        $world->setProperty('logoSrc', $this->resolveImageUrl(trim(substr($line, strlen($tokens[0]))), $imagesFolder));
+                    } elseif ($directive === 'MAP') {
+                        $world->setProperty('map', $this->resolveImageUrl(trim(substr($line, strlen($tokens[0]))), $imagesFolder));
+                    } elseif ($directive === 'COMPASS') {
+                        $world->setProperty('compass', in_array(strtolower($tokens[1] ?? ''), ['true', '1'], true));
+                    } elseif ($directive === 'MSGLISTSIZE') {
+                        $world->setProperty('msgListSize', (int)($tokens[1] ?? 3));
+                    } elseif ($directive === 'SKINS') {
+                        $world->setProperty('skins', trim(substr($line, strlen($tokens[0]))));
+                    } elseif ($directive === 'SHOW' && isset($tokens[1]) && strtoupper($tokens[1]) === 'PROPERTIES') {
+                        $world->setProperty('showproperties', trim(substr($line, strlen($tokens[0]) + strlen($tokens[1]) + 1)));
+                    } elseif ($directive === 'HOOKS') {
+                        $world->setProperty('hooks', trim(substr($line, strlen($tokens[0]))));
+                    }
+                    $i++;
+                    break;
+
                 case 'ROOMS':
                     if ($directive === 'ROOM') {
                         $roomId = $tokens[1] ?? 'room_' . count($world->rooms);
@@ -235,8 +270,19 @@ class DxwLoader
                             } elseif ($subDir === 'ATTRLIST') {
                                 $room->setAttrList(trim(substr($subLine, strlen($subTokens[0]))));
                             } elseif ($subDir === 'IMAGE') {
-                                $imgSrc = $this->resolveImageUrl(trim(substr($subLine, strlen($subTokens[0]))), $imagesFolder);
-                                $room->images['N'] = new Image($imgSrc, 400, 300);
+                                $rest = trim(substr($subLine, strlen($subTokens[0])));
+                                $imgTokens = preg_split('/\s+/', $rest);
+                                $last = end($imgTokens);
+                                $imgW = $world->sceneWidth;
+                                $imgH = $world->sceneHeight;
+                                foreach ($imgTokens as $tok) {
+                                    if (preg_match('/^(\d+)x(\d+)$/i', $tok, $dimMatch)) {
+                                        $imgW = (int)$dimMatch[1];
+                                        $imgH = (int)$dimMatch[2];
+                                        break;
+                                    }
+                                }
+                                $room->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
                             }
                             $i++;
                         }

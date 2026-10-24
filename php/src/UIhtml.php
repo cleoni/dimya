@@ -161,6 +161,13 @@ class UIhtml extends UI
         $links        = $currentRoom ? $currentRoom->getLinks()     : [];
         $activePanel  = $player->getPanel() ?? $world->defaultPanel;
 
+        // Viewport resolution scaling factor (factorx = clientWidth / worldDesignWidth)
+        $factorx = method_exists($player, 'getFactorX') ? $player->getFactorX() : 1.6;
+        $roomW   = (!empty($currentRoom?->images['N']?->width)) ? $currentRoom->images['N']->width : ($world->sceneWidth ?? 350);
+        $roomH   = (!empty($currentRoom?->images['N']?->height)) ? $currentRoom->images['N']->height : ($world->sceneHeight ?? 235);
+        $scaledRoomW = (int)round($factorx * $roomW);
+        $scaledRoomH = (int)round($factorx * $roomH);
+
         if (!headers_sent()) {
             header('Content-Type: text/html; charset=utf-8');
         }
@@ -295,12 +302,10 @@ class UIhtml extends UI
             .dimx-scene-container {
               position: relative;
               display: inline-block;
-              max-width: 100%;
               margin-bottom: 8px;
+              overflow: hidden;
             }
             .dimx-scene-img {
-              max-width: 100%;
-              height: auto;
               display: block;
             }
             .dimx-scene-placeholder {
@@ -445,11 +450,16 @@ class UIhtml extends UI
 
                   <!-- Subcell D: Room image and below it, description / main messages output -->
                   <div class="dimx-subcell-d">
-                    <div class="dimx-scene-container">
+                    <div class="dimx-scene-container" style="position:relative;width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;background-color:<?= htmlspecialchars($world->bgcolor ?? '#000040') ?>;">
                       <?php if (!empty($currentRoom->images['N'])): ?>
-                        <img src="<?= htmlspecialchars($currentRoom->images['N']->src) ?>" class="dimx-scene-img" alt="Scene" />
+                        <img src="<?= htmlspecialchars($currentRoom->images['N']->src) ?>"
+                             class="dimx-scene-img"
+                             alt="Scene"
+                             width="<?= $scaledRoomW ?>"
+                             height="<?= $scaledRoomH ?>"
+                             style="position:absolute;left:0;top:0;width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;z-index:2;display:block;" />
                       <?php else: ?>
-                        <div class="dimx-scene-placeholder">
+                        <div class="dimx-scene-placeholder" style="width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;">
                           [<?= htmlspecialchars($currentRoom->name ?? 'Scene') ?>]
                         </div>
                       <?php endif; ?>
@@ -460,26 +470,42 @@ class UIhtml extends UI
                           <?php
                             $charImg = $char->images['N'] ?? $char->image ?? null;
                             if ($charImg && !empty($charImg->src)):
-                              $posX = ($char->showX >= 0) ? $char->showX . 'px' : '55%';
-                              $posY = ($char->showY >= 0) ? $char->showY . 'px' : '40%';
-                              $imgW = ($charImg->width > 0) ? "width:{$charImg->width}px;" : '';
-                              $imgH = ($charImg->height > 0) ? "height:{$charImg->height}px;" : '';
+                              $isIcon = ($char->showmode === \Dimx\AdvObject::SHOW_ICON);
+                              $imgSrc = ($isIcon && !empty($char->icon)) ? $char->icon : $charImg->src;
+                              $baseW = $isIcon ? ($world->iconSize ?? 32) : (!empty($charImg->width) ? $charImg->width : ($world->iconSize ?? 32));
+                              $baseH = $isIcon ? ($world->iconSize ?? 32) : (!empty($charImg->height) ? $charImg->height : ($world->iconSize ?? 32));
+
+                              if ($char->showX >= 0 && $char->showY >= 0) {
+                                  $cartX = $char->showX;
+                                  $cartY = $char->showY;
+                                  $screenX = 1 + $cartX;
+                                  $screenY = $roomH - $cartY - $baseH;
+                                  $posX = (int)round($factorx * $screenX) . 'px';
+                                  $posY = (int)round($factorx * $screenY) . 'px';
+                                  $stackpos = 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
+                              } else {
+                                  $posX = '55%';
+                                  $posY = '40%';
+                                  $stackpos = 100;
+                              }
+                              $dispW = (int)round($factorx * $baseW);
+                              $dispH = (int)round($factorx * $baseH);
                           ?>
-                            <img src="<?= htmlspecialchars($charImg->src) ?>"
+                            <img src="<?= htmlspecialchars($imgSrc) ?>"
                                  alt="<?= htmlspecialchars($char->name) ?>"
                                  title="<?= htmlspecialchars($char->name) ?>"
                                  class="dimx-onscreen-obj"
                                  data-obj-id="<?= htmlspecialchars($char->id) ?>"
                                  data-obj-type="c"
                                  data-obj-name="<?= htmlspecialchars($char->name) ?>"
-                                 style="position:absolute;left:<?= $posX ?>;top:<?= $posY ?>;<?= $imgW ?><?= $imgH ?>cursor:pointer;z-index:10"
+                                 style="position:absolute;left:<?= $posX ?>;top:<?= $posY ?>;width:<?= $dispW ?>px;height:<?= $dispH ?>px;cursor:pointer;z-index:<?= $stackpos ?>"
                                  onclick="clickObject(this)" />
                           <?php else: ?>
                             <span class="dimx-tag dimx-onscreen-obj"
                                   data-obj-id="<?= htmlspecialchars($char->id) ?>"
                                   data-obj-type="c"
                                   data-obj-name="<?= htmlspecialchars($char->name) ?>"
-                                  style="position:absolute;bottom:8px;left:8px;cursor:pointer;z-index:10"
+                                  style="position:absolute;bottom:8px;left:8px;cursor:pointer;z-index:100"
                                   onclick="clickObject(this)">👤 <?= htmlspecialchars($char->name) ?></span>
                           <?php endif; ?>
                         <?php endif; ?>
@@ -489,12 +515,31 @@ class UIhtml extends UI
                       <?php foreach ($roomItems as $itm): ?>
                         <?php
                           if ($itm->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && $itm->showX >= 0 && $itm->showY >= 0):
-                            $imgSrc = ($itm->showmode === \Dimx\AdvObject::SHOW_ICON && !empty($itm->icon))
+                            $isIcon = ($itm->showmode === \Dimx\AdvObject::SHOW_ICON);
+                            $imgSrc = ($isIcon && !empty($itm->icon))
                               ? $itm->icon
                               : ($itm->images['N']->src ?? $itm->icon ?? null);
                             if ($imgSrc):
-                              $imgW = (!empty($itm->images['N']->width) && $itm->showmode !== \Dimx\AdvObject::SHOW_ICON) ? "width:{$itm->images['N']->width}px;" : '';
-                              $imgH = (!empty($itm->images['N']->height) && $itm->showmode !== \Dimx\AdvObject::SHOW_ICON) ? "height:{$itm->images['N']->height}px;" : '';
+                              $baseW = $isIcon
+                                ? ($world->iconSize ?? 32)
+                                : (!empty($itm->images['N']->width) ? $itm->images['N']->width : ($world->iconSize ?? 32));
+                              $baseH = $isIcon
+                                ? ($world->iconSize ?? 32)
+                                : (!empty($itm->images['N']->height) ? $itm->images['N']->height : ($world->iconSize ?? 32));
+
+                              // Cartesian coordinate conversion (0,0 is lower-left of room scene)
+                              $cartX = $itm->showX;
+                              $cartY = $itm->showY;
+                              $screenX = 1 + $cartX;
+                              $screenY = $roomH - $cartY - $baseH;
+
+                              $posX = (int)round($factorx * $screenX);
+                              $posY = (int)round($factorx * $screenY);
+                              $dispW = (int)round($factorx * $baseW);
+                              $dispH = (int)round($factorx * $baseH);
+
+                              // Stacking depth order (layers 15..204)
+                              $stackpos = 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
                         ?>
                           <img src="<?= htmlspecialchars($imgSrc) ?>"
                                alt="<?= htmlspecialchars($itm->name) ?>"
@@ -503,7 +548,7 @@ class UIhtml extends UI
                                data-obj-id="<?= htmlspecialchars($itm->id) ?>"
                                data-obj-type="i"
                                data-obj-name="<?= htmlspecialchars($itm->name) ?>"
-                               style="position:absolute;left:<?= $itm->showX ?>px;top:<?= $itm->showY ?>px;<?= $imgW ?><?= $imgH ?>cursor:pointer;z-index:10"
+                               style="position:absolute;left:<?= $posX ?>px;top:<?= $posY ?>px;width:<?= $dispW ?>px;height:<?= $dispH ?>px;cursor:pointer;z-index:<?= $stackpos ?>"
                                onclick="clickObject(this)" />
                         <?php endif; endif; ?>
                       <?php endforeach; ?>

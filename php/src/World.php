@@ -20,6 +20,13 @@ class World extends DimxObject
     public int $mode = 0; // 0 = stopped / lobby / won (Goal), 1 = adventure running
     public int $savegamePersistence = 2; // 0=restart only, 1=version only, 2=permanent
 
+    // Screen and viewport design dimensions
+    public int $screenwidth = 800; // Target design screen display size (default 800)
+    public int $screenheight = 600; // Target design screen display size (default 600)
+    public int $sceneWidth = 350; // Default room scene width (default 350)
+    public int $sceneHeight = 235; // Default room scene height (default 235)
+    public int $iconSize = 32; // Default on-screen icon size (default 32)
+
     /** @var array<string> Blacklisted client IPs */
     public array $bannedClients = [];
 
