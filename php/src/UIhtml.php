@@ -57,6 +57,9 @@ class UIhtml extends UI
               <div class="err"><?= htmlspecialchars($errorMessage) ?></div>
             <?php endif; ?>
             <form method="POST">
+              <input type="hidden" name="width" id="clientWidth" value="1280">
+              <input type="hidden" name="height" id="clientHeight" value="800">
+
               <label for="username">Nickname</label>
               <input type="text" id="username" name="username" placeholder="Your nickname…" required autofocus maxlength="32" value="<?= $valUser ?>" />
 
@@ -65,6 +68,14 @@ class UIhtml extends UI
 
               <button type="submit">Play</button>
             </form>
+            <script>
+              (function() {
+                var w = window.innerWidth || (window.screen ? window.screen.width : 0);
+                var h = window.innerHeight || (window.screen ? window.screen.height : 0);
+                if (w > 0) document.getElementById('clientWidth').value = w;
+                if (h > 0) document.getElementById('clientHeight').value = h;
+              })();
+            </script>
             <div class="hint">If the nickname does not exist, an account will be created automatically.</div>
           </div>
         </body>
@@ -160,6 +171,9 @@ class UIhtml extends UI
         $inventory    = $player->contents;
         $links        = $currentRoom ? $currentRoom->getLinks()     : [];
         $activePanel  = $player->getPanel() ?? $world->defaultPanel;
+
+        // Portrait / vertical display detection (width < height at login or client)
+        $isPortrait   = !empty($player->isPortrait) || ($player->screenWidth > 0 && $player->screenHeight > 0 && $player->screenWidth < $player->screenHeight);
 
         // Viewport resolution scaling factor (factorx = clientWidth / worldDesignWidth)
         $factorx = method_exists($player, 'getFactorX') ? $player->getFactorX() : 1.6;
@@ -427,12 +441,208 @@ class UIhtml extends UI
             }
             .chat-line-sender { color: #38bdf8; font-weight: 600; margin-right: 4px; }
             .chat-line-time { color: #64748b; font-size: 11px; margin-right: 6px; }
+
+            /* Vertical / Portrait Layout (*, 35%, 15% share for cells A, B, C) */
+            .dimx-portrait {
+              height: 100vh !important;
+              max-height: 100vh !important;
+              overflow: hidden !important;
+            }
+            .dimx-portrait .dimx-row-top {
+              display: flex !important;
+              flex-direction: column !important;
+              height: 85vh !important;
+              flex: 1 1 85vh !important;
+              min-height: 0 !important;
+              width: 100% !important;
+            }
+            /* Cell A (Scene frame): gets dynamic remaining height (*) */
+            .dimx-portrait .dimx-cell-a {
+              width: 100% !important;
+              flex: 1 1 auto !important;
+              min-height: 0 !important;
+              height: auto !important;
+              border-right: none !important;
+              border-bottom: 2px solid #808080 !important;
+              overflow: hidden !important;
+              display: flex !important;
+              flex-direction: column !important;
+            }
+            /* Cell B (Controls frame): gets approx 35% of total height */
+            .dimx-portrait .dimx-cell-b {
+              width: 100% !important;
+              flex: 0 0 35vh !important;
+              height: 35vh !important;
+              max-height: 35vh !important;
+              min-height: 0 !important;
+              border-right: none !important;
+              border-bottom: 2px solid #808080 !important;
+              overflow-y: scroll !important;
+            }
+            /* Row 2 / Cell C (Messages frame): gets approx 15% of total height */
+            .dimx-portrait .dimx-row-bottom {
+              height: 15vh !important;
+              flex: 0 0 15vh !important;
+              min-height: 0 !important;
+              width: 100% !important;
+              display: flex !important;
+            }
+            .dimx-portrait .dimx-cell-c {
+              width: 100% !important;
+              height: 100% !important;
+              overflow-y: scroll !important;
+            }
+            /* Subcells D (left) and E (right) stay in a row */
+            .dimx-portrait .dimx-inner-row {
+              display: flex !important;
+              flex-direction: row !important;
+              flex: 1 1 auto !important;
+              min-height: 0 !important;
+              width: 100% !important;
+            }
+            .dimx-portrait .dimx-subcell-d {
+              flex: 1 1 60% !important;
+              min-width: 0 !important;
+              height: 100% !important;
+              overflow-y: scroll !important;
+              overflow-x: auto !important;
+              padding: 8px !important;
+              display: flex !important;
+              flex-direction: column !important;
+            }
+            .dimx-portrait .dimx-subcell-e {
+              flex: 0 0 40% !important;
+              width: 40% !important;
+              max-width: 40% !important;
+              min-width: 120px !important;
+              height: 100% !important;
+              overflow-y: scroll !important;
+              padding: 8px !important;
+              border-left: 1px solid #444466 !important;
+              border-top: none !important;
+              background: #000040 !important;
+            }
+
+            @media (orientation: portrait) {
+              .dimx-root {
+                height: 100vh !important;
+                max-height: 100vh !important;
+                overflow: hidden !important;
+              }
+              .dimx-row-top {
+                display: flex !important;
+                flex-direction: column !important;
+                height: 85vh !important;
+                flex: 1 1 85vh !important;
+                min-height: 0 !important;
+                width: 100% !important;
+              }
+              .dimx-cell-a {
+                width: 100% !important;
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                height: auto !important;
+                border-right: none !important;
+                border-bottom: 2px solid #808080 !important;
+                overflow: hidden !important;
+                display: flex !important;
+                flex-direction: column !important;
+              }
+              .dimx-cell-b {
+                width: 100% !important;
+                flex: 0 0 35vh !important;
+                height: 35vh !important;
+                max-height: 35vh !important;
+                min-height: 0 !important;
+                border-right: none !important;
+                border-bottom: 2px solid #808080 !important;
+                overflow-y: scroll !important;
+              }
+              .dimx-row-bottom {
+                height: 15vh !important;
+                flex: 0 0 15vh !important;
+                min-height: 0 !important;
+                width: 100% !important;
+                display: flex !important;
+              }
+              .dimx-cell-c {
+                width: 100% !important;
+                height: 100% !important;
+                overflow-y: scroll !important;
+              }
+              .dimx-inner-row {
+                display: flex !important;
+                flex-direction: row !important;
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                width: 100% !important;
+              }
+              .dimx-subcell-d {
+                flex: 1 1 60% !important;
+                min-width: 0 !important;
+                height: 100% !important;
+                overflow-y: scroll !important;
+                overflow-x: auto !important;
+                padding: 8px !important;
+                display: flex !important;
+                flex-direction: column !important;
+              }
+              .dimx-subcell-e {
+                flex: 0 0 40% !important;
+                width: 40% !important;
+                max-width: 40% !important;
+                min-width: 120px !important;
+                height: 100% !important;
+                overflow-y: scroll !important;
+                padding: 8px !important;
+                border-left: 1px solid #444466 !important;
+                border-top: none !important;
+                background: #000040 !important;
+              }
+            }
+
+            /* Narrow landscape screen fallback (< 800px width in landscape) */
+            @media (max-width: 800px) and (orientation: landscape) {
+              .dimx-root {
+                height: auto;
+                min-height: 100vh;
+                overflow-y: auto;
+              }
+              .dimx-row-top {
+                flex-direction: column;
+                height: auto;
+                min-height: 0;
+              }
+              .dimx-cell-a {
+                border-right: none;
+                height: auto;
+                overflow-y: visible;
+              }
+              .dimx-cell-b {
+                width: 100%;
+                flex: 0 0 auto;
+                height: auto;
+              }
+              .dimx-inner-row {
+                flex-direction: column;
+              }
+              .dimx-subcell-e {
+                width: 100%;
+                flex: 0 0 auto;
+                border-left: none;
+                border-top: 1px solid #444466;
+              }
+              .dimx-row-bottom {
+                height: auto;
+                min-height: 120px;
+              }
+            }
           </style>
           <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
         </head>
         <body>
 
-          <div class="dimx-root">
+          <div class="dimx-root <?= $isPortrait ? 'dimx-portrait' : '' ?>">
 
             <!-- FIRST ROW (occupies all available height, divided in cells A and B) -->
             <div class="dimx-row-top">
@@ -475,19 +685,19 @@ class UIhtml extends UI
                               $baseW = $isIcon ? ($world->iconSize ?? 32) : (!empty($charImg->width) ? $charImg->width : ($world->iconSize ?? 32));
                               $baseH = $isIcon ? ($world->iconSize ?? 32) : (!empty($charImg->height) ? $charImg->height : ($world->iconSize ?? 32));
 
-                              if ($char->showX >= 0 && $char->showY >= 0) {
-                                  $cartX = $char->showX;
-                                  $cartY = $char->showY;
-                                  $screenX = 1 + $cartX;
-                                  $screenY = $roomH - $cartY - $baseH;
-                                  $posX = (int)round($factorx * $screenX) . 'px';
-                                  $posY = (int)round($factorx * $screenY) . 'px';
-                                  $stackpos = 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
-                              } else {
-                                  $posX = '55%';
-                                  $posY = '40%';
-                                  $stackpos = 100;
-                              }
+                              // Cartesian coordinate conversion (0,0 is lower-left of room scene)
+                              $cartX = ($char->showX >= 0)
+                                ? $char->showX
+                                : (20 + (abs(crc32($char->id)) % max(1, ($roomW - $baseW - 40))));
+                              $cartY = ($char->showY >= 0)
+                                ? $char->showY
+                                : (int)round(0.10 * $roomH); // Standard 10% baseline
+
+                              $screenX = 1 + $cartX;
+                              $screenY = $roomH - $cartY - $baseH;
+                              $posX = (int)round($factorx * $screenX) . 'px';
+                              $posY = (int)round($factorx * $screenY) . 'px';
+                              $stackpos = 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
                               $dispW = (int)round($factorx * $baseW);
                               $dispH = (int)round($factorx * $baseH);
                           ?>
@@ -514,7 +724,7 @@ class UIhtml extends UI
                       <!-- Items on scene (positioned) -->
                       <?php foreach ($roomItems as $itm): ?>
                         <?php
-                          if ($itm->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && $itm->showX >= 0 && $itm->showY >= 0):
+                          if ($itm->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN):
                             $isIcon = ($itm->showmode === \Dimx\AdvObject::SHOW_ICON);
                             $imgSrc = ($isIcon && !empty($itm->icon))
                               ? $itm->icon
@@ -528,8 +738,14 @@ class UIhtml extends UI
                                 : (!empty($itm->images['N']->height) ? $itm->images['N']->height : ($world->iconSize ?? 32));
 
                               // Cartesian coordinate conversion (0,0 is lower-left of room scene)
-                              $cartX = $itm->showX;
-                              $cartY = $itm->showY;
+                              // If x or y is -1 (or omitted), fall back to baseline positioning as per art013
+                              $cartX = ($itm->showX >= 0)
+                                ? $itm->showX
+                                : (10 + (abs(crc32($itm->id)) % max(1, ($roomW - $baseW - 20))));
+                              $cartY = ($itm->showY >= 0)
+                                ? $itm->showY
+                                : ($isIcon ? (int)round(0.05 * $roomH) : (int)round(0.10 * $roomH)); // Item icons sit on lower half-baseline (5%)
+
                               $screenX = 1 + $cartX;
                               $screenY = $roomH - $cartY - $baseH;
 
@@ -1080,6 +1296,19 @@ class UIhtml extends UI
             // Initial load + recurring poll every 3 seconds
             pollChat();
             setInterval(pollChat, 3000);
+
+            // Responsive orientation adjustment on resize / rotate
+            function updateOrientationClass() {
+              const root = document.querySelector('.dimx-root');
+              if (!root) return;
+              if (window.innerWidth < window.innerHeight) {
+                root.classList.add('dimx-portrait');
+              } else if (!<?= $isPortrait ? 'true' : 'false' ?>) {
+                root.classList.remove('dimx-portrait');
+              }
+            }
+            window.addEventListener('resize', updateOrientationClass);
+            window.addEventListener('orientationchange', updateOrientationClass);
           </script>
         </body>
         </html>

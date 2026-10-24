@@ -154,7 +154,11 @@ $player = $result['player'] ?? null;
 if ($player !== null) {
     if (isset($_REQUEST['width']) && (int)$_REQUEST['width'] > 0) {
         $_SESSION['dimx_screenwidth'] = (int)$_REQUEST['width'];
-    } elseif (isset($_REQUEST['screensize']) && preg_match('/^(\d+)x(\d+)$/i', (string)$_REQUEST['screensize'], $sm)) {
+    }
+    if (isset($_REQUEST['height']) && (int)$_REQUEST['height'] > 0) {
+        $_SESSION['dimx_screenheight'] = (int)$_REQUEST['height'];
+    }
+    if (isset($_REQUEST['screensize']) && preg_match('/^(\d+)x(\d+)$/i', (string)$_REQUEST['screensize'], $sm)) {
         $_SESSION['dimx_screenwidth'] = (int)$sm[1];
         $_SESSION['dimx_screenheight'] = (int)$sm[2];
     }
@@ -164,6 +168,7 @@ if ($player !== null) {
     if (isset($_SESSION['dimx_screenheight'])) {
         $player->screenHeight = (int)$_SESSION['dimx_screenheight'];
     }
+    $player->isPortrait = ($player->screenWidth > 0 && $player->screenHeight > 0 && $player->screenWidth < $player->screenHeight);
     $player->setUI($ui);
     $ui->setPlayer($player);
 }

@@ -407,6 +407,12 @@ SHOW <showMode> [showX,showY [FOR showForUrl]]
 * **HTML Top-Down Transformation** (from Cartesian Y to screen pixels):
   $$\text{screenX} = 1 + \text{showX}$$
   $$\text{screenY} = \text{roomHeight} - \text{showY} - \text{objectHeight}$$
+* **Default Placement & The `-1` Special Coordinate (KB Article #013)**:
+  * Passing `-1` for either coordinate (or omitting coordinates entirely, e.g. `SHOW ICON` or `SHOW ONSCREEN`) instructs the engine to use automatic placement on the scene's baseline:
+    * **`showX = -1`**: The engine assigns a horizontal position between the baseline bounds ($x_1$ and $x_2$ from `SHOWAREA`, defaulting to $0$ and $\text{roomWidth}$).
+    * **`showY = -1` (The Dual Baseline Principle)**:
+      * **Characters / Sprites**: Placed on the **primary baseline**, located at **10% of the scene's height** from the bottom ($y = 0.10 \times \text{roomHeight}$, or $y$ from `SHOWAREA`).
+      * **Items / Icons**: Placed on an implicit **secondary lower baseline at half-height** ($y = 0.05 \times \text{roomHeight}$, or $\text{baseline} / 2$) so items sit in front of players/characters and are never occluded by them.
 * **Proportional Viewport Scaling (`factorx`)**:
   When rendered for a client with scaling factor $\text{factorx} = \frac{\text{client.screenwidth}}{\text{world.screenwidth}}$:
   $$\text{left} = \text{round}(\text{factorx} \times \text{screenX})$$
@@ -414,6 +420,20 @@ SHOW <showMode> [showX,showY [FOR showForUrl]]
   $$\text{objectWidth} = \text{round}(\text{factorx} \times \text{designWidth})$$
   $$\text{objectHeight} = \text{round}(\text{factorx} \times \text{designHeight})$$
   *(For `ICON` mode, `designWidth = designHeight = world.iconSize`, default 32px).*
+
+#### Examples from DimensioneX KB Article #013:
+* **Example 1 — Corner Placement**:
+  ```text
+  ITEM trash
+      SHOW ONSCREEN 250,0
+  ```
+  On a $350 \times 235$ scene with a $100\text{px}$ wide trash graphic, $x = 350 - 100 = 250$ places it at the right edge; $y = 0$ places it sitting directly on the bottom border of the scene canvas.
+* **Example 2 — Specific Altitude with Random Horizontal Position**:
+  ```text
+  ITEM butterfly
+      SHOW ICON -1,100
+  ```
+  $x = -1$ uses the default horizontal placement, while $y = 100$ positions the butterfly higher up on the canvas (e.g. in the air).
 
 #### Concrete Example (`world2.dxw` — `switch`):
 ```text

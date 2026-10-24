@@ -29,6 +29,9 @@ class Player extends Character
     /** @var int Client viewport screen height in pixels (default 800) */
     public int $screenHeight = 800;
 
+    /** @var bool Whether client is in vertical/portrait orientation (width < height) */
+    public bool $isPortrait = false;
+
     /** @var mixed Active UI instance (UIhtml or UIjson) */
     public mixed $ui = null;
 

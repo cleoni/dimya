@@ -36,6 +36,7 @@ $sections = [
     16 => ['title' => "Testing 'open' and 'close' Commands & actOpen / actClose on 'box' in World 2...", 'keywords' => ['open', 'close', 'box', 'actopen', 'actclose', 'world2', 'cardboard', 'actionsrunner']],
     17 => ['title' => 'Testing World 2 Full Flow: Look at Closed Box, Use Switch in Bungalow, Open Box & Pick Apple...', 'keywords' => ['flow', 'box', 'switch', 'bungalow', 'open', 'pick', 'apple', 'goal', 'uibot', 'evaldescription', 'is closed', 'is open', 'containing', 'rocca', 'spiaggia']],
     18 => ['title' => 'Testing Speak Instruction Behavior & Inanimate Object Fallback...', 'keywords' => ['speak', 'surfer', 'switch', 'voice', 'system', 'sound', 'sys', 'fallback', 'inanimate', 'bungalow']],
+    19 => ['title' => 'Testing UIhtml Smartphone Portrait / Vertical Layout (*, 35%, 15%)...', 'keywords' => ['portrait', 'vertical', 'smartphone', 'uihtml', 'layout', '35%', '15%']],
 ];
 
 // CLI Options parsing
@@ -1485,6 +1486,62 @@ assertTest(
     ($surferChat3['text'] ?? '') === 'Hey, why the hell you are staring at me?',
     "Third interaction wraps around to first phrase: '{$surferChat3['text']}'"
 );
+}
+
+// --------------------------------------------------------------------------
+// 19. UIhtml Smartphone Portrait / Vertical Layout (*, 35%, 15%)
+// --------------------------------------------------------------------------
+if (shouldRun(19)) {
+    echo "\n19. Testing UIhtml Smartphone Portrait / Vertical Layout (*, 35%, 15%)...\n";
+
+    $testWorld = new \Dimx\World('test_mobile_world', 'Mobile World');
+    $testRoom = new \Dimx\Room($testWorld, 'mobile_test_room', 'Test Room');
+
+    $pMobile = new Player($testWorld, 'MobileUser');
+    $pMobile->screenWidth = 390;
+    $pMobile->screenHeight = 844;
+    $pMobile->isPortrait = ($pMobile->screenWidth < $pMobile->screenHeight);
+
+    ob_start();
+    $uiMobile = new \Dimx\UIhtml($pMobile);
+    $uiMobile->render([
+        'world'     => $testWorld,
+        'player'    => $pMobile,
+        'room'      => $testRoom,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $mobileHtml = ob_get_clean();
+
+    assertTest($pMobile->isPortrait === true, "Player isPortrait is true when screenWidth < screenHeight (390 < 844)");
+    assertTest(str_contains($mobileHtml, 'dimx-root dimx-portrait'), "UIhtml renders 'dimx-root dimx-portrait' class when in portrait mode");
+    assertTest(str_contains($mobileHtml, '.dimx-portrait .dimx-cell-b'), "UIhtml CSS defines .dimx-portrait .dimx-cell-b");
+    assertTest(str_contains($mobileHtml, '35vh'), "UIhtml CSS specifies 35vh height for Cell B in portrait");
+    assertTest(str_contains($mobileHtml, '15vh'), "UIhtml CSS specifies 15vh height for Cell C in portrait");
+    assertTest(str_contains($mobileHtml, '.dimx-portrait .dimx-inner-row') && str_contains($mobileHtml, 'flex-direction: row'), "UIhtml CSS preserves row disposition for Subcells D and E in portrait");
+    assertTest(str_contains($mobileHtml, '.dimx-portrait .dimx-subcell-d'), "UIhtml CSS styles Subcell D in portrait at left");
+    assertTest(str_contains($mobileHtml, '.dimx-portrait .dimx-subcell-e'), "UIhtml CSS styles Subcell E in portrait at right");
+    assertTest(str_contains($mobileHtml, '@media (orientation: portrait)'), "UIhtml CSS includes responsive @media (orientation: portrait)");
+
+    // Test landscape player does not get dimx-portrait class on root
+    $pDesktop = new Player($testWorld, 'DesktopUser');
+    $pDesktop->screenWidth = 1366;
+    $pDesktop->screenHeight = 768;
+    $pDesktop->isPortrait = ($pDesktop->screenWidth < $pDesktop->screenHeight);
+
+    ob_start();
+    $uiDesktop = new \Dimx\UIhtml($pDesktop);
+    $uiDesktop->render([
+        'world'     => $testWorld,
+        'player'    => $pDesktop,
+        'room'      => $testRoom,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $desktopHtml = ob_get_clean();
+
+    assertTest($pDesktop->isPortrait === false, "Player isPortrait is false when screenWidth > screenHeight (1366 > 768)");
+    assertTest(!str_contains($desktopHtml, 'dimx-root dimx-portrait'), "UIhtml root does not have dimx-portrait class in landscape");
 }
 
 // Clean up test worlds

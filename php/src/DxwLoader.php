@@ -377,13 +377,21 @@ class DxwLoader
                                 $item->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
                             } elseif ($subDir === 'SHOW') {
                                 $rest = trim(substr($subLine, strlen($subTokens[0])));
-                                if (preg_match('/^(ICON|ONSCREEN|OFFSCREEN)?\s*(\d+)\s*,\s*(\d+)/i', $rest, $m)) {
+                                if (preg_match('/^(ICON|ONSCREEN|OFFSCREEN)?\s*(-?\d+)\s*,\s*(-?\d+)/i', $rest, $m)) {
                                     $mode = strtoupper($m[1] ?: 'ONSCREEN');
-                                    $item->showmode = ($mode === 'ICON') ? AdvObject::SHOW_ICON : AdvObject::SHOW_ONSCREEN;
+                                    $item->showmode = ($mode === 'ICON') ? AdvObject::SHOW_ICON : (($mode === 'OFFSCREEN') ? AdvObject::SHOW_OFFSCREEN : AdvObject::SHOW_ONSCREEN);
                                     $item->showX = (int)$m[2];
                                     $item->showY = (int)$m[3];
                                 } elseif (stripos($rest, 'OFFSCREEN') !== false) {
                                     $item->showmode = AdvObject::SHOW_OFFSCREEN;
+                                } elseif (stripos($rest, 'ICON') !== false) {
+                                    $item->showmode = AdvObject::SHOW_ICON;
+                                    $item->showX = -1;
+                                    $item->showY = -1;
+                                } elseif (stripos($rest, 'ONSCREEN') !== false) {
+                                    $item->showmode = AdvObject::SHOW_ONSCREEN;
+                                    $item->showX = -1;
+                                    $item->showY = -1;
                                 }
                             }
                             $i++;
@@ -457,13 +465,21 @@ class DxwLoader
                                 $char->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
                             } elseif ($subDir === 'SHOW') {
                                 $rest = trim(substr($subLine, strlen($subTokens[0])));
-                                if (preg_match('/^(ICON|ONSCREEN|OFFSCREEN)?\s*(\d+)\s*,\s*(\d+)/i', $rest, $m)) {
+                                if (preg_match('/^(ICON|ONSCREEN|OFFSCREEN)?\s*(-?\d+)\s*,\s*(-?\d+)/i', $rest, $m)) {
                                     $mode = strtoupper($m[1] ?: 'ONSCREEN');
-                                    $char->showmode = ($mode === 'ICON') ? AdvObject::SHOW_ICON : AdvObject::SHOW_ONSCREEN;
+                                    $char->showmode = ($mode === 'ICON') ? AdvObject::SHOW_ICON : (($mode === 'OFFSCREEN') ? AdvObject::SHOW_OFFSCREEN : AdvObject::SHOW_ONSCREEN);
                                     $char->showX = (int)$m[2];
                                     $char->showY = (int)$m[3];
                                 } elseif (stripos($rest, 'OFFSCREEN') !== false) {
                                     $char->showmode = AdvObject::SHOW_OFFSCREEN;
+                                } elseif (stripos($rest, 'ICON') !== false) {
+                                    $char->showmode = AdvObject::SHOW_ICON;
+                                    $char->showX = -1;
+                                    $char->showY = -1;
+                                } elseif (stripos($rest, 'ONSCREEN') !== false) {
+                                    $char->showmode = AdvObject::SHOW_ONSCREEN;
+                                    $char->showX = -1;
+                                    $char->showY = -1;
                                 }
                             }
                             $i++;
