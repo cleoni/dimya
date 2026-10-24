@@ -232,9 +232,14 @@ class ActionsRunner
 
     /**
      * Speak [speaker,] [destination,] msg1 [, msg2, ...]
-     * As per Developer's Reference §3.9.29:
-     * If the second parameter (destination) is missing, the implicit target is $AGENT.
-     * The phrase is spoken to $AGENT, not to the room or to the world.
+     * As per DimensioneX ActionsRunner semantics & Developer's Reference §3.9.29:
+     * - If destination is omitted, default destination is $AGENT.
+     * - If speaker is omitted, default speaker is $OWNER.
+     * - Only a Character (NPC or Player) can speak. If the speaker is not a Character
+     *   (e.g. an Item, Room, or null), the speaker defaults to the world's default
+     *   character ("a voice...", id "SYS").
+     * - Phrases cycle sequentially across multiple calls for the recipient, wrapping around.
+     * - A phrase "*" signals onSpeechFinish without outputting text to chat.
      */
     protected function actSpeak(array $args): bool
     {
@@ -242,63 +247,105 @@ class ActionsRunner
             return false;
         }
 
-        $speaker = ($this->owner instanceof ManageableObject && !empty($this->owner->name))
-            ? $this->owner->name
-            : 'Someone';
-        $speakerObj = $this->owner;
-        $destination = $this->agent; // Default implicit target is $AGENT
-
-        $isLiteral = function(string $s): bool {
+        $isLiteral = function(mixed $s): bool {
+            if (!is_string($s)) {
+                return true;
+            }
             $t = trim($s);
-            return str_starts_with($t, '"') || str_starts_with($t, "'");
+            if ($t === '') {
+                return true;
+            }
+            return str_starts_with($t, '"') || str_starts_with($t, "'") || is_numeric($t);
         };
 
-        // Check if first argument is an explicit speaker ID (and not a message literal)
-        if (count($args) > 1 && is_string($args[0]) && !$isLiteral($args[0])) {
-            $p0 = trim($args[0]);
-            $charObj = $this->world->getCharacter($p0) ?? $this->world->getPlayer($p0);
-            if ($charObj instanceof ManageableObject) {
-                $speakerObj = $charObj;
-                $speaker = $charObj->name;
-                array_shift($args);
+        $resolveObj = function(mixed $s): ?DimxObject {
+            if (!is_string($s)) {
+                return ($s instanceof DimxObject) ? $s : null;
+            }
+            $t = trim($s);
+            $upper = strtoupper($t);
+            if ($upper === '$WORLD' || $upper === 'WORLD') {
+                return $this->world;
+            }
+            if ($upper === '$AGENT' || $upper === 'AGENT') {
+                return ($this->agent instanceof DimxObject) ? $this->agent : null;
+            }
+            if ($upper === '$OWNER' || $upper === 'OWNER') {
+                return ($this->owner instanceof DimxObject) ? $this->owner : null;
+            }
+            if ($upper === '$TARGET' || $upper === 'TARGET') {
+                return ($this->target instanceof DimxObject) ? $this->target : null;
+            }
+            if ($upper === 'SYS') {
+                return $this->world->getDefaultCharacter();
+            }
+            return $this->world->getObjectExt($t);
+        };
 
-                // Check if next argument is an explicit destination ID
-                if (count($args) > 1 && is_string($args[0]) && !$isLiteral($args[0])) {
-                    $p1 = trim($args[0]);
-                    $p1Upper = strtoupper($p1);
-                    if ($p1Upper === '$WORLD' || $p1Upper === 'WORLD') {
-                        $destination = $this->world;
-                        array_shift($args);
-                    } elseif ($p1Upper === '$AGENT' || $p1Upper === 'AGENT') {
-                        $destination = $this->agent;
-                        array_shift($args);
-                    } else {
-                        $destObj = $this->world->getCharacter($p1)
-                            ?? $this->world->getPlayer($p1)
-                            ?? $this->world->getRoom($p1);
-                        if ($destObj !== null) {
-                            $destination = $destObj;
-                            array_shift($args);
-                        }
-                    }
-                }
-                // If destination was omitted, implicit target remains $AGENT
-            } elseif (strtoupper($p0) === '$WORLD' || strtoupper($p0) === 'WORLD') {
-                $destination = $this->world;
-                array_shift($args);
+        $p0 = $args[0] ?? null;
+        $p0Obj = (!$isLiteral($p0)) ? $resolveObj($p0) : null;
+
+        if ($p0Obj === null) {
+            // Compact syntax: Speak msg1 [, msg2, ...]
+            // Default speaker is $OWNER, default destination is $AGENT
+            $speakerObj = $this->owner;
+            $destination = ($this->agent instanceof DimxObject) ? $this->agent : $this->world;
+            $messages = $args;
+        } else {
+            // p0 is an object ID/reference. Check p1:
+            $p1 = $args[1] ?? null;
+            $p1Obj = ($p1 !== null && !$isLiteral($p1)) ? $resolveObj($p1) : null;
+
+            if ($p1Obj === null) {
+                // DimensioneX ActionsRunner.java:
+                // "p0 is an id - assume it is dest"
+                // "from is missing - insert default speaker"
+                $speakerObj = $this->owner;
+                $destination = $p0Obj;
+                $messages = array_slice($args, 1);
+            } else {
+                // Explicit speaker and destination: Speak speaker, destination, msg1 [, msg2, ...]
+                $speakerObj = $p0Obj;
+                $destination = $p1Obj;
+                $messages = array_slice($args, 2);
             }
         }
 
-        if (empty($args)) {
+        if (empty($messages)) {
             return false;
         }
 
-        // Random selection if multiple messages provided (dialogue variation)
-        $chosen = $args[array_rand($args)];
-        $chosen = (string)$this->evalValue((string)$chosen);
+        // Validate speaker: only a Character (or Player) can speak!
+        // Inanimate objects (Item, Room, etc.) cannot speak; fallback to world default character ("a voice...")
+        if (!($speakerObj instanceof Character)) {
+            $speakerObj = $this->world->getDefaultCharacter();
+        }
+        $speaker = ($speakerObj instanceof ManageableObject && !empty($speakerObj->name))
+            ? $speakerObj->name
+            : 'a voice...';
+
+        // Sequential message selection across dialogue interactions (stored on destination target)
+        $msgKey = '__act_speak_' . md5(implode('||', $messages));
+        $lastIdx = ($destination instanceof DimxObject) ? $destination->getProperty($msgKey) : null;
+        $nextIdx = ($lastIdx !== null && is_numeric($lastIdx)) ? ((int)$lastIdx + 1) : 0;
+        if ($nextIdx >= count($messages)) {
+            $nextIdx = 0;
+        }
+        if ($destination instanceof DimxObject) {
+            $destination->setProperty($msgKey, $nextIdx);
+        }
+
+        $chosen = (string)$this->evalValue((string)$messages[$nextIdx]);
         $chosen = trim($chosen, "\"'");
 
-        // Determine recipient name: if destination is $AGENT or a Player, deliver privately to that player
+        // Special marker "*": signals speech finished
+        if ($chosen === '*') {
+            $destId = ($destination instanceof DimxObject) ? $destination->id : '';
+            $this->world->fireEvent('onSpeechFinish', $speakerObj, $destination, $destId);
+            return true;
+        }
+
+        // Determine recipient name: if destination is $AGENT or a Player/Character, deliver privately
         $recipientName = null;
         if ($destination instanceof Player) {
             $recipientName = $destination->name;
@@ -308,7 +355,7 @@ class ActionsRunner
             $recipientName = $this->agent->name;
         }
 
-        // If destination is explicitly $WORLD, recipientName is null (broadcast to all)
+        // If destination is explicitly World, broadcast to all
         if ($destination instanceof World) {
             $recipientName = null;
         }

@@ -204,6 +204,13 @@ SetPanel $WORLD, "chat"      ' Enforces reduced chat-only command set globally
 SetPanel $WORLD, "default"   ' Restores normal adventure gameplay command set
 ```
 
+### Script Instruction: `Speak` (§3.9.29, Developer's Reference p. 88)
+Syntax: `Speak [speaker,] [destination,] msg1 [, msg2, ...]`
+- **Speaker parameter is optional**: It should be the ID of the character which will send the message. If omitted, the default is `$OWNER`. If it does not refer to a `CHARACTER` object (e.g. when called from an `Item` or `Room` event), then the system default character is used (`"a voice..."`, id `SYS`).
+- **Destination parameter is optional**: If omitted, the implicit target is `$AGENT` (delivered privately in chat to the player causing the event). Can also be `$WORLD` (broadcast), a room, or another player/character.
+- **Sequential Dialogue Cycles**: When multiple message arguments are supplied, they cycle sequentially across repeated interactions for that destination.
+- **Completion Marker `"*"`**: A phrase `"*"` indicates speech finished and fires `onSpeechFinish` on the target without emitting text to chat.
+
 ## 5. Custom Panel Button Commands
 
 World developers can define new buttons and commands in `.dxw` world definitions:

@@ -47,6 +47,7 @@ class World extends DimxObject
     /** @var string|null Default attributes string for characters and players defined under CHARACTERS section */
     public ?string $charactersDefaultAttrlist = null;
 
+    public ?Character $defaultCharacter = null;
     public ?Panel $defaultPanel = null;
     public ?PersistenceManager $persistence = null;
 
@@ -156,6 +157,24 @@ class World extends DimxObject
         return $this->characters[$id] ?? null;
     }
 
+    /**
+     * Retrieve or instantiate the world's default system speaker character ("SYS", "a voice...").
+     */
+    public function getDefaultCharacter(): Character
+    {
+        if ($this->defaultCharacter === null) {
+            if (isset($this->characters['SYS'])) {
+                $this->defaultCharacter = $this->characters['SYS'];
+            } else {
+                $sys = new Character($this, 'a voice...', 'SYS');
+                $sys->showmode = AdvObject::SHOW_OFFSCREEN;
+                $this->addCharacter($sys);
+                $this->defaultCharacter = $sys;
+            }
+        }
+        return $this->defaultCharacter;
+    }
+
     public function addPlayer(Player $player): void
     {
         $player->world = $this;
@@ -252,6 +271,9 @@ class World extends DimxObject
         $id = trim($id);
         if ($id === '' || strcasecmp($id, 'world') === 0 || strcasecmp($id, '$world') === 0) {
             return $this;
+        }
+        if (strcasecmp($id, 'sys') === 0) {
+            return $this->getDefaultCharacter();
         }
         return $this->contents[$id]
             ?? $this->rooms[$id]

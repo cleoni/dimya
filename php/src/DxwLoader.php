@@ -366,6 +366,7 @@ class DxwLoader
                     }
                     if ($directive === 'CHARACTER') {
                         $charId = $tokens[1] ?? 'char_' . count($world->characters);
+                        $isDefault = in_array('DEFAULT', array_map('strtoupper', array_slice($tokens, 2)));
                         $char = new Character($world, $charId, $charId);
                         if (!empty($world->charactersDefaultAttrlist)) {
                             $char->setAttrList($world->charactersDefaultAttrlist);
@@ -423,6 +424,9 @@ class DxwLoader
                         }
 
                         $world->addCharacter($char);
+                        if ($isDefault) {
+                            $world->defaultCharacter = $char;
+                        }
 
                         if (!empty($position)) {
                             $room = $world->getRoom($position);
@@ -474,6 +478,10 @@ class DxwLoader
                     $i++;
                     break;
             }
+        }
+
+        if ($world->defaultCharacter === null) {
+            $world->getDefaultCharacter();
         }
 
         return $world;

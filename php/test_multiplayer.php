@@ -12,11 +12,138 @@ require_once __DIR__ . '/autoload.php';
 use Dimx\UI;
 use Dimx\UIhtml;
 use Dimx\UIjson;
+use Dimx\UIbot;
 use Dimx\GameEngine;
 use Dimx\PersistenceManager;
 use Dimx\Player;
 
-echo "=== Running DimensioneX Multiplayer, Auth & UI Tests ===\n\n";
+$sections = [
+    1  => ['title' => 'Testing UI::detectClientType()...', 'keywords' => ['client', 'detect', 'json', 'format', 'headers', 'ui::detectclienttype']],
+    2  => ['title' => 'Testing UI::parseInput()...', 'keywords' => ['input', 'parse', 'password', 'cmd', 'param', 'world', 'ui::parseinput']],
+    3  => ['title' => 'Testing GameEngine initialization and world seeding...', 'keywords' => ['seed', 'engine', 'rooms', 'beach', 'bar', 'apple', 'gameengine', 'loadorseedworld']],
+    4  => ['title' => 'Testing Player DB Table, Auto-Increment Numeric ID & Bcrypt Passwords...', 'keywords' => ['auth', 'login', 'db', 'player', 'bcrypt', 'password', 'numeric', 'id', 'dimx_players', 'in-memory']],
+    5  => ['title' => 'Testing Bot Player via UIjson API...', 'keywords' => ['bot', 'uijson', 'snapshot', 'inventory', 'carrying', 'pick', 'drop', 'apple', 'save', 'exit', 'savexit']],
+    6  => ['title' => 'Testing multiplayer.php entrypoint with bot JSON query...', 'keywords' => ['multiplayer', 'bot', 'json', 'entrypoint', 'login_required', 'numeric_id']],
+    7  => ['title' => 'Testing multiplayer.php entrypoint with human HTML player...', 'keywords' => ['multiplayer', 'html', 'human', 'entrypoint', 'uihtml', 'score', 'stats']],
+    8  => ['title' => 'Testing login prompts and form fields...', 'keywords' => ['login', 'prompt', 'fields', 'form', 'bot', 'html', 'auth']],
+    9  => ['title' => 'Testing Bot Logout & Occupant Removal...', 'keywords' => ['logout', 'disconnect', 'occupants', 'bot', 'room', 'removal']],
+    10 => ['title' => 'Testing world2.dxw Description Parsing...', 'keywords' => ['world2', 'dxw', 'loader', 'apostrophe', 'description', 'parsing']],
+    11 => ['title' => 'Testing onStart Event & Chat PANEL Enforcement...', 'keywords' => ['onstart', 'event', 'panel', 'chat', 'commands', 'messages', 'setpanel']],
+    12 => ['title' => 'Testing UIbot vs UIjson and testBots Configuration...', 'keywords' => ['uibot', 'uijson', 'testbots', 'config', 'fallback', 'evalaction']],
+    13 => ['title' => 'Testing adminPasswd in config and maint.php authentication...', 'keywords' => ['admin', 'adminpasswd', 'maint', 'maintenance', 'config', 'auth', 'uihtml', 'title', 'console']],
+    14 => ['title' => 'Testing Event Model Roles ($OWNER, $AGENT, $TARGET, $WORLD) & Return Values...', 'keywords' => ['event', 'roles', '$owner', '$agent', '$target', '$world', 'return', 'cancel', 'action', 'owner', 'agent', 'target']],
+    15 => ['title' => 'Testing UIhtml Cell B Command Buttons & On-Screen Object Targeting...', 'keywords' => ['uihtml', 'cell b', 'buttons', 'onscreen', 'targeting', 'switch', 'jquery', 'command_defs', 'clickobject', 'identifyobject']],
+    16 => ['title' => "Testing 'open' and 'close' Commands & actOpen / actClose on 'box' in World 2...", 'keywords' => ['open', 'close', 'box', 'actopen', 'actclose', 'world2', 'cardboard', 'actionsrunner']],
+    17 => ['title' => 'Testing World 2 Full Flow: Look at Closed Box, Use Switch in Bungalow, Open Box & Pick Apple...', 'keywords' => ['flow', 'box', 'switch', 'bungalow', 'open', 'pick', 'apple', 'goal', 'uibot', 'evaldescription', 'is closed', 'is open', 'containing', 'rocca', 'spiaggia']],
+    18 => ['title' => 'Testing Speak Instruction Behavior & Inanimate Object Fallback...', 'keywords' => ['speak', 'surfer', 'switch', 'voice', 'system', 'sound', 'sys', 'fallback', 'inanimate', 'bungalow']],
+];
+
+// CLI Options parsing
+$opts = getopt('s:f:lh', ['section:', 'filter:', 'list', 'help']);
+
+if (isset($opts['h']) || isset($opts['help'])) {
+    echo "DimensioneX Multiplayer, Auth & UI Test Suite\n\n";
+    echo "Usage:\n";
+    echo "  php test_multiplayer.php [options]\n\n";
+    echo "Options:\n";
+    echo "  -s, --section=<val>   Run only specified section(s).\n";
+    echo "                        Examples: --section=18, --section=1,2,5, --section=15-18\n";
+    echo "  -f, --filter=<str>    Run only sections matching substring or keywords.\n";
+    echo "                        Examples: --filter=Speak, --filter=open, --filter=auth\n";
+    echo "  -l, --list            List all available test sections and exit.\n";
+    echo "  -h, --help            Show this help screen.\n";
+    exit(0);
+}
+
+if (isset($opts['l']) || isset($opts['list'])) {
+    echo "=== Available Test Sections ===\n";
+    foreach ($sections as $num => $sec) {
+        $cleanTitle = trim($sec['title'], " .\n");
+        printf("  %2d. %s\n", $num, $cleanTitle);
+    }
+    echo "\nRun a section with: php test_multiplayer.php --section=<number>\n";
+    echo "Or filter with:     php test_multiplayer.php --filter=<keyword>\n";
+    exit(0);
+}
+
+$rawSection = $opts['section'] ?? $opts['s'] ?? null;
+$rawFilter  = $opts['filter'] ?? $opts['f'] ?? null;
+
+$selectedSections = null;
+if ($rawSection !== null) {
+    $selectedSections = [];
+    foreach (explode(',', (string)$rawSection) as $part) {
+        $part = trim($part);
+        if (str_contains($part, '-')) {
+            [$start, $end] = explode('-', $part, 2);
+            for ($i = (int)$start; $i <= (int)$end; $i++) {
+                $selectedSections[] = $i;
+            }
+        } elseif (is_numeric($part)) {
+            $selectedSections[] = (int)$part;
+        }
+    }
+}
+
+$executedSections = [];
+function shouldRun(int $num): bool {
+    global $sections, $selectedSections, $rawFilter, $executedSections;
+    if ($selectedSections !== null && !in_array($num, $selectedSections, true)) {
+        return false;
+    }
+    if ($rawFilter !== null && $rawFilter !== '') {
+        $needle = strtolower((string)$rawFilter);
+        $sec = $sections[$num] ?? null;
+        if (!$sec) return false;
+        $matched = false;
+        if (str_contains(strtolower($sec['title']), $needle)) {
+            $matched = true;
+        } else {
+            foreach ($sec['keywords'] as $kw) {
+                if (str_contains(strtolower($kw), $needle)) {
+                    $matched = true;
+                    break;
+                }
+            }
+        }
+        if (!$matched) return false;
+    }
+    $executedSections[] = $num;
+    return true;
+}
+
+// Check if any section matches
+$anyWillRun = false;
+foreach (array_keys($sections) as $num) {
+    if ($selectedSections !== null && !in_array($num, $selectedSections, true)) continue;
+    if ($rawFilter !== null && $rawFilter !== '') {
+        $needle = strtolower((string)$rawFilter);
+        $sec = $sections[$num];
+        if (!str_contains(strtolower($sec['title']), $needle)) {
+            $kwMatch = false;
+            foreach ($sec['keywords'] as $kw) {
+                if (str_contains(strtolower($kw), $needle)) { $kwMatch = true; break; }
+            }
+            if (!$kwMatch) continue;
+        }
+    }
+    $anyWillRun = true;
+    break;
+}
+if (!$anyWillRun) {
+    echo "No test sections matched criteria: " . ($rawSection ? "--section={$rawSection} " : "") . ($rawFilter ? "--filter={$rawFilter}" : "") . "\n";
+    echo "Use --list to view all available sections.\n";
+    exit(0);
+}
+
+echo "=== Running DimensioneX Multiplayer, Auth & UI Tests ===\n";
+if ($selectedSections !== null) {
+    echo "  [Filtered by Section(s): " . implode(', ', $selectedSections) . "]\n";
+}
+if ($rawFilter !== null && $rawFilter !== '') {
+    echo "  [Filtered by Keyword: '{$rawFilter}']\n";
+}
+echo "\n";
 
 $passCount = 0;
 $failCount = 0;
@@ -51,65 +178,91 @@ function runMultiplayer(array $get = [], array $post = [], array $server = []): 
     return $output;
 }
 
+// Common test fixtures available to all sections
+$config      = file_exists(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
+$dbConfig    = $config['db'] ?? [];
+$baseUrl     = $config['base_url'] ?? '';
+$pm          = new PersistenceManager($dbConfig, __DIR__ . '/data');
+$unitWorldId = 'test_unit_' . uniqid();
+$engine      = new GameEngine($pm, $unitWorldId, null, $baseUrl);
+$world       = $engine->loadOrSeedWorld();
+$dxwFile     = dirname(__DIR__) . '/docs/dxw-examples/world2.dxw';
+$world2Path  = $dxwFile;
+$loader      = new Dimx\DxwLoader('http://localhost');
+$world2      = $loader->load($world2Path);
+$w2          = $world2;
+$testWorldId = 'test_w2_' . rand(1000, 9999);
+$engineW2    = new Dimx\GameEngine($pm, $testWorldId, $world2Path);
+$seededWorld = $engineW2->loadOrSeedWorld();
+$uiJson      = new UIjson();
+$uiBot       = new UIbot();
+
 // -------------------------------------------------------------
 // Test 1: Client Detection
 // -------------------------------------------------------------
-echo "1. Testing UI::detectClientType()...\n";
+if (shouldRun(1)) {
+    echo "1. Testing UI::detectClientType()...\n";
 
-$_GET = ['format' => 'json'];
-assertTest(UI::detectClientType() === 'json', "Detects ?format=json as 'json'");
+    $_GET = ['format' => 'json'];
+    assertTest(UI::detectClientType() === 'json', "Detects ?format=json as 'json'");
 
-$_GET = ['ui' => 'json'];
-assertTest(UI::detectClientType() === 'json', "Detects ?ui=json as 'json'");
+    $_GET = ['ui' => 'json'];
+    assertTest(UI::detectClientType() === 'json', "Detects ?ui=json as 'json'");
 
-$_GET = ['bot' => '1'];
-assertTest(UI::detectClientType() === 'json', "Detects ?bot=1 as 'json'");
+    $_GET = ['bot' => '1'];
+    assertTest(UI::detectClientType() === 'json', "Detects ?bot=1 as 'json'");
 
-$_GET = ['api' => '1'];
-assertTest(UI::detectClientType() === 'json', "Detects ?api=1 as 'json'");
+    $_GET = ['api' => '1'];
+    assertTest(UI::detectClientType() === 'json', "Detects ?api=1 as 'json'");
 
-$_GET = [];
-$_SERVER['CONTENT_TYPE'] = 'application/json';
-assertTest(UI::detectClientType() === 'json', "Detects Content-Type: application/json as 'json'");
+    $_GET = [];
+    $_SERVER['CONTENT_TYPE'] = 'application/json';
+    assertTest(UI::detectClientType() === 'json', "Detects Content-Type: application/json as 'json'");
 
-unset($_SERVER['CONTENT_TYPE']);
-$_SERVER['HTTP_ACCEPT'] = 'text/html,application/xhtml+xml';
-assertTest(UI::detectClientType() === 'html', "Detects browser Accept header as 'html'");
+    unset($_SERVER['CONTENT_TYPE']);
+    $_SERVER['HTTP_ACCEPT'] = 'text/html,application/xhtml+xml';
+    assertTest(UI::detectClientType() === 'html', "Detects browser Accept header as 'html'");
+}
 
 // -------------------------------------------------------------
 // Test 2: Input Parsing (Single World enforcement & Password)
 // -------------------------------------------------------------
-echo "\n2. Testing UI::parseInput()...\n";
-$_GET = ['cmd' => 'go', 'dir' => 'N', 'player' => 'Explorer1', 'password' => 'secret123', 'world' => 'arbitrary_world'];
-$input = UI::parseInput();
-assertTest($input['username'] === 'Explorer1', "Parsed username 'Explorer1'");
-assertTest($input['password'] === 'secret123', "Parsed password 'secret123'");
-assertTest($input['cmd'] === 'go', "Parsed cmd 'go'");
-assertTest($input['param'] === 'N', "Parsed param 'N' from 'dir'");
-assertTest(!isset($input['world']) && !isset($input['world_file']), "World switching parameters are ignored (single world)");
+if (shouldRun(2)) {
+    echo "\n2. Testing UI::parseInput()...\n";
+    $_GET = ['cmd' => 'go', 'dir' => 'N', 'player' => 'Explorer1', 'password' => 'secret123', 'world' => 'arbitrary_world'];
+    $input = UI::parseInput();
+    assertTest($input['username'] === 'Explorer1', "Parsed username 'Explorer1'");
+    assertTest($input['password'] === 'secret123', "Parsed password 'secret123'");
+    assertTest($input['cmd'] === 'go', "Parsed cmd 'go'");
+    assertTest($input['param'] === 'N', "Parsed param 'N' from 'dir'");
+    assertTest(!isset($input['world']) && !isset($input['world_file']), "World switching parameters are ignored (single world)");
+}
 
 // -------------------------------------------------------------
 // Test 3: GameEngine Setup & Core Processing
 // -------------------------------------------------------------
-echo "\n3. Testing GameEngine initialization and world seeding...\n";
-$config   = file_exists(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
-$dbConfig = $config['db'] ?? [];
-$baseUrl  = $config['base_url'] ?? '';
-$pm       = new PersistenceManager($dbConfig, __DIR__ . '/data');
+if (shouldRun(3)) {
+    echo "\n3. Testing GameEngine initialization and world seeding...\n";
+    $config   = file_exists(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
+    $dbConfig = $config['db'] ?? [];
+    $baseUrl  = $config['base_url'] ?? '';
+    $pm       = new PersistenceManager($dbConfig, __DIR__ . '/data');
 
-$unitWorldId = 'test_unit_' . uniqid();
-$engine = new GameEngine($pm, $unitWorldId, null, $baseUrl);
+    $unitWorldId = 'test_unit_' . uniqid();
+    $engine = new GameEngine($pm, $unitWorldId, null, $baseUrl);
 
-$world = $engine->loadOrSeedWorld();
-assertTest($world !== null, "Engine seeded world successfully");
-assertTest(isset($world->rooms['beach']), "Seeded world contains 'beach' room");
-assertTest(isset($world->rooms['bar']), "Seeded world contains 'bar' room");
-assertTest(isset($world->items['apple']), "Seeded world contains 'apple' item");
+    $world = $engine->loadOrSeedWorld();
+    assertTest($world !== null, "Engine seeded world successfully");
+    assertTest(isset($world->rooms['beach']), "Seeded world contains 'beach' room");
+    assertTest(isset($world->rooms['bar']), "Seeded world contains 'bar' room");
+    assertTest(isset($world->items['apple']), "Seeded world contains 'apple' item");
+}
 
 // -------------------------------------------------------------
 // Test 4: Database Player Accounts & Password Encryption
 // -------------------------------------------------------------
-echo "\n4. Testing Player DB Table, Auto-Increment Numeric ID & Bcrypt Passwords...\n";
+if (shouldRun(4)) {
+    echo "\n4. Testing Player DB Table, Auto-Increment Numeric ID & Bcrypt Passwords...\n";
 $testUser = 'AuthTester_' . rand(1000, 9999);
 $testPass = 'p@ssw0rdSecure!';
 
@@ -165,11 +318,13 @@ assertTest(!empty($engineId2), "Player assigned in-memory ID on login 2: {$engin
 assertTest($engineId1 !== $engineId2, "In-memory ID CHANGED on second login ({$engineId1} != {$engineId2})");
 assertTest((int)$resLogin2['player']->numericId === (int)$auth1['numeric_id'], "Database numeric ID remains unchanged (" . $auth1['numeric_id'] . ")");
 assertTest($resLogin2['player']->name === $testUser, "Player nickname remains unchanged ({$testUser})");
+}
 
 // -------------------------------------------------------------
 // Test 5: Bot Player Command Dispatch via UIjson API
 // -------------------------------------------------------------
-echo "\n5. Testing Bot Player via UIjson API...\n";
+if (shouldRun(5)) {
+    echo "\n5. Testing Bot Player via UIjson API...\n";
 $uiJson = new UIjson();
 $botName = 'BotAction_' . rand(100, 999);
 $botAuth = $pm->authenticateOrCreatePlayer($unitWorldId, $botName, 'botPass123', true);
@@ -236,11 +391,13 @@ assertTest($defaultPanel->getButton('exit') !== null, "Default panel includes 'e
 assertTest($defaultPanel->getButton('savexit') === null, "Default panel does NOT include legacy 'savexit' button");
 
 $pm->resetWorld($unitWorldId);
+}
 
 // -------------------------------------------------------------
 // Test 6: Simulating multiplayer.php entrypoint for Bot (JSON)
 // -------------------------------------------------------------
-echo "\n6. Testing multiplayer.php entrypoint with bot JSON query...\n";
+if (shouldRun(6)) {
+    echo "\n6. Testing multiplayer.php entrypoint with bot JSON query...\n";
 
 // 6a: Bot without password should receive 401 login_required
 $jsonOutputNoPass = runMultiplayer([
@@ -297,11 +454,13 @@ assertTest(!empty($firstSessionEngineId) && !empty($secondSessionEngineId), "Bot
 assertTest($firstSessionEngineId !== $secondSessionEngineId, "In-memory player ID changed between logins ({$firstSessionEngineId} != {$secondSessionEngineId})");
 assertTest((int)$firstNumericId === (int)$secondNumericId, "Database numeric ID stayed constant ({$firstNumericId})");
 assertTest($firstSessionEngineId !== (string)$firstNumericId, "In-memory ID is NOT the database numeric ID");
+}
 
 // -------------------------------------------------------------
 // Test 7: Simulating multiplayer.php entrypoint for Human (HTML)
 // -------------------------------------------------------------
-echo "\n7. Testing multiplayer.php entrypoint with human HTML player...\n";
+if (shouldRun(7)) {
+    echo "\n7. Testing multiplayer.php entrypoint with human HTML player...\n";
 $htmlOutput = runMultiplayer([
     'username' => 'HumanHero',
     'password' => 'heroPass789',
@@ -319,11 +478,13 @@ assertTest(str_contains($htmlOutput, 'Welcome to <b>World 2</b>, HumanHero!'), "
 assertTest(!preg_match('/\[p_\d+_[a-f0-9]+\]/', $htmlOutput), "HTML output does NOT expose internal player IDs in visible brackets");
 assertTest(str_contains($htmlOutput, 'id="consoleBox"'), "HTML output includes consoleBox element");
 assertTest(str_contains($htmlOutput, 'id="chatBox"'), "HTML output includes chatBox element");
+}
 
 // -------------------------------------------------------------
 // Test 8: Testing login prompt for Bot (JSON) and Human (HTML)
 // -------------------------------------------------------------
-echo "\n8. Testing login prompts and form fields...\n";
+if (shouldRun(8)) {
+    echo "\n8. Testing login prompts and form fields...\n";
 
 // HTML login prompt without username
 $htmlLoginPrompt = runMultiplayer([], [], ['HTTP_ACCEPT' => 'text/html']);
@@ -348,11 +509,13 @@ $loginJson = ob_get_clean();
 $decodedLogin = json_decode($loginJson, true);
 assertTest(($decodedLogin['status'] ?? '') === 'login_required', "UIjson login status is 'login_required'");
 assertTest(($decodedLogin['error'] ?? '') === 'Test auth error', "UIjson returns error message");
+}
 
 // -------------------------------------------------------------
 // Test 9: Bot Logout / Disconnect & Room Occupant Verification
 // -------------------------------------------------------------
-echo "\n9. Testing Bot Logout & Occupant Removal...\n";
+if (shouldRun(9)) {
+    echo "\n9. Testing Bot Logout & Occupant Removal...\n";
 
 $testBot1 = 'BotOne_' . rand(1000, 9999);
 $testBot2 = 'BotTwo_' . rand(1000, 9999);
@@ -398,11 +561,13 @@ $bot2JsonAfter = runMultiplayer([
 $bot2DataAfter = json_decode($bot2JsonAfter, true);
 $occupantsAfter = array_column($bot2DataAfter['room']['occupants'] ?? [], 'name');
 assertTest(!in_array($testBot1, $occupantsAfter, true), "Bot2 NO LONGER sees {$testBot1} after logout");
+}
 
 // -------------------------------------------------------------
 // Test 10: world2.dxw Description Parsing (Apostrophe handling)
 // -------------------------------------------------------------
-echo "\n10. Testing world2.dxw Description Parsing...\n";
+if (shouldRun(10)) {
+    echo "\n10. Testing world2.dxw Description Parsing...\n";
 
 $world2Path = __DIR__ . '/../docs/dxw-examples/world2.dxw';
 $loader = new Dimx\DxwLoader('http://localhost');
@@ -435,11 +600,13 @@ assertTest(
     str_contains($apple->description, "maybe it's good and tasty"),
     "Apple description contains full text with apostrophe: '{$apple->description}'"
 );
+}
 
 // -------------------------------------------------------------
 // Test 11: onStart Event & Chat PANEL Enforcement
 // -------------------------------------------------------------
-echo "\n11. Testing onStart Event & Chat PANEL Enforcement...\n";
+if (shouldRun(11)) {
+    echo "\n11. Testing onStart Event & Chat PANEL Enforcement...\n";
 
 // Purge any stale chat messages from previous runs
 if ($pm->getPdo() !== null) {
@@ -677,17 +844,20 @@ assertTest(str_contains($statsHtml, '<b>Skill:</b> 5'), "UIhtml STATS box displa
 assertTest(str_contains($statsHtml, '<b>Score:</b> 50'), "UIhtml STATS box displays capitalized attribute 'Score: 50'");
 assertTest(!str_contains($statsHtml, '<b>open:</b>'), "UIhtml STATS box omits lowercase attribute 'open'");
 assertTest(!str_contains($statsHtml, '<b>locked:</b>'), "UIhtml STATS box omits lowercase attribute 'locked'");
+}
 
+// -------------------------------------------------------------
 // Test 12: Testing UIbot vs UIjson and testBots Configuration
-echo "\n12. Testing UIbot vs UIjson and testBots Configuration...\n";
-use Dimx\UIbot;
+// -------------------------------------------------------------
+if (shouldRun(12)) {
+    echo "\n12. Testing UIbot vs UIjson and testBots Configuration...\n";
 
-$uiBot = new UIbot();
-assertTest($uiBot instanceof Dimx\UIjson, "UIbot inherits from UIjson");
-assertTest($uiBot->getType() === 'bot', "UIbot type is 'bot'");
+    $uiBot = new UIbot();
+    assertTest($uiBot instanceof Dimx\UIjson, "UIbot inherits from UIjson");
+    assertTest($uiBot->getType() === 'bot', "UIbot type is 'bot'");
 
-// Create mock room with both NPC Character and Player occupant
-$w = $seededWorld;
+    // Create mock room with both NPC Character and Player occupant
+    $w = $seededWorld ?? $world;
 $mockRoom = new Dimx\Room($w, 'Test Room', 'test_room');
 $targetRoom = new Dimx\Room($w, 'Secret Target', 'secret_target');
 $mockLink = new Dimx\Link($w, 'Test Door', 'test_door', $mockRoom, $targetRoom, true, 'E');
@@ -859,11 +1029,13 @@ assertTest(array_key_exists('name', $stdWorld), "Standard bot world section disp
 assertTest(array_key_exists('tick_length', $stdWorld), "Standard bot world section displays 'tick_length'");
 assertTest(!array_key_exists('id', $stdWorld), "Standard bot world section omits 'id'");
 assertTest(!array_key_exists('mode', $stdWorld), "Standard bot world section omits 'mode'");
+}
 
 // -------------------------------------------------------------
 // Test 13: Maintenance Console Authentication & UIhtml Title Bar
 // -------------------------------------------------------------
-echo "\n13. Testing adminPasswd in config and maint.php authentication...\n";
+if (shouldRun(13)) {
+    echo "\n13. Testing adminPasswd in config and maint.php authentication...\n";
 
 $cfg = file_exists(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
 assertTest(isset($cfg['adminPasswd']) && is_string($cfg['adminPasswd']) && $cfg['adminPasswd'] !== '', "config.php defines non-empty 'adminPasswd'");
@@ -903,11 +1075,13 @@ ob_start();
 include __DIR__ . '/maint.php';
 $maintSuccess = ob_get_clean();
 assertTest(str_contains($maintSuccess, 'The game world has been reset'), "maint.php authorizes action with correct adminPasswd");
+}
 
 // -------------------------------------------------------------
 // Test 14: Event Model Roles ($OWNER, $AGENT, $TARGET, $WORLD) & Return (§4.1.3 & §4.1.4)
 // -------------------------------------------------------------
-echo "\n14. Testing Event Model Roles (\$OWNER, \$AGENT, \$TARGET, \$WORLD) & Return Values...\n";
+if (shouldRun(14)) {
+    echo "\n14. Testing Event Model Roles (\$OWNER, \$AGENT, \$TARGET, \$WORLD) & Return Values...\n";
 
 // Verify World::getObjectExt
 assertTest($world->getObjectExt('beach') !== null, "getObjectExt resolves room 'beach'");
@@ -956,8 +1130,13 @@ DXW;
 $livingRes = $livingRunner->run($livingScript);
 assertTest($livingRes === true, "Living script evaluates condition and returns true: character lives");
 assertTest((float)$testChar->getProperty('Health') === 9.0, "Living script updated \$OWNER.Health to 9.0");
+}
 
-echo "\n15. Testing UIhtml Cell B Command Buttons & On-Screen Object Targeting...\n";
+// -------------------------------------------------------------
+// Test 15: Testing UIhtml Cell B Command Buttons & On-Screen Object Targeting...
+// -------------------------------------------------------------
+if (shouldRun(15)) {
+    echo "\n15. Testing UIhtml Cell B Command Buttons & On-Screen Object Targeting...\n";
 // Load world2.dxw to test bungalow and switch
 $dxwFile = dirname(__DIR__) . '/docs/dxw-examples/world2.dxw';
 $w2Loader = new \Dimx\DxwLoader();
@@ -992,8 +1171,13 @@ assertTest(str_contains($bungalowHtml, "data-cmd=\"use\" data-model=\"O\""), "UI
 assertTest(str_contains($bungalowHtml, "data-cmd=\"look\" data-model=\"O\""), "UIhtml cell B LOOK button has data-cmd='look' and data-model='O'");
 assertTest(str_contains($bungalowHtml, 'data-obj-id="switch"') && str_contains($bungalowHtml, 'data-obj-type="i"'), "UIhtml renders switch as on-screen object with id='switch' and type='i'");
 assertTest(str_contains($bungalowHtml, "left:62px;top:68px;"), "UIhtml positions switch on scene at left:62px;top:68px;");
+}
 
-echo "\n16. Testing 'open' and 'close' Commands & actOpen / actClose on 'box' in World 2...\n";
+// -------------------------------------------------------------
+// Test 16: Testing 'open' and 'close' Commands & actOpen / actClose on 'box' in World 2...
+// -------------------------------------------------------------
+if (shouldRun(16)) {
+    echo "\n16. Testing 'open' and 'close' Commands & actOpen / actClose on 'box' in World 2...\n";
 $spiaggia = $w2->getRoom('spiaggia');
 assertTest($spiaggia !== null, "World 2 contains 'spiaggia' room");
 $box = $spiaggia->contents['box'] ?? null;
@@ -1031,8 +1215,13 @@ $scriptRunner->run("Open box");
 assertTest($box->isOpen(), "ActionsRunner 'Open box' successfully opened the box");
 $scriptRunner->run("Close box");
 assertTest(!$box->isOpen(), "ActionsRunner 'Close box' successfully closed the box");
+}
 
-echo "\n17. Testing World 2 Full Flow: Look at Closed Box, Use Switch in Bungalow, Open Box & Pick Apple...\n";
+// -------------------------------------------------------------
+// Test 17: Testing World 2 Full Flow: Look at Closed Box, Use Switch in Bungalow, Open Box & Pick Apple...
+// -------------------------------------------------------------
+if (shouldRun(17)) {
+    echo "\n17. Testing World 2 Full Flow: Look at Closed Box, Use Switch in Bungalow, Open Box & Pick Apple...\n";
 
 // Fresh engine & world 2 instance
 $w2FlowWorld = $loader->load($dxwFile, 'w2_flow_world');
@@ -1218,11 +1407,101 @@ assertTest(($botAfterPick['status'] ?? '') === 'ok', "UIbot renders status 'ok' 
 assertTest(is_array($botAfterPick['commands'] ?? null), "UIbot payload contains commands list");
 assertTest(!str_contains($botAfterPickRaw, 'Warning'), "UIbot output contains no PHP warnings");
 assertTest(!str_contains($botAfterPickRaw, 'activePanel'), "UIbot output contains no activePanel errors");
+}
 
-$pm->resetWorld($testWorldId);
+// -------------------------------------------------------------
+// Test 18: Speak Instruction Behavior and Default Speaker ("A voice...")
+// -------------------------------------------------------------
+if (shouldRun(18)) {
+    echo "\n18. Testing Speak Instruction Behavior & Inanimate Object Fallback...\n";
 
-// Clean up single test world
-$pm->resetWorld('main');
+// In world 2, travel to bungalow and look at the switch:
+// switch.onLook executes: Speak "USE this switch to start a new game!"
+// Because 'switch' is an Item and not a Character, speaker must NOT be 'a switch' or 'switch'.
+// The speaker must fall back to the default system voice ("a voice...").
+$w2SpeakWorld = $loader->load($dxwFile, 'w2_speak_test');
+$w2SpeakEngine = new \Dimx\GameEngine($pm, 'w2_speak', $dxwFile);
+$pSpeak = new \Dimx\Player($w2SpeakWorld, 'SpeakTester', 'p_speak_1');
+$pSpeak->move($w2SpeakWorld->getRoom('spiaggia'));
+$w2SpeakWorld->addPlayer($pSpeak);
 
-echo "\n=== Summary: {$passCount} passed, {$failCount} failed ===\n";
+$w2SpeakEngine->executeCommandAction($w2SpeakWorld, $pSpeak, 'go', 'U', '');
+$w2SpeakEngine->executeCommandAction($w2SpeakWorld, $pSpeak, 'go', 'E', '');
+assertTest($pSpeak->getRoom()?->id === 'bungalow', "Player travelled to bungalow");
+
+// Clear existing chat queue
+$w2SpeakWorld->chatQueue = [];
+
+// Player looks at the switch
+$w2SpeakEngine->executeCommandAction($w2SpeakWorld, $pSpeak, 'look', '', 'switch');
+$switchChat = $w2SpeakWorld->chatQueue;
+
+assertTest(!empty($switchChat), "switch.onLook Speak emitted a chat message");
+$firstChat = $switchChat[0] ?? [];
+assertTest(
+    ($firstChat['sender'] ?? '') !== 'a switch' && ($firstChat['sender'] ?? '') !== 'switch',
+    "Phrase is NOT spoken by the switch itself ('{$firstChat['sender']}')"
+);
+assertTest(
+    ($firstChat['sender'] ?? '') === 'a voice...',
+    "Phrase is spoken by default system character 'a voice...' ('{$firstChat['sender']}')"
+);
+assertTest(
+    ($firstChat['recipient'] ?? null) === 'SpeakTester',
+    "Phrase is delivered to the player (\$AGENT 'SpeakTester')"
+);
+assertTest(
+    ($firstChat['text'] ?? '') === 'USE this switch to start a new game!',
+    "Phrase text matches 'USE this switch to start a new game!': '{$firstChat['text']}'"
+);
+
+// Dialogue sequence test on surfer:
+// surfer.onLook has 2 messages:
+// 1) "Hey, why the hell you are staring at me?"
+// 2) "Please look elsewhere!"
+$pSpeak->move($w2SpeakWorld->getRoom('spiaggia'));
+$w2SpeakWorld->chatQueue = [];
+$w2SpeakEngine->executeCommandAction($w2SpeakWorld, $pSpeak, 'look', '', 'surfer');
+$surferChat1 = end($w2SpeakWorld->chatQueue);
+assertTest(($surferChat1['sender'] ?? '') === 'a surfer', "Surfer speaks as 'a surfer' (Character)");
+assertTest(
+    ($surferChat1['text'] ?? '') === 'Hey, why the hell you are staring at me?',
+    "First interaction selects first phrase: '{$surferChat1['text']}'"
+);
+
+// Second interaction with surfer
+$w2SpeakEngine->executeCommandAction($w2SpeakWorld, $pSpeak, 'look', '', 'surfer');
+$surferChat2 = end($w2SpeakWorld->chatQueue);
+assertTest(
+    ($surferChat2['text'] ?? '') === 'Please look elsewhere!',
+    "Second interaction selects second phrase in sequence: '{$surferChat2['text']}'"
+);
+
+// Third interaction wraps around
+$w2SpeakEngine->executeCommandAction($w2SpeakWorld, $pSpeak, 'look', '', 'surfer');
+$surferChat3 = end($w2SpeakWorld->chatQueue);
+assertTest(
+    ($surferChat3['text'] ?? '') === 'Hey, why the hell you are staring at me?',
+    "Third interaction wraps around to first phrase: '{$surferChat3['text']}'"
+);
+}
+
+// Clean up test worlds
+if (isset($pm)) {
+    if (isset($testWorldId)) {
+        @$pm->resetWorld($testWorldId);
+    }
+    @$pm->resetWorld('main');
+    if (isset($unitWorldId)) {
+        @$pm->resetWorld($unitWorldId);
+    }
+}
+
+$executedCount = count($executedSections);
+$totalCount = count($sections);
+if ($executedCount < $totalCount) {
+    echo "\n=== Summary: {$passCount} passed, {$failCount} failed (filtered: {$executedCount}/{$totalCount} sections executed) ===\n";
+} else {
+    echo "\n=== Summary: {$passCount} passed, {$failCount} failed ===\n";
+}
 exit($failCount > 0 ? 1 : 0);

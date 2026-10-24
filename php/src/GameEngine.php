@@ -618,8 +618,9 @@ class GameEngine
             }
         }
         // 5. Global world occupants or items
-        if ($this->world !== null) {
-            return $this->world->contents[$targetId] ?? $this->world->getCharacter($targetId) ?? null;
+        $world = $player->world ?? null;
+        if ($world !== null) {
+            return $world->contents[$targetId] ?? $world->getCharacter($targetId) ?? null;
         }
         return null;
     }

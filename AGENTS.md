@@ -8,6 +8,7 @@ The software has been generated starting from a previous multiplayer game engine
 
 Detailed documentation and diagrams have been generated and saved to the [`docs/`](docs/) directory:
 
+- [**docs/SMALLBASIC.md**](docs/SMALLBASIC.md) — Definitive SmallBasic language reference (types, operators, statements, and complete catalog of all 55 built-in functions).
 - [**docs/COMMANDS.md**](docs/COMMANDS.md) — Complete game engine commands reference, built-in verbs, event models, and execution semantics.
 - [**docs/CLASS_HIERARCHY.md**](docs/CLASS_HIERARCHY.md) — Complete class hierarchy mapping, Mermaid diagrams, subsystem breakdowns, and catalog of all 46 classes with line references.
 - [**docs/uml_explorer.html**](docs/uml_explorer.html) — Standalone, interactive HTML UML explorer with dynamic search, subsystem filters, and class inspector.
@@ -24,7 +25,7 @@ Detailed documentation and diagrams have been generated and saved to the [`docs/
   - `$TARGET`: Secondary object, destination link/room, or situational string parameter (e.g. in `key.onUseWith`, the door being unlocked; in `onLook`, `"explicit"` if via Look button or `""` if via click; in `onLooseItem`, the item leaving the container).
   - `$WORLD`: The global world object representing the game world environment and properties (e.g. `$WORLD.mode`, `$WORLD.name`).
   - **Return Values & Action Cancellation (§4.1.4)**: Event scripts default to returning success (`true` / `1`). In cancellable events (`onExit`, `onLoose`, `onLooseItem`, `onLook`, `onSave`, `onSearch`, `beforeOpen`, `Living`, etc.), returning `0` or `false` via `Return` aborts and cancels the action.
-- When in doubt regarding the behavior of instructions, base events, commands, etc., consult [`docs/dimensionex-developers-reference-717.pdf`](docs/dimensionex-developers-reference-717.pdf) and the original Java classes in [`docs/dimx-classes/`](docs/dimx-classes/). DimensioneY is derived from DimensioneX, and original behavior must be preserved to a certain extent. Mapping from DimensioneX classes to DimensioneY classes is advisable.
+- When in doubt regarding SmallBasic syntax and instructions, consult [`docs/SMALLBASIC.md`](docs/SMALLBASIC.md). For base events, commands, etc., consult [`docs/COMMANDS.md`](docs/COMMANDS.md), [`docs/dimensionex-developers-reference-717.pdf`](docs/dimensionex-developers-reference-717.pdf), and the original Java classes in [`docs/dimx-classes/`](docs/dimx-classes/). DimensioneY is derived from DimensioneX, and original behavior must be preserved to a certain extent. Mapping from DimensioneX classes to DimensioneY classes is advisable.
 - **Do NOT re-introduce intentionally dropped features**:
   - `Cluster` / clustering features.
   - `Dict` / `DictSorted` classes (replaced with PHP native arrays and built-in types).
