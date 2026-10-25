@@ -229,11 +229,26 @@ class Player extends Character
 
     /**
      * Compute horizontal viewport scaling factor (factorx).
+     *
+     * Caps effective width to 1024px (enlargement factor max 1.6) so that
+     * widescreen desktop displays (>1024px) do not over-magnify the scene picture.
+     * This preserves the ideal 560x376 scene dimensions, prevents icons from
+     * falling out of the viewport, and leaves ample space for console messages.
      */
     public function getFactorX(): float
     {
         $worldWidth = ($this->world && $this->world->screenwidth > 0) ? $this->world->screenwidth : 800;
-        return (float)($this->screenWidth / $worldWidth);
+        $width = ($this->screenWidth > 0) ? $this->screenWidth : 800;
+
+        // If client width > 1024, cap effective calculation width to 1024
+        // for worlds designed at <=640px, and cap enlargement factor to 1.6 max.
+        $effectiveWidth = $width;
+        if ($effectiveWidth > 1024 && $worldWidth <= 640) {
+            $effectiveWidth = 1024;
+        }
+
+        $factor = (float)($effectiveWidth / $worldWidth);
+        return min($factor, 1.6);
     }
 
     /**

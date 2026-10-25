@@ -17,7 +17,7 @@ WORLD
 
 GUI
 	SCENE SIZE	350x235
-	SCREEN SIZE	640x480
+	SCREEN SIZE	1024x768
 	LOGOSRC		thebeachfront.jpg
 	MSGLISTSIZE	3
 	SKINS		aqua.dxs,forest.dxs,default

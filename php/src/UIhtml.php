@@ -726,11 +726,13 @@ class UIhtml extends UI
 
                               $screenX = 1 + $cartX;
                               $screenY = $roomH - $cartY - $baseH;
-                              $posX = (int)round($factorx * $screenX) . 'px';
-                              $posY = (int)round($factorx * $screenY) . 'px';
-                              $stackpos = 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
                               $dispW = (int)round($factorx * $baseW);
                               $dispH = (int)round($factorx * $baseH);
+                              $rawPosX = (int)round($factorx * $screenX);
+                              $rawPosY = (int)round($factorx * $screenY);
+                              $posX = max(0, min($rawPosX, max(0, $scaledRoomW - $dispW))) . 'px';
+                              $posY = max(0, min($rawPosY, max(0, $scaledRoomH - $dispH))) . 'px';
+                              $stackpos = 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
                           ?>
                             <img src="<?= htmlspecialchars($imgSrc) ?>"
                                  alt="<?= htmlspecialchars($char->name) ?>"
@@ -780,10 +782,12 @@ class UIhtml extends UI
                               $screenX = 1 + $cartX;
                               $screenY = $roomH - $cartY - $baseH;
 
-                              $posX = (int)round($factorx * $screenX);
-                              $posY = (int)round($factorx * $screenY);
                               $dispW = (int)round($factorx * $baseW);
                               $dispH = (int)round($factorx * $baseH);
+                              $rawPosX = (int)round($factorx * $screenX);
+                              $rawPosY = (int)round($factorx * $screenY);
+                              $posX = max(0, min($rawPosX, max(0, $scaledRoomW - $dispW)));
+                              $posY = max(0, min($rawPosY, max(0, $scaledRoomH - $dispH)));
 
                               // Stacking depth order (layers 15..204)
                               $stackpos = 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
