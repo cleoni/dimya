@@ -38,6 +38,9 @@ $sections = [
     18 => ['title' => 'Testing Speak Instruction Behavior & Inanimate Object Fallback...', 'keywords' => ['speak', 'surfer', 'switch', 'voice', 'system', 'sound', 'sys', 'fallback', 'inanimate', 'bungalow']],
     19 => ['title' => 'Testing UIhtml Smartphone Portrait / Vertical Layout (*, 35%, 15%)...', 'keywords' => ['portrait', 'vertical', 'smartphone', 'uihtml', 'layout', '35%', '15%']],
     20 => ['title' => 'Testing Messages Box (Cell C), popmsg Command & Per-Player Incoming Message Queue...', 'keywords' => ['cell c', 'popmsg', 'messages', 'queue', 'trim', '10', 'dismiss', 'x', 'incoming', 'speak', 'broadcast']],
+    21 => ['title' => 'Testing ROOM DEFAULT Directive & Player Initial Spawn Room Resolution...', 'keywords' => ['default', 'room default', 'spawn', 'startroom', 'world3net', 'spiaggia2', 'parcolunetta']],
+    22 => ['title' => 'Testing Character/Player Default showMode (ONSCREEN=1), UIjson vs UIbot Exposure & UIhtml Rendering...', 'keywords' => ['showmode', 'onscreen', 'offscreen', 'uijson', 'uibot', 'uihtml', 'character', 'player', 'avatar', 'people']],
+    23 => ['title' => 'Testing SETS Section, RndSet Function & Initial Object Positioning (scroll3)...', 'keywords' => ['sets', 'set', 'rndset', 'scroll3', 'setbeach', 'position', 'defcontainer', 'reset']],
 ];
 
 // CLI Options parsing
@@ -1642,12 +1645,209 @@ if (shouldRun(20)) {
     assertTest(!str_contains($cellHtml, 'chat-line-time'), "UIhtml omits timestamp from message box lines");
 }
 
+// -------------------------------------------------------------
+// Test 21: Testing ROOM DEFAULT Directive & Player Initial Spawn Room Resolution...
+// -------------------------------------------------------------
+if (shouldRun(21)) {
+    echo "\n21. Testing ROOM DEFAULT Directive & Player Initial Spawn Room Resolution...\n";
+
+    $dxwWorld3 = dirname(__DIR__) . '/docs/dxw-examples/world3net.dxw';
+    $w3Loader = new \Dimx\DxwLoader('http://localhost');
+    $w3 = $w3Loader->load($dxwWorld3);
+
+    // Verify DxwLoader set startRoom and defaultRoom from 'ROOM spiaggia2 DEFAULT'
+    assertTest($w3->startRoom instanceof \Dimx\Room, "World3 has an initialized startRoom");
+    assertTest(($w3->startRoom->id ?? '') === 'spiaggia2', "World3 startRoom is 'spiaggia2'");
+    assertTest(($w3->defaultRoom ?? '') === 'spiaggia2', "World3 defaultRoom property is 'spiaggia2'");
+    assertTest(!empty($w3->rooms['spiaggia2']->getProperty('DEFAULT')), "Room spiaggia2 has property 'DEFAULT' = 1");
+    assertTest(empty($w3->rooms['parcoLunetta']->getProperty('DEFAULT')), "First defined room parcoLunetta does NOT have property 'DEFAULT'");
+
+    // Verify player spawn via GameEngine::ensurePlayer
+    $testW3Engine = new \Dimx\GameEngine($pm, 'test_w3_spawn_' . rand(1000, 9999), $dxwWorld3);
+    $spawnedPlayer = $testW3Engine->ensurePlayer($w3, 'NewBeachExplorer_' . rand(1000, 9999));
+    assertTest($spawnedPlayer->getRoom() instanceof \Dimx\Room, "New player was placed in a room");
+    assertTest(($spawnedPlayer->getRoom()->id ?? '') === 'spiaggia2', "New player spawned into designated DEFAULT room 'spiaggia2' rather than first room 'parcoLunetta'");
+    assertTest(($spawnedPlayer->getRoom()->name ?? '') === 'The beach and the palm trees', "Spawned room title is 'The beach and the palm trees'");
+}
+
+// ----------------------------------------------------------------------------
+// 22. Character/Player Default showMode (ONSCREEN=1), UIjson vs UIbot Exposure & UIhtml Rendering
+// ----------------------------------------------------------------------------
+if (shouldRun(22)) {
+    echo "\n22. " . $sections[22]['title'] . "\n";
+    $executedSections[] = 22;
+
+    $testShowWorldId = 'test_showmode_' . bin2hex(random_bytes(4));
+    $showEngine = new GameEngine($pm, $testShowWorldId, null, $baseUrl);
+    $showWorld = $showEngine->loadOrSeedWorld();
+
+    // Verify basic class defaults
+    $npcChar = new \Dimx\Character($showWorld, 'TestNPC', 'test_npc', 'A test character');
+    assertTest($npcChar->showmode === \Dimx\AdvObject::SHOW_ONSCREEN, "Character instance defaults to showmode SHOW_ONSCREEN (1)");
+    assertTest($npcChar->getProperty('showmode') === 1, "Character getProperty('showmode') returns 1");
+
+    $playerObj = new \Dimx\Player($showWorld, 'TestPlayerOne', 'p_test_1', 'Adventurer');
+    assertTest($playerObj->showmode === \Dimx\AdvObject::SHOW_ONSCREEN, "Player instance defaults to showmode SHOW_ONSCREEN (1)");
+    assertTest($playerObj->getProperty('showmode') === 1, "Player getProperty('showmode') returns 1");
+
+    // Connect two players to the same room
+    $pAlice = $showEngine->ensurePlayer($showWorld, 'AliceShowTester');
+    $pBob   = $showEngine->ensurePlayer($showWorld, 'BobShowTester');
+    assertTest($pAlice->showmode === \Dimx\AdvObject::SHOW_ONSCREEN, "Connected Player Alice has showmode = 1");
+    assertTest($pBob->showmode === \Dimx\AdvObject::SHOW_ONSCREEN, "Connected Player Bob has showmode = 1");
+
+    $beachRoom = $showWorld->getRoom('beach');
+    $pAlice->move($beachRoom);
+    $pBob->move($beachRoom);
+
+    // Verify UIjson occupant and item snapshots expose showmode
+    $jsonHandler = new \Dimx\UIjson($pAlice, $showEngine);
+    $jsonSnapshot = $jsonHandler->buildRoomSnapshot($beachRoom, $pAlice);
+    $bobJsonOccupant = null;
+    foreach ($jsonSnapshot['occupants'] ?? [] as $occ) {
+        if (($occ['name'] ?? '') === 'BobShowTester') {
+            $bobJsonOccupant = $occ;
+            break;
+        }
+    }
+    assertTest($bobJsonOccupant !== null, "Alice sees Bob in UIjson room occupants");
+    assertTest(array_key_exists('showmode', $bobJsonOccupant), "UIjson occupant snapshot exposes 'showmode'");
+    assertTest($bobJsonOccupant['showmode'] === 1, "UIjson occupant snapshot Bob has showmode = 1 (ONSCREEN)");
+
+    $appleJsonItem = null;
+    foreach ($jsonSnapshot['items'] ?? [] as $itm) {
+        if (($itm['id'] ?? '') === 'apple') {
+            $appleJsonItem = $itm;
+            break;
+        }
+    }
+    if ($appleJsonItem !== null) {
+        assertTest(array_key_exists('showmode', $appleJsonItem), "UIjson item snapshot exposes 'showmode'");
+    }
+
+    // Verify UIbot occupant and item snapshots DO NOT expose showmode
+    $botHandler = new \Dimx\UIbot($pAlice, $showEngine);
+    $botSnapshot = $botHandler->buildRoomSnapshot($beachRoom, $pAlice);
+    $bobBotOccupant = null;
+    foreach ($botSnapshot['occupants'] ?? [] as $occ) {
+        if (($occ['name'] ?? '') === 'BobShowTester') {
+            $bobBotOccupant = $occ;
+            break;
+        }
+    }
+    assertTest($bobBotOccupant !== null, "Alice sees Bob in UIbot room occupants");
+    assertTest(!array_key_exists('showmode', $bobBotOccupant), "UIbot occupant snapshot omits 'showmode'");
+    assertTest(!array_key_exists('showmode', $botSnapshot['items'][0] ?? []), "UIbot item snapshot omits 'showmode'");
+
+    // Verify UIhtml rendering for onscreen player
+    $htmlHandler = new \Dimx\UIhtml();
+    $htmlHandler->setEngine($showEngine);
+    $htmlHandler->setPlayer($pAlice);
+
+    ob_start();
+    $htmlHandler->render(['success' => true, 'world' => $showWorld, 'player' => $pAlice]);
+    $htmlAliceView = ob_get_clean();
+
+    assertTest(strpos($htmlAliceView, 'data-obj-name="BobShowTester"') !== false, "UIhtml includes BobShowTester on screen");
+    assertTest(preg_match('/<img[^>]*class="[^"]*dimx-onscreen-obj[^"]*"[^>]*data-obj-name="BobShowTester"/i', $htmlAliceView) === 1, "UIhtml renders onscreen Bob as sprite on room scene");
+
+    // Add offscreen NPC to room and verify UIhtml scene omission and Subcell E People listing
+    $offscreenNpc = new \Dimx\Character($showWorld, 'ShyGhost', 'shy_ghost', 'A ghost in the shadows');
+    $offscreenNpc->showmode = \Dimx\AdvObject::SHOW_OFFSCREEN;
+    $offscreenNpc->move($beachRoom);
+
+    // In UIjson, offscreen NPC has showmode = 0
+    $jsonSnapWithGhost = $jsonHandler->buildRoomSnapshot($beachRoom, $pAlice);
+    $ghostJson = null;
+    foreach ($jsonSnapWithGhost['occupants'] ?? [] as $occ) {
+        if (($occ['id'] ?? '') === 'shy_ghost') {
+            $ghostJson = $occ;
+            break;
+        }
+    }
+    assertTest($ghostJson !== null && $ghostJson['showmode'] === 0, "UIjson occupant ShyGhost has showmode = 0 (OFFSCREEN)");
+
+    // In UIbot, offscreen NPC does not have showmode
+    $botSnapWithGhost = $botHandler->buildRoomSnapshot($beachRoom, $pAlice);
+    $ghostBot = null;
+    foreach ($botSnapWithGhost['occupants'] ?? [] as $occ) {
+        if (($occ['id'] ?? '') === 'shy_ghost') {
+            $ghostBot = $occ;
+            break;
+        }
+    }
+    assertTest($ghostBot !== null && !array_key_exists('showmode', $ghostBot), "UIbot occupant ShyGhost omits 'showmode'");
+
+    // In UIhtml, offscreen NPC is NOT on scene image, but is listed in Subcell E People section
+    ob_start();
+    $htmlHandler->render(['success' => true, 'world' => $showWorld, 'player' => $pAlice]);
+    $htmlWithGhost = ob_get_clean();
+
+    assertTest(preg_match('/<img[^>]*data-obj-id="shy_ghost"[^>]*style="position:absolute/i', $htmlWithGhost) === 0, "UIhtml does NOT render offscreen character on room scene");
+    assertTest(strpos($htmlWithGhost, '>People</div>') !== false, "UIhtml renders 'People' section in Subcell E for offscreen characters");
+    assertTest(strpos($htmlWithGhost, 'data-obj-name="ShyGhost"') !== false, "UIhtml lists ShyGhost in Subcell E People section as clickable object");
+}
+
+// ----------------------------------------------------------------------------
+// 23. SETS Section, RndSet Function & Initial Object Positioning (scroll3)
+// ----------------------------------------------------------------------------
+if (shouldRun(23)) {
+    echo "\n23. " . $sections[23]['title'] . "\n";
+    $executedSections[] = 23;
+
+    $dxwWorld3 = dirname(__DIR__) . '/docs/dxw-examples/world3net.dxw';
+    $w3Loader = new \Dimx\DxwLoader('http://localhost');
+    $w3 = $w3Loader->load($dxwWorld3);
+
+    // Verify SETS parsing
+    assertTest(!empty($w3->sets), "World has parsed sets");
+    assertTest(isset($w3->sets['setBeach']), "setBeach is defined in world sets");
+    assertTest(count($w3->sets['setBeach']) === 4, "setBeach contains 4 beach rooms");
+    assertTest($w3->sets['setBeach'] === ['spiaggia', 'spiaggia2', 'spiaggia3', 'spiaggia4'], "setBeach elements match spiaggia, spiaggia2, spiaggia3, spiaggia4");
+
+    // Verify other sets defined in world3net.dxw
+    assertTest(isset($w3->sets['setFaraway']), "setFaraway is defined");
+    assertTest(isset($w3->sets['setValigie']), "setValigie is defined");
+    assertTest(isset($w3->sets['setPark']), "setPark is defined");
+    assertTest(isset($w3->sets['setTutte']), "setTutte is defined");
+
+    // Verify scroll3 item definition and initial positioning
+    $scroll3 = $w3->getItem('scroll3');
+    assertTest($scroll3 instanceof \Dimx\Item, "Item scroll3 exists in loaded world");
+    assertTest($scroll3->defContainer === 'rndSet(setBeach)', "scroll3 defContainer is 'rndSet(setBeach)'");
+    assertTest($scroll3->container instanceof \Dimx\Room, "scroll3 has a resolved container room");
+    assertTest(in_array($scroll3->container?->id, $w3->sets['setBeach'], true), "scroll3 is positioned inside one of the setBeach rooms (" . ($scroll3->container?->id ?? 'null') . ")");
+
+    // Verify character surfer positioning via RndSet
+    $surfer = $w3->getCharacter('surfer');
+    assertTest($surfer instanceof \Dimx\Character, "Character surfer exists in loaded world");
+    assertTest($surfer->container instanceof \Dimx\Room, "surfer has a resolved container room");
+    assertTest(in_array($surfer->container?->id, $w3->sets['setBeach'], true), "surfer is positioned inside one of the setBeach rooms (" . ($surfer->container?->id ?? 'null') . ")");
+
+    // Verify AdvObject::reset() re-evaluates rndSet
+    $scroll3->container = null;
+    $scroll3->reset();
+    assertTest($scroll3->container instanceof \Dimx\Room, "scroll3->reset() successfully re-positions item");
+    assertTest(in_array($scroll3->container?->id, $w3->sets['setBeach'], true), "scroll3->reset() places item in a setBeach room");
+
+    // Verify ActionsRunner SmallBasic RndSet evaluation
+    $runner = new \Dimx\ActionsRunner($w3);
+    $reflection = new \ReflectionClass($runner);
+    $evalMethod = $reflection->getMethod('evalValue');
+    $evalMethod->setAccessible(true);
+
+    $chosenRoom = $evalMethod->invoke($runner, 'rndSet(setBeach)');
+    assertTest(in_array($chosenRoom, $w3->sets['setBeach'], true), "ActionsRunner evalValue rndSet(setBeach) returns an element from setBeach ('{$chosenRoom}')");
+
+    $chosenRoomWithWorld = $evalMethod->invoke($runner, 'RndSet($WORLD.setBeach)');
+    assertTest(in_array($chosenRoomWithWorld, $w3->sets['setBeach'], true), "ActionsRunner evalValue RndSet(\$WORLD.setBeach) returns an element from setBeach ('{$chosenRoomWithWorld}')");
+}
+
 // Clean up test worlds
 if (isset($pm)) {
     if (isset($testWorldId)) {
         @$pm->resetWorld($testWorldId);
     }
-    @$pm->resetWorld('main');
     if (isset($unitWorldId)) {
         @$pm->resetWorld($unitWorldId);
     }

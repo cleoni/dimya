@@ -57,10 +57,27 @@ class World extends DimxObject
 
     public ?Character $defaultCharacter = null;
     public ?Panel $defaultPanel = null;
+    public ?Room $startRoom = null;
+    public ?string $defaultRoom = null;
     public ?PersistenceManager $persistence = null;
+
+    /** @var array<string, array> Sets and arrays defined in SETS section */
+    public array $sets = [];
+
+    /** @var array<string, Skin> Available skins indexed by skin id */
+    public mixed $skins = [];
+    public mixed $skinslist = '';
+
+    /** @var Skin|null Default skin for connected players */
+    public ?Skin $defaultSkin = null;
 
     /** @var array<string> Runtime debug execution log */
     public array $log = [];
+
+    public function getSet(string $name): ?array
+    {
+        return $this->sets[$name] ?? $this->getProperty($name) ?? null;
+    }
 
     public function __construct(string $id = 'world', string $name = 'DimensioneX World')
     {

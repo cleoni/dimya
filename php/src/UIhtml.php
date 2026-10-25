@@ -709,7 +709,13 @@ class UIhtml extends UI
                       <?php foreach ($occupants as $char): ?>
                         <?php if ($char !== $player): ?>
                           <?php
-                            $charImg = $char->images['N'] ?? $char->image ?? null;
+                            if ($char->showmode === \Dimx\AdvObject::SHOW_OFFSCREEN) {
+                              continue;
+                            }
+                            $charImg = $char->images['N'] ?? $char->image ?? $char->skin?->picPlayer ?? $skin->picPlayer ?? $world->defaultSkin?->picPlayer ?? null;
+                            if (!$charImg && !empty($world->imagesFolder)) {
+                              $charImg = new \Dimx\Image(rtrim(str_replace('/pics/', '/skins/aqua/', $world->imagesFolder), '/') . '/avatar.gif', 64, 100);
+                            }
                             if ($charImg && !empty($charImg->src)):
                               $isIcon = ($char->showmode === \Dimx\AdvObject::SHOW_ICON);
                               $imgSrc = ($isIcon && !empty($char->icon)) ? $char->icon : $charImg->src;
@@ -848,6 +854,34 @@ class UIhtml extends UI
                         <span style="font-size:12px;color:#64748b">No visible exits.</span>
                       <?php endif; ?>
                     </div>
+
+                    <!-- People in room (offscreen characters) -->
+                    <?php
+                      $offscreenChars = array_filter($occupants, fn($c) => $c !== $player && $c->showmode === \Dimx\AdvObject::SHOW_OFFSCREEN);
+                    ?>
+                    <?php if (!empty($offscreenChars)): ?>
+                      <div class="dimx-section-title" style="color:#a78bfa">People</div>
+                      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
+                        <?php foreach ($offscreenChars as $oc): ?>
+                          <div>
+                            <a href="javascript:void(0)"
+                               class="dimx-onscreen-obj"
+                               data-obj-id="<?= htmlspecialchars($oc->id) ?>"
+                               data-obj-type="c"
+                               data-obj-name="<?= htmlspecialchars($oc->name) ?>"
+                               onclick="clickObject(this)"
+                               style="color:#e2e8f0;text-decoration:none;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+                               <?php if (!empty($oc->icon)): ?>
+                                 <img src="<?= htmlspecialchars($oc->icon) ?>" alt="<?= htmlspecialchars($oc->name) ?>" style="width:20px;height:20px;object-fit:contain;vertical-align:middle;border-radius:2px" />
+                               <?php else: ?>
+                                 <span>👤</span>
+                               <?php endif; ?>
+                               <span><?= htmlspecialchars($oc->name) ?></span>
+                            </a>
+                          </div>
+                        <?php endforeach; ?>
+                      </div>
+                    <?php endif; ?>
 
                     <!-- Items in room -->
                     <?php if (!empty($roomItems)): ?>

@@ -199,6 +199,17 @@ class DxwLoader
                 continue;
             }
 
+            if ($directive === 'SETS') {
+                $currentSection = 'SETS';
+                $i++;
+                continue;
+            }
+            if ($directive === 'END_SETS') {
+                $currentSection = 'WORLD';
+                $i++;
+                continue;
+            }
+
             // Process Section-Specific Blocks
             switch ($currentSection) {
                 case 'WORLD':
@@ -251,7 +262,20 @@ class DxwLoader
                     } elseif ($directive === 'MSGLISTSIZE') {
                         $world->setProperty('msgListSize', (int)($tokens[1] ?? 3));
                     } elseif ($directive === 'SKINS') {
-                        $world->setProperty('skins', trim(substr($line, strlen($tokens[0]))));
+                        $skinsStr = trim(substr($line, strlen($tokens[0])));
+                        $world->setProperty('skinslist', $skinsStr);
+                        $skinNames = array_map('trim', explode(',', $skinsStr));
+                        foreach ($skinNames as $skName) {
+                            if ($skName === '') continue;
+                            $baseId = preg_replace('/\.dxs$/i', '', $skName);
+                            $localDxs = "C:/xampp/htdocs/dimx/skins/{$baseId}/{$baseId}.dxs";
+                            $folderUrl = "http://localhost/dimx/skins/{$baseId}/";
+                            $skinObj = Skin::loadFromDxs($localDxs, $folderUrl) ?? new Skin($baseId, ucfirst($baseId), $folderUrl);
+                            $world->skins[$baseId] = $skinObj;
+                        }
+                        if (!empty($world->skins)) {
+                            $world->defaultSkin = reset($world->skins);
+                        }
                     } elseif ($directive === 'SHOW' && isset($tokens[1]) && strtoupper($tokens[1]) === 'PROPERTIES') {
                         $world->setProperty('showproperties', trim(substr($line, strlen($tokens[0]) + strlen($tokens[1]) + 1)));
                     } elseif ($directive === 'HOOKS') {
@@ -264,6 +288,13 @@ class DxwLoader
                     if ($directive === 'ROOM') {
                         $roomId = $tokens[1] ?? 'room_' . count($world->rooms);
                         $room = new Room($world, $roomId, $roomId);
+                        $isDefault = false;
+                        for ($t = 2; $t < count($tokens); $t++) {
+                            if (strtoupper($tokens[$t]) === 'DEFAULT') {
+                                $isDefault = true;
+                                break;
+                            }
+                        }
                         $i++;
                         while ($i < $total) {
                             $subLine = $cleanLines[$i];
@@ -274,12 +305,16 @@ class DxwLoader
                                 break;
                             }
 
-                            if ($subDir === 'NAME') {
+                            if ($subDir === 'DEFAULT') {
+                                $isDefault = true;
+                            } elseif ($subDir === 'NAME') {
                                 $room->name = trim(substr($subLine, strlen($subTokens[0])));
                             } elseif ($subDir === 'DESCRIPTION') {
                                 $room->description = trim(substr($subLine, strlen($subTokens[0])));
                             } elseif ($subDir === 'ATTRLIST') {
                                 $room->setAttrList(trim(substr($subLine, strlen($subTokens[0]))));
+                            } elseif ($subDir === 'PANEL') {
+                                $room->setProperty('panel', trim(substr($subLine, strlen($subTokens[0]))));
                             } elseif ($subDir === 'IMAGE') {
                                 $rest = trim(substr($subLine, strlen($subTokens[0])));
                                 $imgTokens = preg_split('/\s+/', $rest);
@@ -296,6 +331,14 @@ class DxwLoader
                                 $room->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
                             }
                             $i++;
+                        }
+                        if ($isDefault) {
+                            $room->setProperty('DEFAULT', 1);
+                            $world->startRoom = $room;
+                            $world->defaultRoom = $room->id;
+                        } elseif ($world->startRoom === null) {
+                            $world->startRoom = $room;
+                            $world->defaultRoom = $room->id;
                         }
                         $world->addRoom($room);
                     } else {
@@ -502,6 +545,7 @@ class DxwLoader
                         }
 
                         if (!empty($position)) {
+                            $char->defContainer = $position;
                             $room = $world->getRoom($position);
                             if ($room !== null) {
                                 $char->move($room);
@@ -510,6 +554,34 @@ class DxwLoader
                     } else {
                         $i++;
                     }
+                    break;
+
+                case 'SETS':
+                    if ($directive === 'SET' || $directive === 'ARRAY') {
+                        $setId = $tokens[1] ?? '';
+                        if ($setId !== '') {
+                            $rest = trim(substr($line, strlen($tokens[0]) + strlen($tokens[1]) + 1));
+                            $parts = array_map('trim', explode(',', $rest));
+                            $setArray = [];
+                            foreach ($parts as $p) {
+                                if ($p === '') continue;
+                                if (str_contains($p, '=')) {
+                                    [$k, $v] = explode('=', $p, 2);
+                                    $k = trim($k);
+                                    $v = trim($v);
+                                    if (is_numeric($v)) {
+                                        $v = str_contains($v, '.') ? (float)$v : (int)$v;
+                                    }
+                                    $setArray[$k] = $v;
+                                } else {
+                                    $setArray[] = $p;
+                                }
+                            }
+                            $world->sets[$setId] = $setArray;
+                            $world->setProperty($setId, $setArray);
+                        }
+                    }
+                    $i++;
                     break;
 
                 case 'SCRIPTS':
@@ -550,6 +622,18 @@ class DxwLoader
                 default:
                     $i++;
                     break;
+            }
+        }
+
+        // Resolve initial positioning for all items and characters (including rndSet expressions)
+        foreach ($world->items as $itm) {
+            if ($itm->container === null && !empty($itm->defContainer)) {
+                $itm->reset();
+            }
+        }
+        foreach ($world->characters as $chr) {
+            if ($chr->container === null && !empty($chr->defContainer)) {
+                $chr->reset();
             }
         }
 

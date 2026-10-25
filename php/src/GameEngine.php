@@ -152,9 +152,16 @@ class GameEngine
             // Player ID in game engine lives in memory and changes every time the user logs in
             $engineId = 'p_' . ($numericId ?? '0') . '_' . bin2hex(random_bytes(4));
             $player   = new Player($world, $playerName, $engineId, 'Adventurer');
-            $player->skin      = new Skin('default', 'Ocean');
+            $player->skin      = $world->defaultSkin ?? new Skin('default', 'Ocean');
             $player->numericId = $numericId;
             $player->isBot     = $isBot;
+            $player->showmode  = AdvObject::SHOW_ONSCREEN;
+            if ($player->skin?->picPlayer) {
+                $player->images['N'] = clone $player->skin->picPlayer;
+            }
+            if ($player->skin && !empty($player->skin->icons['ICOPLAYER'])) {
+                $player->icon = $player->skin->icons['ICOPLAYER'];
+            }
             $player->messagesQueue  = []; // Empty upon connection
             $player->spawnMessageId = !empty($this->pm) ? $this->pm->getLatestMessageId($world->id) : 0;
 
@@ -165,13 +172,27 @@ class GameEngine
             // Restore saved profile (score, location, properties, inventory) from persistence
             $this->pm->loadPlayerProfile($world, $player);
 
+            // Ensure showmode and avatar images remain properly configured after profile load
+            $player->showmode = AdvObject::SHOW_ONSCREEN;
+            if (empty($player->images['N']) && $player->skin?->picPlayer) {
+                $player->images['N'] = clone $player->skin->picPlayer;
+            }
+            if (empty($player->icon) && !empty($player->skin?->icons['ICOPLAYER'])) {
+                $player->icon = $player->skin->icons['ICOPLAYER'];
+            }
+
             // If player doesn't have a room yet, find starting room
             if ($player->getRoom() === null) {
-                $startRoom = null;
-                foreach ($world->rooms as $r) {
-                    if ($r->getProperty('DEFAULT')) {
-                        $startRoom = $r;
-                        break;
+                $startRoom = $world->startRoom ?? null;
+                if ($startRoom === null && !empty($world->defaultRoom)) {
+                    $startRoom = $world->getRoom($world->defaultRoom);
+                }
+                if ($startRoom === null) {
+                    foreach ($world->rooms as $r) {
+                        if ($r->getProperty('DEFAULT')) {
+                            $startRoom = $r;
+                            break;
+                        }
                     }
                 }
                 if ($startRoom === null) {
@@ -190,6 +211,18 @@ class GameEngine
             }
             if ($isBot) {
                 $player->isBot = true;
+            }
+            if ($player->skin === null) {
+                $player->skin = $world->defaultSkin ?? new Skin('default', 'Ocean');
+            }
+            if ($player->showmode === 0) {
+                $player->showmode = AdvObject::SHOW_ONSCREEN;
+            }
+            if (empty($player->images['N']) && $player->skin?->picPlayer) {
+                $player->images['N'] = clone $player->skin->picPlayer;
+            }
+            if (empty($player->icon) && !empty($player->skin?->icons['ICOPLAYER'])) {
+                $player->icon = $player->skin->icons['ICOPLAYER'];
             }
         }
 

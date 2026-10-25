@@ -212,6 +212,7 @@ class UIjson extends UI
             'volume'      => $item->volume,
             'type'        => $item->type ?? '',
             'icon'        => $item->icon,
+            'showmode'    => $item->showmode,
         ];
         if ($item->isOpenable()) {
             $data['open'] = $item->isOpen();
@@ -235,6 +236,7 @@ class UIjson extends UI
             'description' => $occ->evalDescription($player),
             'is_player'   => ($occ instanceof Player),
             'icon'        => $occ->icon,
+            'showmode'    => $occ->showmode,
         ];
     }
 

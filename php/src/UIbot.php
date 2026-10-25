@@ -88,6 +88,7 @@ class UIbot extends UIjson
 
     /**
      * Build single occupant snapshot without revealing whether character is a player,
+     * omitting UI presentation properties (such as 'showmode'),
      * hiding premature character description and null icons, and exposing images.
      *
      * @return array<string, mixed>

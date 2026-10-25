@@ -18,10 +18,13 @@ class Skin
     public string $textColor = '#f8fafc';
     public string $buttonStyle = '';
     public string $stylesheet = '';
+    public ?Image $picPlayer = null;
+    public ?Image $picSpacer = null;
+    public ?Image $picFader = null;
 
     /** @var array<string, string> Icon file associations */
     public array $icons = [
-        'ICOPLAYER'     => 'pics/player.gif',
+        'ICOPLAYER'    => 'pics/player.gif',
         'ICOCHARACTER' => 'pics/character.gif',
         'ICOITEM'      => 'pics/item.gif',
         'ICOWAY'       => 'pics/way.gif',
@@ -33,10 +36,81 @@ class Skin
         'ICOWAYD'      => 'pics/down.gif',
     ];
 
-    public function __construct(string $id = 'default', string $name = 'Default')
+    public function __construct(string $id = 'default', string $name = 'Default', ?string $skinFolder = null)
     {
         $this->id = $id;
         $this->name = $name;
+        $this->skinFolder = $skinFolder ?? "http://localhost/dimx/skins/{$id}/";
+        $this->picPlayer = new Image($this->skinFolder . 'avatar.gif', 64, 100);
+        $this->icons['ICOPLAYER'] = $this->skinFolder . 'player.gif';
+    }
+
+    /**
+     * Load skin settings from a .dxs specification file.
+     */
+    public static function loadFromDxs(string $filePath, ?string $folderUrl = null): ?self
+    {
+        if (!file_exists($filePath)) {
+            return null;
+        }
+
+        $id = pathinfo(dirname($filePath), PATHINFO_BASENAME) ?: 'default';
+        $skin = new self($id, ucfirst($id), $folderUrl);
+
+        $lines = file($filePath, FILE_IGNORE_NEW_LINES);
+        if ($lines === false) {
+            return $skin;
+        }
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, "'") || str_starts_with($line, '#')) {
+                continue;
+            }
+
+            $tokens = preg_split('/\s+/', $line, 2);
+            $key = strtoupper($tokens[0]);
+            $val = isset($tokens[1]) ? trim($tokens[1]) : '';
+
+            switch ($key) {
+                case 'NAME':
+                    $skin->name = $val;
+                    break;
+                case 'PICPLAYER':
+                    $url = ($folderUrl ?? $skin->skinFolder) . $val;
+                    $skin->picPlayer = new Image($url, 64, 100);
+                    break;
+                case 'PICSPACER':
+                    $skin->picSpacer = new Image(($folderUrl ?? $skin->skinFolder) . $val);
+                    break;
+                case 'PICFADER':
+                    $skin->picFader = new Image(($folderUrl ?? $skin->skinFolder) . $val);
+                    break;
+                case 'ICOPLAYER':
+                case 'ICOCHARACTER':
+                case 'ICOITEM':
+                case 'ICOWAY':
+                case 'ICOWAYN':
+                case 'ICOWAYS':
+                case 'ICOWAYE':
+                case 'ICOWAYW':
+                case 'ICOWAYU':
+                case 'ICOWAYD':
+                    $skin->icons[$key] = ($folderUrl ?? $skin->skinFolder) . $val;
+                    break;
+                case 'BODYBGCOLOR':
+                    if ($val !== '') $skin->bodyBgColor = $val;
+                    break;
+                case 'PANELBGCOLOR':
+                    if ($val !== '') $skin->panelBgColor = $val;
+                    break;
+                case 'BUTTONSTYLE':
+                    $skin->buttonStyle = $val;
+                    break;
+            }
+        }
+
+        return $skin;
     }
 
     public function getIcon(string $name): string

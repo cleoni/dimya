@@ -62,6 +62,7 @@ class Player extends Character
             $world, $name, $id, $description, $icon, $attrList,
             $capacity, $volume, $defContainer
         );
+        $this->showmode = self::SHOW_ONSCREEN;
     }
 
     /**

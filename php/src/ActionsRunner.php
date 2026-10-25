@@ -600,6 +600,30 @@ class ActionsRunner
             return (string)($this->target ?? '');
         }
 
+        // Function call: RndSet(set)
+        if (preg_match('/^rndSet\s*\(\s*(.+?)\s*\)$/i', $val, $rm)) {
+            $arg = trim($rm[1]);
+            if (str_starts_with($arg, '$WORLD.')) {
+                $setName = substr($arg, 7);
+            } else {
+                $setName = $arg;
+            }
+            $set = $this->world->sets[$setName] ?? $this->world->getProperty($setName) ?? null;
+            if (is_array($set) && !empty($set)) {
+                $keys = array_keys($set);
+                $randKey = $keys[array_rand($keys)];
+                return is_int($randKey) ? $set[$randKey] : $randKey;
+            }
+            return '';
+        }
+
+        // Function call: RndInt(min, max)
+        if (preg_match('/^rndInt\s*\(\s*(.+?)\s*,\s*(.+?)\s*\)$/i', $val, $im)) {
+            $min = (int)$this->evalValue($im[1]);
+            $max = (int)$this->evalValue($im[2]);
+            return rand($min, $max);
+        }
+
         // Property access e.g. "$WORLD.mode", "$OWNER.Health", "box.open"
         if (preg_match('/^(\$?[A-Za-z0-9_]+)\.([A-Za-z0-9_]+)$/', $val, $m)) {
             $obj = $this->resolveObject($m[1]);

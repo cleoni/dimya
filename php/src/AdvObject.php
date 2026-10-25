@@ -260,6 +260,47 @@ class AdvObject extends DimxObject
     }
 
     /**
+     * Resets this object to its initial defined container (defContainer).
+     * If defContainer is an expression (e.g. rndSet(setBeach)), evaluates it.
+     */
+    public function reset(): void
+    {
+        if (empty($this->defContainer) || $this->world === null) {
+            return;
+        }
+
+        $targetId = trim($this->defContainer);
+
+        // Check if defContainer is an expression like rndSet(...) or RndSet(...)
+        if (preg_match('/^rndSet\s*\(\s*(.+?)\s*\)$/i', $targetId, $m)) {
+            $setName = trim($m[1]);
+            if (str_starts_with($setName, '$WORLD.')) {
+                $setName = substr($setName, 7);
+            }
+            $set = $this->world->sets[$setName] ?? $this->world->getProperty($setName) ?? null;
+            if (is_array($set) && !empty($set)) {
+                $keys = array_keys($set);
+                $randKey = $keys[array_rand($keys)];
+                $targetId = is_int($randKey) ? (string)$set[$randKey] : (string)$randKey;
+            }
+        }
+
+        $target = $this->world->getRoom($targetId)
+            ?? $this->world->getItem($targetId)
+            ?? $this->world->contents[$targetId]
+            ?? null;
+
+        if ($target instanceof AdvObject) {
+            $this->move($target);
+        } elseif (!empty($this->world->defaultRoom)) {
+            $defRoom = $this->world->getRoom($this->world->defaultRoom);
+            if ($defRoom instanceof AdvObject) {
+                $this->move($defRoom);
+            }
+        }
+    }
+
+    /**
      * Evaluates description. If description starts with '@', invokes dynamic callback/function.
      * Openable items append open/closed state as a hint to the player.
      */
