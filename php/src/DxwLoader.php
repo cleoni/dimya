@@ -206,6 +206,17 @@ class DxwLoader
                         $world->name = trim(substr($line, strlen($tokens[0])));
                     } elseif ($directive === 'IMAGESFOLDER') {
                         $imagesFolder = trim(substr($line, strlen($tokens[0])));
+                        $world->imagesFolder = $imagesFolder;
+                    } elseif ($directive === 'IMAGESFOLDER_PUBLIC') {
+                        if (empty($imagesFolder)) {
+                            $imagesFolder = trim(substr($line, strlen($tokens[0])));
+                            $world->imagesFolder = $imagesFolder;
+                        }
+                    } elseif ($directive === 'IMAGESFOLDER_LOCAL') {
+                        if (empty($imagesFolder)) {
+                            $imagesFolder = trim(substr($line, strlen($tokens[0])));
+                            $world->imagesFolder = $imagesFolder;
+                        }
                     } elseif ($directive === 'BGCOLOR') {
                         $world->bgcolor = trim(substr($line, strlen($tokens[0])));
                     } elseif ($directive === 'VERSION') {

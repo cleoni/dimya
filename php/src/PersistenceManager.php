@@ -301,16 +301,28 @@ class PersistenceManager
     }
 
     /**
-     * Reset / delete a world record from MySQL and file cache.
+     * Reset / delete a world record from MySQL and file cache,
+     * invalidating active player sessions and resetting player positions.
      */
-    public function resetWorld(string $worldId): bool
+    public function resetWorld(string $worldId, bool $purgePlayers = false): bool
     {
+        $resetToken = (string)time() . '_' . bin2hex(random_bytes(4));
+        $this->saveSetting($worldId, 'world_reset_token', $resetToken);
+
         if ($this->isConnected()) {
             try {
                 $stmt = $this->pdo->prepare("DELETE FROM dimx_worlds WHERE world_id = :wid");
                 $stmt->execute([':wid' => $worldId]);
                 $stmt = $this->pdo->prepare("DELETE FROM dimx_messages WHERE world_id = :wid");
                 $stmt->execute([':wid' => $worldId]);
+
+                if ($purgePlayers) {
+                    $stmt = $this->pdo->prepare("DELETE FROM dimx_players WHERE world_id = :wid");
+                    $stmt->execute([':wid' => $worldId]);
+                } else {
+                    $stmt = $this->pdo->prepare("UPDATE dimx_players SET container_id = '', score = 0, items_json = '[]', console_json = '[]', properties_json = '{}' WHERE world_id = :wid");
+                    $stmt->execute([':wid' => $worldId]);
+                }
             } catch (PDOException $e) {
                 error_log("PersistenceManager::resetWorld DB error: " . $e->getMessage());
             }
@@ -322,6 +334,12 @@ class PersistenceManager
         $msgFile = "{$this->storageDir}/messages_{$worldId}.jsonl";
         if (file_exists($msgFile)) {
             @unlink($msgFile);
+        }
+        if ($purgePlayers) {
+            $playerFiles = glob("{$this->storageDir}/player_{$worldId}_*.json") ?: [];
+            foreach ($playerFiles as $pf) {
+                @unlink($pf);
+            }
         }
         return true;
     }

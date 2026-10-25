@@ -164,6 +164,12 @@ function assertTest(bool $condition, string $title): void
 
 function runMultiplayer(array $get = [], array $post = [], array $server = []): string
 {
+    if (!isset($server['DIMX_WORLD_FILE'])) {
+        $server['DIMX_WORLD_FILE'] = __DIR__ . '/../docs/dxw-examples/world2.dxw';
+    }
+    if (!isset($server['DIMX_WORLD_ID'])) {
+        $server['DIMX_WORLD_ID'] = 'test_unit_w2';
+    }
     $runner = sys_get_temp_dir() . '/dimx_run_' . uniqid() . '.php';
     $code = "<?php\n"
         . '$_GET = ' . var_export($get, true) . ";\n"
@@ -467,6 +473,7 @@ $htmlOutput = runMultiplayer([
     'username' => 'HumanHero',
     'password' => 'heroPass789',
     'cmd'      => 'look',
+    'reset'    => '1',
 ], [], ['HTTP_ACCEPT' => 'text/html']);
 
 assertTest(str_contains($htmlOutput, '<!DOCTYPE html>'), "multiplayer.php returned HTML doctype");

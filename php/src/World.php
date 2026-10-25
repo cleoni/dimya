@@ -26,6 +26,7 @@ class World extends DimxObject
     public int $sceneWidth = 350; // Default room scene width (default 350)
     public int $sceneHeight = 235; // Default room scene height (default 235)
     public int $iconSize = 32; // Default on-screen icon size (default 32)
+    public string $imagesFolder = ''; // Remote or local base images folder
 
     /** @var array<string> Blacklisted client IPs */
     public array $bannedClients = [];

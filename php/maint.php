@@ -57,8 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($action)) {
 
             case 'reset_world':
                 $worldId = 'main';
-                $pm->resetWorld($worldId);
-                $message = "The game world has been reset. It will be re-seeded from server configuration on the next player connection.";
+                $purgePlayers = !empty($_POST['purge_players']);
+                $pm->resetWorld($worldId, $purgePlayers);
+                $message = "The game world has been reset and all active player sessions have been invalidated. It will be re-seeded from server configuration on the next player connection.";
                 break;
 
             case 'clear_chat':
@@ -215,10 +216,15 @@ if ($pm->isConnected()) {
   <!-- World management -->
   <div class="maint-card">
     <h3>🌍 World Management</h3>
-    <p style="font-size:13px;color:#94a3b8">Reset the game world. On the next player connection, the authoritative state will be re-seeded from the server's configured definition file. All in-game modifications (moved items, player positions) will be reset.</p>
-    <form method="POST" onsubmit="return confirmAction(this, 'Reset the game world? All in-game state will be lost.')">
+    <p style="font-size:13px;color:#94a3b8">Reset the game world. On the next player connection, the authoritative state will be re-seeded from the server's configured definition file. All active player sessions will be invalidated (players forced to log in fresh) and player positions will be reset.</p>
+    <form method="POST" onsubmit="return confirmAction(this, 'Reset the game world? All in-game state will be lost and players will be logged out.')">
       <input type="hidden" name="action" value="reset_world" />
       <input type="hidden" name="adminPasswd" class="form-admin-passwd" value="<?= htmlspecialchars($inputPasswd) ?>" />
+      <div style="margin-bottom:10px">
+        <label style="font-size:13px;color:#cbd5e1;cursor:pointer">
+          <input type="checkbox" name="purge_players" value="1" /> Also purge all player accounts and credentials
+        </label>
+      </div>
       <button type="submit" class="btn btn-danger">🔄 Reset Game World</button>
     </form>
   </div>

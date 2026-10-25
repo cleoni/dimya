@@ -10,10 +10,9 @@ WORLD
 	ENCODING	ANSI
 	INTERPHONE	1
 	SAVEGAME_PERSISTENCE	2
-	' The following for local mode
-	IMAGESFOLDER_LOCAL    https://localhost:8080/dimx/pics/
+	IMAGESFOLDER    http://localhost/dimx/pics/
 	' The following for network (light) mode
-	IMAGESFOLDER_PUBLIC    https://www.dimensionex.net/pics/
+	'IMAGESFOLDER_PUBLIC    https://www.dimensionex.net/pics/
 	COUNTERHTML	<BR><A HREF="https://www.shinystat.it/cgi-bin/shinystatv.cgi?USER=thebeachen" target="_top"><IMG SRC="https://www.shinystat.it/cgi-bin/shinystat.cgi?USER=thebeachen" WIDTH=1 HEIGHT=1 BORDER="0"></A>
 
 GUI

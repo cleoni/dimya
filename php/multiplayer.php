@@ -52,8 +52,32 @@ $activeUsername = !empty($requestedUser) ? $requestedUser : $sessionUser;
 $ui             = ($clientType === 'json') ? $createBotUi($activeUsername) : new UIhtml();
 
 // 4. Single authoritative world per installation (configured strictly on server)
-$worldFile = $config['world_file'] ?? $config['default_world'] ?? null;
-$worldId   = 'main';
+$worldFile = $_SERVER['DIMX_WORLD_FILE'] ?? $_ENV['DIMX_WORLD_FILE'] ?? ($config['world_file'] ?? $config['default_world'] ?? null);
+$worldId   = $_SERVER['DIMX_WORLD_ID'] ?? 'main';
+
+// 4b. Invalidate session if world was reset or reset is requested
+$activeResetToken = (string)($pm->getSetting($worldId, 'world_reset_token', ''));
+if ($resetWorld) {
+    $pm->resetWorld($worldId);
+    $activeResetToken = (string)($pm->getSetting($worldId, 'world_reset_token', ''));
+    unset(
+        $_SESSION['dimx_player'],
+        $_SESSION['dimx_authenticated'],
+        $_SESSION['dimx_numeric_id'],
+        $_SESSION['dimx_is_bot'],
+        $_SESSION['dimx_engine_player_id'],
+        $_SESSION['dimx_world_obj']
+    );
+} elseif ($activeResetToken !== '' && (!isset($_SESSION['dimx_world_reset_token']) || $_SESSION['dimx_world_reset_token'] !== $activeResetToken)) {
+    unset(
+        $_SESSION['dimx_player'],
+        $_SESSION['dimx_authenticated'],
+        $_SESSION['dimx_numeric_id'],
+        $_SESSION['dimx_is_bot'],
+        $_SESSION['dimx_engine_player_id'],
+        $_SESSION['dimx_world_obj']
+    );
+}
 
 // 5. Player Authentication & Account Handling
 $sessionUser     = (string)($_SESSION['dimx_player'] ?? '');
@@ -85,10 +109,11 @@ if (!empty($requestedUser)) {
         $numericId  = (int)($auth['numeric_id'] ?? 0);
         $isBot      = !empty($auth['is_bot']) || $isBot;
 
-        $_SESSION['dimx_player']        = $playerName;
-        $_SESSION['dimx_authenticated'] = true;
-        $_SESSION['dimx_numeric_id']    = $numericId;
-        $_SESSION['dimx_is_bot']        = $isBot;
+        $_SESSION['dimx_player']            = $playerName;
+        $_SESSION['dimx_authenticated']     = true;
+        $_SESSION['dimx_numeric_id']        = $numericId;
+        $_SESSION['dimx_is_bot']            = $isBot;
+        $_SESSION['dimx_world_reset_token'] = $activeResetToken;
 
         $isNewLogin      = true;
         $sessionEngineId = null;
@@ -102,18 +127,13 @@ if (!empty($requestedUser)) {
     exit;
 }
 
-$_SESSION['dimx_player'] = $playerName;
-$_SESSION['dimx_world']  = $worldId;
+$_SESSION['dimx_player']            = $playerName;
+$_SESSION['dimx_world']             = $worldId;
+$_SESSION['dimx_world_reset_token'] = $activeResetToken;
 
 // Ensure UI instance matches finalized playerName
 if ($clientType === 'json') {
     $ui = $createBotUi($playerName);
-}
-
-// 6. Handle world reset request if invoked
-if ($resetWorld) {
-    $pm->resetWorld($worldId);
-    unset($_SESSION['dimx_world_obj']);
 }
 
 // 7. Instantiate core GameEngine for atomic command processing
