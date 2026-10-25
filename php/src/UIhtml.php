@@ -760,6 +760,58 @@ class UIhtml extends UI
                         <?php endif; ?>
                       <?php endforeach; ?>
 
+                      <!-- Links on scene (positioned) -->
+                      <?php foreach ($links as $lnk): ?>
+                        <?php
+                          if ($lnk->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN):
+                            $isIcon = ($lnk->showmode === \Dimx\AdvObject::SHOW_ICON);
+                            $imgSrc = ($isIcon && !empty($lnk->icon))
+                              ? $lnk->icon
+                              : ($lnk->images['N']->src ?? $lnk->image->src ?? $lnk->icon ?? null);
+                            if ($imgSrc):
+                              $baseW = $isIcon
+                                ? ($world->iconSize ?? 32)
+                                : (!empty($lnk->images['N']->width) ? $lnk->images['N']->width : (!empty($lnk->image->width) ? $lnk->image->width : ($world->iconSize ?? 32)));
+                              $baseH = $isIcon
+                                ? ($world->iconSize ?? 32)
+                                : (!empty($lnk->images['N']->height) ? $lnk->images['N']->height : (!empty($lnk->image->height) ? $lnk->image->height : ($world->iconSize ?? 32)));
+
+                              // Cartesian coordinate conversion (0,0 is lower-left of room scene)
+                              $cartX = ($lnk->showX >= 0)
+                                ? $lnk->showX
+                                : (10 + (abs(crc32($lnk->id)) % max(1, ($roomW - $baseW - 20))));
+                              $cartY = ($lnk->showY >= 0)
+                                ? $lnk->showY
+                                : ($isIcon ? (int)round(0.05 * $roomH) : (int)round(0.10 * $roomH));
+
+                              $screenX = 1 + $cartX;
+                              $screenY = $roomH - $cartY - $baseH;
+
+                              $dispW = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseW);
+                              $dispH = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseH);
+                              $rawPosX = (int)round($factorx * $screenX);
+                              $rawPosY = (int)round($factorx * $screenY);
+                              $posX = max(0, min($rawPosX, max(0, $scaledRoomW - $dispW)));
+                              $posY = max(0, min($rawPosY, max(0, $scaledRoomH - $dispH)));
+
+                              // DimX way layers 6..14 (base layer for room features / portals)
+                              $stackpos = 6 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (14 - 6));
+                              $lnkName = ($lnk instanceof \Dimx\Link) ? $lnk->getDisplayName($currentRoom->id) : ($lnk->name ?? $lnk->id);
+                              $lnkDir = $lnk->getDirection($currentRoom->id);
+                        ?>
+                          <img src="<?= htmlspecialchars($imgSrc) ?>"
+                               alt="<?= htmlspecialchars($lnkName) ?>"
+                               title="<?= htmlspecialchars($lnkName) ?>"
+                               class="dimx-onscreen-obj"
+                               data-obj-id="<?= htmlspecialchars($lnk->id) ?>"
+                               data-obj-type="w"
+                               data-obj-name="<?= htmlspecialchars($lnkName) ?>"
+                               data-dir="<?= htmlspecialchars($lnkDir) ?>"
+                               style="position:absolute;left:<?= $posX ?>px;top:<?= $posY ?>px;width:<?= $dispW ?>px;height:<?= $dispH ?>px;cursor:pointer;z-index:<?= $stackpos ?>"
+                               onclick="clickObject(this)" />
+                        <?php endif; endif; ?>
+                      <?php endforeach; ?>
+
                       <!-- Items on scene (positioned) -->
                       <?php foreach ($roomItems as $itm): ?>
                         <?php
@@ -845,9 +897,12 @@ class UIhtml extends UI
                             'D', 'DOWN' => '⮶',
                             default => '🚪',
                           };
+                          $linkDisplayName = ($link instanceof \Dimx\Link)
+                            ? $link->getDisplayName($currentRoom->id)
+                            : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($dir));
                         ?>
-                        <button type="button" class="dimx-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($dir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($link->name) ?>" onclick="sendCmd('go','<?= htmlspecialchars($dir) ?>')">
-                          <?= $dirIcon ?> [<?= htmlspecialchars($dir) ?>] <?= htmlspecialchars($link->name) ?>
+                        <button type="button" class="dimx-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($dir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars($dir) ?>')">
+                          <?= $dirIcon ?> [<?= htmlspecialchars($dir) ?>] <?= htmlspecialchars($linkDisplayName) ?>
                         </button>
                       <?php endforeach; ?>
                       <?php if (empty($links)): ?>
@@ -1131,7 +1186,9 @@ class UIhtml extends UI
               // 1. If no command is currently awaiting target:
               if (!pendingCmd) {
                 if (obj.type === 'w') {
-                  sendCmd('go', fallbackParam || obj.id);
+                  const host = (typeof target === 'object' && target) ? ((target.jquery ? target[0] : target).closest?.('.dimx-onscreen-obj') || target) : null;
+                  const dir = host?.dataset?.dir || host?.getAttribute?.('data-dir') || fallbackParam || obj.id;
+                  sendCmd('go', dir);
                 } else {
                   // Direct click on object inspects it (click / onLook)
                   sendCmd('click', '', obj.id);
@@ -1142,7 +1199,8 @@ class UIhtml extends UI
               // 2. A command is currently awaiting a target:
               // DimensioneX special rule: 'use' on a link/way waypoint translates to 'go'
               if (pendingCmd === 'use' && obj.type === 'w') {
-                const dir = fallbackParam || obj.id;
+                const host = (typeof target === 'object' && target) ? ((target.jquery ? target[0] : target).closest?.('.dimx-onscreen-obj') || target) : null;
+                const dir = host?.dataset?.dir || host?.getAttribute?.('data-dir') || fallbackParam || obj.id;
                 clearPendingCmd();
                 sendCmd('go', dir);
                 return;

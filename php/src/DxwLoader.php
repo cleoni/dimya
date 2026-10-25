@@ -377,6 +377,41 @@ class DxwLoader
                                 $link->description = trim(substr($subLine, strlen($subTokens[0])));
                             } elseif ($subDir === 'ATTRLIST') {
                                 $link->setAttrList(trim(substr($subLine, strlen($subTokens[0]))));
+                            } elseif ($subDir === 'ICON') {
+                                $link->icon = $this->resolveImageUrl(trim(substr($subLine, strlen($subTokens[0]))), $imagesFolder);
+                            } elseif ($subDir === 'IMAGE') {
+                                $rest = trim(substr($subLine, strlen($subTokens[0])));
+                                $imgTokens = preg_split('/\s+/', $rest);
+                                $last = end($imgTokens);
+                                $imgW = 0;
+                                $imgH = 0;
+                                foreach ($imgTokens as $tok) {
+                                    if (preg_match('/^(\d+)x(\d+)$/i', $tok, $dimMatch)) {
+                                        $imgW = (int)$dimMatch[1];
+                                        $imgH = (int)$dimMatch[2];
+                                        break;
+                                    }
+                                }
+                                $link->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
+                                $link->image = $link->images['N'];
+                            } elseif ($subDir === 'SHOW') {
+                                $rest = trim(substr($subLine, strlen($subTokens[0])));
+                                if (preg_match('/^(ICON|ONSCREEN|OFFSCREEN)?\s*(-?\d+)\s*,\s*(-?\d+)/i', $rest, $m)) {
+                                    $mode = strtoupper($m[1] ?: 'ONSCREEN');
+                                    $link->showmode = ($mode === 'ICON') ? AdvObject::SHOW_ICON : (($mode === 'OFFSCREEN') ? AdvObject::SHOW_OFFSCREEN : AdvObject::SHOW_ONSCREEN);
+                                    $link->showX = (int)$m[2];
+                                    $link->showY = (int)$m[3];
+                                } elseif (stripos($rest, 'OFFSCREEN') !== false) {
+                                    $link->showmode = AdvObject::SHOW_OFFSCREEN;
+                                } elseif (stripos($rest, 'ICON') !== false) {
+                                    $link->showmode = AdvObject::SHOW_ICON;
+                                    $link->showX = -1;
+                                    $link->showY = -1;
+                                } elseif (stripos($rest, 'ONSCREEN') !== false) {
+                                    $link->showmode = AdvObject::SHOW_ONSCREEN;
+                                    $link->showX = -1;
+                                    $link->showY = -1;
+                                }
                             }
                             $i++;
                         }

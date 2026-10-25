@@ -59,6 +59,18 @@ class Link extends AdvObject
         }
     }
 
+    public function setProperty(string $name, mixed $value): mixed
+    {
+        $res = parent::setProperty($name, $value);
+        $lower = strtolower($name);
+        if ($lower === 'open') {
+            $this->open = (bool)$value;
+        } elseif ($lower === 'locked') {
+            $this->locked = (bool)$value;
+        }
+        return $res;
+    }
+
     public function isLink(): bool
     {
         return true;
@@ -121,5 +133,58 @@ class Link extends AdvObject
             'D' => 'U',
             default => 'N',
         };
+    }
+
+    /**
+     * Convert direction code (e.g. 'N', 'S', 'U', 'D') to extended title-cased name.
+     */
+    public static function getExtendedDirectionName(string $dir): string
+    {
+        $dirUpper = strtoupper(trim($dir));
+        $names = [
+            'N'          => 'North',
+            'S'          => 'South',
+            'E'          => 'East',
+            'W'          => 'West',
+            'NE'         => 'Northeast',
+            'NW'         => 'Northwest',
+            'SE'         => 'Southeast',
+            'SW'         => 'Southwest',
+            'NORTH'      => 'North',
+            'SOUTH'      => 'South',
+            'EAST'       => 'East',
+            'WEST'       => 'West',
+            'NORTHEAST'  => 'Northeast',
+            'NORTHWEST'  => 'Northwest',
+            'SOUTHEAST'  => 'Southeast',
+            'SOUTHWEST'  => 'Southwest',
+            'NORTH-EAST' => 'Northeast',
+            'NORTH-WEST' => 'Northwest',
+            'SOUTH-EAST' => 'Southeast',
+            'SOUTH-WEST' => 'Southwest',
+            'U'          => 'Up',
+            'UP'         => 'Up',
+            'D'          => 'Down',
+            'DOWN'       => 'Down',
+            'IN'         => 'In',
+            'OUT'        => 'Out',
+        ];
+
+        return $names[$dirUpper] ?? ucfirst(strtolower($dir));
+    }
+
+    /**
+     * Resolve user-facing display name for navigation.
+     * If the link has no explicit name (or defaults to its ID), return extended direction name.
+     */
+    public function getDisplayName(?string $fromRoomId = null): string
+    {
+        $hasCustomName = !empty($this->name) && $this->name !== $this->id && $this->name !== '*';
+        if ($hasCustomName) {
+            return $this->name;
+        }
+
+        $dir = ($fromRoomId !== null) ? $this->getDirection($fromRoomId) : $this->direction;
+        return self::getExtendedDirectionName($dir);
     }
 }

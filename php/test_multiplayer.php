@@ -42,6 +42,8 @@ $sections = [
     22 => ['title' => 'Testing Character/Player Default showMode (ONSCREEN=1), UIjson vs UIbot Exposure & UIhtml Rendering...', 'keywords' => ['showmode', 'onscreen', 'offscreen', 'uijson', 'uibot', 'uihtml', 'character', 'player', 'avatar', 'people']],
     23 => ['title' => 'Testing SETS Section, RndSet Function & Initial Object Positioning (scroll3)...', 'keywords' => ['sets', 'set', 'rndset', 'scroll3', 'setbeach', 'position', 'defcontainer', 'reset']],
     24 => ['title' => 'Testing Room Description on Link Traversal (go command) & UIhtml Rendering...', 'keywords' => ['go', 'traverse', 'link', 'description', 'room', 'uihtml', 'travel to']],
+    25 => ['title' => 'Testing Navigation Pad Missing LINK Name Fallback to Extended Direction Name (UIhtml)...', 'keywords' => ['navpad', 'navigation', 'link', 'name', 'direction', 'uihtml', 'extended', 'north', 'south', 'east', 'west', 'up', 'down']],
+    26 => ['title' => 'Testing On-Screen Links (SHOW ONSCREEN, IMAGE, ICON on LINK / MLINK) & Trapdoor (w6) UIhtml Rendering...', 'keywords' => ['link', 'mlink', 'onscreen', 'w6', 'trapdoor', 'td.gif', 'show', 'image', 'icon', 'uihtml', 'scene']],
 ];
 
 // CLI Options parsing
@@ -1912,6 +1914,164 @@ if (shouldRun(24)) {
 
     assertTest(!str_contains(strtolower($bungalowHtml), 'you travel to'), "UIhtml does NOT render 'You travel to' for bungalow");
     assertTest(str_contains($bungalowHtml, $bungalowDesc), "UIhtml console renders bungalow description: '{$bungalowDesc}'");
+}
+
+// -------------------------------------------------------------
+// Test 25: Navigation Pad Missing LINK Name Fallback to Extended Direction Name (UIhtml)
+// -------------------------------------------------------------
+if (shouldRun(25)) {
+    echo "\n25. Testing Navigation Pad Missing LINK Name Fallback to Extended Direction Name (UIhtml)...\n";
+
+    // 1. Static helper tests
+    assertTest(\Dimx\Link::getExtendedDirectionName('N') === 'North', "getExtendedDirectionName('N') returns 'North'");
+    assertTest(\Dimx\Link::getExtendedDirectionName('S') === 'South', "getExtendedDirectionName('S') returns 'South'");
+    assertTest(\Dimx\Link::getExtendedDirectionName('E') === 'East', "getExtendedDirectionName('E') returns 'East'");
+    assertTest(\Dimx\Link::getExtendedDirectionName('W') === 'West', "getExtendedDirectionName('W') returns 'West'");
+    assertTest(\Dimx\Link::getExtendedDirectionName('U') === 'Up', "getExtendedDirectionName('U') returns 'Up'");
+    assertTest(\Dimx\Link::getExtendedDirectionName('D') === 'Down', "getExtendedDirectionName('D') returns 'Down'");
+    assertTest(\Dimx\Link::getExtendedDirectionName('NE') === 'Northeast', "getExtendedDirectionName('NE') returns 'Northeast'");
+    assertTest(\Dimx\Link::getExtendedDirectionName('NW') === 'Northwest', "getExtendedDirectionName('NW') returns 'Northwest'");
+    assertTest(\Dimx\Link::getExtendedDirectionName('SE') === 'Southeast', "getExtendedDirectionName('SE') returns 'Southeast'");
+    assertTest(\Dimx\Link::getExtendedDirectionName('SW') === 'Southwest', "getExtendedDirectionName('SW') returns 'Southwest'");
+
+    // 2. Link::getDisplayName tests
+    $dummyWorld = new \Dimx\World('test_links_nav', 'TestLinks');
+    $r1 = new \Dimx\Room($dummyWorld, 'Room1', 'r1');
+    $r2 = new \Dimx\Room($dummyWorld, 'Room2', 'r2');
+
+    // Link with explicit name
+    $namedLink = new \Dimx\Link($dummyWorld, 'Iron Gate', 'gate_1', $r1, $r2, true, 'N');
+    assertTest($namedLink->getDisplayName('r1') === 'Iron Gate', "Named link returns explicit name 'Iron Gate'");
+
+    // Link with missing name (defaults to ID)
+    $unnamedLink = new \Dimx\Link($dummyWorld, 'w24', 'w24', $r1, $r2, true, 'N');
+    assertTest($unnamedLink->getDisplayName('r1') === 'North', "Unnamed link w24 from r1 returns 'North'");
+    assertTest($unnamedLink->getDisplayName('r2') === 'South', "Unnamed bidirectional link w24 from r2 returns 'South'");
+
+    // Link with U/D
+    $unnamedVertLink = new \Dimx\Link($dummyWorld, 'w25', 'w25', $r1, $r2, true, 'U');
+    assertTest($unnamedVertLink->getDisplayName('r1') === 'Up', "Unnamed link w25 from r1 returns 'Up'");
+    assertTest($unnamedVertLink->getDisplayName('r2') === 'Down', "Unnamed bidirectional link w25 from r2 returns 'Down'");
+
+    // 3. UIhtml rendering test with world3net.dxw
+    $dxwFile = __DIR__ . '/../docs/dxw-examples/world3net.dxw';
+    $loader = new \Dimx\DxwLoader('http://localhost');
+    $w3NavWorld = $loader->load($dxwFile, 'w3_nav_world');
+
+    // Player in 'spiaggia2' where links w24 and w25 exist without explicit names
+    $pNav = new \Dimx\Player($w3NavWorld, 'NavTester', 'p_nav_1');
+    $spiaggia2 = $w3NavWorld->getRoom('spiaggia2');
+    $pNav->move($spiaggia2);
+
+    ob_start();
+    $htmlUiNav = new \Dimx\UIhtml($pNav);
+    $htmlUiNav->render([
+        'world'     => $w3NavWorld,
+        'player'    => $pNav,
+        'room'      => $spiaggia2,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $navHtml = ob_get_clean();
+
+    // Verify w24 and w25 are NOT rendered as button titles, but 'North' and 'South' are rendered
+    assertTest(!str_contains($navHtml, '] w24'), "UIhtml navigation pad does NOT show link ID 'w24'");
+    assertTest(!str_contains($navHtml, '] w25'), "UIhtml navigation pad does NOT show link ID 'w25'");
+    assertTest(str_contains($navHtml, '[N] North'), "UIhtml navigation pad shows '[N] North'");
+    assertTest(str_contains($navHtml, '[S] South'), "UIhtml navigation pad shows '[S] South'");
+    assertTest(str_contains($navHtml, 'data-obj-name="North"'), "UIhtml exit button has data-obj-name='North'");
+    assertTest(str_contains($navHtml, 'data-obj-name="South"'), "UIhtml exit button has data-obj-name='South'");
+
+    // Move player to 'pathgate' where 'gate1' has NAME 'the gate'
+    $pathgate = $w3NavWorld->getRoom('pathgate');
+    $pNav->move($pathgate);
+
+    ob_start();
+    $htmlUiNav->render([
+        'world'     => $w3NavWorld,
+        'player'    => $pNav,
+        'room'      => $pathgate,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $gateHtml = ob_get_clean();
+
+    assertTest(str_contains($gateHtml, '[E] the gate'), "UIhtml navigation pad preserves explicit link name '[E] the gate'");
+    assertTest(str_contains($gateHtml, 'data-obj-name="the gate"'), "UIhtml exit button preserves explicit data-obj-name='the gate'");
+}
+
+// -------------------------------------------------------------
+// Test 26: On-Screen Links (SHOW ONSCREEN, IMAGE, ICON on LINK / MLINK) & Trapdoor (w6) UIhtml Rendering
+// -------------------------------------------------------------
+if (shouldRun(26)) {
+    echo "\n26. Testing On-Screen Links (SHOW ONSCREEN, IMAGE, ICON on LINK / MLINK) & Trapdoor (w6) UIhtml Rendering...\n";
+
+    $dxwFile = __DIR__ . '/../docs/dxw-examples/world3net.dxw';
+    $loader = new \Dimx\DxwLoader('http://localhost');
+    $w3LinkWorld = $loader->load($dxwFile, 'w3_link_world');
+
+    // 1. Verify link w6 properties loaded from world3net.dxw lines 195-201
+    $w6 = $w3LinkWorld->links['w6'] ?? null;
+    assertTest($w6 instanceof \Dimx\Link, "world3net defines link 'w6'");
+    assertTest($w6->name === 'a trapdoor', "Link w6 name is 'a trapdoor'");
+    assertTest($w6->showmode === \Dimx\AdvObject::SHOW_ONSCREEN, "Link w6 has showmode = SHOW_ONSCREEN (1)");
+    assertTest($w6->showX === 200, "Link w6 showX is 200");
+    assertTest($w6->showY === 5, "Link w6 showY is 5");
+    assertTest(str_contains($w6->icon ?? '', 'trapdoor.gif'), "Link w6 icon resolved to trapdoor.gif: '{$w6->icon}'");
+    assertTest(isset($w6->images['N']), "Link w6 defines image for facing 'N'");
+    assertTest($w6->images['N']->width === 41, "Link w6 image width is 41");
+    assertTest($w6->images['N']->height === 30, "Link w6 image height is 30");
+    assertTest(str_contains($w6->images['N']->src, 'td.gif'), "Link w6 image src contains 'td.gif': '{$w6->images['N']->src}'");
+    assertTest(!$w6->isOpen(), "Link w6 is initially closed (open=0,locked=1)");
+    assertTest($w6->isLocked(), "Link w6 is locked (locked=1)");
+
+    // 2. Verify UIhtml rendering for player inside 'bar' room
+    $barRoom = $w3LinkWorld->getRoom('bar');
+    assertTest($barRoom !== null, "World 3 defines 'bar' room");
+    $barWays = $barRoom->getLinks();
+    assertTest(in_array($w6, $barWays, true), "Bar room ways list includes trapdoor w6");
+
+    $pBar = new \Dimx\Player($w3LinkWorld, 'BarFly', 'p_bar_1');
+    $pBar->move($barRoom);
+
+    ob_start();
+    $htmlUiBar = new \Dimx\UIhtml($pBar);
+    $htmlUiBar->render([
+        'world'     => $w3LinkWorld,
+        'player'    => $pBar,
+        'room'      => $barRoom,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $barSceneHtml = ob_get_clean();
+
+    // Verify on-screen trapdoor image is rendered in scene container
+    assertTest(
+        str_contains($barSceneHtml, 'data-obj-id="w6"'),
+        "UIhtml scene container renders onscreen trapdoor with data-obj-id='w6'"
+    );
+    assertTest(
+        str_contains($barSceneHtml, 'data-obj-type="w"'),
+        "UIhtml scene container renders onscreen trapdoor with data-obj-type='w'"
+    );
+    assertTest(
+        str_contains($barSceneHtml, 'data-obj-name="a trapdoor"'),
+        "UIhtml scene container renders onscreen trapdoor with data-obj-name='a trapdoor'"
+    );
+    assertTest(
+        str_contains($barSceneHtml, 'td.gif'),
+        "UIhtml scene container renders trapdoor image with src containing 'td.gif'"
+    );
+    assertTest(
+        preg_match('/<img[^>]*class="[^"]*dimx-onscreen-obj[^"]*"[^>]*data-obj-id="w6"[^>]*style="[^"]*position:\s*absolute/i', $barSceneHtml) === 1,
+        "UIhtml renders w6 trapdoor as an absolute-positioned on-screen object"
+    );
+
+    // Verify navigation pad still lists trapdoor exit
+    assertTest(
+        str_contains($barSceneHtml, '[D] a trapdoor'),
+        "UIhtml navigation pad lists '[D] a trapdoor' exit button"
+    );
 }
 
 // Clean up test worlds
