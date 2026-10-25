@@ -426,7 +426,11 @@ class GameEngine
             case 'go':
                 $dir = $param ?: $targetId;
                 if (!empty($dir)) {
-                    if ($player->go($dir)) {
+                    $link = $currentRoom ? ($currentRoom->getWay($dir) ?? $currentRoom->getLinkByDirection($dir)) : null;
+                    if ($link !== null && !$link->isOpen()) {
+                        $linkName = ($link instanceof Link) ? $link->getDisplayName($currentRoom->id) : ($link->name ?? $link->id);
+                        $player->display("{$linkName} is closed.");
+                    } elseif ($player->go($dir)) {
                         $newRoom = $player->getRoom();
                         if ($newRoom !== null) {
                             $desc = $newRoom->evalDescription($player);

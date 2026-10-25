@@ -156,6 +156,12 @@ class AdvObject extends DimxObject
                 return true;
             }
         }
+        if ($this->isLink() && $this instanceof Link) {
+            $fromRoom = $from->getRoom();
+            if ($fromRoom !== null && (isset($this->fromto[$fromRoom->id]) || $fromRoom->getWay($this->id) !== null || ($this->isBidirectional && $this->leadsTo($fromRoom->id)))) {
+                return true;
+            }
+        }
         return false;
     }
 

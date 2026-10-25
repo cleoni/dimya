@@ -77,38 +77,74 @@ class DxwLoader
 
         $lines = preg_split('/\r\n|\r|\n/', $rawContent);
         $cleanLines = [];
+        $accum = '';
+        $inQuote = false;
 
-        foreach ($lines as $line) {
-            $line = trim($line);
-            // Ignore blank lines and lines starting with comment symbol (')
-            if ($line === '' || str_starts_with($line, "'")) {
-                continue;
-            }
-            // If the line starts with DESCRIPTION, read entire line up to end of line
-            if (preg_match('/^DESCRIPTION\b/i', $line)) {
-                $cleanLines[] = $line;
-                continue;
-            }
-            // Strip inline comments only if outside double quotes
-            if (str_contains($line, "'")) {
-                $inQuote = false;
-                $commentPos = -1;
-                $len = strlen($line);
-                for ($ci = 0; $ci < $len; $ci++) {
-                    $ch = $line[$ci];
-                    if ($ch === '"') {
-                        $inQuote = !$inQuote;
-                    } elseif ($ch === "'" && !$inQuote) {
-                        $commentPos = $ci;
-                        break;
+        $totalRaw = count($lines);
+        for ($li = 0; $li < $totalRaw; $li++) {
+            $rawLine = $lines[$li];
+
+            if (!$inQuote) {
+                $trimmed = trim($rawLine);
+                // Ignore blank lines and lines starting with comment symbol (') outside quotes
+                if ($trimmed === '' || str_starts_with($trimmed, "'")) {
+                    continue;
+                }
+                // If the line starts with DESCRIPTION, read entire line up to end of line
+                if (preg_match('/^DESCRIPTION\b/i', $trimmed)) {
+                    $len = strlen($trimmed);
+                    for ($ci = 0; $ci < $len; $ci++) {
+                        if ($trimmed[$ci] === '"') {
+                            $inQuote = !$inQuote;
+                        }
+                    }
+                    if ($inQuote) {
+                        $accum = $trimmed;
+                        continue;
+                    } else {
+                        $cleanLines[] = $trimmed;
+                        continue;
                     }
                 }
-                if ($commentPos !== -1) {
-                    $line = trim(substr($line, 0, $commentPos));
-                    if ($line === '') continue;
+            }
+
+            // Scan characters of the line, stripping inline comments outside quotes
+            $len = strlen($rawLine);
+            $lineContent = '';
+            for ($ci = 0; $ci < $len; $ci++) {
+                $ch = $rawLine[$ci];
+                if ($ch === '"') {
+                    $inQuote = !$inQuote;
+                    $lineContent .= $ch;
+                } elseif ($ch === "'" && !$inQuote) {
+                    // Inline comment starts here; ignore the rest of this physical line
+                    break;
+                } else {
+                    $lineContent .= $ch;
                 }
             }
-            $cleanLines[] = $line;
+
+            if ($accum === '') {
+                $accum = $lineContent;
+            } else {
+                $accum .= "\n" . $lineContent;
+            }
+
+            // An instruction or directive line can span across multiple lines if an unclosed string is open
+            if (!$inQuote) {
+                $trimmedAccum = trim($accum);
+                if ($trimmedAccum !== '') {
+                    $cleanLines[] = $trimmedAccum;
+                }
+                $accum = '';
+            }
+        }
+
+        if ($accum !== '') {
+            $trimmedAccum = trim($accum);
+            if ($trimmedAccum !== '') {
+                $cleanLines[] = $trimmedAccum;
+            }
         }
 
         $world = new World('world_' . md5($sourceName), 'DimensioneX World');

@@ -41,12 +41,50 @@ class ActionsRunner
     {
         $rawLines = preg_split('/\r\n|\r|\n/', $script);
         $lines = [];
-        foreach ($rawLines as $l) {
-            $l = trim($l);
-            if ($l === '' || str_starts_with($l, "'")) {
-                continue;
+        $accum = '';
+        $inQuote = false;
+
+        foreach ($rawLines as $raw) {
+            if (!$inQuote) {
+                $trimmed = trim($raw);
+                if ($trimmed === '' || str_starts_with($trimmed, "'")) {
+                    continue;
+                }
             }
-            $lines[] = $l;
+
+            $len = strlen($raw);
+            $lineContent = '';
+            for ($ci = 0; $ci < $len; $ci++) {
+                $ch = $raw[$ci];
+                if ($ch === '"') {
+                    $inQuote = !$inQuote;
+                    $lineContent .= $ch;
+                } elseif ($ch === "'" && !$inQuote) {
+                    break;
+                } else {
+                    $lineContent .= $ch;
+                }
+            }
+
+            if ($accum === '') {
+                $accum = $lineContent;
+            } else {
+                $accum .= "\n" . $lineContent;
+            }
+
+            if (!$inQuote) {
+                $trimmedAccum = trim($accum);
+                if ($trimmedAccum !== '') {
+                    $lines[] = $trimmedAccum;
+                }
+                $accum = '';
+            }
+        }
+        if ($accum !== '') {
+            $trimmedAccum = trim($accum);
+            if ($trimmedAccum !== '') {
+                $lines[] = $trimmedAccum;
+            }
         }
 
         $count = count($lines);
@@ -532,6 +570,13 @@ class ActionsRunner
                 $left  = $this->evalValue(trim($parts[0]));
                 $right = $this->evalValue(trim($parts[1]));
 
+                if ($left instanceof DimxObject) {
+                    $left = $left->id;
+                }
+                if ($right instanceof DimxObject) {
+                    $right = $right->id;
+                }
+
                 return match ($op) {
                     '<>' => ($left != $right),
                     '='  => ($left == $right),
@@ -629,10 +674,11 @@ class ActionsRunner
             $obj = $this->resolveObject($m[1]);
             $prop = $m[2];
             if ($obj !== null) {
-                if (property_exists($obj, $prop)) {
-                    return $obj->{$prop};
+                $propVal = property_exists($obj, $prop) ? $obj->{$prop} : $obj->getProperty($prop);
+                if ($propVal instanceof DimxObject) {
+                    return $propVal->id;
                 }
-                return $obj->getProperty($prop);
+                return $propVal;
             }
             return null;
         }

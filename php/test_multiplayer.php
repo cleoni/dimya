@@ -44,6 +44,7 @@ $sections = [
     24 => ['title' => 'Testing Room Description on Link Traversal (go command) & UIhtml Rendering...', 'keywords' => ['go', 'traverse', 'link', 'description', 'room', 'uihtml', 'travel to']],
     25 => ['title' => 'Testing Navigation Pad Missing LINK Name Fallback to Extended Direction Name (UIhtml)...', 'keywords' => ['navpad', 'navigation', 'link', 'name', 'direction', 'uihtml', 'extended', 'north', 'south', 'east', 'west', 'up', 'down']],
     26 => ['title' => 'Testing On-Screen Links (SHOW ONSCREEN, IMAGE, ICON on LINK / MLINK) & Trapdoor (w6) UIhtml Rendering...', 'keywords' => ['link', 'mlink', 'onscreen', 'w6', 'trapdoor', 'td.gif', 'show', 'image', 'icon', 'uihtml', 'scene']],
+    27 => ['title' => 'Testing Multi-line Double-Quoted Strings & Barman Dialogue Cycle (world3net)...', 'keywords' => ['multiline', 'string', 'quote', 'barman', 'onhear', 'onspeechfinish', 'lattina', 'speak', 'cycle']],
 ];
 
 // CLI Options parsing
@@ -2071,6 +2072,133 @@ if (shouldRun(26)) {
     assertTest(
         str_contains($barSceneHtml, '[D] a trapdoor'),
         "UIhtml navigation pad lists '[D] a trapdoor' exit button"
+    );
+
+    // 3. Attempt to traverse closed trapdoor w6
+    $barEngine = new \Dimx\GameEngine($pm, 'w3_link_trav', $dxwFile);
+
+    // 3a. By link ID: 'go w6'
+    $barEngine->executeCommandAction($w3LinkWorld, $pBar, 'go', 'w6', '');
+    $goW6Msgs = implode(' ', $pBar->drainConsole());
+    assertTest(
+        str_contains($goW6Msgs, 'a trapdoor is closed.'),
+        "Traversing closed link by ID ('go w6') displays 'a trapdoor is closed.': '{$goW6Msgs}'"
+    );
+    assertTest(
+        !str_contains($goW6Msgs, 'You cannot go that way'),
+        "Traversing closed link by ID does NOT display generic 'You cannot go that way'"
+    );
+
+    // 3b. By direction: 'go D'
+    $barEngine->executeCommandAction($w3LinkWorld, $pBar, 'go', 'D', '');
+    $goDMsgs = implode(' ', $pBar->drainConsole());
+    assertTest(
+        str_contains($goDMsgs, 'a trapdoor is closed.'),
+        "Traversing closed link by direction ('go D') displays 'a trapdoor is closed.': '{$goDMsgs}'"
+    );
+    assertTest(
+        !str_contains($goDMsgs, 'You cannot go that way'),
+        "Traversing closed link by direction does NOT display generic 'You cannot go that way'"
+    );
+
+    // 4. Test opening locked link w6 (a trapdoor):
+    // Trying to open locked object should NOT say "You cannot reach that." but simply "It's locked"
+    $barEngine->executeCommandAction($w3LinkWorld, $pBar, 'open', '', 'w6');
+    $openW6Msgs = implode(' ', $pBar->drainConsole());
+    assertTest(
+        !str_contains($openW6Msgs, 'You cannot reach that'),
+        "Opening link w6 does NOT say 'You cannot reach that': '{$openW6Msgs}'"
+    );
+    assertTest(
+        str_contains($openW6Msgs, "It's locked"),
+        "Opening locked link w6 displays simply \"It's locked\": '{$openW6Msgs}'"
+    );
+    assertTest(
+        !str_contains($openW6Msgs, 'is locked.'),
+        "Opening locked link w6 does NOT use old format '... is locked.'"
+    );
+}
+
+// -------------------------------------------------------------
+// Test 27: Multi-line Double-Quoted Strings & Barman Dialogue Cycle (world3net)
+// -------------------------------------------------------------
+if (shouldRun(27)) {
+    echo "\n27. Testing Multi-line Double-Quoted Strings & Barman Dialogue Cycle (world3net)...\n";
+
+    $dxwFile = __DIR__ . '/../docs/dxw-examples/world3net.dxw';
+    $loader = new \Dimx\DxwLoader('http://localhost');
+    $w3 = $loader->load($dxwFile, 'w3_multiline_world');
+
+    // 1. Verify barman.onHear event contains the full multi-line Speak instruction
+    $onHear = $w3->events['barman.onHear'] ?? null;
+    assertTest($onHear instanceof \Dimx\Event, "world3net registers 'barman.onHear' event");
+    assertTest(
+        str_contains($onHear->actions, "What did you say? What should I give you?"),
+        "barman.onHear contains phrase 1: 'What did you say? What should I give you?'"
+    );
+    assertTest(
+        str_contains($onHear->actions, "Oh shit why don't they turn this damned volume down now!"),
+        "barman.onHear contains multi-line phrase 2 with apostrophe preserved: 'Oh shit why don\'t they...'"
+    );
+    assertTest(
+        str_contains($onHear->actions, "Wha-a-at?"),
+        "barman.onHear contains phrase 3: 'Wha-a-at?'"
+    );
+    assertTest(
+        str_contains($onHear->actions, '"*"'),
+        "barman.onHear contains phrase 4: '*'"
+    );
+
+    // 2. Test Player interacting with Barman in the bar
+    $bar = $w3->getRoom('bar');
+    $barman = $w3->getCharacter('barman');
+    $lattina = $w3->contents['lattina'] ?? null;
+    assertTest($lattina instanceof \Dimx\Item, "World 3 defines item 'lattina'");
+    assertTest($lattina->container === $barman, "lattina is initially held by barman");
+
+    $pSpeak = new \Dimx\Player($w3, 'ThirstyTraveler', 'p_thirsty_1');
+    $pSpeak->move($bar);
+
+    $barEngine = new \Dimx\GameEngine($pm, 'w3_multiline', $dxwFile);
+
+    // Speak 1: Barman speaks phrase 1
+    $w3->chatQueue = [];
+    $barEngine->executeCommandAction($w3, $pSpeak, 'say', 'hello', 'barman');
+    $lastChat = end($w3->chatQueue);
+    assertTest(
+        $lastChat !== false && $lastChat['sender'] === 'the barman' && str_contains($lastChat['text'], "What did you say? What should I give you?"),
+        "Barman speak 1 cycles to phrase 1 ('What did you say? What should I give you?'): '{$lastChat['text']}'"
+    );
+
+    // Speak 2: Barman speaks multi-line phrase 2
+    $w3->chatQueue = [];
+    $barEngine->executeCommandAction($w3, $pSpeak, 'say', 'hello', 'barman');
+    $lastChat = end($w3->chatQueue);
+    assertTest(
+        $lastChat !== false && $lastChat['sender'] === 'the barman' && str_contains($lastChat['text'], "Oh shit why don't they turn this damned volume down now!"),
+        "Barman speak 2 cycles to multi-line phrase 2: '{$lastChat['text']}'"
+    );
+
+    // Speak 3: Barman speaks phrase 3
+    $w3->chatQueue = [];
+    $barEngine->executeCommandAction($w3, $pSpeak, 'say', 'hello', 'barman');
+    $lastChat = end($w3->chatQueue);
+    assertTest(
+        $lastChat !== false && $lastChat['sender'] === 'the barman' && str_contains($lastChat['text'], "Wha-a-at?"),
+        "Barman speak 3 cycles to phrase 3 ('Wha-a-at?'): '{$lastChat['text']}'"
+    );
+
+    // Speak 4: Sequence reaches '*', triggers barman.onSpeechFinish, gives lattina to player
+    $w3->chatQueue = [];
+    $barEngine->executeCommandAction($w3, $pSpeak, 'say', 'hello', 'barman');
+    $lastChat = end($w3->chatQueue);
+    assertTest(
+        $lastChat !== false && $lastChat['sender'] === 'the barman' && str_contains($lastChat['text'], "Wanna drink huh? Take this!"),
+        "Barman speak 4 triggers onSpeechFinish ('Wanna drink huh? Take this!'): '{$lastChat['text']}'"
+    );
+    assertTest(
+        $lattina->container === $pSpeak,
+        "Lattina was moved into player's inventory by onSpeechFinish"
     );
 }
 

@@ -132,7 +132,7 @@ class Character extends AdvObject
         }
 
         if ($obj->isLocked()) {
-            $this->display("<b>{$obj->name}</b> is locked.");
+            $this->display("It's locked");
             return false;
         }
 

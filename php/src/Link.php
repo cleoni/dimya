@@ -98,6 +98,27 @@ class Link extends AdvObject
     }
 
     /**
+     * Check if this link leads to the specified room ID.
+     */
+    public function leadsTo(string $roomId): bool
+    {
+        foreach ($this->fromto as $fromId => $toRoom) {
+            if ($toRoom instanceof Room && $toRoom->id === $roomId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if this link starts from the specified room ID.
+     */
+    public function startsFrom(string $roomId): bool
+    {
+        return isset($this->fromto[$roomId]);
+    }
+
+    /**
      * Check if passage is currently open for travel.
      */
     public function isOpen(): bool
