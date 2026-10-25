@@ -41,6 +41,7 @@ $sections = [
     21 => ['title' => 'Testing ROOM DEFAULT Directive & Player Initial Spawn Room Resolution...', 'keywords' => ['default', 'room default', 'spawn', 'startroom', 'world3net', 'spiaggia2', 'parcolunetta']],
     22 => ['title' => 'Testing Character/Player Default showMode (ONSCREEN=1), UIjson vs UIbot Exposure & UIhtml Rendering...', 'keywords' => ['showmode', 'onscreen', 'offscreen', 'uijson', 'uibot', 'uihtml', 'character', 'player', 'avatar', 'people']],
     23 => ['title' => 'Testing SETS Section, RndSet Function & Initial Object Positioning (scroll3)...', 'keywords' => ['sets', 'set', 'rndset', 'scroll3', 'setbeach', 'position', 'defcontainer', 'reset']],
+    24 => ['title' => 'Testing Room Description on Link Traversal (go command) & UIhtml Rendering...', 'keywords' => ['go', 'traverse', 'link', 'description', 'room', 'uihtml', 'travel to']],
 ];
 
 // CLI Options parsing
@@ -1841,6 +1842,76 @@ if (shouldRun(23)) {
 
     $chosenRoomWithWorld = $evalMethod->invoke($runner, 'RndSet($WORLD.setBeach)');
     assertTest(in_array($chosenRoomWithWorld, $w3->sets['setBeach'], true), "ActionsRunner evalValue RndSet(\$WORLD.setBeach) returns an element from setBeach ('{$chosenRoomWithWorld}')");
+}
+
+// -------------------------------------------------------------
+// Test 24: Room Description on Link Traversal (go command) & UIhtml Rendering
+// -------------------------------------------------------------
+if (shouldRun(24)) {
+    echo "\n24. Testing Room Description on Link Traversal (go command) & UIhtml Rendering...\n";
+
+    $dxwFile = __DIR__ . '/../docs/dxw-examples/world2.dxw';
+    $loader = new \Dimx\DxwLoader('http://localhost');
+    $w2TestWorld = $loader->load($dxwFile, 'w2_trav_world');
+    $travEngine = new \Dimx\GameEngine($pm, 'w2_trav', $dxwFile);
+
+    $pTrav = new \Dimx\Player($w2TestWorld, 'Traveller', 'p_trav_1');
+    $pTrav->setPanel($w2TestWorld->defaultPanel ?? \Dimx\Panel::createDefaultPanel());
+    $spiaggia = $w2TestWorld->getRoom('spiaggia');
+    $pTrav->move($spiaggia);
+
+    // Initial check: in spiaggia
+    assertTest($pTrav->getRoom()?->id === 'spiaggia', "Player begins in 'spiaggia'");
+
+    // 1. Traverse link U to 'rocca'
+    $travEngine->executeCommandAction($w2TestWorld, $pTrav, 'go', 'U', '');
+    assertTest($pTrav->getRoom()?->id === 'rocca', "Move 'go U' took player to 'rocca'");
+
+    $roccaMsgs = $pTrav->drainConsole();
+    $roccaOutput = implode("\n", $roccaMsgs);
+    $roccaDesc = $pTrav->getRoom()->evalDescription($pTrav);
+
+    assertTest(!str_contains(strtolower($roccaOutput), 'you travel to'), "Engine output does NOT contain 'You travel to'");
+    assertTest(str_contains($roccaOutput, $roccaDesc), "Engine output upon room arrival contains room description ('{$roccaDesc}')");
+
+    // Render in UIhtml and verify console box displays room description and omits 'You travel to'
+    ob_start();
+    $htmlUiTrav = new \Dimx\UIhtml($pTrav);
+    $htmlUiTrav->render([
+        'world'     => $w2TestWorld,
+        'player'    => $pTrav,
+        'room'      => $pTrav->getRoom(),
+        'messages'  => $roccaMsgs,
+        'lockError' => false,
+    ]);
+    $roccaHtml = ob_get_clean();
+
+    assertTest(!str_contains(strtolower($roccaHtml), 'you travel to'), "UIhtml does NOT render 'You travel to'");
+    assertTest(str_contains($roccaHtml, $roccaDesc), "UIhtml console renders room description: '{$roccaDesc}'");
+
+    // 2. Traverse link E to 'bungalow'
+    $travEngine->executeCommandAction($w2TestWorld, $pTrav, 'go', 'E', '');
+    assertTest($pTrav->getRoom()?->id === 'bungalow', "Move 'go E' took player to 'bungalow'");
+
+    $bungalowMsgs = $pTrav->drainConsole();
+    $bungalowOutput = implode("\n", $bungalowMsgs);
+    $bungalowDesc = $pTrav->getRoom()->evalDescription($pTrav);
+
+    assertTest(!str_contains(strtolower($bungalowOutput), 'you travel to'), "Engine output does NOT contain 'You travel to' for bungalow");
+    assertTest(str_contains($bungalowOutput, $bungalowDesc), "Engine output upon arrival in bungalow contains description ('{$bungalowDesc}')");
+
+    ob_start();
+    $htmlUiTrav->render([
+        'world'     => $w2TestWorld,
+        'player'    => $pTrav,
+        'room'      => $pTrav->getRoom(),
+        'messages'  => $bungalowMsgs,
+        'lockError' => false,
+    ]);
+    $bungalowHtml = ob_get_clean();
+
+    assertTest(!str_contains(strtolower($bungalowHtml), 'you travel to'), "UIhtml does NOT render 'You travel to' for bungalow");
+    assertTest(str_contains($bungalowHtml, $bungalowDesc), "UIhtml console renders bungalow description: '{$bungalowDesc}'");
 }
 
 // Clean up test worlds

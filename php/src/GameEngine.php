@@ -428,7 +428,12 @@ class GameEngine
                 if (!empty($dir)) {
                     if ($player->go($dir)) {
                         $newRoom = $player->getRoom();
-                        $player->display("You travel to <b>{$newRoom->name}</b>.");
+                        if ($newRoom !== null) {
+                            $desc = $newRoom->evalDescription($player);
+                            if ($desc !== '') {
+                                $player->display($desc);
+                            }
+                        }
                     } else {
                         $player->display("You cannot go that way.");
                     }
