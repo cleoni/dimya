@@ -175,12 +175,17 @@ class ActionsRunner
 
             $obj = $this->resolveObject($targetName);
             if ($obj !== null) {
-                if ($obj instanceof World && property_exists($obj, $propName)) {
-                    $obj->{$propName} = $val;
-                } elseif (property_exists($obj, $propName)) {
-                    $obj->{$propName} = $val;
-                } else {
-                    $obj->setProperty($propName, $val);
+                $obj->setProperty($propName, $val);
+                if (property_exists($obj, $propName)) {
+                    if (is_bool($obj->{$propName})) {
+                        $obj->{$propName} = (bool)$val;
+                    } elseif (is_int($obj->{$propName})) {
+                        $obj->{$propName} = (int)$val;
+                    } elseif (is_float($obj->{$propName})) {
+                        $obj->{$propName} = (float)$val;
+                    } else {
+                        $obj->{$propName} = $val;
+                    }
                 }
             }
             return true;

@@ -45,6 +45,8 @@ $sections = [
     25 => ['title' => 'Testing Navigation Pad Missing LINK Name Fallback to Extended Direction Name (UIhtml)...', 'keywords' => ['navpad', 'navigation', 'link', 'name', 'direction', 'uihtml', 'extended', 'north', 'south', 'east', 'west', 'up', 'down']],
     26 => ['title' => 'Testing On-Screen Links (SHOW ONSCREEN, IMAGE, ICON on LINK / MLINK) & Trapdoor (w6) UIhtml Rendering...', 'keywords' => ['link', 'mlink', 'onscreen', 'w6', 'trapdoor', 'td.gif', 'show', 'image', 'icon', 'uihtml', 'scene']],
     27 => ['title' => 'Testing Multi-line Double-Quoted Strings & Barman Dialogue Cycle (world3net)...', 'keywords' => ['multiline', 'string', 'quote', 'barman', 'onhear', 'onspeechfinish', 'lattina', 'speak', 'cycle']],
+    28 => ['title' => 'Testing use2 ("Use With") Command, Default Panel Button & Trapdoor Unlocking (key1 on w6)...', 'keywords' => ['use2', 'usewith', 'key1', 'w6', 'onusewith', 'panel', 'defaultpanel', 'trapdoor', 'unlock']],
+    29 => ['title' => 'Testing Hidden Objects (hidden=1) in UIhtml, UIbot, and UIjson (world3net treasure)...', 'keywords' => ['hidden', 'ishidden', 'treasure', 'beachcliff', 'uihtml', 'uibot', 'uijson', 'attrlist']],
 ];
 
 // CLI Options parsing
@@ -2200,6 +2202,182 @@ if (shouldRun(27)) {
         $lattina->container === $pSpeak,
         "Lattina was moved into player's inventory by onSpeechFinish"
     );
+}
+
+// -------------------------------------------------------------
+// Test 28: use2 ("Use With") Command, Default Panel Button & Trapdoor Unlocking (key1 on w6)
+// -------------------------------------------------------------
+if (shouldRun(28)) {
+    echo "\n28. Testing use2 (\"Use With\") Command, Default Panel Button & Trapdoor Unlocking (key1 on w6)...\n";
+
+    // 1. Verify default panel includes use2 button
+    $defPanel = \Dimx\Panel::createDefaultPanel();
+    $use2Btn = $defPanel->buttons['use2'] ?? null;
+    assertTest($use2Btn instanceof \Dimx\Ctrl, "Default panel contains 'use2' button");
+    assertTest($use2Btn->type === \Dimx\Ctrl::TYPE_BUTTON, "'use2' is of type button");
+    assertTest($use2Btn->caption === 'Use with', "'use2' button label is 'Use with'");
+    assertTest($use2Btn->eventModel === 'OO', "'use2' button model is 'OO' (two objects)");
+    assertTest($use2Btn->event === 'onUseWith', "'use2' button target event is 'onUseWith'");
+
+    $cmds = $defPanel->getAvailableCommands();
+    assertTest(in_array('use2', $cmds, true), "getAvailableCommands includes 'use2'");
+    assertTest(in_array('usewith', $cmds, true), "getAvailableCommands includes alias 'usewith'");
+    assertTest($defPanel->isCommandAllowed('use2'), "isCommandAllowed('use2') is true");
+    assertTest($defPanel->isCommandAllowed('usewith'), "isCommandAllowed('usewith') is true");
+
+    // 2. Verify UIhtml renders the use2 button in panel buttons container
+    $dxwFile = __DIR__ . '/../docs/dxw-examples/world3net.dxw';
+    $loader = new \Dimx\DxwLoader('http://localhost');
+    $w3Use = $loader->load($dxwFile, 'w3_use2_world');
+
+    $bar = $w3Use->getRoom('bar');
+    $pKey = new \Dimx\Player($w3Use, 'KeyMaster', 'p_key_1');
+    $pKey->move($bar);
+    $pKey->setPanel($defPanel);
+
+    ob_start();
+    $htmlUi = new \Dimx\UIhtml($pKey);
+    $htmlUi->render([
+        'world'     => $w3Use,
+        'player'    => $pKey,
+        'room'      => $bar,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $htmlOutput = ob_get_clean();
+
+    assertTest(
+        str_contains($htmlOutput, 'data-cmd="use2"') || str_contains($htmlOutput, 'data-id="use2"'),
+        "UIhtml panel buttons container renders 'use2' button"
+    );
+    assertTest(
+        str_contains($htmlOutput, 'Use with'),
+        "UIhtml panel renders 'Use with' label on command button"
+    );
+    assertTest(
+        str_contains($htmlOutput, "'use2':") && str_contains($htmlOutput, "noArgs: 2"),
+        "UIhtml COMMAND_DEFS includes 'use2' with noArgs: 2"
+    );
+
+    // 3. Verify UIjson / UIbot exposes use2 in available commands
+    $jsonUi = new \Dimx\UIjson($pKey);
+    ob_start();
+    $jsonUi->render([
+        'world'      => $w3Use,
+        'player'     => $pKey,
+        'room'       => $bar,
+        'panel'      => $defPanel,
+        'messages'   => [],
+        'loggedOut'  => false,
+        'lockError'  => false,
+        'status'     => 'ok',
+    ]);
+    $jsonStr = ob_get_clean();
+    $payload = json_decode($jsonStr, true);
+    assertTest(in_array('use2', $payload['panel']['commands'] ?? []), "UIjson payload lists 'use2' in available commands");
+
+    // 4. Test GameEngine executing use2 (key1 on w6):
+    $useEngine = new \Dimx\GameEngine($pm, 'w3_use2', $dxwFile);
+    $w6 = $bar->getWay('w6');
+    assertTest($w6 instanceof \Dimx\Link, "Bar contains Link 'w6'");
+    assertTest($w6->isLocked(), "Link w6 is initially locked");
+
+    // Before unlock: open w6 displays 'It's locked'
+    $useEngine->executeCommandAction($w3Use, $pKey, 'open', '', 'w6');
+    $openLockedMsgs = implode(' ', $pKey->drainConsole());
+    assertTest(str_contains($openLockedMsgs, "It's locked"), "Opening locked w6 returns \"It's locked\": '{$openLockedMsgs}'");
+
+    // Give key1 to player
+    $key1 = $w3Use->contents['key1'] ?? null;
+    assertTest($key1 instanceof \Dimx\Item, "World 3 defines item 'key1'");
+    $key1->move($pKey);
+    assertTest(isset($pKey->contents['key1']), "Player is carrying 'key1'");
+
+    // Execute use2 key1 on w6
+    $useEngine->executeCommandAction($w3Use, $pKey, 'use2', 'w6', 'key1');
+    $use2Msgs = implode(' ', $pKey->drainConsole());
+    assertTest(str_contains($use2Msgs, "Done!"), "Using key1 on w6 outputs 'Done!': '{$use2Msgs}'");
+    assertTest(!$w6->isLocked(), "Link w6 is now UNLOCKED after key1.onUseWith (locked=0)");
+
+    // Now open w6 succeeds!
+    $useEngine->executeCommandAction($w3Use, $pKey, 'open', '', 'w6');
+    $openUnlockedMsgs = implode(' ', $pKey->drainConsole());
+    assertTest(str_contains($openUnlockedMsgs, "You opened"), "Opening unlocked w6 succeeds with 'You opened': '{$openUnlockedMsgs}'");
+    assertTest($w6->isOpen(), "Link w6 is now OPEN");
+
+    // Now traversal via go w6 / go D succeeds!
+    $useEngine->executeCommandAction($w3Use, $pKey, 'go', 'w6', '');
+    assertTest($pKey->getRoom()->id === 'cellar', "Traversing open w6 moved player into 'cellar'");
+}
+
+// ---------------------------------------------------------------------------
+// Section 29: Testing Hidden Objects (hidden=1) in UIhtml, UIbot, and UIjson
+// ---------------------------------------------------------------------------
+if (shouldRun(29)) {
+    echo "\n--- Section 29: Testing Hidden Objects (hidden=1) in UIhtml, UIbot, and UIjson (world3net treasure) ---\n";
+
+    $dxwLoader = new \Dimx\DxwLoader();
+    $w3Hidden = $dxwLoader->load(__DIR__ . '/../docs/dxw-examples/world3net.dxw');
+
+    // 1. Verify 'treasure' item definition in beachcliff
+    $treasure = $w3Hidden->contents['treasure'] ?? null;
+    assertTest($treasure instanceof \Dimx\Item, "World 3 defines item 'treasure'");
+    assertTest($treasure->isHidden() === true, "Item 'treasure' has isHidden() === true due to 'hidden' in ATTRLIST");
+    assertTest($treasure->showmode === \Dimx\AdvObject::SHOW_ONSCREEN, "Item 'treasure' has SHOW ONSCREEN");
+    assertTest($treasure->container instanceof \Dimx\Room && $treasure->container->id === 'beachcliff', "Item 'treasure' is positioned in 'beachcliff'");
+
+    // 2. Setup player in beachcliff
+    $beachcliff = $w3Hidden->contents['beachcliff'] ?? null;
+    assertTest($beachcliff instanceof \Dimx\Room, "World 3 contains room 'beachcliff'");
+    $pObserver = new \Dimx\Player($w3Hidden, 'Observer', 'observer');
+    $pObserver->move($beachcliff);
+    assertTest($pObserver->getRoom()->id === 'beachcliff', "Observer is inside 'beachcliff'");
+
+    // 3. Test UIhtml rendering: hidden item must NOT appear on scene or in sidebar
+    $uiHtml = new \Dimx\UIhtml($pObserver, null);
+    ob_start();
+    $uiHtml->render([
+        'world'    => $w3Hidden,
+        'player'   => $pObserver,
+        'room'     => $beachcliff,
+        'messages' => [],
+    ]);
+    $htmlOutput = ob_get_clean();
+
+    assertTest(!str_contains($htmlOutput, 'data-obj-id="treasure"'), "UIhtml does NOT render data-obj-id=\"treasure\" on scene or in items list");
+    assertTest(!str_contains($htmlOutput, 'treasure chest'), "UIhtml does NOT render item name 'treasure chest'");
+
+    // 4. Test UIbot snapshot: hidden item must NOT appear in items
+    $uiBotHidden = new \Dimx\UIbot($pObserver, null);
+    $botSnapshot = $uiBotHidden->buildRoomSnapshot($beachcliff, $pObserver);
+    $botItemIds = array_column($botSnapshot['items'] ?? [], 'id');
+    assertTest(!in_array('treasure', $botItemIds, true), "UIbot room snapshot does NOT include hidden item 'treasure'");
+
+    // 5. Test UIjson snapshot: hidden item IS included for testing/diagnostics
+    $uiJsonHidden = new \Dimx\UIjson($pObserver, null);
+    $jsonSnapshot = $uiJsonHidden->buildRoomSnapshot($beachcliff, $pObserver);
+    $jsonItemIds = array_column($jsonSnapshot['items'] ?? [], 'id');
+    assertTest(in_array('treasure', $jsonItemIds, true), "UIjson room snapshot retains hidden item 'treasure' for testing/diagnostics");
+
+    // 6. Test unhiding treasure: becomes visible in UIhtml and UIbot
+    $treasure->hidden = false;
+    $treasure->setProperty('hidden', false);
+    assertTest($treasure->isHidden() === false, "'treasure' is now unhidden ($treasure->isHidden() === false)");
+
+    ob_start();
+    $uiHtml->render([
+        'world'    => $w3Hidden,
+        'player'   => $pObserver,
+        'room'     => $beachcliff,
+        'messages' => [],
+    ]);
+    $htmlOutputUnhidden = ob_get_clean();
+    assertTest(str_contains($htmlOutputUnhidden, 'data-obj-id="treasure"'), "UIhtml renders unhidden 'treasure' on scene");
+    assertTest(str_contains($htmlOutputUnhidden, 'treasure chest'), "UIhtml renders unhidden item name 'treasure chest'");
+
+    $botSnapshotUnhidden = $uiBotHidden->buildRoomSnapshot($beachcliff, $pObserver);
+    $botItemIdsUnhidden = array_column($botSnapshotUnhidden['items'] ?? [], 'id');
+    assertTest(in_array('treasure', $botItemIdsUnhidden, true), "UIbot room snapshot includes unhidden item 'treasure'");
 }
 
 // Clean up test worlds

@@ -127,6 +127,53 @@ class AdvObject extends DimxObject
     {
         $val = property_exists($this, 'locked') ? $this->locked : $this->getProperty('locked');
         if ($val === null) {
+            $val = $this->getProperty('locked');
+        }
+        if ($val === null) {
+            return false;
+        }
+        if (is_bool($val)) {
+            return $val;
+        }
+        if (is_numeric($val)) {
+            return (int)$val !== 0;
+        }
+        return !empty($val) && strtolower((string)$val) !== 'false';
+    }
+
+    /**
+     * Check if this object is currently hidden.
+     * Objects are visible by default unless explicitly specified with hidden=1 (or hidden flag in ATTRLIST).
+     */
+    public function isHidden(): bool
+    {
+        if (property_exists($this, 'hidden') && $this->hidden === true) {
+            return true;
+        }
+
+        $val = $this->getProperty('hidden');
+        if ($val === null || $val === false || $val === 0 || $val === '0' || $val === '') {
+            return false;
+        }
+        if (is_numeric($val)) {
+            return (int)$val > 0;
+        }
+        if (is_bool($val)) {
+            return $val;
+        }
+        return strtolower((string)$val) === 'true';
+    }
+
+    /**
+     * Check if this object is currently invisible.
+     */
+    public function isInvisible(): bool
+    {
+        $val = property_exists($this, 'invisible') ? $this->invisible : $this->getProperty('invisible');
+        if ($val === null) {
+            $val = $this->getProperty('invisible');
+        }
+        if ($val === null) {
             return false;
         }
         if (is_bool($val)) {

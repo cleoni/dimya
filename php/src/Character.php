@@ -189,6 +189,54 @@ class Character extends AdvObject
     }
 
     /**
+     * Use an adventure object.
+     */
+    public function actUse(AdvObject $obj): bool
+    {
+        if (!$obj->isAccessibleFrom($this)) {
+            $this->display("I can only use reachable items.");
+            return false;
+        }
+
+        if ($this->world !== null) {
+            $res = $this->world->fireEvent('onUse', $obj, $this, null, [], null);
+            if ($res !== false && $res !== null && $res !== 0 && $res !== '0') {
+                $this->display("Done!");
+                return true;
+            }
+        }
+
+        $this->display("Using {$obj->name} had no obvious effect.");
+        return false;
+    }
+
+    /**
+     * Use an adventure object with another object (e.g. key on door/trapdoor, tool on mechanism).
+     */
+    public function actUseWith(AdvObject $obj1, AdvObject $obj2): bool
+    {
+        if (!$obj1->isAccessibleFrom($this) || !$obj2->isAccessibleFrom($this)) {
+            $this->display("I can only use reachable items.");
+            return false;
+        }
+
+        if ($this->world !== null) {
+            $res = $this->world->fireEvent('onUseWith', $obj1, $this, $obj2, [], null);
+            if ($res === null && !isset($this->world->events["{$obj1->id}.onUseWith"]) && isset($this->world->events["{$obj2->id}.onUseWith"])) {
+                // Symmetrical fallback if onUseWith was defined on the second object
+                $res = $this->world->fireEvent('onUseWith', $obj2, $this, $obj1, [], null);
+            }
+            if ($res !== false && $res !== null && $res !== 0 && $res !== '0') {
+                $this->display("Done!");
+                return true;
+            }
+        }
+
+        $this->display("Nothing happens.");
+        return false;
+    }
+
+    /**
      * Display a message directly to this character (e.g. system notification or speech).
      */
     public function display(string $msg): bool

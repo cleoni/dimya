@@ -170,4 +170,79 @@ class UIbot extends UIjson
             'open'      => $link->isOpen(),
         ];
     }
+
+    /**
+     * Build structured room snapshot for bots, filtering out hidden items,
+     * occupants, and exits.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function buildRoomSnapshot(?Room $room, Player $player): ?array
+    {
+        if ($room === null) {
+            return null;
+        }
+
+        // Room items (excluding hidden objects, including accessible items inside open containers)
+        $items = [];
+        foreach ($room->getItems() as $item) {
+            if ($item->isHidden()) {
+                continue;
+            }
+            $items[] = $this->buildItemSnapshot($item, $player);
+            if ($item->isOpen()) {
+                $this->collectVisibleContents($item, $player, $items);
+            }
+        }
+
+        // Room occupants (excluding hidden and self)
+        $occupants = [];
+        foreach ($room->getOccupants() as $occ) {
+            if ($occ === $player || $occ->isHidden()) {
+                continue;
+            }
+            $occupants[] = $this->buildOccupantSnapshot($occ, $player);
+        }
+
+        // Room exits / links (excluding hidden)
+        $exits = [];
+        foreach ($room->getLinks() as $link) {
+            if ($link->isHidden()) {
+                continue;
+            }
+            $exits[] = $this->buildExitSnapshot($link, $room, $player);
+        }
+
+        $sceneImg = !empty($room->images['N']) ? $room->images['N']->src : null;
+
+        return [
+            'id'          => $room->id,
+            'name'        => $room->name,
+            'description' => $room->evalDescription($player),
+            'image'       => $sceneImg,
+            'items'       => $items,
+            'occupants'   => $occupants,
+            'exits'       => $exits,
+        ];
+    }
+
+    /**
+     * Recursively collect items inside open containers, skipping hidden items.
+     *
+     * @param array<int, array<string, mixed>> $items
+     */
+    protected function collectVisibleContents(AdvObject $container, Player $player, array &$items): void
+    {
+        foreach ($container->getContents(true) as $contained) {
+            if ($contained instanceof Item) {
+                if ($contained->isHidden()) {
+                    continue;
+                }
+                $items[] = $this->buildItemSnapshot($contained, $player);
+                if ($contained->isOpen()) {
+                    $this->collectVisibleContents($contained, $player, $items);
+                }
+            }
+        }
+    }
 }

@@ -166,10 +166,10 @@ class UIhtml extends UI
         }
 
         $skin         = $player->skin ?? new Skin();
-        $occupants    = $currentRoom ? $currentRoom->getOccupants() : [];
-        $roomItems    = $currentRoom ? $currentRoom->getItems()     : [];
-        $inventory    = $player->contents;
-        $links        = $currentRoom ? $currentRoom->getLinks()     : [];
+        $occupants    = $currentRoom ? array_values(array_filter($currentRoom->getOccupants(), fn($c) => !$c->isHidden())) : [];
+        $roomItems    = $currentRoom ? array_values(array_filter($currentRoom->getItems(), fn($i) => !$i->isHidden()))     : [];
+        $inventory    = array_values(array_filter($player->contents, fn($i) => !$i->isHidden()));
+        $links        = $currentRoom ? array_values(array_filter($currentRoom->getLinks(), fn($l) => !$l->isHidden()))     : [];
         $activePanel  = $player->getPanel() ?? $world->defaultPanel;
 
         // Portrait / vertical display detection (width < height at login or client)
@@ -707,7 +707,7 @@ class UIhtml extends UI
 
                       <!-- Characters on scene -->
                       <?php foreach ($occupants as $char): ?>
-                        <?php if ($char !== $player): ?>
+                        <?php if ($char !== $player && !$char->isHidden()): ?>
                           <?php
                             if ($char->showmode === \Dimx\AdvObject::SHOW_OFFSCREEN) {
                               continue;
@@ -763,7 +763,7 @@ class UIhtml extends UI
                       <!-- Links on scene (positioned) -->
                       <?php foreach ($links as $lnk): ?>
                         <?php
-                          if ($lnk->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN):
+                          if ($lnk->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && !$lnk->isHidden()):
                             $isIcon = ($lnk->showmode === \Dimx\AdvObject::SHOW_ICON);
                             $imgSrc = ($isIcon && !empty($lnk->icon))
                               ? $lnk->icon
@@ -815,7 +815,7 @@ class UIhtml extends UI
                       <!-- Items on scene (positioned) -->
                       <?php foreach ($roomItems as $itm): ?>
                         <?php
-                          if ($itm->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN):
+                          if ($itm->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && !$itm->isHidden()):
                             $isIcon = ($itm->showmode === \Dimx\AdvObject::SHOW_ICON);
                             $imgSrc = ($isIcon && !empty($itm->icon))
                               ? $itm->icon
@@ -1061,6 +1061,20 @@ class UIhtml extends UI
                 desc: 'Use ...',
                 prompt: '👉 Click an object on screen to USE (or click another command to cancel)'
               },
+              'use2': {
+                noArgs: 2,
+                model: 'OO',
+                allowDouble: false,
+                desc: 'Use ... With ...',
+                prompt: '👉 Click an item to USE, then click an object to use it WITH'
+              },
+              'usewith': {
+                noArgs: 2,
+                model: 'OO',
+                allowDouble: false,
+                desc: 'Use ... With ...',
+                prompt: '👉 Click an item to USE, then click an object to use it WITH'
+              },
               'look': {
                 noArgs: 1,
                 model: 'O',
@@ -1302,7 +1316,11 @@ class UIhtml extends UI
               const def = COMMAND_DEFS[pendingCmd] || {};
               let msg = def.prompt || ('Select target object for ' + pendingCmd.toUpperCase() + ' (Click to cancel)');
               if (pendingNames.length > 0) {
-                msg = pendingCmd.toUpperCase() + ' ' + pendingNames.join(', ') + '...';
+                if (pendingCmd === 'use2' || pendingCmd === 'usewith') {
+                  msg = '👉 Use ' + pendingNames[0] + ' WITH ... (click target object)';
+                } else {
+                  msg = pendingCmd.toUpperCase() + ' ' + pendingNames.join(', ') + '...';
+                }
               }
               pBox.innerText = msg;
               pBox.classList.add('dimx-prompt-visible');

@@ -373,7 +373,7 @@ class GameEngine
         $panel = $player->getPanel() ?? $world->defaultPanel;
         $isCoreCommand = in_array($cmd, [
             'look', 'click', 'go', 'pick', 'take', 'get', 'drop',
-            'use', 'open', 'close', 'search', 'say', 'inv',
+            'use', 'use2', 'usewith', 'open', 'close', 'search', 'say', 'inv',
             'inventory', 'help', 'save', 'exit', 'logout'
         ], true);
 
@@ -509,20 +509,59 @@ class GameEngine
                 break;
 
             case 'use':
+                if (!empty($targetId) && !empty($param)) {
+                    $this->executeCommandAction($world, $player, 'use2', $param, $targetId);
+                    break;
+                }
                 $useTarget = !empty($targetId) ? $targetId : $param;
                 if (!empty($useTarget)) {
-                    $item = $player->contents[$useTarget] ?? $currentRoom?->contents[$useTarget] ?? null;
-                    if ($item instanceof Item) {
-                        $res = $world->fireEvent('onUse', $item, $player, null);
-                        if (!$res) {
-                            $player->display("Using {$item->name} had no obvious effect.");
-                        }
+                    $clean = preg_replace('/\bwith\b/i', ' ', $useTarget);
+                    $tokens = preg_split('/[,\s]+/', trim($clean));
+                    if (count($tokens) >= 2) {
+                        $this->executeCommandAction($world, $player, 'use2', $tokens[1], $tokens[0]);
+                        break;
+                    }
+                    $item = $this->findAccessibleObject($player, $useTarget);
+                    if ($item instanceof AdvObject) {
+                        $this->actUse($item, $player);
                     } else {
                         $player->display("Item not found.");
                     }
                 } else {
                     $player->display("Specify an item to use.");
                 }
+                break;
+
+            case 'use2':
+            case 'usewith':
+                $item1Id = '';
+                $item2Id = '';
+
+                if (!empty($targetId) && !empty($param)) {
+                    $item1Id = $targetId;
+                    $item2Id = $param;
+                } else {
+                    $raw = !empty($param) ? $param : $targetId;
+                    $raw = preg_replace('/\bwith\b/i', ' ', $raw);
+                    $tokens = preg_split('/[,\s]+/', trim($raw));
+                    $item1Id = $tokens[0] ?? '';
+                    $item2Id = $tokens[1] ?? '';
+                }
+
+                if (empty($item1Id) || empty($item2Id)) {
+                    $player->display("Specify two objects to use together.");
+                    break;
+                }
+
+                $obj1 = $this->findAccessibleObject($player, $item1Id);
+                $obj2 = $this->findAccessibleObject($player, $item2Id);
+
+                if ($obj1 === null || $obj2 === null) {
+                    $player->display("One of the selected items does not exist anymore.");
+                    break;
+                }
+
+                $this->actUseWith($obj1, $obj2, $player);
                 break;
 
             case 'say':
@@ -671,6 +710,22 @@ class GameEngine
             return $world->contents[$targetId] ?? $world->getCharacter($targetId) ?? null;
         }
         return null;
+    }
+
+    /**
+     * Use an adventure object for the given player.
+     */
+    public function actUse(AdvObject $targetObj, Player $player): bool
+    {
+        return $player->actUse($targetObj);
+    }
+
+    /**
+     * Use two adventure objects together for the given player.
+     */
+    public function actUseWith(AdvObject $obj1, AdvObject $obj2, Player $player): bool
+    {
+        return $player->actUseWith($obj1, $obj2);
     }
 
     /**
