@@ -1180,7 +1180,7 @@ assertTest(str_contains($bungalowHtml, "data-cmd=\"use\" data-model=\"O\""), "UI
 assertTest(str_contains($bungalowHtml, "data-cmd=\"look\" data-model=\"O\""), "UIhtml cell B LOOK button has data-cmd='look' and data-model='O'");
 assertTest(str_contains($bungalowHtml, 'data-obj-id="switch"') && str_contains($bungalowHtml, 'data-obj-type="i"'), "UIhtml renders switch as on-screen object with id='switch' and type='i'");
 assertTest(str_contains($bungalowHtml, "width:560px;height:376px") || str_contains($bungalowHtml, "width: 560px; height: 376px") || str_contains($bungalowHtml, 'width="560"'), "UIhtml scales bungalow room scene to 560x376 for 1280x800 desktop client");
-assertTest(str_contains($bungalowHtml, "left:101px;top:216px;width:51px;height:51px;"), "UIhtml positions and scales switch on scene properly at left:101px;top:216px;width:51px;height:51px;");
+assertTest(str_contains($bungalowHtml, "left:101px;top:216px;width:32px;height:32px;"), "UIhtml positions and renders switch on scene with 32x32 icon size at left:101px;top:216px;width:32px;height:32px;");
 }
 
 // -------------------------------------------------------------

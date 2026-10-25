@@ -726,8 +726,8 @@ class UIhtml extends UI
 
                               $screenX = 1 + $cartX;
                               $screenY = $roomH - $cartY - $baseH;
-                              $dispW = (int)round($factorx * $baseW);
-                              $dispH = (int)round($factorx * $baseH);
+                              $dispW = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseW);
+                              $dispH = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseH);
                               $rawPosX = (int)round($factorx * $screenX);
                               $rawPosY = (int)round($factorx * $screenY);
                               $posX = max(0, min($rawPosX, max(0, $scaledRoomW - $dispW))) . 'px';
@@ -782,8 +782,8 @@ class UIhtml extends UI
                               $screenX = 1 + $cartX;
                               $screenY = $roomH - $cartY - $baseH;
 
-                              $dispW = (int)round($factorx * $baseW);
-                              $dispH = (int)round($factorx * $baseH);
+                              $dispW = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseW);
+                              $dispH = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseH);
                               $rawPosX = (int)round($factorx * $screenX);
                               $rawPosY = (int)round($factorx * $screenY);
                               $posX = max(0, min($rawPosX, max(0, $scaledRoomW - $dispW)));
