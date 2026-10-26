@@ -391,7 +391,8 @@ class GameEngine
         $isCoreCommand = in_array($cmd, [
             'look', 'click', 'go', 'pick', 'take', 'get', 'drop',
             'give', 'use', 'use2', 'usewith', 'open', 'close', 'search', 'say', 'inv',
-            'inventory', 'help', 'save', 'exit', 'logout', 'rotl', 'rotr', 'rev', 'rotate'
+            'inventory', 'help', 'save', 'enter', 'board', 'exit', 'leave', 'disembark',
+            'logout', 'rotl', 'rotr', 'rev', 'rotate'
         ], true);
 
         if ($panel !== null && ($isCoreCommand || isset($world->events["cmd_{$cmd}"])) && !$panel->isCommandAllowed($cmd)) {
@@ -731,20 +732,25 @@ class GameEngine
                 $world->removePlayer($player);
                 break;
 
-            case 'exit':
-                // Disembark / exit from vehicle or item container into outer room
-                $container = $player->container;
-                if ($container instanceof AdvObject && ($container->isVehicle() || $container->isanItem())) {
-                    $parentContainer = $container->container;
-                    if ($parentContainer instanceof AdvObject) {
-                        $player->move($parentContainer);
-                        $player->display("You exit the {$container->name}.");
-                    } else {
-                        $player->display("You cannot exit right now.");
+            case 'enter':
+            case 'board':
+                $enterTarget = !empty($targetId) ? $targetId : $param;
+                if (!empty($enterTarget)) {
+                    $targetObj = $this->findAccessibleObject($player, $enterTarget);
+                    if ($targetObj === null) {
+                        $player->display("The selected item does not exist anymore.");
+                        break;
                     }
+                    $player->actEnter($targetObj);
                 } else {
-                    $player->display("You are not inside anything.");
+                    $player->display("Specify a vehicle to enter.");
                 }
+                break;
+
+            case 'exit':
+            case 'leave':
+            case 'disembark':
+                $player->actExit();
                 break;
 
             case 'save':

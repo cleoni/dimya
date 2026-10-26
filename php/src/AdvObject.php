@@ -95,6 +95,21 @@ class AdvObject extends DimxObject
     }
 
     /**
+     * Compute remaining free space in this container.
+     */
+    public function getFreeSpace(): int
+    {
+        if ($this->capacity <= 0) {
+            return PHP_INT_MAX;
+        }
+        $used = 0;
+        foreach ($this->contents as $child) {
+            $used += $child->volume;
+        }
+        return max(0, $this->capacity - $used);
+    }
+
+    /**
      * Sets an image for a specific direction face.
      */
     public function setImage(string $face, Image $image): bool
@@ -478,6 +493,11 @@ class AdvObject extends DimxObject
     }
 
     public function isLink(): bool
+    {
+        return false;
+    }
+
+    public function isVehicle(): bool
     {
         return false;
     }

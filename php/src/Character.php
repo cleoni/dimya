@@ -80,6 +80,37 @@ class Character extends AdvObject
             return false;
         }
 
+        // If character is inside a vehicle, driving navigates the vehicle through room exits
+        if ($this->container instanceof AdvObject && $this->container->isVehicle()) {
+            /** @var Vehicle $vehicle */
+            $vehicle = $this->container;
+            $link = $room->getWay($directionOrLinkId) ?? $room->getLinkByDirection($directionOrLinkId);
+            if ($link === null || !$link->isOpen()) {
+                return false;
+            }
+            $destRoom = $link->getTarget($room->id);
+            if ($destRoom === null) {
+                return false;
+            }
+            if ($this->world !== null) {
+                $this->world->fireEvent('onExit', $vehicle, $this, $destRoom);
+            }
+            $walkDir = $link->getDirection($room->id);
+            $moved = $vehicle->move($destRoom);
+            if ($moved) {
+                $this->facing = $walkDir;
+                foreach ($vehicle->contents as $passenger) {
+                    if ($passenger instanceof Character) {
+                        $passenger->facing = $walkDir;
+                    }
+                }
+                if ($this->world !== null) {
+                    $this->world->fireEvent('onEnter', $vehicle, $this, $destRoom);
+                }
+            }
+            return $moved;
+        }
+
         $link = $room->getWay($directionOrLinkId) ?? $room->getLinkByDirection($directionOrLinkId);
         if ($link === null || !$link->isOpen()) {
             return false;
@@ -519,6 +550,105 @@ class Character extends AdvObject
             return false;
         }
         return $this->actGive($itemObj, $recipObj);
+    }
+
+    /**
+     * Enter a vehicle.
+     */
+    public function actEnter(AdvObject $target): bool
+    {
+        if (!$target->isVehicle()) {
+            $this->display("You can only enter vehicles.");
+            return false;
+        }
+
+        if ($target->isOpenable() && !$target->isOpen()) {
+            $this->display("It's closed.");
+            return false;
+        }
+
+        if ($target->getFreeSpace() < $this->volume) {
+            $this->display("There's not enough room.");
+            return false;
+        }
+
+        $oldContainer = $this->container;
+        if ($oldContainer instanceof AdvObject && $this->world !== null) {
+            $res = $this->world->fireEvent('onExit', $this, $this, $target);
+            if ($res === false || $res === 0 || $res === '0') {
+                return false;
+            }
+        }
+
+        if ($this->move($target)) {
+            if ($this->world !== null) {
+                $this->world->fireEvent('onEnter', $this, $this, $target);
+                $this->world->fireEvent('onReceive', $target, $this, $this);
+            }
+            $targetDesc = (stripos($target->name, 'the ') === 0 || stripos($target->name, 'a ') === 0) ? $target->name : "the {$target->name}";
+            $this->display("You enter {$targetDesc}.");
+            if ($oldContainer instanceof PeopleContainer) {
+                foreach ($oldContainer->getOccupants() as $occ) {
+                    if ($occ !== $this) {
+                        $occ->display("<b>{$this->name}</b> enters {$targetDesc}.");
+                    }
+                }
+            }
+            return true;
+        }
+
+        $this->display("I could not do that.");
+        return false;
+    }
+
+    /**
+     * Exit/disembark from the current vehicle into the containing room.
+     */
+    public function actExit(): bool
+    {
+        $vehicle = $this->container;
+        if (!($vehicle instanceof AdvObject && $vehicle->isVehicle())) {
+            $this->display("You are not inside any vehicle.");
+            return false;
+        }
+
+        if ($vehicle->isOpenable() && !$vehicle->isOpen()) {
+            $this->display("It's closed.");
+            return false;
+        }
+
+        $destRoom = $vehicle->container;
+        if (!($destRoom instanceof AdvObject)) {
+            $this->display("You cannot exit right now.");
+            return false;
+        }
+
+        if ($this->world !== null) {
+            $res = $this->world->fireEvent('onExit', $this, $this, $destRoom);
+            if ($res === false || $res === 0 || $res === '0') {
+                return false;
+            }
+        }
+
+        if ($this->move($destRoom)) {
+            if ($this->world !== null) {
+                $this->world->fireEvent('onEnter', $this, $this, $destRoom);
+                $this->world->fireEvent('onLoose', $vehicle, $this, $this);
+            }
+            $vehDesc = (stripos($vehicle->name, 'the ') === 0 || stripos($vehicle->name, 'a ') === 0) ? $vehicle->name : "the {$vehicle->name}";
+            $this->display("You exit {$vehDesc}.");
+            if ($destRoom instanceof PeopleContainer) {
+                foreach ($destRoom->getOccupants() as $occ) {
+                    if ($occ !== $this) {
+                        $occ->display("<b>{$this->name}</b> steps out of {$vehDesc}.");
+                    }
+                }
+            }
+            return true;
+        }
+
+        $this->display("I could not do that.");
+        return false;
     }
 
     /**

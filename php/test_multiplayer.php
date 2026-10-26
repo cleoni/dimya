@@ -716,8 +716,8 @@ assertTest(
     "Bot commands DO NOT include 'disconnect'"
 );
 assertTest(
-    in_array('exit', $botCmds, true),
-    "Bot commands include 'exit'"
+    !in_array('exit', $botCmds, true),
+    "Chat bot commands DO NOT include vehicle 'exit'"
 );
 assertTest(
     in_array('logout', $botCmds, true),
@@ -3576,6 +3576,55 @@ if (shouldRun(40)) {
     $eng40->executeCommandAction($w3Sec40, $player40, 'look', 'tele1', '');
     $lookMsgs = implode(' ', $player40->drainConsole());
     assertTest(str_contains($lookMsgs, "It looks like one of those things in Star Trek."), "Looking at tele1 displays description (got: '{$lookMsgs}')");
+
+    // 7. Verify default panel includes enter and exit buttons specifically for vehicles
+    $defPanel = \Dimx\Panel::createDefaultPanel();
+    assertTest($defPanel->getButton('enter') !== null, "Default panel includes 'enter' button");
+    assertTest($defPanel->getButton('exit') !== null, "Default panel includes 'exit' button");
+    assertTest($defPanel->getButton('enter')?->eventModel === 'O', "Button 'enter' has event model 'O'");
+    assertTest($defPanel->getButton('exit')?->eventModel === '', "Button 'exit' has event model ''");
+    assertTest($defPanel->isCommandAllowed('enter'), "Default panel permits 'enter' command");
+    assertTest($defPanel->isCommandAllowed('exit'), "Default panel permits 'exit' command");
+
+    // 8. Attempting to enter a non-vehicle item (e.g. nonVehicleCrate) fails
+    $nonVehicleCrate = new \Dimx\Item($w3Sec40, 'a wooden crate', 'test_crate');
+    $nonVehicleCrate->move($bungalowStanza);
+    $player40->drainConsole();
+    $eng40->executeCommandAction($w3Sec40, $player40, 'enter', 'test_crate', '');
+    $enterFailMsgs = implode(' ', $player40->drainConsole());
+    assertTest(str_contains($enterFailMsgs, "You can only enter vehicles."), "Attempting to enter non-vehicle item outputs 'You can only enter vehicles.' (got: '{$enterFailMsgs}')");
+    assertTest($player40->container === $bungalowStanza, "Player remains in bungalowStanza when enter fails");
+
+    // 9. Entering vehicle tele1
+    $player40->drainConsole();
+    $eng40->executeCommandAction($w3Sec40, $player40, 'enter', 'tele1', '');
+    $enterMsgs = implode(' ', $player40->drainConsole());
+    assertTest(str_contains($enterMsgs, "You enter the teletransporter."), "Entering tele1 outputs confirmation (got: '{$enterMsgs}')");
+    assertTest($player40->container === $tele1, "Player's container is now tele1");
+    assertTest($player40->getRoom() === $bungalowStanza, "Player's enclosing room is still bungalowStanza");
+
+    // 10. Render UIhtml while inside vehicle tele1
+    ob_start();
+    $ui40->render(['world' => $w3Sec40, 'player' => $player40]);
+    $inVehicleHtml = ob_get_clean();
+
+    assertTest(str_contains($inVehicleHtml, 'class="vehicle_interiors"'), "While in vehicle, UIhtml renders vehicle_interiors overlay");
+    assertTest(str_contains($inVehicleHtml, 'fadewhite.gif'), "Vehicle interior overlay contains innerImage 'fadewhite.gif'");
+    // The vehicle itself is not drawn on the scene floor while inside it
+    assertTest(!str_contains($inVehicleHtml, 'lampadastyle.gif'), "Outer sprite 'lampadastyle.gif' is excluded from scene while inside the vehicle");
+
+    // 11. Exiting vehicle tele1
+    $player40->drainConsole();
+    $eng40->executeCommandAction($w3Sec40, $player40, 'exit', '', '');
+    $exitMsgs = implode(' ', $player40->drainConsole());
+    assertTest(str_contains($exitMsgs, "You exit the teletransporter."), "Exiting tele1 outputs confirmation (got: '{$exitMsgs}')");
+    assertTest($player40->container === $bungalowStanza, "Player's container is restored to bungalowStanza");
+
+    // 12. Attempting to exit when not in a vehicle
+    $player40->drainConsole();
+    $eng40->executeCommandAction($w3Sec40, $player40, 'exit', '', '');
+    $exitFailMsgs = implode(' ', $player40->drainConsole());
+    assertTest(str_contains($exitFailMsgs, "You are not inside any vehicle."), "Attempting to exit when not in vehicle outputs 'You are not inside any vehicle.' (got: '{$exitFailMsgs}')");
 
     @$pm->resetWorld('w3_sec40_test');
 }

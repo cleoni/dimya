@@ -72,6 +72,8 @@ class Panel
         $panel->addButton(new Ctrl('close', Ctrl::TYPE_BUTTON, 'Close', 'Close a container or door', 'onClose', null, 'O'));
         $panel->addButton(new Ctrl('search', Ctrl::TYPE_BUTTON, 'Search', 'Search for hidden items', 'onSearch', null, ''));
         $panel->addButton(new Ctrl('give', Ctrl::TYPE_BUTTON, 'Give', 'Give an item to another character', 'onReceiveItem', null, 'OO'));
+        $panel->addButton(new Ctrl('enter', Ctrl::TYPE_BUTTON, 'Enter', 'Enter vehicle', 'onEnter', null, 'O'));
+        $panel->addButton(new Ctrl('exit', Ctrl::TYPE_BUTTON, 'Exit', 'Exit vehicle', 'onExit', null, ''));
         $panel->addButton(new Ctrl('txtBox', Ctrl::TYPE_TEXTBOX, '', 'Enter speech or action...'));
         $panel->addButton(new Ctrl('say', Ctrl::TYPE_BUTTON, 'Say', 'Speak to characters in the room', 'onSay', null, 'TO'));
         $panel->addButton(new Ctrl('help', Ctrl::TYPE_BUTTON, 'Help', 'Show help instructions', 'onHelp', null, ''));
@@ -111,11 +113,12 @@ class Panel
                 $cmdId = strtolower($ctrl->id);
                 if (!empty($cmdId)) {
                     $cmds[] = $cmdId;
-                    if ($cmdId === 'logout') {
-                        $cmds[] = 'exit';
+                    if ($cmdId === 'enter') {
+                        $cmds[] = 'board';
                     }
                     if ($cmdId === 'exit') {
-                        $cmds[] = 'logout';
+                        $cmds[] = 'leave';
+                        $cmds[] = 'disembark';
                     }
                     if ($cmdId === 'look') {
                         $cmds[] = 'click';

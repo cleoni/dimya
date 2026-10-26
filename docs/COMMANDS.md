@@ -140,9 +140,10 @@ Every command cycle follows this processing pipeline:
 
 ### 12. `enter (object)` & `exit`
 * **Intent**: Boarding and disembarking vehicles.
-* **`enter`**: Moves player into vehicle container (`$player->move($vehicle)`).
-* **`exit`**: Moves player out of vehicle back into the room containing the vehicle.
-* **Events**: Fires `onEnterVehicle` / `onExitVehicle`.
+* **`enter`**: Moves player into vehicle container (`$player->move($vehicle)`). Serves uniquely to enter `VEHICLE` items. Checks vehicle capacity and open state.
+* **`exit`**: Moves player out of vehicle back into the room containing the vehicle (`$player->move($vehicle->container)`).
+* **Control Panel**: Included as standard buttons **Enter** (model `O`) and **Exit** (model `""`) on the default `PANEL`.
+* **Events**: Fires `onExit` (from room/vehicle) and `onEnter` (into vehicle/room), plus `onReceive` / `onLoose`.
 
 ### 13. `say (text), [target]`
 * **Intent**: Speech and communication.

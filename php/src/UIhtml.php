@@ -900,7 +900,7 @@ class UIhtml extends UI
                       <!-- Items on scene (positioned) -->
                       <?php foreach ($roomItems as $itm): ?>
                         <?php
-                          if ($itm->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && !$itm->isHidden()):
+                          if ($itm !== $player->container && $itm->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && !$itm->isHidden()):
                             // Check SHOW FOR restriction
                             if (!empty($itm->showFor) && $sceneImg !== null) {
                               $sceneUrl = $sceneImg->src;
@@ -971,6 +971,24 @@ class UIhtml extends UI
                                onclick="clickObject(this)" />
                         <?php endif; endif; ?>
                       <?php endforeach; ?>
+
+                      <!-- Vehicle interior overlay (Layer 201) -->
+                      <?php
+                        $playerVehicle = ($player->container instanceof \Dimx\AdvObject && $player->container->isVehicle()) ? $player->container : null;
+                        if ($playerVehicle && !empty($playerVehicle->innerImage?->src)):
+                          $innerImg = $playerVehicle->innerImage;
+                          $innerW = (!empty($innerImg->width)) ? (int)round($factorx * $innerImg->width) : $scaledRoomW;
+                          $innerH = (!empty($innerImg->height)) ? (int)round($factorx * $innerImg->height) : $scaledRoomH;
+                      ?>
+                        <div class="vehicle_interiors" style="left:0;top:0;position:absolute;z-index:201;pointer-events:none;">
+                          <img src="<?= htmlspecialchars($innerImg->src) ?>"
+                               alt="<?= htmlspecialchars($playerVehicle->name) ?>"
+                               title="<?= htmlspecialchars($playerVehicle->name) ?>"
+                               width="<?= $innerW ?>"
+                               height="<?= $innerH ?>"
+                               style="width:<?= $innerW ?>px;height:<?= $innerH ?>px;border:0;display:block;" />
+                        </div>
+                      <?php endif; ?>
                     </div>
 
                     <!-- Description / main messages output -->
@@ -1461,6 +1479,13 @@ class UIhtml extends UI
                 allowDouble: false,
                 desc: 'Give ... To ...',
                 prompt: '👉 Click an item to GIVE, then click a character to give it TO'
+              },
+              'enter': {
+                noArgs: 1,
+                model: 'O',
+                allowDouble: false,
+                desc: 'Enter ...',
+                prompt: '👉 Click a vehicle to ENTER'
               },
               'help':   { noArgs: 0, model: '',  desc: 'Help' },
               'save':   { noArgs: 0, model: 'T', desc: 'Save' },
