@@ -272,8 +272,12 @@ return [
         'pass'   => 'secret',
     ],
     'adminPasswd' => 'admin123',
-    'world_file'  => __DIR__ . '/../docs/dxw-examples/world2.dxw',
+    'world_file'  => __DIR__ . '/../docs/dxw-examples/world3net.dxw',
+    'tickLength'  => 30,
     'base_url'    => 'http://localhost',
+    'testBots'    => [
+        'BotAlpha',
+    ],
 ];</pre>
   </div>
 
