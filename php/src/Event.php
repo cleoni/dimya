@@ -62,13 +62,18 @@ class Event extends ManageableObject
         mixed $agent = null,
         mixed $target = null,
         array $input = [],
-        mixed $defaultResult = true
+        mixed $defaultResult = true,
+        ?World $worldFallback = null
     ): mixed {
         if ($this->handler !== null) {
             return ($this->handler)($owner, $agent, $target, $input);
         }
         if (!empty($this->actions)) {
-            $world = ($owner instanceof DimxObject) ? $owner->world : null;
+            $world = ($owner instanceof World)
+                ? $owner
+                : (($owner instanceof DimxObject && $owner->world instanceof World)
+                    ? $owner->world
+                    : $worldFallback);
             if ($world instanceof World) {
                 $runner = new ActionsRunner($world, $owner, $agent, $target, $input);
                 return $runner->run($this->actions);

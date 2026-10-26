@@ -19,6 +19,8 @@ return [
     ],
     // Default world file if none specified via ?world= or ?game=
     'default_world' => 'https://test.dimensionex.net/worlds/world1.dxw',
+    // Clock tick interval in seconds (default 30)
+    'tickLength' => 30,
     // Base URL for images when IMAGESFOLDER is relative
     'base_url' => 'https://test.dimensionex.net',
     // Usernames of test bots that receive UIjson (with diagnostic fields) instead of UIbot

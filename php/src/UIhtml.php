@@ -1117,6 +1117,13 @@ class UIhtml extends UI
                 prompt: '👉 Click an object or door to CLOSE'
               },
               'search': { noArgs: 0, model: '',  desc: 'Search' },
+              'give': {
+                noArgs: 2,
+                model: 'OO',
+                allowDouble: false,
+                desc: 'Give ... To ...',
+                prompt: '👉 Click an item to GIVE, then click a character to give it TO'
+              },
               'help':   { noArgs: 0, model: '',  desc: 'Help' },
               'save':   { noArgs: 0, model: 'T', desc: 'Save' },
               'exit':   { noArgs: 0, model: '',  desc: 'Exit' },
@@ -1318,6 +1325,8 @@ class UIhtml extends UI
               if (pendingNames.length > 0) {
                 if (pendingCmd === 'use2' || pendingCmd === 'usewith') {
                   msg = '👉 Use ' + pendingNames[0] + ' WITH ... (click target object)';
+                } else if (pendingCmd === 'give') {
+                  msg = '👉 Give ' + pendingNames[0] + ' TO ... (click recipient character)';
                 } else {
                   msg = pendingCmd.toUpperCase() + ' ' + pendingNames.join(', ') + '...';
                 }

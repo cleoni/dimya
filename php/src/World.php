@@ -17,6 +17,7 @@ class World extends DimxObject
     public string $bgcolor = '#9DB9E9';
     public int $interphone = 1; // 0=room only, 1=world with vehicle privacy, 2=global
     public int $tickLength = 30; // Seconds between clock ticks
+    public int $lastTick = 0; // Timestamp of last executed clock tick
     public int $mode = 0; // 0 = stopped / lobby / won (Goal), 1 = adventure running
     public int $savegamePersistence = 2; // 0=restart only, 1=version only, 2=permanent
 
@@ -89,6 +90,7 @@ class World extends DimxObject
         $this->panels['default'] = Panel::createDefaultPanel();
         $this->panels['chat']    = Panel::createChatPanel();
         $this->defaultPanel      = $this->panels['default'];
+        $this->lastTick          = time();
     }
 
     public function getPanel(string $id): ?Panel
@@ -372,13 +374,13 @@ class World extends DimxObject
         if ($owner !== null) {
             $qualifiedId = "{$owner->id}.{$eventId}";
             if (isset($this->events[$qualifiedId])) {
-                return $this->events[$qualifiedId]->fire($owner, $agent, $target, $input, $defaultResult);
+                return $this->events[$qualifiedId]->fire($owner, $agent, $target, $input, $defaultResult, $this);
             }
         }
 
         // 2. Try generic event: eventId (e.g., 'onLook')
         if (isset($this->events[$eventId])) {
-            return $this->events[$eventId]->fire($owner, $agent, $target, $input, $defaultResult);
+            return $this->events[$eventId]->fire($owner, $agent, $target, $input, $defaultResult, $this);
         }
 
         return $defaultResult;
@@ -386,11 +388,31 @@ class World extends DimxObject
 
     /**
      * Executes the global world clock tick:
-     * 1. Fires global 'onTick' event.
-     * 2. Fires 'Living' event for each Character to evaluate NPC AI / survival.
+     * Checks if time passed since the last tick is >= tickLength.
+     * If so (or if $force is true):
+     * 1. Updates lastTick timestamp.
+     * 2. Fires global 'onTick' event.
+     * 3. Fires 'Living' event for each Character to evaluate NPC AI / survival.
+     *
+     * @param bool $force If true, bypasses the elapsed time check.
+     * @return bool True if tick was executed, false if skipped.
      */
-    public function tick(): void
+    public function tick(bool $force = false): bool
     {
+        $now = time();
+
+        if (!$force) {
+            if ($this->lastTick === 0) {
+                $this->lastTick = $now;
+                return false;
+            }
+
+            if (($now - $this->lastTick) < $this->tickLength) {
+                return false;
+            }
+        }
+
+        $this->lastTick = $now;
         $this->logDebug("World clock tick at " . date('Y-m-d H:i:s'));
 
         // Fire onTick
@@ -406,6 +428,8 @@ class World extends DimxObject
                 }
             }
         }
+
+        return true;
     }
 
     /**

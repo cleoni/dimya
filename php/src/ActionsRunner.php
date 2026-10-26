@@ -191,6 +191,35 @@ class ActionsRunner
             return true;
         }
 
+        // 1b. Property with key assignment e.g. "pathgate.image("E") = "pathgateeo.jpg""
+        if (preg_match('/^(\$?[A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*\(\s*["\']?([^"\']+)["\']?\s*\)\s*=\s*(.*)$/', $line, $m)) {
+            $targetName = $m[1];
+            $propName   = $m[2];
+            $key        = $m[3];
+            $rawVal     = trim($m[4]);
+            $val        = $this->evalValue($rawVal);
+
+            $obj = $this->resolveObject($targetName);
+            if ($obj !== null) {
+                if ($propName === 'image' && property_exists($obj, 'images')) {
+                    $imgSrc = (string)$val;
+                    if ($this->world !== null && !empty($this->world->imagesFolder) && !str_starts_with($imgSrc, 'http://') && !str_starts_with($imgSrc, 'https://') && !str_starts_with($imgSrc, '/')) {
+                        $imgSrc = rtrim($this->world->imagesFolder, '/') . '/' . ltrim($imgSrc, '/');
+                    }
+                    $imgW = $obj->images[$key]->width ?? 350;
+                    $imgH = $obj->images[$key]->height ?? 235;
+                    $obj->images[$key] = new Image($imgSrc, $imgW, $imgH);
+                    $obj->image = $obj->images[$key];
+                } else {
+                    $prop = $obj->getProperty($propName) ?? [];
+                    if (!is_array($prop)) $prop = [];
+                    $prop[$key] = $val;
+                    $obj->setProperty($propName, $prop);
+                }
+            }
+            return true;
+        }
+
         // Tokenize by verb and argument list
         $parts = preg_split('/\s+/', $line, 2);
         $verb = strtoupper($parts[0] ?? '');
@@ -198,15 +227,21 @@ class ActionsRunner
         $args = $this->parseArguments($argString);
 
         return match ($verb) {
-            'SETPANEL'  => $this->actSetPanel($args),
-            'SPEAK'     => $this->actSpeak($args),
-            'BROADCAST' => $this->actBroadcast($args),
-            'MOVE'      => $this->actMove($args),
-            'GOAL'      => $this->actGoal($args),
-            'RETURN'    => $this->actReturn($args),
-            'OPEN'      => $this->actOpen($args),
-            'CLOSE'     => $this->actClose($args),
-            default     => true,
+            'SETPANEL'   => $this->actSetPanel($args),
+            'SPEAK'      => $this->actSpeak($args),
+            'DISPLAY',
+            'PRINT'      => $this->actDisplay($args),
+            'PRINTRIGHT' => $this->actDisplay($args, true),
+            'CALL'       => $this->actCall($args, $argString),
+            'BROADCAST'  => $this->actBroadcast($args),
+            'MOVE'       => $this->actMove($args),
+            'GOAL'       => $this->actGoal($args),
+            'RETURN'     => $this->actReturn($args),
+            'OPEN'       => $this->actOpen($args),
+            'CLOSE'      => $this->actClose($args),
+            'SEARCH'     => $this->actSearch($args),
+            'GIVE'       => $this->actGive($args),
+            default      => true,
         };
     }
 
@@ -240,6 +275,36 @@ class ActionsRunner
                 return $agent->actClose($obj);
             }
             return $obj->close(null);
+        }
+        return false;
+    }
+
+    public function actSearch(array $args): bool
+    {
+        $targetObj = null;
+        if (!empty($args)) {
+            $targetName = $args[0];
+            $targetObj = $this->resolveObject($targetName);
+        }
+        $agent = ($this->agent instanceof Character) ? $this->agent : null;
+        if ($agent !== null) {
+            return $agent->actSearch($targetObj);
+        }
+        return false;
+    }
+
+    public function actGive(array $args): bool
+    {
+        if (count($args) < 2) {
+            return false;
+        }
+        $itemObj = $this->resolveObject((string)$args[0]);
+        $recipObj = $this->resolveObject((string)$args[1]);
+        if ($itemObj instanceof AdvObject && $recipObj instanceof Character) {
+            $agent = ($this->agent instanceof Character) ? $this->agent : null;
+            if ($agent !== null) {
+                return $agent->actGive($itemObj, $recipObj);
+            }
         }
         return false;
     }
@@ -434,6 +499,143 @@ class ActionsRunner
     }
 
     /**
+     * Display / Print [destination,] msg1 [, msg2, ...]
+     * Outputs formatted messages directly to player console(s).
+     *
+     * As per DimensioneX ActionsRunner.java & SmallBasic Developer's Reference §3.9.6 / §3.9.18:
+     * - If destination is omitted, default destination is $AGENT (or $OWNER if agent is null).
+     * - If destination is $WORLD, displays to all players connected to the world.
+     * - If destination is a Room, displays to all players/characters in that room.
+     * - If destination is a Player/Character, displays directly to that player's console via display().
+     * - When multiple messages are specified, they cycle sequentially across interactions.
+     */
+    protected function actDisplay(array $args, bool $rightColumn = false): bool
+    {
+        if (empty($args)) {
+            return false;
+        }
+
+        $isLiteral = function(mixed $s): bool {
+            if (!is_string($s)) {
+                return true;
+            }
+            $t = trim($s);
+            if ($t === '') {
+                return true;
+            }
+            return str_starts_with($t, '"') || str_starts_with($t, "'") || is_numeric($t);
+        };
+
+        $resolveObj = function(mixed $s): ?DimxObject {
+            if (!is_string($s)) {
+                return ($s instanceof DimxObject) ? $s : null;
+            }
+            $t = trim($s);
+            $upper = strtoupper($t);
+            if ($upper === '$WORLD' || $upper === 'WORLD') {
+                return $this->world;
+            }
+            if ($upper === '$AGENT' || $upper === 'AGENT') {
+                return ($this->agent instanceof DimxObject) ? $this->agent : null;
+            }
+            if ($upper === '$OWNER' || $upper === 'OWNER') {
+                return ($this->owner instanceof DimxObject) ? $this->owner : null;
+            }
+            if ($upper === '$TARGET' || $upper === 'TARGET') {
+                return ($this->target instanceof DimxObject) ? $this->target : null;
+            }
+            return $this->world->getObjectExt($t);
+        };
+
+        $p0 = $args[0] ?? null;
+        $p0Obj = (!$isLiteral($p0)) ? $resolveObj($p0) : null;
+
+        if ($p0Obj === null || count($args) === 1) {
+            // Compact syntax: Display msg1 [, msg2, ...]
+            // Default destination is $AGENT (fallback to $OWNER or $WORLD)
+            $destination = ($this->agent instanceof DimxObject)
+                ? $this->agent
+                : (($this->owner instanceof DimxObject) ? $this->owner : $this->world);
+            $messages = $args;
+        } else {
+            // Explicit destination: Display destination, msg1 [, msg2, ...]
+            $destination = $p0Obj;
+            $messages = array_slice($args, 1);
+        }
+
+        if (empty($messages)) {
+            return false;
+        }
+
+        // Sequential message selection across interactions
+        $msgKey = '__act_disp_' . md5(implode('||', $messages));
+        $lastIdx = ($destination instanceof DimxObject) ? $destination->getProperty($msgKey) : null;
+        $nextIdx = ($lastIdx !== null && is_numeric($lastIdx)) ? ((int)$lastIdx + 1) : 0;
+        if ($nextIdx >= count($messages)) {
+            $nextIdx = 0;
+        }
+        if ($destination instanceof DimxObject) {
+            $destination->setProperty($msgKey, $nextIdx);
+        }
+
+        $chosen = (string)$this->evalValue((string)$messages[$nextIdx]);
+        if ((str_starts_with($chosen, '"') && str_ends_with($chosen, '"')) ||
+            (str_starts_with($chosen, "'") && str_ends_with($chosen, "'"))) {
+            $chosen = substr($chosen, 1, -1);
+        }
+
+        // Display to destination
+        if ($destination instanceof DimxObject) {
+            if ($rightColumn && method_exists($destination, 'displayRight')) {
+                $destination->displayRight($chosen);
+            } else {
+                $destination->display($chosen);
+            }
+        } elseif ($this->agent instanceof Character) {
+            $this->agent->display($chosen);
+        }
+
+        return true;
+    }
+
+    /**
+     * Call subroutine, event, or object.event
+     * Syntax:
+     *   Call object.event
+     *   Call subroutineName
+     *   Call subroutineName(arg1, arg2, ...)
+     */
+    protected function actCall(array $args, string $argString = ''): mixed
+    {
+        $raw = trim($argString);
+        if ($raw === '') {
+            $raw = implode(' ', $args);
+        }
+        if ($raw === '') {
+            return true;
+        }
+
+        $subName = $raw;
+        $callArgs = [];
+        if (preg_match('/^([A-Za-z0-9_.]+)\s*(?:\((.*)\))?$/', $raw, $m)) {
+            $subName = trim($m[1]);
+            if (isset($m[2]) && trim($m[2]) !== '') {
+                $callArgs = $this->parseArguments($m[2]);
+            }
+        }
+
+        // 1. If subName has a dot, e.g. "gate1.onOpen"
+        if (str_contains($subName, '.')) {
+            [$objId, $evtName] = explode('.', $subName, 2);
+            $obj = $this->resolveObject($objId);
+            return $this->world->fireEvent($evtName, $obj, $this->agent, $this->target, $callArgs, true);
+        }
+
+        // 2. Direct event / subroutine in world
+        return $this->world->fireEvent($subName, $this->owner, $this->agent, $this->target, $callArgs, true);
+    }
+
+    /**
      * Broadcast message to all connected players in the world.
      */
     protected function actBroadcast(array $args): bool
@@ -567,6 +769,17 @@ class ActionsRunner
     {
         $expr = trim($expr);
 
+        // Unwrap outer parentheses if fully enclosed: (expr)
+        while (str_starts_with($expr, '(') && str_ends_with($expr, ')') && self::isFullyEnclosedInParens($expr)) {
+            $expr = trim(substr($expr, 1, -1));
+        }
+
+        // Logical NOT: Not expr or Not(expr)
+        if (preg_match('/^NOT\b\s*(.*)$/i', $expr, $nm)) {
+            $inner = trim($nm[1]);
+            return !$this->evalCondition($inner);
+        }
+
         // Check operators: <>, <=, >=, =, <, >
         $operators = ['<>', '<=', '>=', '=', '<', '>'];
         foreach ($operators as $op) {
@@ -595,6 +808,29 @@ class ActionsRunner
         }
 
         return $this->evalValue($expr);
+    }
+
+    /**
+     * Check if string is completely wrapped in balanced matching parentheses.
+     */
+    protected static function isFullyEnclosedInParens(string $s): bool
+    {
+        $len = strlen($s);
+        if ($len < 2 || $s[0] !== '(' || $s[$len - 1] !== ')') {
+            return false;
+        }
+        $depth = 0;
+        for ($i = 0; $i < $len - 1; $i++) {
+            if ($s[$i] === '(') {
+                $depth++;
+            } elseif ($s[$i] === ')') {
+                $depth--;
+                if ($depth === 0) {
+                    return false;
+                }
+            }
+        }
+        return $depth === 1;
     }
 
     /**
@@ -688,7 +924,7 @@ class ActionsRunner
             return null;
         }
 
-        // Simple binary arithmetic: left [+-*/] right (e.g. "$OWNER.Health + 0.2")
+        // Simple binary arithmetic: left [+-*/] right (e.g. "$OWNER.Health + 0.2" or string concat "Text " + var)
         if (preg_match('/^(.+?)\s*([\+\-\*\/])\s*(.+)$/', $val, $am)) {
             $left = $this->evalValue($am[1]);
             $op = $am[2];
@@ -701,6 +937,8 @@ class ActionsRunner
                     '/' => $right != 0 ? $left / $right : 0,
                     default => $val,
                 };
+            } elseif ($op === '+') {
+                return (string)$left . (string)$right;
             }
         }
 

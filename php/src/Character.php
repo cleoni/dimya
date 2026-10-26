@@ -237,6 +237,161 @@ class Character extends AdvObject
     }
 
     /**
+     * Search an object/container (or the character's current room if null) to reveal hidden objects.
+     */
+    public function actSearch(?AdvObject $targetObj = null): bool
+    {
+        if ($targetObj === null) {
+            $targetObj = $this->getRoom() ?? $this->container;
+        }
+
+        if ($targetObj === null) {
+            $this->display("I found nothing new.");
+            return false;
+        }
+
+        if (!$targetObj->isAccessibleFrom($this) && $targetObj !== $this->container && $targetObj !== $this->getRoom()) {
+            $this->display("I could not do that.");
+            return false;
+        }
+
+        $candidates = [];
+        // 1. Contained objects (items, characters)
+        foreach ($targetObj->contents as $item) {
+            if ($item instanceof AdvObject) {
+                $candidates[] = $item;
+            }
+        }
+        // 2. Links/ways if container is a Room
+        if ($targetObj instanceof Room) {
+            foreach ($targetObj->ways as $link) {
+                if ($link instanceof AdvObject) {
+                    $candidates[] = $link;
+                }
+            }
+        }
+
+        $found = 0;
+        foreach ($candidates as $x) {
+            if ($x->isHidden()) {
+                if ($x->isAccessibleFrom($this) || ($x instanceof Link && $targetObj instanceof Room)) {
+                    $ret = true;
+                    if ($this->world !== null) {
+                        $ret = $this->world->fireEvent('onSearch', $x, $this, '', [], true);
+                    }
+                    if ($ret !== false && $ret !== 0 && $ret !== '0') {
+                        if (property_exists($x, 'hidden')) {
+                            $x->hidden = false;
+                        }
+                        $x->setProperty('hidden', 0);
+                        foreach ($x->properties as $k => $v) {
+                            if (strcasecmp((string)$k, 'hidden') === 0) {
+                                $x->properties[$k] = 0;
+                            }
+                        }
+                        if (property_exists($x, 'visible')) {
+                            $x->visible = true;
+                        }
+                        $x->setProperty('visible', 1);
+
+                        $name = !empty($x->name) ? $x->name : $x->id;
+                        $this->display("I found {$name}!!");
+                        $found++;
+                    }
+                }
+            }
+        }
+
+        if ($found === 0) {
+            $this->display("I found nothing new.");
+        }
+
+        return true;
+    }
+
+    /**
+     * Alias matching DimensioneX Java Character.objectSearch(fullId).
+     */
+    public function objectSearch(string|AdvObject|null $target = null): bool
+    {
+        if (is_string($target) && !empty($target)) {
+            $obj = $this->world?->getObject($target) ?? $this->world?->contents[$target] ?? null;
+            return $this->actSearch($obj);
+        }
+        return $this->actSearch(is_object($target) ? $target : null);
+    }
+
+    /**
+     * Give an item to another character / actor.
+     */
+    public function actGive(AdvObject $item, Character $recipient): bool
+    {
+        if (!$item->isanItem()) {
+            $this->display("I can only give items.");
+            return false;
+        }
+
+        if (!$item->isAccessibleFrom($this)) {
+            $this->display("I can't, they both should be accessible.");
+            return false;
+        }
+
+        // Recipient must be in the same room (near)
+        if ($this->container === null || $recipient->container !== $this->container) {
+            $this->display("I can't, they both should be accessible.");
+            return false;
+        }
+
+        if (property_exists($item, 'pickable') && !$item->pickable) {
+            $this->display("Could not move {$item->name}");
+            return false;
+        }
+
+        if ($item instanceof Item && !$recipient->canAccept($item)) {
+            $this->display("Does not accept it.");
+            return false;
+        }
+
+        $origCont = $item->container;
+
+        if (!$item->move($recipient)) {
+            $this->display("There's not enough room.");
+            return false;
+        }
+
+        // Trigger events
+        if ($this->world !== null) {
+            if ($origCont !== null) {
+                $this->world->fireEvent('onLooseItem', $origCont, $this, $item);
+            }
+            $this->world->fireEvent('whenGiven', $this, $recipient, $item);
+            $this->world->fireEvent('whenReceived', $recipient, $this, $item);
+            $this->world->fireEvent('whenPicked', $item, $this, $recipient);
+            $this->world->fireEvent('onReceiveItem', $recipient, $this, $item);
+        }
+
+        // Notifications
+        $recipient->display("{$this->name} gave me {$item->name}!!");
+        $this->display("I gave {$item->name} to {$recipient->name}.");
+
+        return true;
+    }
+
+    /**
+     * Alias matching DimensioneX Java Character.itemGive(fullId, toWhoId).
+     */
+    public function itemGive(string|AdvObject $item, string|Character $recipient): bool
+    {
+        $itemObj = is_string($item) ? ($this->world?->getObject($item) ?? $this->world?->contents[$item] ?? null) : $item;
+        $recipObj = is_string($recipient) ? ($this->world?->getCharacter($recipient) ?? $this->world?->contents[$recipient] ?? null) : $recipient;
+        if (!($itemObj instanceof AdvObject) || !($recipObj instanceof Character)) {
+            $this->display("The selected item does not exist anymore.");
+            return false;
+        }
+        return $this->actGive($itemObj, $recipObj);
+    }
+
+    /**
      * Display a message directly to this character (e.g. system notification or speech).
      */
     public function display(string $msg): bool

@@ -63,6 +63,7 @@ class Player extends Character
             $capacity, $volume, $defContainer
         );
         $this->showmode = self::SHOW_ONSCREEN;
+        $this->accepts = '*';
     }
 
     /**

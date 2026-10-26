@@ -47,6 +47,10 @@ $sections = [
     27 => ['title' => 'Testing Multi-line Double-Quoted Strings & Barman Dialogue Cycle (world3net)...', 'keywords' => ['multiline', 'string', 'quote', 'barman', 'onhear', 'onspeechfinish', 'lattina', 'speak', 'cycle']],
     28 => ['title' => 'Testing use2 ("Use With") Command, Default Panel Button & Trapdoor Unlocking (key1 on w6)...', 'keywords' => ['use2', 'usewith', 'key1', 'w6', 'onusewith', 'panel', 'defaultpanel', 'trapdoor', 'unlock']],
     29 => ['title' => 'Testing Hidden Objects (hidden=1) in UIhtml, UIbot, and UIjson (world3net treasure)...', 'keywords' => ['hidden', 'ishidden', 'treasure', 'beachcliff', 'uihtml', 'uibot', 'uijson', 'attrlist']],
+    30 => ['title' => 'Testing Display & Call Instructions, Keyed Image Assignment & switch1.onUse (world3net)...', 'keywords' => ['display', 'call', 'switch1', 'gate1', 'onuse', 'onopen', 'image', 'actionsrunner']],
+    31 => ['title' => 'Testing Server Setting tickLength & Clock Tick Management (world3net switch1 & onTick)...', 'keywords' => ['tick', 'ticklength', 'ontick', 'lasttick', 'clock', 'interval', 'config', 'switch1', 'gate1']],
+    32 => ['title' => 'Testing Search Command, onSearch Event & Revealing Hidden Objects (world3net)...', 'keywords' => ['search', 'onsearch', 'hidden', 'visible', 'found nothing new', 'treasure', 'forbici']],
+    33 => ['title' => 'Testing Give Command, Default Panel Button & onReceiveItem Quest Transfer (world3net Tommy & apple)...', 'keywords' => ['give', 'itemgive', 'actgive', 'panel', 'tommy', 'cell', 'apple', 'onreceiveitem', 'accepts']],
 ];
 
 // CLI Options parsing
@@ -2378,6 +2382,331 @@ if (shouldRun(29)) {
     $botSnapshotUnhidden = $uiBotHidden->buildRoomSnapshot($beachcliff, $pObserver);
     $botItemIdsUnhidden = array_column($botSnapshotUnhidden['items'] ?? [], 'id');
     assertTest(in_array('treasure', $botItemIdsUnhidden, true), "UIbot room snapshot includes unhidden item 'treasure'");
+}
+
+// ---------------------------------------------------------------------------
+// Section 30: Testing Display & Call Instructions, Keyed Image Assignment & switch1.onUse (world3net)
+// ---------------------------------------------------------------------------
+if (shouldRun(30)) {
+    echo "\n--- Section 30: Testing Display & Call Instructions, Keyed Image Assignment & switch1.onUse (world3net) ---\n";
+
+    $dxwLoader = new \Dimx\DxwLoader();
+    $w3Switch = $dxwLoader->load(__DIR__ . '/../docs/dxw-examples/world3net.dxw', 'w3_switch_world');
+
+    // 1. Objects exist and initial states
+    $kitchen = $w3Switch->getRoom('kitchen');
+    assertTest($kitchen instanceof \Dimx\Room, "world3net defines 'kitchen' room");
+    $switch1 = $w3Switch->contents['switch1'] ?? null;
+    assertTest($switch1 instanceof \Dimx\Item, "world3net defines item 'switch1'");
+    assertTest($switch1->container->id === 'kitchen', "'switch1' is positioned inside 'kitchen'");
+
+    $gate1 = $w3Switch->links['gate1'] ?? null;
+    assertTest($gate1 instanceof \Dimx\Link, "world3net defines link 'gate1'");
+    assertTest(!$gate1->isOpen(), "'gate1' is initially closed");
+    assertTest($gate1->isLocked(), "'gate1' is initially locked");
+
+    $pathgate = $w3Switch->getRoom('pathgate');
+    assertTest($pathgate instanceof \Dimx\Room, "world3net defines 'pathgate' room");
+    $initialPathgateImageE = $pathgate->images['E']->src ?? null;
+    assertTest($initialPathgateImageE === null, "'pathgate' has no initial 'E' image defined");
+
+    // 2. Setup player in kitchen
+    $pSwitch = new \Dimx\Player($w3Switch, 'Electrician', 'p_switch_1');
+    $pSwitch->move($kitchen);
+    assertTest($pSwitch->getRoom()->id === 'kitchen', "Electrician is inside 'kitchen'");
+
+    // 3. Execute 'use switch1'
+    $switchEngine = new \Dimx\GameEngine($pm, 'w3_switch_test', __DIR__ . '/../docs/dxw-examples/world3net.dxw');
+    $switchEngine->executeCommandAction($w3Switch, $pSwitch, 'use', 'switch1', '');
+
+    $consoleMsgs = $pSwitch->drainConsole();
+    $combinedMsgs = implode(' ', $consoleMsgs);
+
+    // Verify Display instruction executed and output message
+    assertTest(str_contains($combinedMsgs, "Hmmm.. the light doesn't turn on. What is this for then?!?"), "Player console contains Display output: '{$combinedMsgs}'");
+    assertTest(str_contains($combinedMsgs, "Done!"), "Player console contains 'Done!' confirmation");
+
+    // Verify switch1.onUse opened and unlocked gate1
+    assertTest($gate1->isOpen(), "'gate1' is now open (gate1.open = 1)");
+    assertTest(!$gate1->isLocked(), "'gate1' is now unlocked (gate1.locked = 0)");
+
+    // Verify Call gate1.onOpen executed: pathgate.image(\"E\") = \"pathgateeo.jpg\"
+    $updatedPathgateImageE = $pathgate->images['E']->src ?? null;
+    assertTest($updatedPathgateImageE !== null && str_contains($updatedPathgateImageE, 'pathgateeo.jpg'), "Call gate1.onOpen set pathgate.image('E') to pathgateeo.jpg: '{$updatedPathgateImageE}'");
+}
+
+// ---------------------------------------------------------------------------
+// Section 31: Testing Server Setting tickLength & Clock Tick Management
+// ---------------------------------------------------------------------------
+if (shouldRun(31)) {
+    echo "\n--- Section 31: Testing Server Setting tickLength & Clock Tick Management (world3net switch1 & onTick) ---\n";
+
+    // 1. Check config.php setting
+    $configFile = __DIR__ . '/config.php';
+    assertTest(file_exists($configFile), "config.php exists");
+    $mainConfig = require $configFile;
+    assertTest(isset($mainConfig['tickLength']), "config.php defines 'tickLength'");
+    assertTest($mainConfig['tickLength'] === 30, "config.php 'tickLength' defaults to 30: " . var_export($mainConfig['tickLength'], true));
+
+    // 2. Check config.sample.php setting
+    $sampleConfigFile = __DIR__ . '/config.sample.php';
+    assertTest(file_exists($sampleConfigFile), "config.sample.php exists");
+    $sampleConfig = require $sampleConfigFile;
+    assertTest(isset($sampleConfig['tickLength']), "config.sample.php defines 'tickLength'");
+    assertTest($sampleConfig['tickLength'] === 30, "config.sample.php 'tickLength' defaults to 30: " . var_export($sampleConfig['tickLength'], true));
+
+    // 3. Test GameEngine applies tickLength from config to World
+    $customEngine = new \Dimx\GameEngine($pm, 'tick_config_test', null, '', ['tickLength' => 45]);
+    $seededWorld = $customEngine->loadOrSeedWorld();
+    assertTest($seededWorld->tickLength === 45, "GameEngine applied config tickLength (45) to seeded world: {$seededWorld->tickLength}");
+
+    // 4. Test World::tick() timing logic
+    $tickTestWorld = new \Dimx\World('test_tick_world', 'Tick Test World');
+    $tickTestWorld->tickLength = 30;
+    $tickState = new \stdClass();
+    $tickState->count = 0;
+    $tickTestWorld->events['onTick'] = new class($tickState) extends \Dimx\Event {
+        private \stdClass $state;
+        public function __construct(\stdClass $s) { parent::__construct('onTick', 'onTick', null); $this->state = $s; }
+        public function fire(?\Dimx\DimxObject $owner = null, mixed $agent = null, mixed $target = null, array $input = [], mixed $defaultResult = true, ?\Dimx\World $worldFallback = null): mixed {
+            $this->state->count++;
+            return true;
+        }
+    };
+
+    // First call when lastTick is 0 initializes lastTick without firing onTick
+    $tickTestWorld->lastTick = 0;
+    $rInit = $tickTestWorld->tick();
+    assertTest($rInit === false, "World::tick() when lastTick was 0 returns false (initializes timestamp)");
+    assertTest($tickTestWorld->lastTick > 0, "World::tick() initialized lastTick timestamp: {$tickTestWorld->lastTick}");
+    assertTest($tickState->count === 0, "onTick was NOT triggered during initial tick");
+
+    // Immediate second call (< 30s elapsed) must be skipped
+    $rSkipped = $tickTestWorld->tick();
+    assertTest($rSkipped === false, "World::tick() called immediately (< 30s elapsed) returns false");
+    assertTest($tickState->count === 0, "onTick was NOT triggered on immediate call");
+
+    // Calling with force = true bypasses interval
+    $rForced = $tickTestWorld->tick(force: true);
+    assertTest($rForced === true, "World::tick(force: true) returns true");
+    assertTest($tickState->count === 1, "onTick was triggered when force = true (count: {$tickState->count})");
+
+    // Advance time by setting lastTick to 35 seconds ago
+    $tickTestWorld->lastTick = time() - 35;
+    $rElapsed = $tickTestWorld->tick();
+    assertTest($rElapsed === true, "World::tick() returns true when time elapsed (35s) >= tickLength (30s)");
+    assertTest($tickState->count === 2, "onTick was triggered after tickLength elapsed (count: {$tickState->count})");
+    assertTest((time() - $tickTestWorld->lastTick) <= 1, "lastTick timestamp was updated to current time");
+
+    // 5. Test tick interval behavior in world3net (switch1 & gate1)
+    $dxwLoader = new \Dimx\DxwLoader('http://localhost');
+    $w3Tick = $dxwLoader->load(__DIR__ . '/../docs/dxw-examples/world3net.dxw');
+    $w3Tick->tickLength = 30;
+    $w3Tick->lastTick = time();
+
+    $kitchenRoom = $w3Tick->contents['kitchen'] ?? null;
+    $gate1Link   = $w3Tick->contents['gate1'] ?? null;
+    $switchItem  = $w3Tick->contents['switch1'] ?? null;
+    $pTickTester = new \Dimx\Player($w3Tick, 'TickTester', 'p_tick_tester');
+    $pTickTester->move($kitchenRoom);
+
+    // Initial state: gate1 is closed and locked
+    assertTest(!$gate1Link->isOpen(), "Initial gate1 is closed");
+    assertTest($gate1Link->isLocked(), "Initial gate1 is locked");
+
+    // Use switch1 -> opens gate1
+    $w3TickEngine = new \Dimx\GameEngine($pm, 'w3_tick_engine', __DIR__ . '/../docs/dxw-examples/world3net.dxw');
+    $w3TickEngine->executeCommandAction($w3Tick, $pTickTester, 'use', 'switch1', '');
+    assertTest($gate1Link->isOpen(), "After switch1.onUse, gate1 is open");
+    assertTest(!$gate1Link->isLocked(), "After switch1.onUse, gate1 is unlocked");
+
+    // Simulate an immediate next command / player action (< 30s elapsed)
+    $tickExecuted = $w3Tick->tick();
+    assertTest($tickExecuted === false, "Immediate next player action does NOT trigger world clock tick (tick returned false)");
+    assertTest($gate1Link->isOpen(), "gate1 remains OPEN because clock tick did not fire yet");
+    assertTest(!$gate1Link->isLocked(), "gate1 remains UNLOCKED because clock tick did not fire yet");
+
+    // Simulate 30 seconds passing
+    $w3Tick->lastTick = time() - 30;
+    $tickExecutedAfterWait = $w3Tick->tick();
+    assertTest($tickExecutedAfterWait === true, "Clock tick triggered after 30 seconds (tick returned true)");
+    assertTest(!$gate1Link->isOpen(), "onTick closed gate1 after tickLength elapsed (gate1.open = 0)");
+    assertTest($gate1Link->isLocked(), "onTick locked gate1 after tickLength elapsed (gate1.locked = 1)");
+}
+
+// ---------------------------------------------------------------------------
+// Section 32: Testing Search Command, onSearch Event & Revealing Hidden Objects
+// ---------------------------------------------------------------------------
+if (shouldRun(32)) {
+    echo "\n--- Section 32: Testing Search Command, onSearch Event & Revealing Hidden Objects (world3net) ---\n";
+
+    $dxwLoader = new \Dimx\DxwLoader('http://localhost');
+    $w3Search = $dxwLoader->load(__DIR__ . '/../docs/dxw-examples/world3net.dxw');
+    $searchEngine = new \Dimx\GameEngine($pm, 'w3_search_test', __DIR__ . '/../docs/dxw-examples/world3net.dxw');
+
+    // 1. Verify default panel allows 'search'
+    $defPanel = $w3Search->defaultPanel;
+    assertTest($defPanel !== null, "World 3 has default panel");
+    assertTest($defPanel->isCommandAllowed('search'), "Default panel allows 'search' command");
+
+    // 2. Test searching in a room with NO hidden objects (e.g. 'bar')
+    $barRoom = $w3Search->contents['bar'] ?? null;
+    assertTest($barRoom instanceof \Dimx\Room, "World 3 contains room 'bar'");
+    $pSearcher = new \Dimx\Player($w3Search, 'Searcher', 'p_searcher');
+    $pSearcher->move($barRoom);
+
+    $searchEngine->executeCommandAction($w3Search, $pSearcher, 'search', '', '');
+    $barMsgs = $pSearcher->drainConsole();
+    $barOutput = implode(' ', $barMsgs);
+    assertTest(str_contains($barOutput, "I found nothing new."), "Searching room with no hidden objects displays 'I found nothing new.': '{$barOutput}'");
+
+    // 3. Test revealing hidden object without onSearch restriction: 'forbici' in 'parcoLunetta'
+    $parcoRoom = $w3Search->contents['parcoLunetta'] ?? null;
+    $forbiciItem = $w3Search->contents['forbici'] ?? null;
+    assertTest($parcoRoom instanceof \Dimx\Room, "World 3 contains room 'parcoLunetta'");
+    assertTest($forbiciItem instanceof \Dimx\Item, "World 3 defines item 'forbici'");
+    assertTest($forbiciItem->isHidden(), "Initial 'forbici' isHidden() === true");
+
+    $pSearcher->move($parcoRoom);
+    $searchEngine->executeCommandAction($w3Search, $pSearcher, 'search', '', '');
+    $parcoMsgs = $pSearcher->drainConsole();
+    $parcoOutput = implode(' ', $parcoMsgs);
+
+    assertTest(str_contains($parcoOutput, "I found scissors!!"), "Searching parcoLunetta reveals scissors ('I found scissors!!'): '{$parcoOutput}'");
+    assertTest(!$forbiciItem->isHidden(), "'forbici' isHidden() is now false after search");
+
+    // Searching parcoLunetta again produces 'I found nothing new.'
+    $searchEngine->executeCommandAction($w3Search, $pSearcher, 'search', '', '');
+    $parcoMsgs2 = $pSearcher->drainConsole();
+    $parcoOutput2 = implode(' ', $parcoMsgs2);
+    assertTest(str_contains($parcoOutput2, "I found nothing new."), "Repeated search in parcoLunetta outputs 'I found nothing new.': '{$parcoOutput2}'");
+
+    // 4. Test onSearch conditional event: 'treasure' in 'beachcliff'
+    // treasure.onSearch: If (Not($AGENT.foundmap)) Return false
+    $beachcliffRoom = $w3Search->contents['beachcliff'] ?? null;
+    $treasureItem = $w3Search->contents['treasure'] ?? null;
+    assertTest($beachcliffRoom instanceof \Dimx\Room, "World 3 contains room 'beachcliff'");
+    assertTest($treasureItem instanceof \Dimx\Item, "World 3 defines item 'treasure'");
+    assertTest($treasureItem->isHidden(), "Initial 'treasure' isHidden() === true");
+
+    $pSearcher->move($beachcliffRoom);
+    // Player does NOT have foundmap yet
+    assertTest(!$pSearcher->varExists('foundmap') || empty($pSearcher->getProperty('foundmap')), "Player does not have foundmap");
+
+    $searchEngine->executeCommandAction($w3Search, $pSearcher, 'search', '', '');
+    $cliffMsgs1 = $pSearcher->drainConsole();
+    $cliffOutput1 = implode(' ', $cliffMsgs1);
+
+    assertTest(str_contains($cliffOutput1, "I found nothing new."), "Searching beachcliff without map outputs 'I found nothing new.': '{$cliffOutput1}'");
+    assertTest($treasureItem->isHidden(), "'treasure' remains hidden because treasure.onSearch returned false");
+
+    // Now give player foundmap = 1
+    $pSearcher->setProperty('foundmap', 1);
+    $pSearcher->foundmap = 1;
+
+    $searchEngine->executeCommandAction($w3Search, $pSearcher, 'search', '', '');
+    $cliffMsgs2 = $pSearcher->drainConsole();
+    $cliffOutput2 = implode(' ', $cliffMsgs2);
+
+    assertTest(str_contains($cliffOutput2, "I found treasure chest!!"), "Searching beachcliff WITH map reveals treasure ('I found treasure chest!!'): '{$cliffOutput2}'");
+    assertTest(!$treasureItem->isHidden(), "'treasure' isHidden() is now false after successful onSearch");
+
+    // 5. Test searching non-existent target
+    $searchEngine->executeCommandAction($w3Search, $pSearcher, 'search', 'nonexistent_box', '');
+    $errMsgs = $pSearcher->drainConsole();
+    $errOutput = implode(' ', $errMsgs);
+    assertTest(str_contains($errOutput, "The selected item does not exist anymore."), "Searching invalid item outputs 'The selected item does not exist anymore.': '{$errOutput}'");
+}
+
+// ---------------------------------------------------------------------------
+// Section 33: Testing Give Command, Default Panel Button & onReceiveItem Quest Transfer
+// ---------------------------------------------------------------------------
+if (shouldRun(33)) {
+    echo "\n--- Section 33: Testing Give Command, Default Panel Button & onReceiveItem Quest Transfer (world3net Tommy & apple) ---\n";
+
+    $dxwLoader = new \Dimx\DxwLoader('http://localhost');
+    $w3Give = $dxwLoader->load(__DIR__ . '/../docs/dxw-examples/world3net.dxw');
+    $giveEngine = new \Dimx\GameEngine($pm, 'w3_give_test', __DIR__ . '/../docs/dxw-examples/world3net.dxw');
+
+    // 1. Verify Default Panel defines 'give' button
+    $defPanel = $w3Give->defaultPanel;
+    assertTest($defPanel !== null, "World 3 has default panel");
+    $giveBtn = $defPanel->buttons['give'] ?? null;
+    assertTest($giveBtn instanceof \Dimx\Ctrl, "Default panel contains 'give' button");
+    assertTest($giveBtn->type === \Dimx\Ctrl::TYPE_BUTTON, "'give' ctrl is a button");
+    assertTest($giveBtn->caption === 'Give', "'give' button caption is 'Give'");
+    assertTest($giveBtn->eventModel === 'OO', "'give' button eventModel is 'OO' (two objects: item, character)");
+    assertTest($defPanel->isCommandAllowed('give'), "Default panel allows 'give' command");
+
+    // 2. Verify UIhtml COMMAND_DEFS includes 'give' with noArgs: 2
+    $htmlP = new \Dimx\Player($w3Give, 'HtmlHero', 'p_give_html');
+    $w3Give->addPlayer($htmlP);
+    $uiHtml = new \Dimx\UIhtml($htmlP, null);
+    $kitchenRoom = $w3Give->contents['kitchen'] ?? null;
+    ob_start();
+    $uiHtml->render([
+        'world'    => $w3Give,
+        'player'   => $htmlP,
+        'room'     => $kitchenRoom,
+        'messages' => [],
+    ]);
+    $htmlOutput = ob_get_clean();
+    assertTest(str_contains($htmlOutput, "'give': {"), "UIhtml script contains 'give' command definition");
+    assertTest(str_contains($htmlOutput, "model: 'OO'"), "UIhtml command definition specifies model 'OO'");
+
+    // 3. Setup quest entities in world3net
+    $tommyChar = $w3Give->contents['tommy'] ?? null;
+    assertTest($tommyChar instanceof \Dimx\Character, "World 3 defines character 'tommy'");
+    assertTest($tommyChar->accepts === 'apple', "Tommy accepts 'apple': {$tommyChar->accepts}");
+    $cellItem = $w3Give->contents['cell'] ?? null;
+    assertTest($cellItem instanceof \Dimx\Item, "World 3 defines item 'cell'");
+    assertTest($cellItem->container === $tommyChar, "Tommy is initially holding 'cell'");
+
+    $pGiver = new \Dimx\Player($w3Give, 'GiverHero', 'p_giver');
+    $w3Give->addPlayer($pGiver);
+    $pGiver->move($kitchenRoom);
+    assertTest($pGiver->getRoom()->id === 'kitchen', "Giver is inside 'kitchen'");
+    assertTest($tommyChar->container === $kitchenRoom, "Tommy is inside 'kitchen'");
+
+    // Give player an apple
+    $appleItem = new \Dimx\Item($w3Give, 'Fresh Apple', 'apple', 'A juicy red apple.', null, 'pickable=1');
+    $appleItem->move($pGiver);
+    assertTest(isset($pGiver->contents['apple']), "Giver is carrying 'apple'");
+
+    // 4. Test giving rejected item: create non-accepted key1 item
+    $rejectItem = new \Dimx\Item($w3Give, 'Rusty Key', 'rusty_key', 'An old key.', null, 'pickable=1');
+    $rejectItem->move($pGiver);
+
+    $giveEngine->executeCommandAction($w3Give, $pGiver, 'give', 'tommy', 'rusty_key');
+    $rejectMsgs = $pGiver->drainConsole();
+    $rejectOutput = implode(' ', $rejectMsgs);
+    assertTest(str_contains($rejectOutput, "Does not accept it."), "Giving rejected item outputs 'Does not accept it.': '{$rejectOutput}'");
+    assertTest(isset($pGiver->contents['rusty_key']), "Rejected item remains in giver's inventory");
+
+    // 5. Test successful give: give apple to tommy
+    $w3Give->chatQueue = [];
+    $giveEngine->executeCommandAction($w3Give, $pGiver, 'give', 'tommy', 'apple');
+    $giverMsgs = $pGiver->drainConsole();
+    $giverOutput = implode(' ', $giverMsgs);
+
+    assertTest(str_contains($giverOutput, "I gave Fresh Apple to Tommy."), "Giver console receives 'I gave Fresh Apple to Tommy.': '{$giverOutput}'");
+    $lastChat = end($w3Give->chatQueue);
+    assertTest(
+        $lastChat !== false && str_contains($lastChat['text'], "Thank you! While I'm eating, would you please hold this cellar phone..."),
+        "Tommy spoke via tommy.onReceiveItem: '{$lastChat['text']}'"
+    );
+
+    // Verify item ownership transferred
+    assertTest(!isset($pGiver->contents['apple']), "Apple is no longer in giver's inventory");
+    assertTest(isset($tommyChar->contents['apple']), "Apple is now held by Tommy");
+    assertTest(isset($pGiver->contents['cell']), "Cellular phone was transferred to giver by tommy.onReceiveItem (Move cell, \$AGENT)");
+    assertTest(!isset($tommyChar->contents['cell']), "Tommy is no longer holding cell");
+
+    // 6. Test giving to non-actor / room
+    $giveEngine->executeCommandAction($w3Give, $pGiver, 'give', 'kitchen', 'cell');
+    $actorMsgs = $pGiver->drainConsole();
+    $actorOutput = implode(' ', $actorMsgs);
+    assertTest(str_contains($actorOutput, "I can only give objects to other actors."), "Giving to room outputs 'I can only give objects to other actors.': '{$actorOutput}'");
 }
 
 // Clean up test worlds

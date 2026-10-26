@@ -18,6 +18,7 @@ class GameEngine
     public string $baseUrl;
     public ?\PDO $pdo = null;
     public ?WorldLock $lock = null;
+    public array $config = [];
 
     /** Inactivity timeout for automatically disconnecting idle players (seconds) */
     public int $playerTimeout = 1800; // 30 minutes
@@ -26,12 +27,21 @@ class GameEngine
         PersistenceManager $pm,
         string $worldId = 'default',
         ?string $worldFile = null,
-        string $baseUrl = ''
+        string $baseUrl = '',
+        array $config = []
     ) {
         $this->pm        = $pm;
         $this->worldId   = $worldId;
         $this->worldFile = $worldFile;
         $this->baseUrl   = $baseUrl;
+        $this->config    = $config;
+
+        if (empty($this->config) && file_exists(__DIR__ . '/../config.php')) {
+            $loadedConfig = @require __DIR__ . '/../config.php';
+            if (is_array($loadedConfig)) {
+                $this->config = $loadedConfig;
+            }
+        }
 
         $this->pdo  = $pm->getPdo();
         $this->lock = ($this->pdo !== null) ? new WorldLock($this->pdo) : null;
@@ -50,6 +60,9 @@ class GameEngine
         $world = $this->pm->loadWorld($this->worldId);
         if ($world !== null) {
             $world->persistence = $this->pm;
+            if (isset($this->config['tickLength']) && is_numeric($this->config['tickLength'])) {
+                $world->tickLength = max(1, (int)$this->config['tickLength']);
+            }
             $this->pruneStalePlayers($world);
             return $world;
         }
@@ -81,6 +94,10 @@ class GameEngine
 
         $world->id          = $this->worldId;
         $world->persistence = $this->pm;
+
+        if (isset($this->config['tickLength']) && is_numeric($this->config['tickLength'])) {
+            $world->tickLength = max(1, (int)$this->config['tickLength']);
+        }
 
         // Trigger onStart event at world initialization (as in DimensioneX World.start())
         $world->fireEvent('onStart', $world, null, null);
@@ -373,7 +390,7 @@ class GameEngine
         $panel = $player->getPanel() ?? $world->defaultPanel;
         $isCoreCommand = in_array($cmd, [
             'look', 'click', 'go', 'pick', 'take', 'get', 'drop',
-            'use', 'use2', 'usewith', 'open', 'close', 'search', 'say', 'inv',
+            'give', 'use', 'use2', 'usewith', 'open', 'close', 'search', 'say', 'inv',
             'inventory', 'help', 'save', 'exit', 'logout'
         ], true);
 
@@ -564,6 +581,73 @@ class GameEngine
                 $this->actUseWith($obj1, $obj2, $player);
                 break;
 
+            case 'search':
+                $searchTarget = !empty($targetId) ? $targetId : $param;
+                if (!empty($searchTarget)) {
+                    $targetObj = $this->findAccessibleObject($player, $searchTarget);
+                    if ($targetObj instanceof AdvObject) {
+                        $this->actSearch($targetObj, $player);
+                    } else {
+                        $player->display("The selected item does not exist anymore.");
+                    }
+                } else {
+                    $currentRoom = $player->getRoom();
+                    if ($currentRoom instanceof AdvObject) {
+                        $this->actSearch($currentRoom, $player);
+                    } else {
+                        $player->display("I found nothing new.");
+                    }
+                }
+                break;
+
+            case 'give':
+                $itemTarget = '';
+                $toWhoTarget = '';
+
+                if (!empty($targetId) && !empty($param)) {
+                    $itemTarget = $targetId;
+                    $toWhoTarget = $param;
+                } else {
+                    $raw = !empty($param) ? $param : $targetId;
+                    $raw = preg_replace('/\bto\b/i', ' ', $raw);
+                    $tokens = preg_split('/[,\s]+/', trim($raw));
+                    $itemTarget = $tokens[0] ?? '';
+                    $toWhoTarget = $tokens[1] ?? '';
+                }
+
+                if (empty($itemTarget) || empty($toWhoTarget)) {
+                    $player->display("Specify an item to give and a recipient.");
+                    break;
+                }
+
+                $obj1 = $this->findAccessibleObject($player, $itemTarget);
+                $obj2 = $this->findAccessibleObject($player, $toWhoTarget);
+
+                if ($obj1 === null || $obj2 === null) {
+                    $player->display("The selected item does not exist anymore.");
+                    break;
+                }
+
+                // If user selected character first and item second, swap them
+                if ($obj1 instanceof Character && !($obj2 instanceof Character)) {
+                    $tmp = $obj1;
+                    $obj1 = $obj2;
+                    $obj2 = $tmp;
+                }
+
+                if (!($obj1 instanceof Item)) {
+                    $player->display("I can only give items.");
+                    break;
+                }
+
+                if (!($obj2 instanceof Character)) {
+                    $player->display("I can only give objects to other actors.");
+                    break;
+                }
+
+                $this->actGive($obj1, $obj2, $player);
+                break;
+
             case 'say':
                 if (!empty($param)) {
                     // Check if an explicit target was specified (say to someone)
@@ -742,5 +826,21 @@ class GameEngine
     public function actClose(AdvObject $targetObj, Player $player): bool
     {
         return $player->actClose($targetObj);
+    }
+
+    /**
+     * Search an adventure object or container (or current room) for the given player.
+     */
+    public function actSearch(?AdvObject $targetObj, Player $player): bool
+    {
+        return $player->actSearch($targetObj);
+    }
+
+    /**
+     * Give an item to another character for the given player.
+     */
+    public function actGive(Item $item, Character $recipient, Player $player): bool
+    {
+        return $player->actGive($item, $recipient);
     }
 }

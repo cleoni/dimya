@@ -71,6 +71,7 @@ class Panel
         $panel->addButton(new Ctrl('open', Ctrl::TYPE_BUTTON, 'Open', 'Open a container or door', 'onOpen', null, 'O'));
         $panel->addButton(new Ctrl('close', Ctrl::TYPE_BUTTON, 'Close', 'Close a container or door', 'onClose', null, 'O'));
         $panel->addButton(new Ctrl('search', Ctrl::TYPE_BUTTON, 'Search', 'Search for hidden items', 'onSearch', null, ''));
+        $panel->addButton(new Ctrl('give', Ctrl::TYPE_BUTTON, 'Give', 'Give an item to another character', 'onReceiveItem', null, 'OO'));
         $panel->addButton(new Ctrl('txtBox', Ctrl::TYPE_TEXTBOX, '', 'Enter speech or action...'));
         $panel->addButton(new Ctrl('say', Ctrl::TYPE_BUTTON, 'Say', 'Speak to characters in the room', 'onSay', null, 'TO'));
         $panel->addButton(new Ctrl('help', Ctrl::TYPE_BUTTON, 'Help', 'Show help instructions', 'onHelp', null, ''));

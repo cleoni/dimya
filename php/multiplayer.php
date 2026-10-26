@@ -137,7 +137,7 @@ if ($clientType === 'json') {
 }
 
 // 7. Instantiate core GameEngine for atomic command processing
-$engine = new GameEngine($pm, $worldId, $worldFile, $baseUrl);
+$engine = new GameEngine($pm, $worldId, $worldFile, $baseUrl, $config);
 $ui->setEngine($engine);
 
 // 8. Process player command inside concurrency critical section
