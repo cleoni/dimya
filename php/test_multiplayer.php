@@ -52,6 +52,8 @@ $sections = [
     32 => ['title' => 'Testing Search Command, onSearch Event & Revealing Hidden Objects (world3net)...', 'keywords' => ['search', 'onsearch', 'hidden', 'visible', 'found nothing new', 'treasure', 'forbici']],
     33 => ['title' => 'Testing Give Command, Default Panel Button & onReceiveItem Quest Transfer (world3net Tommy & apple)...', 'keywords' => ['give', 'itemgive', 'actgive', 'panel', 'tommy', 'cell', 'apple', 'onreceiveitem', 'accepts']],
     34 => ['title' => "Testing Apostrophes in ROOM & CHARACTER Definitions (world3net parcoAnatre 'The duck\\'s house')...", 'keywords' => ['apostrophe', 'comment', 'name', 'room', 'character', 'parcoanatre', 'duck', 'house', 'dxwloader']],
+    35 => ['title' => 'Testing 3x3 Navpad Table, Default Skin Arrow Icons & Direction Placement (UIhtml)...', 'keywords' => ['navpad', 'skin', 'default', 'arrow', 'icons', 'direction', 'n', 'w', 'e', 's', 'uihtml']],
+    36 => ['title' => 'Testing Player Orientation, Multi-faced Rooms, Rotation Commands (rotl/rotr/rev) & Navpad Multiface...', 'keywords' => ['facing', 'orientation', 'multiface', 'pathgate', 'rotl', 'rotr', 'rev', 'rotate', 'view', 'title', 'navpad']],
 ];
 
 // CLI Options parsing
@@ -1982,17 +1984,22 @@ if (shouldRun(25)) {
     ]);
     $navHtml = ob_get_clean();
 
-    // Verify w24 and w25 are NOT rendered as button titles, but 'North' and 'South' are rendered
+    // Verify 3x3 table with ID 'navpad' exists
+    assertTest(str_contains($navHtml, '<table id="navpad"'), "UIhtml contains table with ID 'navpad'");
     assertTest(!str_contains($navHtml, '] w24'), "UIhtml navigation pad does NOT show link ID 'w24'");
     assertTest(!str_contains($navHtml, '] w25'), "UIhtml navigation pad does NOT show link ID 'w25'");
-    assertTest(str_contains($navHtml, '[N] North'), "UIhtml navigation pad shows '[N] North'");
-    assertTest(str_contains($navHtml, '[S] South'), "UIhtml navigation pad shows '[S] South'");
+    assertTest(!str_contains($navHtml, '[N] North'), "UIhtml navpad contains NO text label '[N] North'");
+    assertTest(!str_contains($navHtml, '[S] South'), "UIhtml navpad contains NO text label '[S] South'");
+    assertTest(str_contains($navHtml, 'skins/default/icowayn.gif'), "UIhtml navpad contains default skin North arrow 'icowayn.gif'");
+    assertTest(str_contains($navHtml, 'skins/default/icoways.gif'), "UIhtml navpad contains default skin South arrow 'icoways.gif'");
+    assertTest(str_contains($navHtml, 'skins/default/blank.gif'), "UIhtml navpad contains spacer 'blank.gif' in empty cells");
     assertTest(str_contains($navHtml, 'data-obj-name="North"'), "UIhtml exit button has data-obj-name='North'");
     assertTest(str_contains($navHtml, 'data-obj-name="South"'), "UIhtml exit button has data-obj-name='South'");
 
-    // Move player to 'pathgate' where 'gate1' has NAME 'the gate'
+    // Move player to 'pathgate' where 'gate1' has NAME 'the gate' and direction 'E'
     $pathgate = $w3NavWorld->getRoom('pathgate');
     $pNav->move($pathgate);
+    $pNav->facing = 'E';
 
     ob_start();
     $htmlUiNav->render([
@@ -2004,7 +2011,9 @@ if (shouldRun(25)) {
     ]);
     $gateHtml = ob_get_clean();
 
-    assertTest(str_contains($gateHtml, '[E] the gate'), "UIhtml navigation pad preserves explicit link name '[E] the gate'");
+    assertTest(str_contains($gateHtml, '<table id="navpad"'), "UIhtml pathgate contains table with ID 'navpad'");
+    assertTest(!str_contains($gateHtml, '[E] the gate'), "UIhtml navpad preserves no text '[E] the gate'");
+    assertTest(str_contains($gateHtml, 'icoDoor.gif'), "UIhtml navpad contains explicit link ICON 'icoDoor.gif' for gate1");
     assertTest(str_contains($gateHtml, 'data-obj-name="the gate"'), "UIhtml exit button preserves explicit data-obj-name='the gate'");
 }
 
@@ -2075,10 +2084,10 @@ if (shouldRun(26)) {
         "UIhtml renders w6 trapdoor as an absolute-positioned on-screen object"
     );
 
-    // Verify navigation pad still lists trapdoor exit
+    // Verify navigation pad includes trapdoor exit with custom icon trapdoor.gif
     assertTest(
-        str_contains($barSceneHtml, '[D] a trapdoor'),
-        "UIhtml navigation pad lists '[D] a trapdoor' exit button"
+        str_contains($barSceneHtml, 'trapdoor.gif'),
+        "UIhtml navigation pad includes w6 exit with 'trapdoor.gif'"
     );
 
     // 3. Attempt to traverse closed trapdoor w6
@@ -2409,7 +2418,7 @@ if (shouldRun(30)) {
     $pathgate = $w3Switch->getRoom('pathgate');
     assertTest($pathgate instanceof \Dimx\Room, "world3net defines 'pathgate' room");
     $initialPathgateImageE = $pathgate->images['E']->src ?? null;
-    assertTest($initialPathgateImageE === null, "'pathgate' has no initial 'E' image defined");
+    assertTest($initialPathgateImageE !== null && str_contains($initialPathgateImageE, 'pathgatee.jpg'), "'pathgate' has initial 'E' image defined (pathgatee.jpg)");
 
     // 2. Setup player in kitchen
     $pSwitch = new \Dimx\Player($w3Switch, 'Electrician', 'p_switch_1');
@@ -2763,6 +2772,391 @@ if (shouldRun(34)) {
     // 4. Verify standalone comment lines starting with ' were properly ignored
     // e.g. line 768: ' Plays the background music only once
     assertTest(!isset($w3Rooms->contents["'"]), "No object created from comment lines");
+}
+
+// -------------------------------------------------------------
+// Test 35: 3x3 Navpad Table, Default Skin Arrow Icons & Direction Placement (UIhtml)
+// -------------------------------------------------------------
+if (shouldRun(35)) {
+    echo "\n--- Section 35: Testing 3x3 Navpad Table, Default Skin Arrow Icons & Direction Placement (UIhtml) ---\n";
+
+    $dxwFile = __DIR__ . '/../docs/dxw-examples/world3net.dxw';
+    $loader = new \Dimx\DxwLoader('http://localhost');
+    $w3Nav = $loader->load($dxwFile, 'w3_navpad_test');
+
+    // 1. Verify default skin registration and defaults
+    assertTest(isset($w3Nav->skins['default']), "World has 'default' skin registered");
+    assertTest($w3Nav->defaultSkin instanceof \Dimx\Skin, "World defaultSkin is set");
+    assertTest($w3Nav->defaultSkin->id === 'default', "World defaultSkin ID is 'default'");
+    assertTest(str_ends_with($w3Nav->defaultSkin->getWayIcon('N'), 'icowayn.gif'), "defaultSkin getWayIcon('N') ends with 'icowayn.gif'");
+    assertTest(str_ends_with($w3Nav->defaultSkin->getWayIcon('S'), 'icoways.gif'), "defaultSkin getWayIcon('S') ends with 'icoways.gif'");
+    assertTest(str_ends_with($w3Nav->defaultSkin->getWayIcon('E'), 'icowaye.gif'), "defaultSkin getWayIcon('E') ends with 'icowaye.gif'");
+    assertTest(str_ends_with($w3Nav->defaultSkin->getWayIcon('W'), 'icowayw.gif'), "defaultSkin getWayIcon('W') ends with 'icowayw.gif'");
+    assertTest(str_ends_with($w3Nav->defaultSkin->getSpacerIcon(), 'blank.gif'), "defaultSkin getSpacerIcon() ends with 'blank.gif'");
+
+    // 2. Render UI in 'spiaggia' (exits E to beachcliff, N to spiaggia2, W to spiaggia4)
+    $pSpiaggia = new \Dimx\Player($w3Nav, 'SpiaggiaWalker', 'p_sp_walk');
+    $spiaggia = $w3Nav->getRoom('spiaggia');
+    $pSpiaggia->move($spiaggia);
+
+    $ui = new \Dimx\UIhtml($pSpiaggia);
+    ob_start();
+    $ui->render([
+        'world'     => $w3Nav,
+        'player'    => $pSpiaggia,
+        'room'      => $spiaggia,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $html = ob_get_clean();
+
+    // Verify navpad table exists with ID 'navpad'
+    assertTest(str_contains($html, '<table id="navpad"'), "UIhtml has <table id=\"navpad\"");
+
+    // Extract navpad table content
+    preg_match('/<table id="navpad"[^>]*>(.*?)<\/table>/s', $html, $matches);
+    assertTest(!empty($matches[1]), "Navpad table captured successfully");
+    $navpadBody = $matches[1] ?? '';
+
+    // Verify 3 rows and 9 cells
+    $trCount = substr_count($navpadBody, '<tr');
+    $tdCount = substr_count($navpadBody, '<td');
+    assertTest($trCount === 3, "Navpad table has exactly 3 rows (got $trCount)");
+    assertTest($tdCount === 9, "Navpad table has exactly 9 cells (got $tdCount)");
+
+    // Verify NO text appears inside the navpad table
+    // Strip HTML tags and check if anything besides whitespace remains
+    $tableText = trim(strip_tags($navpadBody));
+    assertTest($tableText === '', "Navpad table contains NO text (got '$tableText')");
+
+    // Verify direction icons in spiaggia: N, W, E present; S absent (spacer)
+    assertTest(str_contains($navpadBody, 'icowayn.gif'), "Navpad contains North arrow (icowayn.gif)");
+    assertTest(str_contains($navpadBody, 'icowayw.gif'), "Navpad contains West arrow (icowayw.gif)");
+    assertTest(str_contains($navpadBody, 'icowaye.gif'), "Navpad contains East arrow (icowaye.gif)");
+    assertTest(!str_contains($navpadBody, 'icoways.gif'), "Navpad does NOT contain South arrow (no S exit in spiaggia)");
+    assertTest(str_contains($navpadBody, 'blank.gif'), "Navpad contains spacer blanks");
+    assertTest(str_contains($html, 'width="16" height="16"'), "Navpad icons use unresized standard size 16x16");
+    assertTest(str_contains($html, 'SILVER'), "Navpad table background color is SILVER");
+
+    // 3. Test room with vertical exit and custom link ICON (e.g. 'bar' has w6 Going Down 'D' with ICON trapdoor.gif, w7 East to kitchen, w4b West to beach)
+    $pBar = new \Dimx\Player($w3Nav, 'BarWalker', 'p_bar_walk');
+    $bar = $w3Nav->getRoom('bar');
+    $pBar->move($bar);
+
+    ob_start();
+    $ui->render([
+        'world'     => $w3Nav,
+        'player'    => $pBar,
+        'room'      => $bar,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $barHtml = ob_get_clean();
+
+    preg_match('/<table id="navpad"[^>]*>(.*?)<\/table>/s', $barHtml, $barMatches);
+    $barNavpad = $barMatches[1] ?? '';
+
+    // Navpad has East exit (w7) with default arrow
+    assertTest(str_contains($barNavpad, 'icowaye.gif'), "Bar navpad contains East arrow (w7)");
+    // Navpad has West exit (w4b) with default arrow
+    assertTest(str_contains($barNavpad, 'icowayw.gif'), "Bar navpad contains West arrow (w4b)");
+    // Trapdoor w6 (Down) is mapped to the bottom exit in navpad and uses custom ICON trapdoor.gif
+    assertTest(str_contains($barNavpad, 'trapdoor.gif'), "Bar navpad contains custom LINK ICON 'trapdoor.gif' for w6 (D)");
+    assertTest(str_contains($barNavpad, 'data-obj-id="D"'), "Bar navpad w6 has data-obj-id='D'");
+    assertTest(str_contains($barNavpad, 'width="16" height="16"'), "Bar navpad custom icon has standard 16x16 dimensions");
+}
+
+// -------------------------------------------------------------
+// Test 36: Player Orientation, Multi-faced Rooms, Rotation Commands (rotl/rotr/rev) & Navpad Multiface
+// -------------------------------------------------------------
+if (shouldRun(36)) {
+    echo "\n--- Section 36: Testing Player Orientation, Multi-faced Rooms, Rotation Commands (rotl/rotr/rev) & Navpad Multiface ---\n";
+
+    $dxwLoader = new \Dimx\DxwLoader();
+    $w3Ori = $dxwLoader->load(__DIR__ . '/../docs/dxw-examples/world3net.dxw', 'w3_orientation_world');
+    $engineOri = new \Dimx\GameEngine($pm, 'w3_orientation_test', __DIR__ . '/../docs/dxw-examples/world3net.dxw');
+
+    // 1. Verify pathgate is multi-faced and images are loaded per face
+    $pathgate = $w3Ori->getRoom('pathgate');
+    assertTest($pathgate instanceof \Dimx\Room, "world3net defines 'pathgate' room");
+    assertTest($pathgate->hasSeveralFaces(), "'pathgate' hasSeveralFaces() === true");
+    assertTest(count($pathgate->images) === 4, "'pathgate' has 4 face images (N, S, W, E)");
+    assertTest(str_contains($pathgate->getExactImage('N')->src, 'pathgaten.jpg'), "pathgate face N has pathgaten.jpg");
+    assertTest(str_contains($pathgate->getExactImage('S')->src, 'pathgates.jpg'), "pathgate face S has pathgates.jpg");
+    assertTest(str_contains($pathgate->getExactImage('W')->src, 'pathgatew.jpg'), "pathgate face W has pathgatew.jpg");
+    assertTest(str_contains($pathgate->getExactImage('E')->src, 'pathgatee.jpg'), "pathgate face E has pathgatee.jpg");
+    assertTest($pathgate->getExactImage('S')->showareaX1 === 100, "pathgate face S has parsed SHOWAREA X1=100");
+
+    // Verify single-faced room (e.g. ballhouse)
+    $ballhouse = $w3Ori->getRoom('ballhouse');
+    assertTest($ballhouse instanceof \Dimx\Room, "world3net defines 'ballhouse' room");
+    assertTest(!$ballhouse->hasSeveralFaces(), "'ballhouse' hasSeveralFaces() === false (single face)");
+
+    // 2. Test Player Orientation on room traversal (Character::go)
+    $pCris = new \Dimx\Player($w3Ori, 'Cris', 'p_cris_1');
+    $pCris->move($ballhouse);
+    assertTest($pCris->getRoom()->id === 'ballhouse', "Cris starts in ballhouse");
+
+    // In world3net: LINK w31 pathgate-ballhouse S (pathgate -> ballhouse is S; ballhouse -> pathgate is N)
+    $movedToGate = $pCris->go('w31');
+    assertTest($movedToGate, "Cris navigated from ballhouse to pathgate via w31");
+    assertTest($pCris->getRoom()->id === 'pathgate', "Cris is now inside pathgate");
+    assertTest($pCris->facing === 'N', "Cris arrived facing 'N' matching entrance link direction");
+
+    // Test entering from rocca: LINK w18 pathgate-rocca N (pathgate -> rocca is N; rocca -> pathgate is S)
+    $rocca = $w3Ori->getRoom('rocca');
+    $pCris->move($rocca);
+    $movedFromRocca = $pCris->go('w18');
+    assertTest($movedFromRocca, "Cris navigated from rocca to pathgate via w18");
+    assertTest($pCris->facing === 'S', "Cris arrived facing 'S' matching entrance link direction");
+
+    // 3. Test Title Bar Display in UIhtml
+    $uiHtml = new \Dimx\UIhtml($pCris);
+    ob_start();
+    $uiHtml->render([
+        'world'     => $w3Ori,
+        'player'    => $pCris,
+        'room'      => $pathgate,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $htmlFacingS = ob_get_clean();
+
+    assertTest(str_contains($htmlFacingS, 'The gate - South view'), "UIhtml title bar displays 'The gate - South view': " . (preg_match('/<div class="dimx-title-bar">.*?<\/div>/s', $htmlFacingS, $m) ? strip_tags($m[0]) : ''));
+    assertTest(str_contains($htmlFacingS, 'The gate - South view') && str_contains($htmlFacingS, 'Cris'), "UIhtml title bar contains 'The gate - South view (Cris)'");
+    // Verify room image matches facing 'S' (pathgates.jpg)
+    assertTest(str_contains($htmlFacingS, 'pathgates.jpg'), "UIhtml scene container displays 'pathgates.jpg' when facing S");
+    assertTest(!str_contains($htmlFacingS, 'pathgaten.jpg'), "UIhtml scene container does NOT display 'pathgaten.jpg' when facing S");
+
+    // Single-faced room title bar does NOT display orientation view
+    $pCris->move($ballhouse);
+    ob_start();
+    $uiHtml->render([
+        'world'     => $w3Ori,
+        'player'    => $pCris,
+        'room'      => $ballhouse,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $htmlSingleFace = ob_get_clean();
+    assertTest(!str_contains($htmlSingleFace, '- South view') && !str_contains($htmlSingleFace, '- North view'), "Single-faced room title bar does NOT add orientation view string");
+    $pCris->move($pathgate);
+    $pCris->facing = 'S';
+
+    // 4. Test Rotation Commands (rotl, rotr, rev) via GameEngine
+    // Initial: facing 'S'
+    // 'rotr' rotates 90 degrees right: S -> W
+    $engineOri->executeCommandAction($w3Ori, $pCris, 'rotr', '', '');
+    assertTest($pCris->facing === 'W', "After 'rotr', player facing rotated S -> W (got '{$pCris->facing}')");
+    assertTest(str_contains($pathgate->getImageForFacing($pCris->facing)->src, 'pathgatew.jpg'), "Room image facing W is pathgatew.jpg");
+
+    // 'rotr' rotates W -> N
+    $engineOri->executeCommandAction($w3Ori, $pCris, 'rotr', '', '');
+    assertTest($pCris->facing === 'N', "After 'rotr', player facing rotated W -> N (got '{$pCris->facing}')");
+    assertTest(str_contains($pathgate->getImageForFacing($pCris->facing)->src, 'pathgaten.jpg'), "Room image facing N is pathgaten.jpg");
+
+    // 'rotr' rotates N -> E
+    $engineOri->executeCommandAction($w3Ori, $pCris, 'rotr', '', '');
+    assertTest($pCris->facing === 'E', "After 'rotr', player facing rotated N -> E (got '{$pCris->facing}')");
+    assertTest(str_contains($pathgate->getImageForFacing($pCris->facing)->src, 'pathgatee.jpg'), "Room image facing E is pathgatee.jpg");
+
+    // 'rotl' rotates 90 degrees left: E -> N
+    $engineOri->executeCommandAction($w3Ori, $pCris, 'rotl', '', '');
+    assertTest($pCris->facing === 'N', "After 'rotl', player facing rotated E -> N (got '{$pCris->facing}')");
+
+    // 'rotl' rotates N -> W
+    $engineOri->executeCommandAction($w3Ori, $pCris, 'rotl', '', '');
+    assertTest($pCris->facing === 'W', "After 'rotl', player facing rotated N -> W (got '{$pCris->facing}')");
+
+    // 'rev' reverses 180 degrees: W -> E
+    $engineOri->executeCommandAction($w3Ori, $pCris, 'rev', '', '');
+    assertTest($pCris->facing === 'E', "After 'rev', player facing reversed W -> E (got '{$pCris->facing}')");
+
+    // 'rev' reverses 180 degrees back: E -> W
+    $engineOri->executeCommandAction($w3Ori, $pCris, 'rev', '', '');
+    assertTest($pCris->facing === 'W', "After 'rev', player facing reversed E -> W (got '{$pCris->facing}')");
+
+    // 5. Test Navpad Multiface HTML rendering
+    // When facing 'E':
+    $pCris->facing = 'E';
+    ob_start();
+    $uiHtml->render([
+        'world'     => $w3Ori,
+        'player'    => $pCris,
+        'room'      => $pathgate,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $htmlFacingE = ob_get_clean();
+
+    assertTest(str_contains($htmlFacingE, 'The gate - East view'), "UIhtml title bar displays 'The gate - East view'");
+    assertTest(str_contains($htmlFacingE, 'pathgatee.jpg'), "UIhtml scene displays 'pathgatee.jpg' when facing E");
+
+    // Extract navpad table
+    preg_match('/<table id="navpad"[^>]*>(.*?)<\/table>/s', $htmlFacingE, $navMatchE);
+    $navpadE = $navMatchE[1] ?? '';
+    assertTest(!empty($navpadE), "Navpad table extracted for facing E");
+
+    // Cell 2 has forward exit gate1 with custom ICON icoDoor.gif (direction E)
+    assertTest(str_contains($navpadE, 'icoDoor.gif'), "Facing E: forward exit in navpad is gate1 with 'icoDoor.gif'");
+    assertTest(str_contains($navpadE, 'data-obj-id="E"'), "Facing E: forward exit data-obj-id='E'");
+
+    // Cell 4 has Rotate Left button (icorotl.gif) with command 'rotl'
+    assertTest(str_contains($navpadE, 'icorotl.gif'), "Navpad contains Rotate Left icon 'icorotl.gif'");
+    assertTest(str_contains($navpadE, "sendCmd('rotl','')"), "Rotate Left button calls sendCmd('rotl','')");
+
+    // Cell 6 has Rotate Right button (icorotr.gif) with command 'rotr'
+    assertTest(str_contains($navpadE, 'icorotr.gif'), "Navpad contains Rotate Right icon 'icorotr.gif'");
+    assertTest(str_contains($navpadE, "sendCmd('rotr','')"), "Rotate Right button calls sendCmd('rotr','')");
+
+    // Cell 8 has Reverse button (reverse.gif) with command 'rev'
+    assertTest(str_contains($navpadE, 'reverse.gif'), "Navpad contains Reverse icon 'reverse.gif'");
+    assertTest(str_contains($navpadE, "sendCmd('rev','')"), "Reverse button calls sendCmd('rev','')");
+
+    // Navpad does NOT contain directional arrows except forward
+    assertTest(!str_contains($navpadE, 'icowayw.gif'), "Facing E: Navpad does NOT contain West directional arrow (replaced by rotation)");
+    assertTest(!str_contains($navpadE, 'icoways.gif'), "Facing E: Navpad does NOT contain South directional arrow (replaced by rotation)");
+
+    // 6. Test UIjson API output for orientation and commands
+    $uiJson = new \Dimx\UIjson($pCris, $engineOri);
+    $jsonContext = [
+        'world'     => $w3Ori,
+        'player'    => $pCris,
+        'room'      => $pathgate,
+        'messages'  => [],
+        'lockError' => false,
+    ];
+    $jsonStatus = $uiJson->buildPlayerStatus($pCris);
+    assertTest(isset($jsonStatus['facing']) && $jsonStatus['facing'] === 'E', "UIjson buildPlayerStatus includes facing='E'");
+
+    $jsonRoom = $uiJson->buildRoomSnapshot($pathgate, $pCris);
+    assertTest($jsonRoom['facing'] === 'E', "UIjson buildRoomSnapshot includes facing='E'");
+    assertTest($jsonRoom['has_several_faces'] === true, "UIjson buildRoomSnapshot has_several_faces === true");
+    assertTest(str_contains($jsonRoom['image'] ?? '', 'pathgatee.jpg'), "UIjson buildRoomSnapshot image is pathgatee.jpg");
+
+    // 7. Test UIbot API output for orientation and available commands
+    $uiBot = new \Dimx\UIbot($pCris, $engineOri);
+    $panelDefault = $w3Ori->defaultPanel;
+    $botCommands = $panelDefault->getAvailableCommands();
+    assertTest(in_array('rotl', $botCommands, true), "Available commands includes 'rotl'");
+    assertTest(in_array('rotr', $botCommands, true), "Available commands includes 'rotr'");
+    assertTest(in_array('rev', $botCommands, true), "Available commands includes 'rev'");
+
+    // Build bot response payload
+    $botRefl = new \ReflectionClass($uiBot);
+    $buildPayloadMethod = $botRefl->getMethod('buildResponsePayload');
+    $buildPayloadMethod->setAccessible(true);
+    $botPayload = $buildPayloadMethod->invoke($uiBot, $jsonContext, $w3Ori, $pCris, $pathgate, $panelDefault, 'ok', false, false);
+
+    assertTest(isset($botPayload['facing']) && $botPayload['facing'] === 'E', "UIbot payload top-level facing is readable ('E')");
+    assertTest(isset($botPayload['room']['facing']) && $botPayload['room']['facing'] === 'E', "UIbot room facing is readable ('E')");
+    assertTest(str_contains($botPayload['room']['image'] ?? '', 'pathgatee.jpg'), "UIbot room image is pathgatee.jpg");
+    assertTest(in_array('rotl', $botPayload['commands'] ?? [], true), "UIbot commands list contains 'rotl'");
+    assertTest(in_array('rotr', $botPayload['commands'] ?? [], true), "UIbot commands list contains 'rotr'");
+    assertTest(in_array('rev', $botPayload['commands'] ?? [], true), "UIbot commands list contains 'rev'");
+
+    // 8. Test scnCampoarato: forward exit in navpad cell #2 displays North-pointing arrow while preserving South title
+    assertTest(!str_contains($htmlFacingS, '🗺 Exits'), "UIhtml does NOT render '🗺 Exits' section title label");
+
+    $scnCampoarato = $w3Ori->getRoom('scnCampoarato');
+    assertTest($scnCampoarato instanceof \Dimx\Room, "world3net defines 'scnCampoarato' room");
+    assertTest($scnCampoarato->hasSeveralFaces(), "scnCampoarato hasSeveralFaces() === true (S and N)");
+
+    // Move player from scnPassage1 (North) into scnCampoarato via w30 (w30 is N from scnCampoarato; link direction from scnPassage1 is S)
+    $scnPassage1 = $w3Ori->getRoom('scnPassage1');
+    $pCris->move($scnPassage1);
+    $movedFromPassage = $pCris->go('w30');
+    assertTest($movedFromPassage, "Cris navigated from scnPassage1 to scnCampoarato via w30");
+    assertTest($pCris->getRoom()->id === 'scnCampoarato', "Cris is in scnCampoarato");
+    assertTest($pCris->facing === 'S', "Cris arrived facing 'S' (from North, facing South)");
+
+    ob_start();
+    $uiHtml->render([
+        'world'     => $w3Ori,
+        'player'    => $pCris,
+        'room'      => $scnCampoarato,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $campoHtml = ob_get_clean();
+
+    assertTest(str_contains($campoHtml, 'The pathway to the hill - South view'), "scnCampoarato title bar shows 'The pathway to the hill - South view'");
+    assertTest(str_contains($campoHtml, 'scnCampoarato2.jpg'), "scnCampoarato scene displays 'scnCampoarato2.jpg' for South view");
+
+    preg_match('/<table id="navpad"[^>]*>(.*?)<\/table>/s', $campoHtml, $campoNavMatch);
+    $campoNav = $campoNavMatch[1] ?? '';
+    assertTest(!empty($campoNav), "Navpad table extracted for scnCampoarato facing S");
+
+    // In cell #2 (forward): should show North-pointing arrow (meaning forward!), but with title "South"
+    assertTest(str_contains($campoNav, 'icowayn.gif'), "scnCampoarato navpad cell #2 displays North arrow 'icowayn.gif' (meaning forward)");
+    assertTest(!str_contains($campoNav, 'icoways.gif'), "scnCampoarato navpad cell #2 does NOT display South arrow 'icoways.gif'");
+    assertTest(str_contains($campoNav, 'title="South"'), "scnCampoarato navpad cell #2 preserves HTML title='South'");
+    assertTest(str_contains($campoNav, 'data-obj-id="S"'), "scnCampoarato navpad cell #2 has data-obj-id='S'");
+    assertTest(str_contains($campoNav, "sendCmd('go','S')"), "scnCampoarato navpad cell #2 click sends go S");
+
+    // 9. Test Single-faced Room Forced Orientation & Relative Navpad in ballhouse
+    // ballhouse has 1 image facing 'S': IMAGE S SHOWAREA 175,-1,-1 ballhouse.jpg
+    // and 1 link: w31 leading to pathgate in direction North ('N')
+    $ballhouse = $w3Ori->getRoom('ballhouse');
+    assertTest($ballhouse instanceof \Dimx\Room, "ballhouse room exists in world3net");
+    assertTest(count($ballhouse->images) === 1, "ballhouse has exactly 1 image");
+    assertTest(array_key_first($ballhouse->images) === 'S', "ballhouse single image face is 'S'");
+
+    // Player enters ballhouse from pathgate
+    $pCris->facing = 'N'; // initially facing N in pathgate
+    $pCris->move($ballhouse);
+    assertTest($pCris->facing === 'S', "Entering ballhouse forced player facing to 'S' (got '{$pCris->facing}')");
+
+    ob_start();
+    $uiHtml->render([
+        'world'     => $w3Ori,
+        'player'    => $pCris,
+        'room'      => $ballhouse,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $ballhouseHtml = ob_get_clean();
+
+    // 1) Title bar does NOT show orientation string in single-faced room
+    assertTest(str_contains($ballhouseHtml, 'The stone house') && str_contains($ballhouseHtml, 'Cris'), "ballhouse title bar displays room name and player name");
+    assertTest(!str_contains($ballhouseHtml, 'South view'), "ballhouse title bar does NOT display 'South view'");
+
+    // 2) Navpad reinterpretation:
+    // Player is facing South, so the North exit (w31) is behind the player (relative direction: South).
+    // It must appear in navpad cell #8 (bottom / South slot) as a South-pointing arrow (icoways.gif),
+    // with HTML title indicating the real direction 'North', and action go N.
+    preg_match('/<table id="navpad"[^>]*>(.*?)<\/table>/s', $ballhouseHtml, $bhNavMatch);
+    $bhNav = $bhNavMatch[1] ?? '';
+    assertTest(!empty($bhNav), "Navpad table extracted for ballhouse");
+
+    // Row 1 (cell 2) must NOT have w31 (it should be empty spacer)
+    assertTest(!str_contains($bhNav, 'icowayn.gif'), "ballhouse navpad does NOT contain North arrow 'icowayn.gif'");
+    // Row 3 (cell 8) must have South-pointing arrow icoways.gif
+    assertTest(str_contains($bhNav, 'icoways.gif'), "ballhouse navpad cell #8 displays South arrow 'icoways.gif'");
+    // HTML title attribute indicates real direction 'North'
+    assertTest(str_contains($bhNav, 'title="North"'), "ballhouse navpad cell #8 has title='North'");
+    // data-obj-id and sendCmd preserve the actual cardinal direction 'N'
+    assertTest(str_contains($bhNav, 'data-obj-id="N"'), "ballhouse navpad cell #8 has data-obj-id='N'");
+    assertTest(str_contains($bhNav, "sendCmd('go','N')"), "ballhouse navpad cell #8 sends go N");
+
+    // 10. Test exit down 'to the beach' at rocca / cliff does NOT have [D] label
+    $rocca = $w3Ori->getRoom('rocca');
+    $pCris->move($rocca);
+    ob_start();
+    $uiHtml->render([
+        'world'     => $w3Ori,
+        'player'    => $pCris,
+        'room'      => $rocca,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $roccaHtml = ob_get_clean();
+
+    // Verify exit 'to the beach' does NOT render [D] label
+    assertTest(!str_contains($roccaHtml, '[D]'), "Exit down 'to the beach' does NOT render '[D]' text label");
+    assertTest(str_contains($roccaHtml, 'to the beach'), "Exit down displays 'to the beach' label");
+    assertTest(str_contains($roccaHtml, 'title="Down"'), "Exit down has title='Down' on icon/button");
+    assertTest(str_contains($roccaHtml, "sendCmd('go','D')"), "Exit down click sends go D");
 }
 
 // Clean up test worlds

@@ -95,13 +95,143 @@ class Character extends AdvObject
             $this->world->fireEvent('onExit', $this, $this, $destRoom);
         }
 
+        $walkDir = $link->getDirection($room->id);
         $moved = $this->move($destRoom);
 
-        if ($moved && $this->world !== null) {
-            $this->world->fireEvent('onEnter', $this, $this, $destRoom);
+        if ($moved) {
+            // Adjust facing - is there an image in the Link direction?
+            if ($destRoom->hasSeveralFaces()) {
+                if ($destRoom->getExactImage($walkDir) !== null) {
+                    $this->facing = $walkDir;
+                }
+            } elseif (count($destRoom->images) === 1) {
+                $this->facing = (string)array_key_first($destRoom->images);
+            }
+            if ($this->world !== null) {
+                $this->world->fireEvent('onEnter', $this, $this, $destRoom);
+            }
         }
 
         return $moved;
+    }
+
+    /**
+     * Compute relative direction from observer viewpoint facing $facing.
+     */
+    public static function getRelativeDirection(string $dir, string $facing): string
+    {
+        $dir = strtoupper(trim($dir));
+        $facing = strtoupper(trim($facing));
+
+        if ($facing === 'N' || empty($facing) || $dir === 'U' || $dir === 'D') {
+            return $dir;
+        } elseif ($facing === 'S') {
+            return match ($dir) {
+                'N' => 'S',
+                'E' => 'W',
+                'S' => 'N',
+                'W' => 'E',
+                default => $dir,
+            };
+        } elseif ($facing === 'E') {
+            return match ($dir) {
+                'N' => 'W',
+                'E' => 'N',
+                'S' => 'E',
+                'W' => 'S',
+                default => $dir,
+            };
+        } elseif ($facing === 'W') {
+            return match ($dir) {
+                'N' => 'E',
+                'E' => 'S',
+                'S' => 'W',
+                'W' => 'N',
+                default => $dir,
+            };
+        }
+        return $dir;
+    }
+
+    /**
+     * Compute next face in clockwise ('r') or counter-clockwise ('l') rotation.
+     */
+    public static function nextFace(string $face, string $turn): string
+    {
+        $face = strtoupper(trim($face));
+        $turn = strtolower(trim($turn));
+        if ($turn === 'r') {
+            return match ($face) {
+                'N' => 'E',
+                'E' => 'S',
+                'S' => 'W',
+                default => 'N',
+            };
+        } else {
+            return match ($face) {
+                'N' => 'W',
+                'W' => 'S',
+                'S' => 'E',
+                default => 'N',
+            };
+        }
+    }
+
+    /**
+     * Get opposite cardinal or vertical direction.
+     */
+    public static function getOppositeDirection(string $dir): string
+    {
+        $dir = strtoupper(trim($dir));
+        return match ($dir) {
+            'N' => 'S',
+            'S' => 'N',
+            'E' => 'W',
+            'W' => 'E',
+            'U' => 'D',
+            'D' => 'U',
+            default => '',
+        };
+    }
+
+    /**
+     * Rotate character orientation: 'l' (left 90°), 'r' (right 90°), or 'b' (back 180°).
+     */
+    public function rotate(string $direction): void
+    {
+        $dir = strtolower(trim($direction));
+        if ($dir === 'left' || $dir === 'rotl') {
+            $turn = 'l';
+        } elseif ($dir === 'right' || $dir === 'rotr') {
+            $turn = 'r';
+        } elseif ($dir === 'back' || $dir === 'reverse' || $dir === 'rev') {
+            $turn = 'b';
+        } else {
+            $turn = $dir;
+        }
+
+        $room = $this->getRoom();
+        $origFacing = strtoupper($this->facing ?: 'N');
+        $facing = $origFacing;
+
+        if ($room !== null && $room->hasSeveralFaces()) {
+            if ($turn === 'b') {
+                $facing = self::getOppositeDirection($facing);
+            } else {
+                $facing = self::nextFace($facing, $turn);
+                while ($room->getExactImage($facing) === null && $facing !== $origFacing) {
+                    $facing = self::nextFace($facing, $turn);
+                }
+            }
+        } else {
+            if ($turn === 'b') {
+                $facing = self::getOppositeDirection($facing);
+            } else {
+                $facing = self::nextFace($facing, $turn);
+            }
+        }
+
+        $this->facing = $facing;
     }
 
     /**

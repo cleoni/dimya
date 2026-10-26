@@ -391,7 +391,7 @@ class GameEngine
         $isCoreCommand = in_array($cmd, [
             'look', 'click', 'go', 'pick', 'take', 'get', 'drop',
             'give', 'use', 'use2', 'usewith', 'open', 'close', 'search', 'say', 'inv',
-            'inventory', 'help', 'save', 'exit', 'logout'
+            'inventory', 'help', 'save', 'exit', 'logout', 'rotl', 'rotr', 'rev', 'rotate'
         ], true);
 
         if ($panel !== null && ($isCoreCommand || isset($world->events["cmd_{$cmd}"])) && !$panel->isCommandAllowed($cmd)) {
@@ -742,6 +742,23 @@ class GameEngine
                 if ($msgId !== '') {
                     $player->popMessage((string)$msgId);
                 }
+                break;
+
+            case 'rotl':
+                $player->rotate('l');
+                break;
+
+            case 'rotr':
+                $player->rotate('r');
+                break;
+
+            case 'rev':
+                $player->rotate('b');
+                break;
+
+            case 'rotate':
+                $rotParam = !empty($param) ? $param : (!empty($targetId) ? $targetId : 'r');
+                $player->rotate($rotParam);
                 break;
 
             default:

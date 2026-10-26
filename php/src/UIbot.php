@@ -78,6 +78,7 @@ class UIbot extends UIjson
                 $botPayload['commands'] = $commands;
             } elseif ($key === 'player') {
                 $botPayload['stats'] = $this->buildPlayerStats($player);
+                $botPayload['facing'] = $player->facing ?? 'N';
             } else {
                 $botPayload[$key] = $value;
             }
@@ -213,16 +214,19 @@ class UIbot extends UIjson
             $exits[] = $this->buildExitSnapshot($link, $room, $player);
         }
 
-        $sceneImg = !empty($room->images['N']) ? $room->images['N']->src : null;
+        $imgObj = $room->getImageForFacing($player->facing ?? 'N');
+        $sceneImg = $imgObj ? $imgObj->src : null;
 
         return [
-            'id'          => $room->id,
-            'name'        => $room->name,
-            'description' => $room->evalDescription($player),
-            'image'       => $sceneImg,
-            'items'       => $items,
-            'occupants'   => $occupants,
-            'exits'       => $exits,
+            'id'                => $room->id,
+            'name'              => $room->name,
+            'description'       => $room->evalDescription($player),
+            'image'             => $sceneImg,
+            'facing'            => $player->facing ?? 'N',
+            'has_several_faces' => $room->hasSeveralFaces(),
+            'items'             => $items,
+            'occupants'         => $occupants,
+            'exits'             => $exits,
         ];
     }
 

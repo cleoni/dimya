@@ -306,9 +306,10 @@ class DxwLoader
                             $skinObj = Skin::loadFromDxs($localDxs, $folderUrl) ?? new Skin($baseId, ucfirst($baseId), $folderUrl);
                             $world->skins[$baseId] = $skinObj;
                         }
-                        if (!empty($world->skins)) {
-                            $world->defaultSkin = reset($world->skins);
+                        if (!isset($world->skins['default'])) {
+                            $world->skins['default'] = new Skin('default', 'Default', 'http://localhost/dimx/skins/default/');
                         }
+                        $world->defaultSkin = $world->skins['default'];
                     } elseif ($directive === 'SHOW' && isset($tokens[1]) && strtoupper($tokens[1]) === 'PROPERTIES') {
                         $world->setProperty('showproperties', trim(substr($line, strlen($tokens[0]) + strlen($tokens[1]) + 1)));
                     } elseif ($directive === 'HOOKS') {
@@ -351,6 +352,10 @@ class DxwLoader
                             } elseif ($subDir === 'IMAGE') {
                                 $rest = trim(substr($subLine, strlen($subTokens[0])));
                                 $imgTokens = preg_split('/\s+/', $rest);
+                                $face = 'N';
+                                if (!empty($imgTokens) && in_array(strtoupper($imgTokens[0]), ['N', 'S', 'E', 'W', 'U', 'D'], true)) {
+                                    $face = strtoupper(array_shift($imgTokens));
+                                }
                                 $last = end($imgTokens);
                                 $imgW = $world->sceneWidth;
                                 $imgH = $world->sceneHeight;
@@ -361,7 +366,13 @@ class DxwLoader
                                         break;
                                     }
                                 }
-                                $room->images['N'] = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
+                                $img = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
+                                if (preg_match('/SHOWAREA\s+(-?\d+),(-?\d+),(-?\d+)/i', $rest, $saMatch)) {
+                                    $img->showareaX1 = (int)$saMatch[1];
+                                    $img->showareaX2 = (int)$saMatch[2];
+                                    $img->showareaY  = (int)$saMatch[3];
+                                }
+                                $room->setImage($face, $img);
                             }
                             $i++;
                         }

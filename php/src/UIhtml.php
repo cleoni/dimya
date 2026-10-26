@@ -165,7 +165,7 @@ class UIhtml extends UI
             return;
         }
 
-        $skin         = $player->skin ?? new Skin();
+        $skin         = $world->skins['default'] ?? $world->defaultSkin ?? $player->skin ?? new Skin('default', 'Default');
         $occupants    = $currentRoom ? array_values(array_filter($currentRoom->getOccupants(), fn($c) => !$c->isHidden())) : [];
         $roomItems    = $currentRoom ? array_values(array_filter($currentRoom->getItems(), fn($i) => !$i->isHidden()))     : [];
         $inventory    = array_values(array_filter($player->contents, fn($i) => !$i->isHidden()));
@@ -439,6 +439,42 @@ class UIhtml extends UI
             .dimx-onscreen-obj:hover {
               filter: brightness(1.2) drop-shadow(0 0 3px #38bdf8);
             }
+            #navpad {
+              border-collapse: separate;
+              border-spacing: 2px;
+              margin: 0 auto 10px auto;
+              background-color: <?= htmlspecialchars($skin->panelBgColor ?: 'SILVER') ?>;
+              border: 1px solid #94a3b8;
+              padding: 2px;
+              border-radius: 4px;
+            }
+            #navpad td {
+              width: 20px;
+              height: 20px;
+              padding: 0;
+              text-align: center;
+              vertical-align: middle;
+            }
+            .dimx-nav-btn {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              width: 20px;
+              height: 20px;
+              border: 1px outset #cbd5e1;
+              border-radius: 2px;
+              background-color: #e2e8f0;
+              box-sizing: border-box;
+              cursor: pointer;
+              text-decoration: none;
+              padding: 0;
+              transition: all 0.15s ease;
+            }
+            .dimx-nav-btn:hover {
+              background-color: #ffffff;
+              border-color: #0284c7;
+              filter: brightness(1.1) drop-shadow(0 0 2px #38bdf8);
+            }
             .chat-line {
               margin: 0;
               padding: 3px 6px;
@@ -682,7 +718,7 @@ class UIhtml extends UI
               <div class="dimx-cell-a">
                 <!-- Title bar: room name and player name -->
                 <div class="dimx-title-bar">
-                  <span>📍 <b><?= htmlspecialchars($currentRoom->name ?? 'Unknown') ?></b> (👤 <b><?= htmlspecialchars($player->name) ?></b>)</span>
+                  <span>📍 <b><?= htmlspecialchars($currentRoom->name ?? 'Unknown') ?><?= ($currentRoom && $currentRoom->hasSeveralFaces()) ? ' - ' . htmlspecialchars(\Dimx\Link::getExtendedDirectionName($player->facing ?? 'N')) . ' view' : '' ?></b> (👤 <b><?= htmlspecialchars($player->name) ?></b>)</span>
                   <?php if ($lockError): ?><span style="color:#f87171;font-size:11px">⚠ Lock busy</span><?php endif; ?>
                 </div>
 
@@ -692,8 +728,11 @@ class UIhtml extends UI
                   <!-- Subcell D: Room image and below it, description / main messages output -->
                   <div class="dimx-subcell-d">
                     <div class="dimx-scene-container" style="position:relative;width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;background-color:<?= htmlspecialchars($world->bgcolor ?? '#000040') ?>;">
-                      <?php if (!empty($currentRoom->images['N'])): ?>
-                        <img src="<?= htmlspecialchars($currentRoom->images['N']->src) ?>"
+                      <?php
+                        $sceneImg = $currentRoom ? $currentRoom->getImageForFacing($player->facing ?? 'N') : null;
+                      ?>
+                      <?php if (!empty($sceneImg)): ?>
+                        <img src="<?= htmlspecialchars($sceneImg->src) ?>"
                              class="dimx-scene-img"
                              alt="Scene"
                              width="<?= $scaledRoomW ?>"
@@ -877,38 +916,263 @@ class UIhtml extends UI
 
                   <!-- Subcell E: Navigation controls, inventory, stats (250px wide) -->
                   <div class="dimx-subcell-e">
-                    <!-- Navigation / Exits -->
-                    <div class="dimx-section-title" style="color:#38bdf8;margin-top:0">🗺 Exits</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
-                      <?php foreach ($links as $link): ?>
-                        <?php
-                          $dir = $link->getDirection($currentRoom->id);
-                          $dirUpper = strtoupper(trim($dir));
-                          $dirIcon = match($dirUpper) {
-                            'N' => '⬆',
-                            'S' => '⬇',
-                            'E' => '➡',
-                            'W' => '⬅',
-                            'NE' => '↗',
-                            'NW' => '↖',
-                            'SE' => '↘',
-                            'SW' => '↙',
-                            'U', 'UP' => '⮵',
-                            'D', 'DOWN' => '⮶',
-                            default => '🚪',
-                          };
-                          $linkDisplayName = ($link instanceof \Dimx\Link)
-                            ? $link->getDisplayName($currentRoom->id)
-                            : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($dir));
-                        ?>
-                        <button type="button" class="dimx-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($dir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars($dir) ?>')">
-                          <?= $dirIcon ?> [<?= htmlspecialchars($dir) ?>] <?= htmlspecialchars($linkDisplayName) ?>
-                        </button>
-                      <?php endforeach; ?>
-                      <?php if (empty($links)): ?>
-                        <span style="font-size:12px;color:#64748b">No visible exits.</span>
-                      <?php endif; ?>
-                    </div>
+                    <!-- Navigation / Exits (Navpad) -->
+                    <?php
+                      $isMultiface = $currentRoom && $currentRoom->hasSeveralFaces();
+                      if ($currentRoom !== null) {
+                          if ($currentRoom->hasSeveralFaces()) {
+                              if ($currentRoom->getExactImage($player->facing) === null) {
+                                  $player->facing = (string)array_key_first($currentRoom->images);
+                              }
+                          } elseif (count($currentRoom->images) === 1) {
+                              $player->facing = (string)array_key_first($currentRoom->images);
+                          }
+                      }
+                      $facing = strtoupper($player->facing ?? 'N');
+                      $compassLinks = [
+                          'N' => null,
+                          'W' => null,
+                          'E' => null,
+                          'S' => null,
+                      ];
+                      $otherLinks = [];
+                      $forwardLink = null;
+                      $turnLeftFace = null;
+                      $turnRightFace = null;
+                      $revFace = null;
+
+                      if ($isMultiface) {
+                          $waysPool = $links;
+                          // 1. Forward link in player's current facing
+                          foreach ($waysPool as $idx => $link) {
+                              $linkDir = strtoupper(trim($link->getDirection($currentRoom->id)));
+                              if ($linkDir === $facing) {
+                                  $forwardLink = $link;
+                                  unset($waysPool[$idx]);
+                                  break;
+                              }
+                          }
+                          // Remove links facing left, right, reverse if room has an image in that face
+                          $turnLeftFace = \Dimx\Character::nextFace($facing, 'l');
+                          $turnRightFace = \Dimx\Character::nextFace($facing, 'r');
+                          $revFace = \Dimx\Character::getOppositeDirection($facing);
+
+                          foreach ($waysPool as $idx => $link) {
+                              $linkDir = strtoupper(trim($link->getDirection($currentRoom->id)));
+                              if ($linkDir === $turnLeftFace && $currentRoom->getExactImage($turnLeftFace) !== null) {
+                                  unset($waysPool[$idx]);
+                              } elseif ($linkDir === $turnRightFace && $currentRoom->getExactImage($turnRightFace) !== null) {
+                                  unset($waysPool[$idx]);
+                              } elseif ($linkDir === $revFace && $currentRoom->getExactImage($revFace) !== null) {
+                                  unset($waysPool[$idx]);
+                              }
+                          }
+                          $otherLinks = array_values($waysPool);
+                      } else {
+                          foreach ($links as $link) {
+                              $linkDir = strtoupper(trim($link->getDirection($currentRoom->id)));
+                              $relDir = \Dimx\Character::getRelativeDirection($linkDir, $facing);
+                              if (in_array($relDir, ['N', 'W', 'E', 'S'], true)) {
+                                  if ($compassLinks[$relDir] === null) {
+                                      $compassLinks[$relDir] = $link;
+                                  } else {
+                                      $otherLinks[] = $link;
+                                  }
+                              } else {
+                                  $otherLinks[] = $link;
+                              }
+                          }
+                          // If cell N is free and an Up link exists, place it in cell N
+                          if ($compassLinks['N'] === null) {
+                              foreach ($otherLinks as $idx => $link) {
+                                  $d = strtoupper(trim($link->getDirection($currentRoom->id)));
+                                  if ($d === 'U' || $d === 'UP') {
+                                      $compassLinks['N'] = $link;
+                                      unset($otherLinks[$idx]);
+                                      break;
+                                  }
+                              }
+                          }
+                          // If cell S is free and a Down link exists (e.g. w6 in bar), place it in cell S
+                          if ($compassLinks['S'] === null) {
+                              foreach ($otherLinks as $idx => $link) {
+                                  $d = strtoupper(trim($link->getDirection($currentRoom->id)));
+                                  if ($d === 'D' || $d === 'DOWN') {
+                                      $compassLinks['S'] = $link;
+                                      unset($otherLinks[$idx]);
+                                      break;
+                                  }
+                              }
+                          }
+                          $otherLinks = array_values($otherLinks);
+                      }
+                    ?>
+                    <table id="navpad" border="0" cellpadding="2" cellspacing="0" bgcolor="<?= htmlspecialchars($skin->panelBgColor ?: 'SILVER') ?>" style="background-color:<?= htmlspecialchars($skin->panelBgColor ?: 'SILVER') ?>">
+                      <tbody>
+                        <!-- Row 1: Cells 1, 2, 3 -->
+                        <tr>
+                          <!-- Cell 1: Empty -->
+                          <td><img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" /></td>
+                          <!-- Cell 2: Forward exit in multi-face, or North/Up exit in compass -->
+                          <td>
+                            <?php if ($isMultiface): ?>
+                              <?php if (!empty($forwardLink)): ?>
+                                <?php
+                                  $actualDir = $forwardLink->getDirection($currentRoom->id);
+                                  $linkDisplayName = ($forwardLink instanceof \Dimx\Link)
+                                    ? $forwardLink->getDisplayName($currentRoom->id)
+                                    : (!empty($forwardLink->name) && $forwardLink->name !== ($forwardLink->id ?? '') ? $forwardLink->name : \Dimx\Link::getExtendedDirectionName($actualDir));
+                                  // In multiface navpad, forward direction arrow is always North pointing arrow (straight ahead)
+                                  $linkIcon = !empty($forwardLink->icon) ? $forwardLink->icon : $skin->getWayIcon('N');
+                                ?>
+                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars($actualDir) ?>');return false;">
+                                  <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
+                                </a>
+                              <?php else: ?>
+                                <img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" />
+                              <?php endif; ?>
+                            <?php else: ?>
+                              <?php if (!empty($compassLinks['N'])): ?>
+                                <?php
+                                  $link = $compassLinks['N'];
+                                  $actualDir = $link->getDirection($currentRoom->id);
+                                  $linkDisplayName = ($link instanceof \Dimx\Link)
+                                    ? $link->getDisplayName($currentRoom->id)
+                                    : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($actualDir));
+                                  $linkIcon = !empty($link->icon) ? $link->icon : (in_array(strtoupper($actualDir), ['U', 'UP'], true) ? $skin->getWayIcon('U') : $skin->getWayIcon('N'));
+                                ?>
+                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars($actualDir) ?>');return false;">
+                                  <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
+                                </a>
+                              <?php else: ?>
+                                <img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" />
+                              <?php endif; ?>
+                            <?php endif; ?>
+                          </td>
+                          <!-- Cell 3: Empty -->
+                          <td><img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" /></td>
+                        </tr>
+                        <!-- Row 2: Cells 4, 5 (Center), 6 -->
+                        <tr>
+                          <!-- Cell 4: Rotate Left in multi-face, or West exit in compass -->
+                          <td>
+                            <?php if ($isMultiface): ?>
+                              <?php if ($currentRoom->getExactImage($turnLeftFace) !== null): ?>
+                                <a href="#" class="dimx-nav-btn" title="Rotate Left" onclick="sendCmd('rotl','');return false;">
+                                  <img src="<?= htmlspecialchars($skin->getRotLIcon()) ?>" width="16" height="16" alt="Rotate Left" title="Rotate Left" style="border:0;display:block" />
+                                </a>
+                              <?php else: ?>
+                                <img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" />
+                              <?php endif; ?>
+                            <?php else: ?>
+                              <?php if (!empty($compassLinks['W'])): ?>
+                                <?php
+                                  $link = $compassLinks['W'];
+                                  $actualDir = $link->getDirection($currentRoom->id);
+                                  $linkDisplayName = ($link instanceof \Dimx\Link)
+                                    ? $link->getDisplayName($currentRoom->id)
+                                    : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($actualDir));
+                                  $linkIcon = !empty($link->icon) ? $link->icon : $skin->getWayIcon('W');
+                                ?>
+                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars($actualDir) ?>');return false;">
+                                  <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
+                                </a>
+                              <?php else: ?>
+                                <img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" />
+                              <?php endif; ?>
+                            <?php endif; ?>
+                          </td>
+                          <!-- Cell 5: Center (Empty) -->
+                          <td><img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" /></td>
+                          <!-- Cell 6: Rotate Right in multi-face, or East exit in compass -->
+                          <td>
+                            <?php if ($isMultiface): ?>
+                              <?php if ($currentRoom->getExactImage($turnRightFace) !== null): ?>
+                                <a href="#" class="dimx-nav-btn" title="Rotate Right" onclick="sendCmd('rotr','');return false;">
+                                  <img src="<?= htmlspecialchars($skin->getRotRIcon()) ?>" width="16" height="16" alt="Rotate Right" title="Rotate Right" style="border:0;display:block" />
+                                </a>
+                              <?php else: ?>
+                                <img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" />
+                              <?php endif; ?>
+                            <?php else: ?>
+                              <?php if (!empty($compassLinks['E'])): ?>
+                                <?php
+                                  $link = $compassLinks['E'];
+                                  $actualDir = $link->getDirection($currentRoom->id);
+                                  $linkDisplayName = ($link instanceof \Dimx\Link)
+                                    ? $link->getDisplayName($currentRoom->id)
+                                    : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($actualDir));
+                                  $linkIcon = !empty($link->icon) ? $link->icon : $skin->getWayIcon('E');
+                                ?>
+                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars($actualDir) ?>');return false;">
+                                  <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
+                                </a>
+                              <?php else: ?>
+                                <img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" />
+                              <?php endif; ?>
+                            <?php endif; ?>
+                          </td>
+                        </tr>
+                        <!-- Row 3: Cells 7, 8, 9 -->
+                        <tr>
+                          <!-- Cell 7: Empty -->
+                          <td><img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" /></td>
+                          <!-- Cell 8: Reverse in multi-face, or South/Down exit in compass -->
+                          <td>
+                            <?php if ($isMultiface): ?>
+                              <?php if ($currentRoom->getExactImage($revFace) !== null): ?>
+                                <a href="#" class="dimx-nav-btn" title="Reverse" onclick="sendCmd('rev','');return false;">
+                                  <img src="<?= htmlspecialchars($skin->getRevIcon()) ?>" width="16" height="16" alt="Reverse" title="Reverse" style="border:0;display:block" />
+                                </a>
+                              <?php else: ?>
+                                <img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" />
+                              <?php endif; ?>
+                            <?php else: ?>
+                              <?php if (!empty($compassLinks['S'])): ?>
+                                <?php
+                                  $link = $compassLinks['S'];
+                                  $actualDir = $link->getDirection($currentRoom->id);
+                                  $linkDisplayName = ($link instanceof \Dimx\Link)
+                                    ? $link->getDisplayName($currentRoom->id)
+                                    : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($actualDir));
+                                  $linkIcon = !empty($link->icon) ? $link->icon : (in_array(strtoupper($actualDir), ['D', 'DOWN'], true) ? $skin->getWayIcon('D') : $skin->getWayIcon('S'));
+                                ?>
+                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars($actualDir) ?>');return false;">
+                                  <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
+                                </a>
+                              <?php else: ?>
+                                <img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" />
+                              <?php endif; ?>
+                            <?php endif; ?>
+                          </td>
+                          <!-- Cell 9: Empty -->
+                          <td><img src="<?= htmlspecialchars($skin->getSpacerIcon()) ?>" width="16" height="16" alt="" style="display:block;border:0" /></td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <!-- Other remaining exits (e.g. non-compass or duplicate directions) -->
+                    <?php if (!empty($otherLinks)): ?>
+                      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;justify-content:center">
+                        <?php foreach ($otherLinks as $link): ?>
+                          <?php
+                            $dir = $link->getDirection($currentRoom->id);
+                            $dirExtended = \Dimx\Link::getExtendedDirectionName($dir);
+                            $otherIcon = !empty($link->icon) ? $link->icon : $skin->getWayIcon($dir);
+                            $linkDisplayName = ($link instanceof \Dimx\Link)
+                              ? $link->getDisplayName($currentRoom->id)
+                              : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : $dirExtended);
+                          ?>
+                          <button type="button" class="dimx-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($dir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($dirExtended) ?>" onclick="sendCmd('go','<?= htmlspecialchars($dir) ?>')">
+                            <img src="<?= htmlspecialchars($otherIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($dirExtended) ?>" title="<?= htmlspecialchars($dirExtended) ?>" style="vertical-align:middle;border:0" />
+                            <?= htmlspecialchars($linkDisplayName) ?>
+                          </button>
+                        <?php endforeach; ?>
+                      </div>
+                    <?php endif; ?>
+                    <?php if (empty($links)): ?>
+                      <div style="font-size:12px;color:#64748b;text-align:center;margin-bottom:12px">No visible exits.</div>
+                    <?php endif; ?>
 
                     <!-- People in room (offscreen characters) -->
                     <?php

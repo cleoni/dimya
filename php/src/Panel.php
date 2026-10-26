@@ -130,9 +130,11 @@ class Panel
                 }
             }
         }
-        // Move / navigation commands are always valid in DimensioneX
-        if (!in_array('go', $cmds, true)) {
-            $cmds[] = 'go';
+        // Move / navigation / rotation commands are always valid in DimensioneX
+        foreach (['go', 'rotl', 'rotr', 'rev'] as $navCmd) {
+            if (!in_array($navCmd, $cmds, true)) {
+                $cmds[] = $navCmd;
+            }
         }
         return array_values(array_unique($cmds));
     }
@@ -147,8 +149,8 @@ class Panel
         if ($cmd === 'login') {
             return true;
         }
-        // Move commands are always valid and produce effect whenever there is a valid link
-        if ($cmd === 'go' || in_array($cmd, ['n', 's', 'e', 'w', 'u', 'd', 'north', 'south', 'east', 'west', 'up', 'down'], true)) {
+        // Move / rotation commands are always valid and produce effect whenever there is a valid link/face
+        if ($cmd === 'go' || in_array($cmd, ['n', 's', 'e', 'w', 'u', 'd', 'north', 'south', 'east', 'west', 'up', 'down', 'rotl', 'rotr', 'rev', 'rotate'], true)) {
             return true;
         }
         // Look and click commands are always valid to inspect objects

@@ -91,6 +91,11 @@ class World extends DimxObject
         $this->panels['chat']    = Panel::createChatPanel();
         $this->defaultPanel      = $this->panels['default'];
         $this->lastTick          = time();
+
+        // Initialize default skin
+        $defaultSkin = new Skin('default', 'Default', 'http://localhost/dimx/skins/default/');
+        $this->skins['default'] = $defaultSkin;
+        $this->defaultSkin = $defaultSkin;
     }
 
     public function getPanel(string $id): ?Panel

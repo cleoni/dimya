@@ -95,6 +95,48 @@ class AdvObject extends DimxObject
     }
 
     /**
+     * Sets an image for a specific direction face.
+     */
+    public function setImage(string $face, Image $image): bool
+    {
+        $face = strtoupper(trim($face)) ?: 'N';
+        $this->images[$face] = $image;
+        return true;
+    }
+
+    /**
+     * Check if this object has multiple directional images/faces.
+     */
+    public function hasSeveralFaces(): bool
+    {
+        return count($this->images) > 1;
+    }
+
+    /**
+     * Returns the exact image for the specified face, or null if undefined.
+     */
+    public function getExactImage(string $face): ?Image
+    {
+        $face = strtoupper(trim($face));
+        return $this->images[$face] ?? null;
+    }
+
+    /**
+     * Returns the image for the specified facing direction, falling back to 'N' or first image.
+     */
+    public function getImageForFacing(string $face): ?Image
+    {
+        if (empty($this->images)) {
+            return null;
+        }
+        $face = strtoupper(trim($face));
+        if (isset($this->images[$face])) {
+            return $this->images[$face];
+        }
+        return $this->images['N'] ?? reset($this->images) ?: null;
+    }
+
+    /**
      * Check if this object can be opened and closed (has 'open' declared or dynamic property).
      */
     public function isOpenable(): bool
@@ -309,6 +351,16 @@ class AdvObject extends DimxObject
 
         // Add to new container
         $target->addObject($this);
+
+        if ($this instanceof Character && $target instanceof Room) {
+            if ($target->hasSeveralFaces()) {
+                if ($target->getExactImage($this->facing) === null) {
+                    $this->facing = (string)array_key_first($target->images);
+                }
+            } elseif (count($target->images) === 1) {
+                $this->facing = (string)array_key_first($target->images);
+            }
+        }
         return true;
     }
 
