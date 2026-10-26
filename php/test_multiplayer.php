@@ -3420,7 +3420,14 @@ if (shouldRun(38)) {
     $nMsgs = implode(' ', $cris->drainConsole());
     assertTest(str_contains($nMsgs, "It's locked."), "In bungalow, 'open N' infers locked door w21 and outputs 'It\\'s locked.' (got: '{$nMsgs}')");
 
-    // 7. Verify UIhtml client script properly targets param for 1-arg commands and stops click event propagation
+    // 7. Test looking at locked door w21 in bungalow via 'look w21' (cmd=look, param=w21)
+    $eng38->executeCommandAction($w3Sec38, $cris, 'look', 'w21', '');
+    $lookW21Msgs = implode("\n", $cris->drainConsole());
+    assertTest(str_contains($lookW21Msgs, "It's firmly locked."), "Looking at w21 displays description 'It\\'s firmly locked.' (got: '{$lookW21Msgs}')");
+    assertTest(str_contains($lookW21Msgs, "the door is closed."), "Looking at w21 displays status 'the door is closed.' (got: '{$lookW21Msgs}')");
+    assertTest(!str_contains($lookW21Msgs, "tourism is coming everywhere"), "Looking at w21 does NOT print room description (got: '{$lookW21Msgs}')");
+
+    // 8. Verify UIhtml client script properly targets param for 1-arg commands and stops click event propagation
     assertTest(str_contains($patioHtml, "submitCmd(cmdToSubmit, firstArg, '')"), "UIhtml client script routes 1-argument command target to param (submitCmd(cmdToSubmit, firstArg, ''))");
     assertTest(str_contains($patioHtml, "event.stopPropagation()"), "Navpad links call event.stopPropagation() to prevent duplicate delegated dispatch");
     assertTest(str_contains($patioHtml, "this.getAttribute('onclick')?.includes('sendCmd')"), "Delegated listener guards against elements with inline sendCmd");

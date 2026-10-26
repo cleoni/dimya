@@ -404,12 +404,13 @@ class GameEngine
         switch ($cmd) {
             case 'look':
             case 'click':
-                if (!empty($targetId)) {
-                    $targetObj = $this->findAccessibleObject($player, $targetId);
+                $lookTarget = !empty($targetId) ? $targetId : $param;
+                if (!empty($lookTarget)) {
+                    $targetObj = $this->findAccessibleObject($player, $lookTarget);
 
                     if ($targetObj instanceof AdvObject) {
                         $desc = $targetObj->evalDescription($player);
-                        $msg = "<b>{$targetObj->name}</b>: {$desc}";
+                        $msg = !empty($desc) ? $desc : "<b>{$targetObj->name}</b>";
                         $player->display($msg);
 
                         if ($targetObj->isOpen()) {

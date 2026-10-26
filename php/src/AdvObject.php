@@ -448,11 +448,13 @@ class AdvObject extends DimxObject
             }
         }
 
-        if ($this->isanItem() && $this->isOpenable()) {
-            $name = !empty($this->name) ? $this->name : $this->id;
+        if ($this->isOpenable()) {
+            $name = ($this instanceof Link && $agent instanceof Character && ($room = $agent->getRoom()) !== null)
+                ? $this->getDisplayName($room->id)
+                : (!empty($this->name) ? $this->name : $this->id);
             $status = $this->isOpen() ? 'is open.' : 'is closed.';
             if (!empty($desc)) {
-                $desc .= "\n\n";
+                $desc .= "\n";
             }
             $desc .= "{$name} {$status}";
         }
