@@ -61,12 +61,12 @@ Every command cycle follows this processing pipeline:
 | **`save`** | - | - | Saves current player data (location, inventory, properties, score) | `onSave` |
 | **`popmsg`** | `msgid` | - | Discards/deletes a message from the player's incoming message queue after reading | - |
 | **`login`** | `[password]` | - | Authenticates player and displays initial room snapshot | `onLogin` |
-| **`exit`** | - | `logout` | Exits virtual world (logout); carried items drop to the floor | `onQuit`, `onExit` |
+| **`logout`** | - | - | Disconnects from the virtual world (rendered as "Disconnect" on default PANEL); carried items drop to the floor | `onQuit`, `onExit` |
 
 > [!IMPORTANT]
 > **Legacy DimensioneX `savexit` Removed**: The old combined `savexit` ("Save & Exit") command from DimensioneX has been completely removed. It is replaced by two distinct, independent commands:
 > - **`save`**: Saves current player data to the database without disconnecting.
-> - **`exit`** (or **`logout`**): Disconnects from the world, dropping carried inventory to the room floor.
+> - **`logout`**: Disconnects from the world (rendered as the **Disconnect** button on the control panel), dropping carried inventory to the room floor.
 
 ---
 
@@ -174,9 +174,8 @@ Every command cycle follows this processing pipeline:
   * **Bot API (`UIjson`)**: Accepts credentials via JSON body or query parameters (`username`, `password`). Returns structured JSON snapshot with player's `numeric_id` and `is_bot` boolean flag.
 * **Effect**: Validates credentials, places player in start room, and generates initial room snapshot. Fires `onLogin`.
 
-### 16. `exit` (alias `logout`)
-* **Intent**: Exits the virtual world (logout).
-* **Aliases**: `logout`.
+### 16. `logout`
+* **Intent**: Disconnects from the virtual world (rendered as the **Disconnect** button on the control panel).
 * **Effect**:
   * **Drops all carried items in inventory onto the current room floor** (firing `whenDropped` for each item).
   * Notifies other room occupants that the player has left the game.

@@ -499,8 +499,48 @@ class DxwLoader
                                 $item->type = trim(substr($subLine, strlen($subTokens[0])));
                             } elseif ($subDir === 'ATTRLIST') {
                                 $item->setAttrList(trim(substr($subLine, strlen($subTokens[0]))));
+                            } elseif ($subDir === 'CAPACITY') {
+                                $item->capacity = (int)trim(substr($subLine, strlen($subTokens[0])));
+                            } elseif ($subDir === 'VOLUME') {
+                                $item->volume = (int)trim(substr($subLine, strlen($subTokens[0])));
+                            } elseif ($subDir === 'PANEL') {
+                                $item->setPanel(trim(substr($subLine, strlen($subTokens[0]))));
                             } elseif ($subDir === 'ICON') {
                                 $item->icon = $this->resolveImageUrl(trim(substr($subLine, strlen($subTokens[0]))), $imagesFolder);
+                            } elseif ($subDir === 'INNER' || $subDir === 'INNERIMAGE') {
+                                $rest = trim(substr($subLine, strlen($subTokens[0])));
+                                if (stripos($rest, 'IMAGE') === 0) {
+                                    $rest = trim(substr($rest, 5));
+                                }
+                                $imgTokens = preg_split('/\s+/', $rest);
+                                $last = end($imgTokens);
+                                $imgW = 0;
+                                $imgH = 0;
+                                foreach ($imgTokens as $tok) {
+                                    if (preg_match('/^(\d+)x(\d+)$/i', $tok, $dimMatch)) {
+                                        $imgW = (int)$dimMatch[1];
+                                        $imgH = (int)$dimMatch[2];
+                                        break;
+                                    }
+                                }
+                                $item->innerImage = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
+                            } elseif ($subDir === 'ZOOMIMAGE' || $subDir === 'ZOOM') {
+                                $rest = trim(substr($subLine, strlen($subTokens[0])));
+                                if (stripos($rest, 'IMAGE') === 0) {
+                                    $rest = trim(substr($rest, 5));
+                                }
+                                $imgTokens = preg_split('/\s+/', $rest);
+                                $last = end($imgTokens);
+                                $imgW = 0;
+                                $imgH = 0;
+                                foreach ($imgTokens as $tok) {
+                                    if (preg_match('/^(\d+)x(\d+)$/i', $tok, $dimMatch)) {
+                                        $imgW = (int)$dimMatch[1];
+                                        $imgH = (int)$dimMatch[2];
+                                        break;
+                                    }
+                                }
+                                $item->zoomImage = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
                             } elseif ($subDir === 'IMAGE') {
                                 $rest = trim(substr($subLine, strlen($subTokens[0])));
                                 $imgTokens = preg_split('/\s+/', $rest);

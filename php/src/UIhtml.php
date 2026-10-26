@@ -1464,6 +1464,7 @@ class UIhtml extends UI
               },
               'help':   { noArgs: 0, model: '',  desc: 'Help' },
               'save':   { noArgs: 0, model: 'T', desc: 'Save' },
+              'logout': { noArgs: 0, model: '',  desc: 'Disconnect' },
               'exit':   { noArgs: 0, model: '',  desc: 'Exit' },
               'clear':  { noArgs: 0, model: '',  desc: 'Clear' },
               'say':    { noArgs: 0, model: 'T', desc: 'Say' }

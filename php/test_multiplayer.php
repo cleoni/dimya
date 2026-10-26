@@ -57,6 +57,7 @@ $sections = [
     37 => ['title' => 'Testing SHOWAREA Bounds & Baseline Positioning for Onscreen Objects...', 'keywords' => ['showarea', 'position', 'onscreen', 'kitchen', 'tommy', 'switch1', 'baseline', 'coords']],
     38 => ['title' => "Testing Non-pickable Items, PickUp Button Label & Locked Link Open Message ('It\\'s locked.')...", 'keywords' => ['pickable', 'trash', 'pickup', 'locked', 'w22', 'w21', 'open']],
     39 => ['title' => 'Testing Use With (use2) Execution Semantics: Done! on Success vs Nothing happens. (key2 on w22 vs w21 and key5 on w21)...', 'keywords' => ['use2', 'usewith', 'key2', 'key5', 'w21', 'w22', 'done', 'nothing happens', 'onusewith']],
+    40 => ['title' => 'Testing VEHICLE Support & Onscreen Display/Click in bungalowStanza (world3net tele1 & tele2)...', 'keywords' => ['vehicle', 'tele1', 'tele2', 'bungalowstanza', 'teletransporter', 'innerimage', 'click', 'onscreen']],
 ];
 
 // CLI Options parsing
@@ -401,20 +402,21 @@ $resultSave = $engine->processCommand($botName, 'save', '', '', $uiJson);
 assertTest(in_array("Game saved!", $resultSave['messages'], true), "Save command returns 'Game saved!' confirmation");
 assertTest(($resultSave['logged_out'] ?? false) === false, "Save command does NOT logout player");
 
-// Step 5g: 'exit' command logs out player
-$resultExit = $engine->processCommand($botName, 'exit', '', '', $uiJson);
-assertTest(($resultExit['logged_out'] ?? false) === true, "Exit command sets logged_out = true");
-assertTest($world->getPlayer($resultExit['player']->id) === null, "Player cleanly removed on exit");
+// Step 5g: 'logout' command logs out player
+$resultLogout = $engine->processCommand($botName, 'logout', '', '', $uiJson);
+assertTest(($resultLogout['logged_out'] ?? false) === true, "Logout command sets logged_out = true");
+assertTest($world->getPlayer($resultLogout['player']->id) === null, "Player cleanly removed on logout");
 
 // Step 5h: 'savexit' command is removed completely
 $resultSavexit = $engine->processCommand($botName, 'savexit', '', '', $uiJson);
 assertTest(($resultSavexit['logged_out'] ?? false) === false, "Legacy 'savexit' does NOT trigger logout");
 assertTest(in_array("Unknown command: savexit", $resultSavexit['messages'], true), "Legacy 'savexit' is treated as unknown command");
 
-// Step 5i: Panel buttons verify 'save' & 'exit' replace 'savexit'
+// Step 5i: Panel buttons verify 'save' & 'logout' replace 'savexit'
 $defaultPanel = Dimx\Panel::createDefaultPanel();
 assertTest($defaultPanel->getButton('save') !== null, "Default panel includes 'save' button");
-assertTest($defaultPanel->getButton('exit') !== null, "Default panel includes 'exit' button");
+assertTest($defaultPanel->getButton('logout') !== null, "Default panel includes 'logout' button");
+assertTest($defaultPanel->getButton('logout')?->caption === 'Disconnect', "Default panel 'logout' button caption is 'Disconnect'");
 assertTest($defaultPanel->getButton('savexit') === null, "Default panel does NOT include legacy 'savexit' button");
 
 $pm->resetWorld($unitWorldId);
@@ -651,7 +653,7 @@ $chatPanel = $world2->getPanel('chat');
 $chatCmds = $chatPanel->getAvailableCommands();
 assertTest(in_array('say', $chatCmds, true), "Chat panel allows 'say' command");
 assertTest(in_array('save', $chatCmds, true), "Chat panel allows 'save' command");
-assertTest(in_array('exit', $chatCmds, true), "Chat panel allows 'exit' command");
+assertTest(in_array('logout', $chatCmds, true), "Chat panel allows 'logout' command");
 assertTest(in_array('look', $chatCmds, true), "Chat panel allows 'look' command");
 assertTest(in_array('click', $chatCmds, true), "Chat panel allows 'click' command");
 assertTest(in_array('use', $chatCmds, true), "Chat panel allows 'use' command");
@@ -846,7 +848,8 @@ assertTest(!str_contains($humanHtmlOutput, 'id="btn_click"'), "Human player DOES
 assertTest(str_contains($humanHtmlOutput, "sendCmd('use')"), "Human player sees Use button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('say')"), "Human player gets Say button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('save')"), "Human player gets Save button");
-assertTest(str_contains($humanHtmlOutput, "sendCmd('exit')"), "Human player gets Exit button");
+assertTest(str_contains($humanHtmlOutput, "sendCmd('logout')"), "Human player gets Disconnect (logout) button");
+assertTest(str_contains($humanHtmlOutput, "Disconnect"), "Human player sees Disconnect button label");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('go','w16')"), "Human player STILL SEES exit button for [U] to the rock");
 assertTest(!str_contains($humanHtmlOutput, "sendCmd('pick')"), "Human player DOES NOT see Pick button");
 
@@ -3501,6 +3504,80 @@ if (shouldRun(39)) {
     $k2w22Msgs = implode(' ', $player39->drainConsole());
     assertTest(str_contains($k2w22Msgs, "Done!"), "Using key2 on w22 outputs 'Done!' (got: '{$k2w22Msgs}')");
     assertTest(!$w22->isLocked(), "Link w22 is unlocked (locked=0) after using key2");
+}
+
+// ---------------------------------------------------------------------------
+// Section 40: Testing VEHICLE Support & Onscreen Display/Click in bungalowStanza
+// ---------------------------------------------------------------------------
+if (shouldRun(40)) {
+    echo "\n--- Section 40: Testing VEHICLE Support & Onscreen Display/Click in bungalowStanza (world3net tele1 & tele2) ---\n";
+
+    @$pm->resetWorld('w3_sec40_test');
+    $eng40 = new \Dimx\GameEngine($pm, 'w3_sec40_test', __DIR__ . '/world3net.dxw');
+    $w3Sec40 = $eng40->loadOrSeedWorld();
+
+    // 1. Verify tele1 definition and Vehicle properties
+    $tele1 = $w3Sec40->getItem('tele1');
+    assertTest($tele1 !== null, "world3net defines vehicle 'tele1'");
+    assertTest($tele1 instanceof \Dimx\Vehicle, "tele1 is an instance of Dimx\\Vehicle");
+    assertTest($tele1 instanceof \Dimx\Item, "tele1 is an instance of Dimx\\Item");
+    assertTest($tele1->isVehicle(), "tele1->isVehicle() returns true");
+    assertTest($tele1->name === 'the teletransporter', "tele1 has name 'the teletransporter' (got: '{$tele1->name}')");
+    assertTest($tele1->capacity === 19, "tele1 has CAPACITY 19 (got: {$tele1->capacity})");
+    assertTest(!$tele1->hideable, "tele1 has hideable=0 (hideable=false)");
+    assertTest($tele1->showmode === \Dimx\AdvObject::SHOW_ONSCREEN, "tele1 has SHOW ONSCREEN");
+    assertTest($tele1->showX === 260 && $tele1->showY === 5, "tele1 has showX=260, showY=5 (got: {$tele1->showX}, {$tele1->showY})");
+    assertTest($tele1->images['N']?->width === 40 && $tele1->images['N']?->height === 150, "tele1 has 40x150 image");
+    assertTest($tele1->innerImage !== null, "tele1 has innerImage parsed");
+    assertTest($tele1->innerImage?->width === 350 && $tele1->innerImage?->height === 235, "tele1 innerImage has 350x235 dimensions");
+
+    // 2. Verify tele2 in pianetaAlieno
+    $tele2 = $w3Sec40->getItem('tele2');
+    assertTest($tele2 !== null, "world3net defines vehicle 'tele2'");
+    assertTest($tele2 instanceof \Dimx\Vehicle, "tele2 is an instance of Dimx\\Vehicle");
+    assertTest($tele2->container?->id === 'pianetaAlieno', "tele2 is positioned in 'pianetaAlieno'");
+
+    // 3. Verify bungalowStanza contains tele1
+    $bungalowStanza = $w3Sec40->getRoom('bungalowStanza');
+    assertTest($bungalowStanza !== null, "Room 'bungalowStanza' exists");
+    $roomItems = $bungalowStanza->getItems();
+    assertTest(isset($roomItems['tele1']), "bungalowStanza->getItems() includes 'tele1'");
+    $roomVehicles = $bungalowStanza->getVehicles();
+    assertTest(isset($roomVehicles['tele1']), "bungalowStanza->getVehicles() includes 'tele1'");
+
+    // 4. Entering bungalowStanza with a player renders tele1 onscreen and clickable
+    $player40 = new \Dimx\Player($w3Sec40, 'VehicleExplorer', 'p_veh_40');
+    $w3Sec40->addPlayer($player40);
+    $player40->move($bungalowStanza);
+    assertTest($player40->getRoom()?->id === 'bungalowStanza', "Player entered 'bungalowStanza'");
+
+    $ui40 = new \Dimx\UIhtml($player40);
+    ob_start();
+    $ui40->render(['world' => $w3Sec40, 'player' => $player40]);
+    $htmlOutput = ob_get_clean();
+
+    assertTest(str_contains($htmlOutput, 'data-obj-id="tele1"'), "Rendered HTML contains tele1 (data-obj-id='tele1')");
+    assertTest(str_contains($htmlOutput, 'lampadastyle.gif'), "Rendered HTML contains tele1 image 'lampadastyle.gif'");
+    assertTest(str_contains($htmlOutput, 'onclick="clickObject(this)"'), "Rendered HTML contains clickable handler onclick='clickObject(this)'");
+
+    // Match onscreen element attributes for tele1
+    $hasOnscreenTele = preg_match('/<img[^>]+class="[^"]*dimx-onscreen-obj[^"]*"[^>]+data-obj-id="tele1"[^>]*onclick="clickObject\(this\)"/i', $htmlOutput);
+    assertTest((bool)$hasOnscreenTele, "tele1 is rendered as an interactive on-screen object with dimx-onscreen-obj class and clickObject");
+
+    // 5. Test clicking tele1 (inspects vehicle and lists its inner contents)
+    $player40->drainConsole();
+    $eng40->executeCommandAction($w3Sec40, $player40, 'click', '', 'tele1');
+    $clickMsgs = implode(' ', $player40->drainConsole());
+    assertTest(str_contains($clickMsgs, "It looks like one of those things in Star Trek."), "Clicking tele1 displays description (got: '{$clickMsgs}')");
+    assertTest(str_contains($clickMsgs, "a switch"), "Clicking tele1 reveals inner object 'a switch' inside tele1");
+
+    // 6. Test looking at tele1
+    $player40->drainConsole();
+    $eng40->executeCommandAction($w3Sec40, $player40, 'look', 'tele1', '');
+    $lookMsgs = implode(' ', $player40->drainConsole());
+    assertTest(str_contains($lookMsgs, "It looks like one of those things in Star Trek."), "Looking at tele1 displays description (got: '{$lookMsgs}')");
+
+    @$pm->resetWorld('w3_sec40_test');
 }
 
 // Clean up test worlds

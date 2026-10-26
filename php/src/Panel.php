@@ -76,13 +76,13 @@ class Panel
         $panel->addButton(new Ctrl('say', Ctrl::TYPE_BUTTON, 'Say', 'Speak to characters in the room', 'onSay', null, 'TO'));
         $panel->addButton(new Ctrl('help', Ctrl::TYPE_BUTTON, 'Help', 'Show help instructions', 'onHelp', null, ''));
         $panel->addButton(new Ctrl('save', Ctrl::TYPE_BUTTON, 'Save', 'Save current player data', 'onSave', null, 'T'));
-        $panel->addButton(new Ctrl('exit', Ctrl::TYPE_BUTTON, 'Exit', 'Logout from the world', 'onQuit', null, ''));
+        $panel->addButton(new Ctrl('logout', Ctrl::TYPE_BUTTON, 'Disconnect', 'Logout from the world', 'onQuit', null, ''));
         return $panel;
     }
 
     /**
      * Factory to generate the DimensioneX prebuilt 'chat' command panel.
-     * Allows Look, Click, Use, speech box (txtBox), Say, Save, and Exit commands.
+     * Allows Look, Click, Use, speech box (txtBox), Say, Save, and Disconnect (logout) commands.
      */
     public static function createChatPanel(): self
     {
@@ -93,7 +93,7 @@ class Panel
         $panel->addButton(new Ctrl('txtBox', Ctrl::TYPE_TEXTBOX, '', 'Enter speech...'));
         $panel->addButton(new Ctrl('say', Ctrl::TYPE_BUTTON, 'Say', 'Speak to characters in the room', 'onSay', null, 'TO'));
         $panel->addButton(new Ctrl('save', Ctrl::TYPE_BUTTON, 'Save', 'Save current player data', 'onSave', null, 'T'));
-        $panel->addButton(new Ctrl('exit', Ctrl::TYPE_BUTTON, 'Exit', 'Logout from the world', 'onQuit', null, ''));
+        $panel->addButton(new Ctrl('logout', Ctrl::TYPE_BUTTON, 'Disconnect', 'Logout from the world', 'onQuit', null, ''));
         return $panel;
     }
 
@@ -111,6 +111,9 @@ class Panel
                 $cmdId = strtolower($ctrl->id);
                 if (!empty($cmdId)) {
                     $cmds[] = $cmdId;
+                    if ($cmdId === 'logout') {
+                        $cmds[] = 'exit';
+                    }
                     if ($cmdId === 'exit') {
                         $cmds[] = 'logout';
                     }

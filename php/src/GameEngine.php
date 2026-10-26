@@ -295,7 +295,7 @@ class GameEngine
 
         $consoleMessages = [];
         $lockError       = false;
-        $loggedOut       = in_array($cmd, ['logout', 'exit'], true);
+        $loggedOut       = in_array($cmd, ['logout'], true);
 
         // Concurrency-controlled execution via WorldLock (MySQL GET_LOCK)
         if ($this->pdo !== null && $this->lock !== null) {
@@ -704,7 +704,6 @@ class GameEngine
                 break;
 
             case 'logout':
-            case 'exit':
                 // Notify other occupants in room & drop carried inventory to the floor
                 if ($currentRoom !== null) {
                     foreach ($player->contents as $item) {
@@ -730,6 +729,22 @@ class GameEngine
 
                 // Remove player from active world and room contents
                 $world->removePlayer($player);
+                break;
+
+            case 'exit':
+                // Disembark / exit from vehicle or item container into outer room
+                $container = $player->container;
+                if ($container instanceof AdvObject && ($container->isVehicle() || $container->isanItem())) {
+                    $parentContainer = $container->container;
+                    if ($parentContainer instanceof AdvObject) {
+                        $player->move($parentContainer);
+                        $player->display("You exit the {$container->name}.");
+                    } else {
+                        $player->display("You cannot exit right now.");
+                    }
+                } else {
+                    $player->display("You are not inside anything.");
+                }
                 break;
 
             case 'save':

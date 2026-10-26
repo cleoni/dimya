@@ -241,7 +241,7 @@ PANEL <panelId> [VERSION OF <parentPanelId>]
 * **`chat`**: Simplified communication panel (speech box + exits + logout).
 * **`connect`**: Initial connection / character selection screen.
 * **`connecting`**: Password login screen for existing profiles.
-* **`exiting`**: Confirmation screen when issuing `exit` (`logout`).
+* **`exiting`**: Confirmation screen when issuing `logout`.
 
 #### Panel Inheritance (`VERSION OF`):
 Creates a modified version of an existing panel, inheriting its controls while allowing addition or removal:

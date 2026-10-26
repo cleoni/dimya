@@ -91,10 +91,25 @@ class PeopleContainer extends AdvObject
     {
         $items = [];
         foreach ($this->contents as $id => $obj) {
-            if ($obj instanceof Item && !$obj->isVehicle()) {
+            if ($obj instanceof Item) {
                 $items[$id] = $obj;
             }
         }
         return $items;
+    }
+
+    /**
+     * Returns all Vehicle objects currently inside this container.
+     * @return array<string, Vehicle>
+     */
+    public function getVehicles(): array
+    {
+        $vehicles = [];
+        foreach ($this->contents as $id => $obj) {
+            if ($obj instanceof Vehicle || ($obj instanceof Item && $obj->isVehicle())) {
+                $vehicles[$id] = $obj;
+            }
+        }
+        return $vehicles;
     }
 }
