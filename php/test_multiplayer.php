@@ -56,6 +56,7 @@ $sections = [
     36 => ['title' => 'Testing Player Orientation, Multi-faced Rooms, Rotation Commands (rotl/rotr/rev) & Navpad Multiface...', 'keywords' => ['facing', 'orientation', 'multiface', 'pathgate', 'rotl', 'rotr', 'rev', 'rotate', 'view', 'title', 'navpad']],
     37 => ['title' => 'Testing SHOWAREA Bounds & Baseline Positioning for Onscreen Objects...', 'keywords' => ['showarea', 'position', 'onscreen', 'kitchen', 'tommy', 'switch1', 'baseline', 'coords']],
     38 => ['title' => "Testing Non-pickable Items, PickUp Button Label & Locked Link Open Message ('It\\'s locked.')...", 'keywords' => ['pickable', 'trash', 'pickup', 'locked', 'w22', 'w21', 'open']],
+    39 => ['title' => 'Testing Use With (use2) Execution Semantics: Done! on Success vs Nothing happens. (key2 on w22 vs w21 and key5 on w21)...', 'keywords' => ['use2', 'usewith', 'key2', 'key5', 'w21', 'w22', 'done', 'nothing happens', 'onusewith']],
 ];
 
 // CLI Options parsing
@@ -3433,6 +3434,75 @@ if (shouldRun(38)) {
     assertTest(str_contains($patioHtml, "this.getAttribute('onclick')?.includes('sendCmd')"), "Delegated listener guards against elements with inline sendCmd");
 }
 
+// ---------------------------------------------------------------------------
+// Section 39: Testing Use With (use2) Execution Semantics: Done! vs Nothing happens.
+// ---------------------------------------------------------------------------
+if (shouldRun(39)) {
+    echo "\n--- Section 39: Testing Use With (use2) Execution Semantics: Done! on Success vs Nothing happens. ---\n";
+
+    @$pm->resetWorld('w3_sec39_test');
+    $dxwLoader = new \Dimx\DxwLoader('http://localhost');
+    $w3Sec39 = $dxwLoader->load(__DIR__ . '/../docs/dxw-examples/world3net.dxw');
+    $eng39 = new \Dimx\GameEngine($pm, 'w3_sec39_test', __DIR__ . '/../docs/dxw-examples/world3net.dxw');
+    $w3Sec39 = $eng39->loadOrSeedWorld();
+
+    $bungalow = $w3Sec39->getRoom('bungalow');
+    $player39 = new \Dimx\Player($w3Sec39, 'KeyTester', 'p_key_test_39');
+    $w3Sec39->addPlayer($player39);
+    $player39->move($bungalow);
+
+    $k1 = $w3Sec39->getItem('key1');
+    $k2 = $w3Sec39->getItem('key2');
+    $k5 = $w3Sec39->getItem('key5');
+    $w21 = $w3Sec39->getLink('w21');
+    $w22 = $w3Sec39->getLink('w22');
+
+    $k1->move($player39);
+    $k2->move($player39);
+    $k5->move($player39);
+
+    assertTest($w21 instanceof \Dimx\Link, "Link w21 (the door) exists in bungalow");
+    assertTest($w21->isLocked(), "Link w21 is initially locked");
+    assertTest($k2 instanceof \Dimx\Item, "Item key2 exists");
+    assertTest($k5 instanceof \Dimx\Item, "Item key5 exists");
+
+    // 1. Using key5 on w21 (key5 has no matching onUseWith): outputs "Nothing happens."
+    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'w21', 'key5');
+    $k5Msgs = implode(' ', $player39->drainConsole());
+    assertTest(str_contains($k5Msgs, "Nothing happens."), "Using key5 on w21 outputs 'Nothing happens.' (got: '{$k5Msgs}')");
+    assertTest(!str_contains($k5Msgs, "Done!"), "Using key5 on w21 does NOT output 'Done!'");
+    assertTest($w21->isLocked(), "Link w21 remains locked after using key5");
+
+    // 2. Using key1 on w21 (key1.onUseWith checks w6, condition is false): outputs "Nothing happens."
+    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'w21', 'key1');
+    $k1Msgs = implode(' ', $player39->drainConsole());
+    assertTest(str_contains($k1Msgs, "Nothing happens."), "Using key1 on w21 outputs 'Nothing happens.' (got: '{$k1Msgs}')");
+    assertTest(!str_contains($k1Msgs, "Done!"), "Using key1 on w21 does NOT output 'Done!'");
+    assertTest($w21->isLocked(), "Link w21 remains locked after using key1");
+
+    // 3. Using key2 on key5 (key2.onUseWith target condition false): outputs "Nothing happens."
+    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'key5', 'key2');
+    $k2k5Msgs = implode(' ', $player39->drainConsole());
+    assertTest(str_contains($k2k5Msgs, "Nothing happens."), "Using key2 on key5 outputs 'Nothing happens.' (got: '{$k2k5Msgs}')");
+    assertTest(!str_contains($k2k5Msgs, "Done!"), "Using key2 on key5 does NOT output 'Done!'");
+
+    // 4. Using key2 on w21 (key2 does NOT unlock w21; it only unlocks w22): outputs "Nothing happens." and w21 remains locked
+    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'w21', 'key2');
+    $k2Msgs = implode(' ', $player39->drainConsole());
+    assertTest(str_contains($k2Msgs, "Nothing happens."), "Using key2 on w21 outputs 'Nothing happens.' (got: '{$k2Msgs}')");
+    assertTest(!str_contains($k2Msgs, "Done!"), "Using key2 on w21 does NOT output 'Done!'");
+    assertTest($w21->isLocked(), "Link w21 remains locked after using key2");
+
+    // 5. Using key2 on w22 (key2 also unlocks patio service door w22 when at patio)
+    $patio = $w3Sec39->getRoom('bungalowPatio');
+    $player39->move($patio);
+    assertTest($w22->isLocked(), "Link w22 is initially locked");
+    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'w22', 'key2');
+    $k2w22Msgs = implode(' ', $player39->drainConsole());
+    assertTest(str_contains($k2w22Msgs, "Done!"), "Using key2 on w22 outputs 'Done!' (got: '{$k2w22Msgs}')");
+    assertTest(!$w22->isLocked(), "Link w22 is unlocked (locked=0) after using key2");
+}
+
 // Clean up test worlds
 if (isset($pm)) {
     if (isset($testWorldId)) {
@@ -3441,6 +3511,7 @@ if (isset($pm)) {
     if (isset($unitWorldId)) {
         @$pm->resetWorld($unitWorldId);
     }
+    @$pm->resetWorld('w3_sec39_test');
 }
 
 $executedCount = count($executedSections);

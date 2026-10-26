@@ -351,10 +351,10 @@ class Character extends AdvObject
         }
 
         if ($this->world !== null) {
-            $res = $this->world->fireEvent('onUseWith', $obj1, $this, $obj2, [], null);
-            if ($res === null && !isset($this->world->events["{$obj1->id}.onUseWith"]) && isset($this->world->events["{$obj2->id}.onUseWith"])) {
+            $res = $this->world->fireEvent('onUseWith', $obj1, $this, $obj2, [], false);
+            if ($res === false && !isset($this->world->events["{$obj1->id}.onUseWith"]) && isset($this->world->events["{$obj2->id}.onUseWith"])) {
                 // Symmetrical fallback if onUseWith was defined on the second object
-                $res = $this->world->fireEvent('onUseWith', $obj2, $this, $obj1, [], null);
+                $res = $this->world->fireEvent('onUseWith', $obj2, $this, $obj1, [], false);
             }
             if ($res !== false && $res !== null && $res !== 0 && $res !== '0') {
                 $this->display("Done!");

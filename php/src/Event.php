@@ -66,7 +66,7 @@ class Event extends ManageableObject
         ?World $worldFallback = null
     ): mixed {
         if ($this->handler !== null) {
-            return ($this->handler)($owner, $agent, $target, $input);
+            return ($this->handler)($owner, $agent, $target, $input, $defaultResult);
         }
         if (!empty($this->actions)) {
             $world = ($owner instanceof World)
@@ -75,7 +75,7 @@ class Event extends ManageableObject
                     ? $owner->world
                     : $worldFallback);
             if ($world instanceof World) {
-                $runner = new ActionsRunner($world, $owner, $agent, $target, $input);
+                $runner = new ActionsRunner($world, $owner, $agent, $target, $input, $defaultResult);
                 return $runner->run($this->actions);
             }
         }

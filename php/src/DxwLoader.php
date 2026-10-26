@@ -701,8 +701,8 @@ class DxwLoader
                         $actionText = implode("\n", $actionLines);
                         $event = new Event($eventQual, $eventType);
                         $event->actions = $actionText;
-                        $event->setHandler(function (?DimxObject $owner, mixed $agent, mixed $target, array $input = []) use ($actionText, $world) {
-                            $runner = new ActionsRunner($world, $owner, $agent, $target, $input);
+                        $event->setHandler(function (?DimxObject $owner, mixed $agent, mixed $target, array $input = [], mixed $defaultResult = true) use ($actionText, $world) {
+                            $runner = new ActionsRunner($world, $owner, $agent, $target, $input, $defaultResult);
                             return $runner->run($actionText);
                         });
                         $world->registerEvent($event);

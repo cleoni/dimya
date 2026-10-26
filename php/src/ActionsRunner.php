@@ -19,19 +19,22 @@ class ActionsRunner
 
     protected bool $hasReturned = false;
     protected mixed $returnValue = true;
+    protected mixed $defaultResult = true;
 
     public function __construct(
         World $world,
         ?DimxObject $owner = null,
         mixed $agent = null,
         mixed $target = null,
-        array $input = []
+        array $input = [],
+        mixed $defaultResult = true
     ) {
         $this->world = $world;
         $this->owner = $owner;
         $this->agent = $agent;
         $this->target = $target;
         $this->input = $input;
+        $this->defaultResult = $defaultResult;
     }
 
     /**
@@ -89,7 +92,7 @@ class ActionsRunner
 
         $count = count($lines);
         $i = 0;
-        $result = true;
+        $result = $this->defaultResult;
 
         while ($i < $count && !$this->hasReturned) {
             $line = $lines[$i];
@@ -133,18 +136,24 @@ class ActionsRunner
                 $execLines = $condVal ? $thenLines : $elseLines;
                 if (!empty($execLines)) {
                     $subScript = implode("\n", $execLines);
-                    $result = $this->run($subScript);
+                    $subRes = $this->run($subScript);
                     if ($this->hasReturned) {
                         return $this->returnValue;
+                    }
+                    if ($subRes !== false && $subRes !== null && $subRes !== 0 && $subRes !== '0') {
+                        $result = true;
                     }
                 }
                 continue;
             }
 
             // Normal single statement execution
-            $result = $this->executeStatement($line);
+            $stmtRes = $this->executeStatement($line);
             if ($this->hasReturned) {
                 return $this->returnValue;
+            }
+            if ($stmtRes !== false && $stmtRes !== null && $stmtRes !== 0 && $stmtRes !== '0') {
+                $result = true;
             }
             $i++;
         }
