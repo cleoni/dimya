@@ -152,8 +152,8 @@ abstract class UI
         $password = trim((string)($merged['password'] ?? $merged['pass'] ?? ''));
         $rawCmd   = $merged['cmd'] ?? $merged['command'] ?? $merged['action'] ?? null;
         $cmd      = ($rawCmd !== null && trim((string)$rawCmd) !== '') ? strtolower(trim((string)$rawCmd)) : 'login';
-        $param    = trim((string)($merged['param'] ?? $merged['direction'] ?? $merged['dir'] ?? $merged['value'] ?? $merged['msgid'] ?? $merged['arg2'] ?? $merged['item2'] ?? $merged['target2'] ?? $merged['with'] ?? ''));
-        $target   = trim((string)($merged['target'] ?? $merged['target_id'] ?? $merged['item'] ?? $merged['arg1'] ?? $merged['item1'] ?? ''));
+        $param    = trim((string)($merged['param'] ?? $merged['direction'] ?? $merged['dir'] ?? $merged['value'] ?? $merged['msgid'] ?? $merged['arg0'] ?? $merged['arg1'] ?? $merged['item1'] ?? ''));
+        $target   = trim((string)($merged['target'] ?? $merged['target_id'] ?? $merged['arg2'] ?? $merged['item2'] ?? $merged['target2'] ?? $merged['item'] ?? $merged['with'] ?? ''));
         $reset    = isset($merged['reset']) && ($merged['reset'] === '1' || $merged['reset'] === 1 || $merged['reset'] === 'true' || $merged['reset'] === true);
 
         return [

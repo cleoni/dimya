@@ -783,6 +783,16 @@ class ActionsRunner
             $expr = trim(substr($expr, 1, -1));
         }
 
+        // Logical OR (lowest precedence)
+        if ($parts = $this->splitTopLevelLogical($expr, 'OR')) {
+            return (bool)$this->evalCondition(trim($parts[0])) || (bool)$this->evalCondition(trim($parts[1]));
+        }
+
+        // Logical AND
+        if ($parts = $this->splitTopLevelLogical($expr, 'AND')) {
+            return (bool)$this->evalCondition(trim($parts[0])) && (bool)$this->evalCondition(trim($parts[1]));
+        }
+
         // Logical NOT: Not expr or Not(expr)
         if (preg_match('/^NOT\b\s*(.*)$/i', $expr, $nm)) {
             $inner = trim($nm[1]);
@@ -817,6 +827,63 @@ class ActionsRunner
         }
 
         return $this->evalValue($expr);
+    }
+
+    /**
+     * Split expression at top-level logical keyword (AND / OR) outside parentheses and quotes.
+     */
+    protected function splitTopLevelLogical(string $expr, string $keyword): ?array
+    {
+        $len = strlen($expr);
+        $parenDepth = 0;
+        $inQuote = false;
+        $quoteChar = '';
+        $kwLen = strlen($keyword);
+
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $expr[$i];
+
+            if ($inQuote) {
+                if ($ch === $quoteChar) {
+                    $inQuote = false;
+                }
+                continue;
+            }
+
+            if ($ch === '"' || $ch === "'") {
+                $inQuote = true;
+                $quoteChar = $ch;
+                continue;
+            }
+
+            if ($ch === '(') {
+                $parenDepth++;
+                continue;
+            }
+            if ($ch === ')') {
+                if ($parenDepth > 0) {
+                    $parenDepth--;
+                }
+                continue;
+            }
+
+            if ($parenDepth === 0) {
+                if (strcasecmp(substr($expr, $i, $kwLen), $keyword) === 0) {
+                    $beforeOk = ($i === 0) || ctype_space($expr[$i - 1]) || $expr[$i - 1] === ')';
+                    $afterPos = $i + $kwLen;
+                    $afterOk = ($afterPos >= $len) || ctype_space($expr[$afterPos]) || $expr[$afterPos] === '(';
+
+                    if ($beforeOk && $afterOk) {
+                        return [
+                            substr($expr, 0, $i),
+                            substr($expr, $afterPos),
+                        ];
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

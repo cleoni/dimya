@@ -1605,7 +1605,7 @@ class UIhtml extends UI
                 if ((def.noArgs || 1) === 1) {
                   submitCmd(cmdToSubmit, firstArg, '');
                 } else {
-                  submitCmd(cmdToSubmit, secondArg, firstArg);
+                  submitCmd(cmdToSubmit, firstArg, secondArg);
                 }
               } else {
                 updatePrompt();
@@ -1759,7 +1759,7 @@ class UIhtml extends UI
                   if ((def.noArgs || 1) === 1) {
                     submitCmd(cmdToSubmit, firstArg, '');
                   } else {
-                    submitCmd(cmdToSubmit, secondArg, firstArg);
+                    submitCmd(cmdToSubmit, firstArg, secondArg);
                   }
                 } else {
                   updatePrompt();

@@ -2314,7 +2314,7 @@ if (shouldRun(28)) {
     assertTest(isset($pKey->contents['key1']), "Player is carrying 'key1'");
 
     // Execute use2 key1 on w6
-    $useEngine->executeCommandAction($w3Use, $pKey, 'use2', 'w6', 'key1');
+    $useEngine->executeCommandAction($w3Use, $pKey, 'use2', 'key1', 'w6');
     $use2Msgs = implode(' ', $pKey->drainConsole());
     assertTest(str_contains($use2Msgs, "Done!"), "Using key1 on w6 outputs 'Done!': '{$use2Msgs}'");
     assertTest(!$w6->isLocked(), "Link w6 is now UNLOCKED after key1.onUseWith (locked=0)");
@@ -2693,7 +2693,7 @@ if (shouldRun(33)) {
     $rejectItem = new \Dimx\Item($w3Give, 'Rusty Key', 'rusty_key', 'An old key.', null, 'pickable=1');
     $rejectItem->move($pGiver);
 
-    $giveEngine->executeCommandAction($w3Give, $pGiver, 'give', 'tommy', 'rusty_key');
+    $giveEngine->executeCommandAction($w3Give, $pGiver, 'give', 'rusty_key', 'tommy');
     $rejectMsgs = $pGiver->drainConsole();
     $rejectOutput = implode(' ', $rejectMsgs);
     assertTest(str_contains($rejectOutput, "Does not accept it."), "Giving rejected item outputs 'Does not accept it.': '{$rejectOutput}'");
@@ -2701,7 +2701,7 @@ if (shouldRun(33)) {
 
     // 5. Test successful give: give apple to tommy
     $w3Give->chatQueue = [];
-    $giveEngine->executeCommandAction($w3Give, $pGiver, 'give', 'tommy', 'apple');
+    $giveEngine->executeCommandAction($w3Give, $pGiver, 'give', 'apple', 'tommy');
     $giverMsgs = $pGiver->drainConsole();
     $giverOutput = implode(' ', $giverMsgs);
 
@@ -2719,7 +2719,7 @@ if (shouldRun(33)) {
     assertTest(!isset($tommyChar->contents['cell']), "Tommy is no longer holding cell");
 
     // 6. Test giving to non-actor / room
-    $giveEngine->executeCommandAction($w3Give, $pGiver, 'give', 'kitchen', 'cell');
+    $giveEngine->executeCommandAction($w3Give, $pGiver, 'give', 'cell', 'kitchen');
     $actorMsgs = $pGiver->drainConsole();
     $actorOutput = implode(' ', $actorMsgs);
     assertTest(str_contains($actorOutput, "I can only give objects to other actors."), "Giving to room outputs 'I can only give objects to other actors.': '{$actorOutput}'");
@@ -3433,6 +3433,7 @@ if (shouldRun(38)) {
 
     // 8. Verify UIhtml client script properly targets param for 1-arg commands and stops click event propagation
     assertTest(str_contains($patioHtml, "submitCmd(cmdToSubmit, firstArg, '')"), "UIhtml client script routes 1-argument command target to param (submitCmd(cmdToSubmit, firstArg, ''))");
+    assertTest(str_contains($patioHtml, "submitCmd(cmdToSubmit, firstArg, secondArg)"), "UIhtml client script routes 2-argument command target to param & target (submitCmd(cmdToSubmit, firstArg, secondArg))");
     assertTest(str_contains($patioHtml, "event.stopPropagation()"), "Navpad links call event.stopPropagation() to prevent duplicate delegated dispatch");
     assertTest(str_contains($patioHtml, "this.getAttribute('onclick')?.includes('sendCmd')"), "Delegated listener guards against elements with inline sendCmd");
 }
@@ -3470,27 +3471,27 @@ if (shouldRun(39)) {
     assertTest($k5 instanceof \Dimx\Item, "Item key5 exists");
 
     // 1. Using key5 on w21 (key5 has no matching onUseWith): outputs "Nothing happens."
-    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'w21', 'key5');
+    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'key5', 'w21');
     $k5Msgs = implode(' ', $player39->drainConsole());
     assertTest(str_contains($k5Msgs, "Nothing happens."), "Using key5 on w21 outputs 'Nothing happens.' (got: '{$k5Msgs}')");
     assertTest(!str_contains($k5Msgs, "Done!"), "Using key5 on w21 does NOT output 'Done!'");
     assertTest($w21->isLocked(), "Link w21 remains locked after using key5");
 
     // 2. Using key1 on w21 (key1.onUseWith checks w6, condition is false): outputs "Nothing happens."
-    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'w21', 'key1');
+    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'key1', 'w21');
     $k1Msgs = implode(' ', $player39->drainConsole());
     assertTest(str_contains($k1Msgs, "Nothing happens."), "Using key1 on w21 outputs 'Nothing happens.' (got: '{$k1Msgs}')");
     assertTest(!str_contains($k1Msgs, "Done!"), "Using key1 on w21 does NOT output 'Done!'");
     assertTest($w21->isLocked(), "Link w21 remains locked after using key1");
 
     // 3. Using key2 on key5 (key2.onUseWith target condition false): outputs "Nothing happens."
-    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'key5', 'key2');
+    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'key2', 'key5');
     $k2k5Msgs = implode(' ', $player39->drainConsole());
     assertTest(str_contains($k2k5Msgs, "Nothing happens."), "Using key2 on key5 outputs 'Nothing happens.' (got: '{$k2k5Msgs}')");
     assertTest(!str_contains($k2k5Msgs, "Done!"), "Using key2 on key5 does NOT output 'Done!'");
 
     // 4. Using key2 on w21 (key2 does NOT unlock w21; it only unlocks w22): outputs "Nothing happens." and w21 remains locked
-    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'w21', 'key2');
+    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'key2', 'w21');
     $k2Msgs = implode(' ', $player39->drainConsole());
     assertTest(str_contains($k2Msgs, "Nothing happens."), "Using key2 on w21 outputs 'Nothing happens.' (got: '{$k2Msgs}')");
     assertTest(!str_contains($k2Msgs, "Done!"), "Using key2 on w21 does NOT output 'Done!'");
@@ -3500,10 +3501,25 @@ if (shouldRun(39)) {
     $patio = $w3Sec39->getRoom('bungalowPatio');
     $player39->move($patio);
     assertTest($w22->isLocked(), "Link w22 is initially locked");
-    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'w22', 'key2');
+    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'key2', 'w22');
     $k2w22Msgs = implode(' ', $player39->drainConsole());
     assertTest(str_contains($k2w22Msgs, "Done!"), "Using key2 on w22 outputs 'Done!' (got: '{$k2w22Msgs}')");
     assertTest(!$w22->isLocked(), "Link w22 is unlocked (locked=0) after using key2");
+
+    // 6. Test screwdriver (screwd) on switch2 with use2: use2 screwd switch2 (param=screwd, target=switch2)
+    $screwd = $w3Sec39->contents['screwd'] ?? null;
+    $switch2 = $w3Sec39->contents['switch2'] ?? null;
+    $tele1 = $w3Sec39->contents['tele1'] ?? null;
+    assertTest($screwd instanceof \Dimx\Item, "Item screwd exists");
+    assertTest($switch2 instanceof \Dimx\Item, "Item switch2 exists");
+    assertTest((int)$switch2->getProperty('broken') === 1, "switch2 is initially broken (broken=1)");
+    $screwd->move($player39);
+    $player39->move($tele1);
+    $eng39->executeCommandAction($w3Sec39, $player39, 'use2', 'screwd', 'switch2');
+    $screwdMsgs = implode(' ', $player39->drainConsole());
+    assertTest(str_contains($screwdMsgs, "Hmmmm.... I seem to have fixed it."), "Using screwd on switch2 outputs event message (got: '{$screwdMsgs}')");
+    assertTest(str_contains($screwdMsgs, "Done!"), "Using screwd on switch2 outputs 'Done!' (got: '{$screwdMsgs}')");
+    assertTest((int)$switch2->getProperty('broken') === 0, "switch2 is fixed after use2 screwd switch2 (broken=0)");
 }
 
 // ---------------------------------------------------------------------------

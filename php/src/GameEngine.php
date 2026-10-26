@@ -543,7 +543,7 @@ class GameEngine
                     $clean = preg_replace('/\bwith\b/i', ' ', $useTarget);
                     $tokens = preg_split('/[,\s]+/', trim($clean));
                     if (count($tokens) >= 2) {
-                        $this->executeCommandAction($world, $player, 'use2', $tokens[1], $tokens[0]);
+                        $this->executeCommandAction($world, $player, 'use2', $tokens[0], $tokens[1]);
                         break;
                     }
                     $item = $this->findAccessibleObject($player, $useTarget);
@@ -563,8 +563,8 @@ class GameEngine
                 $item2Id = '';
 
                 if (!empty($targetId) && !empty($param)) {
-                    $item1Id = $targetId;
-                    $item2Id = $param;
+                    $item1Id = $param;
+                    $item2Id = $targetId;
                 } else {
                     $raw = !empty($param) ? $param : $targetId;
                     $raw = preg_replace('/\bwith\b/i', ' ', $raw);
@@ -613,8 +613,8 @@ class GameEngine
                 $toWhoTarget = '';
 
                 if (!empty($targetId) && !empty($param)) {
-                    $itemTarget = $targetId;
-                    $toWhoTarget = $param;
+                    $itemTarget = $param;
+                    $toWhoTarget = $targetId;
                 } else {
                     $raw = !empty($param) ? $param : $targetId;
                     $raw = preg_replace('/\bto\b/i', ' ', $raw);
@@ -636,8 +636,8 @@ class GameEngine
                     break;
                 }
 
-                // If user selected character first and item second, swap them
-                if ($obj1 instanceof Character && !($obj2 instanceof Character)) {
+                // If user selected recipient first and item second, swap them
+                if (!($obj1 instanceof Item) && ($obj2 instanceof Item)) {
                     $tmp = $obj1;
                     $obj1 = $obj2;
                     $obj2 = $tmp;
