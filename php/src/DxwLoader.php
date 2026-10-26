@@ -79,6 +79,7 @@ class DxwLoader
         $cleanLines = [];
         $accum = '';
         $inQuote = false;
+        $inScripts = false;
 
         $totalRaw = count($lines);
         for ($li = 0; $li < $totalRaw; $li++) {
@@ -90,25 +91,21 @@ class DxwLoader
                 if ($trimmed === '' || str_starts_with($trimmed, "'")) {
                     continue;
                 }
-                // If the line starts with DESCRIPTION, read entire line up to end of line
-                if (preg_match('/^DESCRIPTION\b/i', $trimmed)) {
-                    $len = strlen($trimmed);
-                    for ($ci = 0; $ci < $len; $ci++) {
-                        if ($trimmed[$ci] === '"') {
-                            $inQuote = !$inQuote;
-                        }
-                    }
-                    if ($inQuote) {
-                        $accum = $trimmed;
-                        continue;
-                    } else {
-                        $cleanLines[] = $trimmed;
-                        continue;
-                    }
+
+                $firstToken = strtoupper(preg_split('/\s+/', $trimmed)[0] ?? '');
+                if (in_array($firstToken, ['SCRIPTS', 'EVENTS', 'EVENT', 'SUB', 'FUNCTION'], true)) {
+                    $inScripts = true;
+                } elseif (in_array($firstToken, ['END_SCRIPTS', 'END_EVENTS', 'END_EVENT', 'END_SUB', 'END_FUNCTION'], true)) {
+                    $inScripts = false;
+                } elseif (in_array($firstToken, ['ROOMS', 'CHARACTERS', 'ITEMS', 'LINKS', 'SETS', 'GUI', 'WORLD'], true)) {
+                    $inScripts = false;
                 }
             }
 
-            // Scan characters of the line, stripping inline comments outside quotes
+            // Scan characters of the line.
+            // In script lines (EVENT / SUB), an inline comment (') outside quotes ignores the rest of the line.
+            // In object definitions (ROOMS, CHARACTERS, ITEMS, LINKS, WORLD, etc.), comment lines start with ',
+            // but an apostrophe (') inside a definition (e.g. "The duck's house") is treated as a normal character.
             $len = strlen($rawLine);
             $lineContent = '';
             for ($ci = 0; $ci < $len; $ci++) {
@@ -116,8 +113,8 @@ class DxwLoader
                 if ($ch === '"') {
                     $inQuote = !$inQuote;
                     $lineContent .= $ch;
-                } elseif ($ch === "'" && !$inQuote) {
-                    // Inline comment starts here; ignore the rest of this physical line
+                } elseif ($ch === "'" && !$inQuote && $inScripts) {
+                    // Inline comment in SmallBasic scripts starts here; ignore the rest of this physical line
                     break;
                 } else {
                     $lineContent .= $ch;

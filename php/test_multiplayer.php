@@ -51,6 +51,7 @@ $sections = [
     31 => ['title' => 'Testing Server Setting tickLength & Clock Tick Management (world3net switch1 & onTick)...', 'keywords' => ['tick', 'ticklength', 'ontick', 'lasttick', 'clock', 'interval', 'config', 'switch1', 'gate1']],
     32 => ['title' => 'Testing Search Command, onSearch Event & Revealing Hidden Objects (world3net)...', 'keywords' => ['search', 'onsearch', 'hidden', 'visible', 'found nothing new', 'treasure', 'forbici']],
     33 => ['title' => 'Testing Give Command, Default Panel Button & onReceiveItem Quest Transfer (world3net Tommy & apple)...', 'keywords' => ['give', 'itemgive', 'actgive', 'panel', 'tommy', 'cell', 'apple', 'onreceiveitem', 'accepts']],
+    34 => ['title' => "Testing Apostrophes in ROOM & CHARACTER Definitions (world3net parcoAnatre 'The duck\\'s house')...", 'keywords' => ['apostrophe', 'comment', 'name', 'room', 'character', 'parcoanatre', 'duck', 'house', 'dxwloader']],
 ];
 
 // CLI Options parsing
@@ -2707,6 +2708,61 @@ if (shouldRun(33)) {
     $actorMsgs = $pGiver->drainConsole();
     $actorOutput = implode(' ', $actorMsgs);
     assertTest(str_contains($actorOutput, "I can only give objects to other actors."), "Giving to room outputs 'I can only give objects to other actors.': '{$actorOutput}'");
+}
+
+// ---------------------------------------------------------------------------
+// Section 34: Testing Apostrophes in ROOM & CHARACTER Definitions
+// ---------------------------------------------------------------------------
+if (shouldRun(34)) {
+    echo "\n--- Section 34: Testing Apostrophes in ROOM & CHARACTER Definitions (world3net parcoAnatre 'The duck\'s house') ---\n";
+
+    $dxwLoader = new \Dimx\DxwLoader('http://localhost');
+    $w3Rooms = $dxwLoader->load(__DIR__ . '/../docs/dxw-examples/world3net.dxw');
+
+    // 1. Verify 'parcoAnatre' NAME preserves "'s" and does not truncate to 'The duck'
+    $parcoAnatre = $w3Rooms->getRoom('parcoAnatre');
+    assertTest($parcoAnatre instanceof \Dimx\Room, "World 3 contains room 'parcoAnatre'");
+    assertTest($parcoAnatre->name === "The duck's house", "parcoAnatre NAME is 'The duck\'s house' (got '{$parcoAnatre->name}')");
+    assertTest($parcoAnatre->name !== "The duck", "parcoAnatre NAME is NOT truncated to 'The duck'");
+
+    // 2. Verify other room names with apostrophes in world3net
+    $bungalowPatio = $w3Rooms->getRoom('bungalowPatio');
+    assertTest($bungalowPatio instanceof \Dimx\Room, "World 3 contains room 'bungalowPatio'");
+    assertTest($bungalowPatio->name === "The bungalow's back", "bungalowPatio NAME is 'The bungalow\'s back' (got '{$bungalowPatio->name}')");
+
+    $cellar = $w3Rooms->getRoom('cellar');
+    assertTest($cellar instanceof \Dimx\Room, "World 3 contains room 'cellar'");
+    assertTest($cellar->name === "The bar's cellar", "cellar NAME is 'The bar\'s cellar' (got '{$cellar->name}')");
+
+    $beachcliff = $w3Rooms->getRoom('beachcliff');
+    assertTest($beachcliff instanceof \Dimx\Room, "World 3 contains room 'beachcliff'");
+    assertTest($beachcliff->name === "The cliff's bottom", "beachcliff NAME is 'The cliff\'s bottom' (got '{$beachcliff->name}')");
+
+    // Also verify link name with apostrophe
+    $lakeLink = $w3Rooms->getLink('w11a') ?? $w3Rooms->contents['w11a'] ?? null;
+    if ($lakeLink instanceof \Dimx\Link) {
+        assertTest($lakeLink->name === "lake's edge", "w11a link NAME is 'lake\'s edge' (got '{$lakeLink->name}')");
+    }
+
+    // 3. Verify UIhtml rendering of parcoAnatre displays full name 'The duck's house'
+    $pDuck = new \Dimx\Player($w3Rooms, 'DuckObserver', 'p_duck_obs');
+    $pDuck->move($parcoAnatre);
+    $uiHtml = new \Dimx\UIhtml($pDuck, null);
+    ob_start();
+    $uiHtml->render([
+        'world'    => $w3Rooms,
+        'player'   => $pDuck,
+        'room'     => $parcoAnatre,
+        'messages' => [],
+    ]);
+    $htmlOutput = ob_get_clean();
+
+    assertTest(str_contains($htmlOutput, "The duck&#039;s house") || str_contains($htmlOutput, "The duck's house"), "UIhtml renders 'The duck\'s house' in header/scene");
+    assertTest(!str_contains($htmlOutput, "<b>The duck</b>") && !str_contains($htmlOutput, "<h2>The duck</h2>"), "UIhtml does NOT render truncated 'The duck'");
+
+    // 4. Verify standalone comment lines starting with ' were properly ignored
+    // e.g. line 768: ' Plays the background music only once
+    assertTest(!isset($w3Rooms->contents["'"]), "No object created from comment lines");
 }
 
 // Clean up test worlds
