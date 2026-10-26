@@ -730,6 +730,11 @@ class UIhtml extends UI
                     <div class="dimx-scene-container" style="position:relative;width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;background-color:<?= htmlspecialchars($world->bgcolor ?? '#000040') ?>;">
                       <?php
                         $sceneImg = $currentRoom ? $currentRoom->getImageForFacing($player->facing ?? 'N') : null;
+                        $saX1 = ($sceneImg && $sceneImg->showareaX1 >= 0) ? $sceneImg->showareaX1 : 0;
+                        $saX2 = ($sceneImg && $sceneImg->showareaX2 >= 0 && $sceneImg->showareaX2 > $saX1) ? $sceneImg->showareaX2 : $roomW;
+                        $saBaseline = ($sceneImg && $sceneImg->showareaY >= 0)
+                          ? $sceneImg->showareaY
+                          : (($sceneImg && $sceneImg->baseline >= 0) ? $sceneImg->baseline : (int)round(0.10 * $roomH));
                       ?>
                       <?php if (!empty($sceneImg)): ?>
                         <img src="<?= htmlspecialchars($sceneImg->src) ?>"
@@ -755,6 +760,23 @@ class UIhtml extends UI
                             if (!$charImg && !empty($world->imagesFolder)) {
                               $charImg = new \Dimx\Image(rtrim(str_replace('/pics/', '/skins/aqua/', $world->imagesFolder), '/') . '/avatar.gif', 64, 100);
                             }
+                            // Check SHOW FOR restriction
+                            if (!empty($char->showFor) && $sceneImg !== null) {
+                              $sceneUrl = $sceneImg->src;
+                              if (!str_ends_with($sceneUrl, $char->showFor)) {
+                                $faceMatches = false;
+                                foreach ($currentRoom->images ?? [] as $fImg) {
+                                  if (str_ends_with($fImg->src, $char->showFor)) {
+                                    $faceMatches = true;
+                                    break;
+                                  }
+                                }
+                                if ($faceMatches) {
+                                  continue;
+                                }
+                              }
+                            }
+
                             if ($charImg && !empty($charImg->src)):
                               $isIcon = ($char->showmode === \Dimx\AdvObject::SHOW_ICON);
                               $imgSrc = ($isIcon && !empty($char->icon)) ? $char->icon : $charImg->src;
@@ -762,12 +784,20 @@ class UIhtml extends UI
                               $baseH = $isIcon ? ($world->iconSize ?? 32) : (!empty($charImg->height) ? $charImg->height : ($world->iconSize ?? 32));
 
                               // Cartesian coordinate conversion (0,0 is lower-left of room scene)
-                              $cartX = ($char->showX >= 0)
-                                ? $char->showX
-                                : (20 + (abs(crc32($char->id)) % max(1, ($roomW - $baseW - 40))));
-                              $cartY = ($char->showY >= 0)
-                                ? $char->showY
-                                : (int)round(0.10 * $roomH); // Standard 10% baseline
+                              $xValid = ($char->showX >= 0 && $char->showX < $roomW);
+                              if ($xValid) {
+                                $cartX = $char->showX;
+                              } else {
+                                $range = ($saX2 - $saX1) - $baseW;
+                                $cartX = ($range > 0) ? ($saX1 + mt_rand(0, $range)) : $saX1;
+                              }
+
+                              $yValid = ($char->showY >= 0 && $char->showY < $roomH);
+                              if ($yValid) {
+                                $cartY = $char->showY;
+                              } else {
+                                $cartY = $isIcon ? (int)round($saBaseline / 2) : $saBaseline;
+                              }
 
                               $screenX = 1 + $cartX;
                               $screenY = $roomH - $cartY - $baseH;
@@ -775,8 +805,8 @@ class UIhtml extends UI
                               $dispH = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseH);
                               $rawPosX = (int)round($factorx * $screenX);
                               $rawPosY = (int)round($factorx * $screenY);
-                              $posX = max(0, min($rawPosX, max(0, $scaledRoomW - $dispW))) . 'px';
-                              $posY = max(0, min($rawPosY, max(0, $scaledRoomH - $dispH))) . 'px';
+                              $posX = max(0, min($rawPosX, max(0, $scaledRoomW - $dispW)));
+                              $posY = max(0, min($rawPosY, max(0, $scaledRoomH - $dispH)));
                               $stackpos = 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
                           ?>
                             <img src="<?= htmlspecialchars($imgSrc) ?>"
@@ -786,7 +816,7 @@ class UIhtml extends UI
                                  data-obj-id="<?= htmlspecialchars($char->id) ?>"
                                  data-obj-type="c"
                                  data-obj-name="<?= htmlspecialchars($char->name) ?>"
-                                 style="position:absolute;left:<?= $posX ?>;top:<?= $posY ?>;width:<?= $dispW ?>px;height:<?= $dispH ?>px;cursor:pointer;z-index:<?= $stackpos ?>"
+                                 style="position:absolute;left:<?= $posX ?>px;top:<?= $posY ?>px;width:<?= $dispW ?>px;height:<?= $dispH ?>px;cursor:pointer;z-index:<?= $stackpos ?>"
                                  onclick="clickObject(this)" />
                           <?php else: ?>
                             <span class="dimx-tag dimx-onscreen-obj"
@@ -803,6 +833,14 @@ class UIhtml extends UI
                       <?php foreach ($links as $lnk): ?>
                         <?php
                           if ($lnk->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && !$lnk->isHidden()):
+                            // Check SHOW FOR restriction
+                            if (!empty($lnk->showFor) && $sceneImg !== null) {
+                              $sceneUrl = $sceneImg->src;
+                              if (!str_ends_with($sceneUrl, $lnk->showFor)) {
+                                continue;
+                              }
+                            }
+
                             $isIcon = ($lnk->showmode === \Dimx\AdvObject::SHOW_ICON);
                             $imgSrc = ($isIcon && !empty($lnk->icon))
                               ? $lnk->icon
@@ -816,12 +854,20 @@ class UIhtml extends UI
                                 : (!empty($lnk->images['N']->height) ? $lnk->images['N']->height : (!empty($lnk->image->height) ? $lnk->image->height : ($world->iconSize ?? 32)));
 
                               // Cartesian coordinate conversion (0,0 is lower-left of room scene)
-                              $cartX = ($lnk->showX >= 0)
-                                ? $lnk->showX
-                                : (10 + (abs(crc32($lnk->id)) % max(1, ($roomW - $baseW - 20))));
-                              $cartY = ($lnk->showY >= 0)
-                                ? $lnk->showY
-                                : ($isIcon ? (int)round(0.05 * $roomH) : (int)round(0.10 * $roomH));
+                              $xValid = ($lnk->showX >= 0 && $lnk->showX < $roomW);
+                              if ($xValid) {
+                                $cartX = $lnk->showX;
+                              } else {
+                                $range = ($saX2 - $saX1) - $baseW;
+                                $cartX = ($range > 0) ? ($saX1 + mt_rand(0, $range)) : $saX1;
+                              }
+
+                              $yValid = ($lnk->showY >= 0 && $lnk->showY < $roomH);
+                              if ($yValid) {
+                                $cartY = $lnk->showY;
+                              } else {
+                                $cartY = $isIcon ? (int)round($saBaseline / 2) : $saBaseline;
+                              }
 
                               $screenX = 1 + $cartX;
                               $screenY = $roomH - $cartY - $baseH;
@@ -855,6 +901,23 @@ class UIhtml extends UI
                       <?php foreach ($roomItems as $itm): ?>
                         <?php
                           if ($itm->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && !$itm->isHidden()):
+                            // Check SHOW FOR restriction
+                            if (!empty($itm->showFor) && $sceneImg !== null) {
+                              $sceneUrl = $sceneImg->src;
+                              if (!str_ends_with($sceneUrl, $itm->showFor)) {
+                                $faceMatches = false;
+                                foreach ($currentRoom->images ?? [] as $fImg) {
+                                  if (str_ends_with($fImg->src, $itm->showFor)) {
+                                    $faceMatches = true;
+                                    break;
+                                  }
+                                }
+                                if ($faceMatches) {
+                                  continue;
+                                }
+                              }
+                            }
+
                             $isIcon = ($itm->showmode === \Dimx\AdvObject::SHOW_ICON);
                             $imgSrc = ($isIcon && !empty($itm->icon))
                               ? $itm->icon
@@ -868,13 +931,21 @@ class UIhtml extends UI
                                 : (!empty($itm->images['N']->height) ? $itm->images['N']->height : ($world->iconSize ?? 32));
 
                               // Cartesian coordinate conversion (0,0 is lower-left of room scene)
-                              // If x or y is -1 (or omitted), fall back to baseline positioning as per art013
-                              $cartX = ($itm->showX >= 0)
-                                ? $itm->showX
-                                : (10 + (abs(crc32($itm->id)) % max(1, ($roomW - $baseW - 20))));
-                              $cartY = ($itm->showY >= 0)
-                                ? $itm->showY
-                                : ($isIcon ? (int)round(0.05 * $roomH) : (int)round(0.10 * $roomH)); // Item icons sit on lower half-baseline (5%)
+                              // If x or y is -1 (or outside bounds), fall back to SHOWAREA random position
+                              $xValid = ($itm->showX >= 0 && $itm->showX < $roomW);
+                              if ($xValid) {
+                                $cartX = $itm->showX;
+                              } else {
+                                $range = ($saX2 - $saX1) - $baseW;
+                                $cartX = ($range > 0) ? ($saX1 + mt_rand(0, $range)) : $saX1;
+                              }
+
+                              $yValid = ($itm->showY >= 0 && $itm->showY < $roomH);
+                              if ($yValid) {
+                                $cartY = $itm->showY;
+                              } else {
+                                $cartY = $isIcon ? (int)round($saBaseline / 2) : $saBaseline; // Item icons sit on lower half-baseline (5%)
+                              }
 
                               $screenX = 1 + $cartX;
                               $screenY = $roomH - $cartY - $baseH;
@@ -975,6 +1046,9 @@ class UIhtml extends UI
                               if (in_array($relDir, ['N', 'W', 'E', 'S'], true)) {
                                   if ($compassLinks[$relDir] === null) {
                                       $compassLinks[$relDir] = $link;
+                                  } elseif (empty($compassLinks[$relDir]->icon) && (!empty($link->icon) || $link->isOpenable())) {
+                                      $otherLinks[] = $compassLinks[$relDir];
+                                      $compassLinks[$relDir] = $link;
                                   } else {
                                       $otherLinks[] = $link;
                                   }
@@ -1025,7 +1099,7 @@ class UIhtml extends UI
                                   // In multiface navpad, forward direction arrow is always North pointing arrow (straight ahead)
                                   $linkIcon = !empty($forwardLink->icon) ? $forwardLink->icon : $skin->getWayIcon('N');
                                 ?>
-                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars($actualDir) ?>');return false;">
+                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars(!empty($forwardLink->id) ? $forwardLink->id : $actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars(!empty($forwardLink->id) ? $forwardLink->id : $actualDir) ?>');if(window.event){window.event.stopPropagation();}return false;">
                                   <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
                                 </a>
                               <?php else: ?>
@@ -1041,7 +1115,7 @@ class UIhtml extends UI
                                     : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($actualDir));
                                   $linkIcon = !empty($link->icon) ? $link->icon : (in_array(strtoupper($actualDir), ['U', 'UP'], true) ? $skin->getWayIcon('U') : $skin->getWayIcon('N'));
                                 ?>
-                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars($actualDir) ?>');return false;">
+                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>');if(window.event){window.event.stopPropagation();}return false;">
                                   <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
                                 </a>
                               <?php else: ?>
@@ -1074,7 +1148,7 @@ class UIhtml extends UI
                                     : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($actualDir));
                                   $linkIcon = !empty($link->icon) ? $link->icon : $skin->getWayIcon('W');
                                 ?>
-                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars($actualDir) ?>');return false;">
+                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>');if(window.event){window.event.stopPropagation();}return false;">
                                   <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
                                 </a>
                               <?php else: ?>
@@ -1104,7 +1178,7 @@ class UIhtml extends UI
                                     : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($actualDir));
                                   $linkIcon = !empty($link->icon) ? $link->icon : $skin->getWayIcon('E');
                                 ?>
-                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars($actualDir) ?>');return false;">
+                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>');if(window.event){window.event.stopPropagation();}return false;">
                                   <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
                                 </a>
                               <?php else: ?>
@@ -1137,7 +1211,7 @@ class UIhtml extends UI
                                     : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($actualDir));
                                   $linkIcon = !empty($link->icon) ? $link->icon : (in_array(strtoupper($actualDir), ['D', 'DOWN'], true) ? $skin->getWayIcon('D') : $skin->getWayIcon('S'));
                                 ?>
-                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars($actualDir) ?>');return false;">
+                                <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>');if(window.event){window.event.stopPropagation();}return false;">
                                   <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
                                 </a>
                               <?php else: ?>
@@ -1163,7 +1237,7 @@ class UIhtml extends UI
                               ? $link->getDisplayName($currentRoom->id)
                               : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : $dirExtended);
                           ?>
-                          <button type="button" class="dimx-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars($dir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($dirExtended) ?>" onclick="sendCmd('go','<?= htmlspecialchars($dir) ?>')">
+                          <button type="button" class="dimx-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars(!empty($link->id) ? $link->id : $dir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($dirExtended) ?>" onclick="sendCmd('go','<?= htmlspecialchars(!empty($link->id) ? $link->id : $dir) ?>');if(window.event){window.event.stopPropagation();}">
                             <img src="<?= htmlspecialchars($otherIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($dirExtended) ?>" title="<?= htmlspecialchars($dirExtended) ?>" style="vertical-align:middle;border:0" />
                             <?= htmlspecialchars($linkDisplayName) ?>
                           </button>
@@ -1356,8 +1430,8 @@ class UIhtml extends UI
                 noArgs: 1,
                 model: 'O',
                 allowDouble: true,
-                desc: 'Pick ...',
-                prompt: '👉 Click an item to PICK up (or click Pick again to pick everything)'
+                desc: 'PickUp ...',
+                prompt: '👉 Click an item to PICK UP (or click PickUp again to pick everything)'
               },
               'drop': {
                 noArgs: 1,
@@ -1473,7 +1547,7 @@ class UIhtml extends UI
                 if (obj.type === 'w') {
                   const host = (typeof target === 'object' && target) ? ((target.jquery ? target[0] : target).closest?.('.dimx-onscreen-obj') || target) : null;
                   const dir = host?.dataset?.dir || host?.getAttribute?.('data-dir') || fallbackParam || obj.id;
-                  sendCmd('go', dir);
+                  sendCmd('go', obj.id || dir);
                 } else {
                   // Direct click on object inspects it (click / onLook)
                   sendCmd('click', '', obj.id);
@@ -1487,7 +1561,7 @@ class UIhtml extends UI
                 const host = (typeof target === 'object' && target) ? ((target.jquery ? target[0] : target).closest?.('.dimx-onscreen-obj') || target) : null;
                 const dir = host?.dataset?.dir || host?.getAttribute?.('data-dir') || fallbackParam || obj.id;
                 clearPendingCmd();
-                sendCmd('go', dir);
+                sendCmd('go', obj.id || dir);
                 return;
               }
 
@@ -1499,10 +1573,14 @@ class UIhtml extends UI
               if (pendingArgs.length >= (def.noArgs || 1)) {
                 // All required arguments acquired -> execute command!
                 const cmdToSubmit = pendingCmd;
-                const targetObjId = pendingArgs[0];
+                const firstArg    = pendingArgs[0];
                 const secondArg   = pendingArgs.length > 1 ? pendingArgs[1] : '';
                 clearPendingCmd();
-                submitCmd(cmdToSubmit, secondArg, targetObjId);
+                if ((def.noArgs || 1) === 1) {
+                  submitCmd(cmdToSubmit, firstArg, '');
+                } else {
+                  submitCmd(cmdToSubmit, secondArg, firstArg);
+                }
               } else {
                 updatePrompt();
               }
@@ -1621,12 +1699,48 @@ class UIhtml extends UI
               if (this.tagName === 'BUTTON' && this.hasAttribute('data-cmd') && !this.hasAttribute('data-obj-id')) {
                 return;
               }
+              if (this.getAttribute('onclick')?.includes('sendCmd')) {
+                return;
+              }
               clickObject(this);
               e.preventDefault();
             });
 
             // ---- Game command submission ----
             function sendCmd(cmd, param = '', target = '') {
+              const now = Date.now();
+              const targetId = target || param;
+              if (targetId) {
+                lastClickedObjId = targetId;
+                lastClickedObjTime = now;
+              }
+
+              // If a command is currently pending (e.g. open, usewith, etc.), target this object/exit!
+              if (pendingCmd && (cmd === 'go' || cmd === 'click')) {
+                // DimensioneX: if pendingCmd is 'use', 'use' on a link translates to 'go'
+                if (pendingCmd === 'use') {
+                  clearPendingCmd();
+                  submitCmd(cmd, param, target);
+                  return;
+                }
+                pendingArgs.push(targetId);
+                const def = COMMAND_DEFS[pendingCmd] || { noArgs: 1 };
+                if (pendingArgs.length >= (def.noArgs || 1)) {
+                  const cmdToSubmit = pendingCmd;
+                  const firstArg = pendingArgs[0];
+                  const secondArg = pendingArgs.length > 1 ? pendingArgs[1] : '';
+                  clearPendingCmd();
+                  if ((def.noArgs || 1) === 1) {
+                    submitCmd(cmdToSubmit, firstArg, '');
+                  } else {
+                    submitCmd(cmdToSubmit, secondArg, firstArg);
+                  }
+                } else {
+                  updatePrompt();
+                }
+                return;
+              }
+
               // If target or param is already explicitly supplied (e.g. from exit button or inventory button)
               if (param !== '' || target !== '') {
                 clearPendingCmd();

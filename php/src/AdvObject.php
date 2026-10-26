@@ -137,11 +137,33 @@ class AdvObject extends DimxObject
     }
 
     /**
-     * Check if this object can be opened and closed (has 'open' declared or dynamic property).
+     * Check if this object can be opened and closed (has 'open' declared or dynamic property, or has 'locked').
      */
     public function isOpenable(): bool
     {
-        return property_exists($this, 'open') || $this->getProperty('open') !== null;
+        return property_exists($this, 'open') || $this->getProperty('open') !== null || $this->isLocked() || $this->getProperty('locked') !== null;
+    }
+
+    /**
+     * Check if this object can be picked up.
+     * Items are not pickable unless explicitly declared with pickable=1 or pickable in attributes.
+     */
+    public function isPickable(): bool
+    {
+        if (property_exists($this, 'pickable')) {
+            return (bool)$this->pickable;
+        }
+        $val = $this->getProperty('pickable');
+        if ($val === null) {
+            return false;
+        }
+        if (is_bool($val)) {
+            return $val;
+        }
+        if (is_numeric($val)) {
+            return (int)$val !== 0;
+        }
+        return !empty($val) && strtolower((string)$val) !== 'false';
     }
 
     /**
@@ -270,7 +292,14 @@ class AdvObject extends DimxObject
             }
         }
 
-        if ($this->isOpen() || $this->isLocked()) {
+        if ($this->isOpen()) {
+            return false;
+        }
+
+        if ($this->isLocked()) {
+            if ($agent !== null) {
+                $agent->display("It's locked.");
+            }
             return false;
         }
 

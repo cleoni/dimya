@@ -54,6 +54,8 @@ $sections = [
     34 => ['title' => "Testing Apostrophes in ROOM & CHARACTER Definitions (world3net parcoAnatre 'The duck\\'s house')...", 'keywords' => ['apostrophe', 'comment', 'name', 'room', 'character', 'parcoanatre', 'duck', 'house', 'dxwloader']],
     35 => ['title' => 'Testing 3x3 Navpad Table, Default Skin Arrow Icons & Direction Placement (UIhtml)...', 'keywords' => ['navpad', 'skin', 'default', 'arrow', 'icons', 'direction', 'n', 'w', 'e', 's', 'uihtml']],
     36 => ['title' => 'Testing Player Orientation, Multi-faced Rooms, Rotation Commands (rotl/rotr/rev) & Navpad Multiface...', 'keywords' => ['facing', 'orientation', 'multiface', 'pathgate', 'rotl', 'rotr', 'rev', 'rotate', 'view', 'title', 'navpad']],
+    37 => ['title' => 'Testing SHOWAREA Bounds & Baseline Positioning for Onscreen Objects...', 'keywords' => ['showarea', 'position', 'onscreen', 'kitchen', 'tommy', 'switch1', 'baseline', 'coords']],
+    38 => ['title' => "Testing Non-pickable Items, PickUp Button Label & Locked Link Open Message ('It\\'s locked.')...", 'keywords' => ['pickable', 'trash', 'pickup', 'locked', 'w22', 'w21', 'open']],
 ];
 
 // CLI Options parsing
@@ -844,7 +846,7 @@ assertTest(str_contains($humanHtmlOutput, "sendCmd('use')"), "Human player sees 
 assertTest(str_contains($humanHtmlOutput, "sendCmd('say')"), "Human player gets Say button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('save')"), "Human player gets Save button");
 assertTest(str_contains($humanHtmlOutput, "sendCmd('exit')"), "Human player gets Exit button");
-assertTest(str_contains($humanHtmlOutput, "sendCmd('go','U')"), "Human player STILL SEES exit button for [U] to the rock");
+assertTest(str_contains($humanHtmlOutput, "sendCmd('go','w16')"), "Human player STILL SEES exit button for [U] to the rock");
 assertTest(!str_contains($humanHtmlOutput, "sendCmd('pick')"), "Human player DOES NOT see Pick button");
 
 // Test STATS box rendering in UIhtml (Capital letter rule & no Carrying)
@@ -2862,7 +2864,8 @@ if (shouldRun(35)) {
     assertTest(str_contains($barNavpad, 'icowayw.gif'), "Bar navpad contains West arrow (w4b)");
     // Trapdoor w6 (Down) is mapped to the bottom exit in navpad and uses custom ICON trapdoor.gif
     assertTest(str_contains($barNavpad, 'trapdoor.gif'), "Bar navpad contains custom LINK ICON 'trapdoor.gif' for w6 (D)");
-    assertTest(str_contains($barNavpad, 'data-obj-id="D"'), "Bar navpad w6 has data-obj-id='D'");
+    assertTest(str_contains($barNavpad, 'data-obj-id="w6"'), "Bar navpad w6 has data-obj-id='w6'");
+    assertTest(str_contains($barNavpad, 'data-dir="D"'), "Bar navpad w6 has data-dir='D'");
     assertTest(str_contains($barNavpad, 'width="16" height="16"'), "Bar navpad custom icon has standard 16x16 dimensions");
 }
 
@@ -2999,7 +3002,8 @@ if (shouldRun(36)) {
 
     // Cell 2 has forward exit gate1 with custom ICON icoDoor.gif (direction E)
     assertTest(str_contains($navpadE, 'icoDoor.gif'), "Facing E: forward exit in navpad is gate1 with 'icoDoor.gif'");
-    assertTest(str_contains($navpadE, 'data-obj-id="E"'), "Facing E: forward exit data-obj-id='E'");
+    assertTest(str_contains($navpadE, 'data-obj-id="gate1"'), "Facing E: forward exit data-obj-id='gate1'");
+    assertTest(str_contains($navpadE, 'data-dir="E"'), "Facing E: forward exit data-dir='E'");
 
     // Cell 4 has Rotate Left button (icorotl.gif) with command 'rotl'
     assertTest(str_contains($navpadE, 'icorotl.gif'), "Navpad contains Rotate Left icon 'icorotl.gif'");
@@ -3091,8 +3095,9 @@ if (shouldRun(36)) {
     assertTest(str_contains($campoNav, 'icowayn.gif'), "scnCampoarato navpad cell #2 displays North arrow 'icowayn.gif' (meaning forward)");
     assertTest(!str_contains($campoNav, 'icoways.gif'), "scnCampoarato navpad cell #2 does NOT display South arrow 'icoways.gif'");
     assertTest(str_contains($campoNav, 'title="South"'), "scnCampoarato navpad cell #2 preserves HTML title='South'");
-    assertTest(str_contains($campoNav, 'data-obj-id="S"'), "scnCampoarato navpad cell #2 has data-obj-id='S'");
-    assertTest(str_contains($campoNav, "sendCmd('go','S')"), "scnCampoarato navpad cell #2 click sends go S");
+    assertTest(str_contains($campoNav, 'data-obj-id="w10"'), "scnCampoarato navpad cell #2 has data-obj-id='w10'");
+    assertTest(str_contains($campoNav, 'data-dir="S"'), "scnCampoarato navpad cell #2 has data-dir='S'");
+    assertTest(str_contains($campoNav, "sendCmd('go','w10')"), "scnCampoarato navpad cell #2 click sends go w10");
 
     // 9. Test Single-faced Room Forced Orientation & Relative Navpad in ballhouse
     // ballhouse has 1 image facing 'S': IMAGE S SHOWAREA 175,-1,-1 ballhouse.jpg
@@ -3135,9 +3140,10 @@ if (shouldRun(36)) {
     assertTest(str_contains($bhNav, 'icoways.gif'), "ballhouse navpad cell #8 displays South arrow 'icoways.gif'");
     // HTML title attribute indicates real direction 'North'
     assertTest(str_contains($bhNav, 'title="North"'), "ballhouse navpad cell #8 has title='North'");
-    // data-obj-id and sendCmd preserve the actual cardinal direction 'N'
-    assertTest(str_contains($bhNav, 'data-obj-id="N"'), "ballhouse navpad cell #8 has data-obj-id='N'");
-    assertTest(str_contains($bhNav, "sendCmd('go','N')"), "ballhouse navpad cell #8 sends go N");
+    // data-obj-id and sendCmd preserve the actual LINK id and cardinal direction 'N'
+    assertTest(str_contains($bhNav, 'data-obj-id="w31"'), "ballhouse navpad cell #8 has data-obj-id='w31'");
+    assertTest(str_contains($bhNav, 'data-dir="N"'), "ballhouse navpad cell #8 has data-dir='N'");
+    assertTest(str_contains($bhNav, "sendCmd('go','w31')"), "ballhouse navpad cell #8 sends go w31");
 
     // 10. Test exit down 'to the beach' at rocca / cliff does NOT have [D] label
     $rocca = $w3Ori->getRoom('rocca');
@@ -3156,7 +3162,268 @@ if (shouldRun(36)) {
     assertTest(!str_contains($roccaHtml, '[D]'), "Exit down 'to the beach' does NOT render '[D]' text label");
     assertTest(str_contains($roccaHtml, 'to the beach'), "Exit down displays 'to the beach' label");
     assertTest(str_contains($roccaHtml, 'title="Down"'), "Exit down has title='Down' on icon/button");
-    assertTest(str_contains($roccaHtml, "sendCmd('go','D')"), "Exit down click sends go D");
+    assertTest(str_contains($roccaHtml, "sendCmd('go','w17')"), "Exit down click sends go w17");
+}
+
+// -------------------------------------------------------------
+// Test 37: SHOWAREA Bounds & Baseline Positioning for Onscreen Objects
+// -------------------------------------------------------------
+if (shouldRun(37)) {
+    echo "\n--- Section 37: Testing SHOWAREA Bounds & Baseline Positioning for Onscreen Objects ---\n";
+
+    $dxwLoader = new \Dimx\DxwLoader();
+    $w3Show = $dxwLoader->load(__DIR__ . '/../docs/dxw-examples/world3net.dxw', 'w3_showarea_world');
+    $engineShow = new \Dimx\GameEngine($pm, 'w3_showarea_test', __DIR__ . '/../docs/dxw-examples/world3net.dxw');
+
+    // 1. Check room kitchen has IMAGE SHOWAREA 185,280,55 scnbarinterior.jpg
+    $kitchen = $w3Show->getRoom('kitchen');
+    assertTest($kitchen !== null, "world3net defines 'kitchen' room");
+    $kitchenImg = $kitchen->getImageForFacing('N');
+    assertTest($kitchenImg !== null, "'kitchen' has an image");
+    assertTest($kitchenImg->showareaX1 === 185, "kitchen showareaX1 is 185 (got {$kitchenImg->showareaX1})");
+    assertTest($kitchenImg->showareaX2 === 280, "kitchen showareaX2 is 280 (got {$kitchenImg->showareaX2})");
+    assertTest($kitchenImg->showareaY === 55, "kitchen showareaY is 55 (got {$kitchenImg->showareaY})");
+
+    // 2. Character Tommy is positioned in kitchen with no explicit coordinates (showX = -1, showY = -1)
+    $tommy = $w3Show->getCharacter('tommy');
+    assertTest($tommy !== null, "world3net defines character 'tommy'");
+    assertTest($tommy->showX === -1, "tommy has showX = -1 (automatic SHOWAREA placement)");
+    assertTest($tommy->showY === -1, "tommy has showY = -1 (automatic SHOWAREA placement)");
+
+    // 3. Connect player to kitchen and test UIhtml rendering
+    $pTest = $engineShow->ensurePlayer($w3Show, 'ShowTester');
+    $pTest->move($kitchen);
+
+    // Test at base size (factorx = 1.0, screenWidth = 1024)
+    $pTest->screenWidth = 1024;
+    $pTest->screenHeight = 768;
+    assertTest($pTest->getFactorX() === 1.0, "ShowTester has factorx = 1.0 at design resolution 1024x768");
+    $uiHtml = new \Dimx\UIhtml($pTest, $engineShow);
+
+    // Run multiple renders (e.g. 25 times) to verify random x position always stays within base SHOWAREA [185, 280]
+    $allLeftsValid = true;
+    $allTopsValid = true;
+    $leftsObserved = [];
+
+    for ($i = 0; $i < 25; $i++) {
+        ob_start();
+        $uiHtml->render([
+            'world'     => $w3Show,
+            'player'    => $pTest,
+            'room'      => $kitchen,
+            'messages'  => [],
+            'lockError' => false,
+        ]);
+        $htmlOut = ob_get_clean();
+
+        // Extract Tommy's style attribute
+        // <img ... class="dimx-onscreen-obj" data-obj-id="tommy" ... style="position:absolute;left:(...)px;top:(...)px...
+        if (preg_match('/<img[^>]*data-obj-id="tommy"[^>]*style="([^"]*)"/i', $htmlOut, $m)) {
+            $style = $m[1];
+            if (preg_match('/left:\s*(\d+)px/i', $style, $lm) && preg_match('/top:\s*(\d+)px/i', $style, $tm)) {
+                $leftPx = (int)$lm[1];
+                $topPx = (int)$tm[1];
+                $leftsObserved[] = $leftPx;
+
+                // Screen coordinates at base factorx = 1.0:
+                // screenX = 1 + cartX
+                // cartX must fall in [185, 280], so leftPx >= 186
+                // and with sprite width 45, cartX <= 280 - 45 = 235, so leftPx <= 236
+                if ($leftPx < 186 || $leftPx > 236) {
+                    $allLeftsValid = false;
+                }
+                // top: screenY = roomH (235) - cartY (55) - baseH (100) = 80px
+                if ($topPx !== 80) {
+                    $allTopsValid = false;
+                }
+            } else {
+                $allLeftsValid = false;
+            }
+        } else {
+            $allLeftsValid = false;
+        }
+    }
+
+    assertTest($allLeftsValid, "Tommy's random x position in kitchen at base size always falls within SHOWAREA [185, 280] (observed lefts: " . implode(', ', array_unique($leftsObserved)) . ")");
+    assertTest(min($leftsObserved) >= 186, "Tommy's minimum observed base left (" . min($leftsObserved) . "px) is >= 186px (1 + 185)");
+    assertTest(max($leftsObserved) <= 236, "Tommy's maximum observed base left (" . max($leftsObserved) . "px) is <= 236px (1 + 280 - 45)");
+    assertTest($allTopsValid, "Tommy's y coordinate correctly reflects baseline 55 (top: 80px = 235 - 55 - 100)");
+
+    // Test at standard screen (1280x800 -> factorx = 1.25)
+    $pTest->screenWidth = 1280;
+    $pTest->screenHeight = 800;
+    assertTest($pTest->getFactorX() === 1.25, "ShowTester has factorx = 1.25 on standard 1280x800 display");
+
+    $scaledLefts = [];
+    for ($i = 0; $i < 25; $i++) {
+        ob_start();
+        $uiHtml->render([
+            'world'     => $w3Show,
+            'player'    => $pTest,
+            'room'      => $kitchen,
+            'messages'  => [],
+            'lockError' => false,
+        ]);
+        $htmlScaled = ob_get_clean();
+
+        if (preg_match('/<img[^>]*data-obj-id="tommy"[^>]*style="([^"]*)"/i', $htmlScaled, $m)) {
+            if (preg_match('/left:\s*(\d+)px/i', $m[1], $lm)) {
+                $scaledLefts[] = (int)$lm[1];
+            }
+        }
+    }
+    assertTest(!in_array(163, $scaledLefts, true), "Tommy is NEVER positioned at flawed left:163px on standard display");
+    assertTest(min($scaledLefts) >= 233, "Tommy's minimum scaled left (" . min($scaledLefts) . "px) is >= 233px (round(1.25 * 186))");
+    assertTest(max($scaledLefts) <= 295, "Tommy's maximum scaled left (" . max($scaledLefts) . "px) is <= 295px (round(1.25 * 236))");
+
+    // 4. Test explicit coordinates (e.g. switch1: SHOW ICON 120,138)
+    $switch1 = $w3Show->getItem('switch1');
+    assertTest($switch1 !== null, "world3net defines item 'switch1'");
+    assertTest($switch1->showX === 120, "switch1 has showX = 120");
+    assertTest($switch1->showY === 138, "switch1 has showY = 138");
+
+    // Switch1 at base size (factorx = 1.0)
+    $pTest->screenWidth = 1024;
+    $pTest->screenHeight = 768;
+    ob_start();
+    $uiHtml->render([
+        'world'     => $w3Show,
+        'player'    => $pTest,
+        'room'      => $kitchen,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $switchHtml = ob_get_clean();
+
+    assertTest(preg_match('/<img[^>]*data-obj-id="switch1"[^>]*style="([^"]*)"/i', $switchHtml, $sm) === 1, "switch1 is rendered onscreen in kitchen");
+    if (preg_match('/<img[^>]*data-obj-id="switch1"[^>]*style="([^"]*)"/i', $switchHtml, $sm)) {
+        $swStyle = $sm[1];
+        // screenX = 1 + 120 = 121px; screenY = 235 - 138 - 32 = 65px
+        assertTest(str_contains($swStyle, 'left:121px'), "switch1 explicit X at base size is respected (left:121px)");
+        assertTest(str_contains($swStyle, 'top:65px'), "switch1 explicit Y at base size is respected (top:65px)");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Section 38: Testing Non-pickable Items, PickUp Button Label & Locked Link Open Message
+// ---------------------------------------------------------------------------
+if (shouldRun(38)) {
+    echo "\n--- Section 38: Testing Non-pickable Items, PickUp Button Label & Locked Link Open Message ---\n";
+
+    $dxwLoader = new \Dimx\DxwLoader('http://localhost');
+    $w3Sec38 = $dxwLoader->load(__DIR__ . '/../docs/dxw-examples/world3net.dxw');
+
+    // 1. Test non-pickable item (trash in parco)
+    $trash = $w3Sec38->getItem('trash');
+    assertTest($trash !== null, "world3net defines item 'trash'");
+    assertTest($trash->isPickable() === false, "trash has isPickable() === false (pickable not in ATTRLIST)");
+
+    // Test pickable item (key3 in parco)
+    $key3 = $w3Sec38->getItem('key3');
+    assertTest($key3 !== null, "world3net defines item 'key3'");
+    assertTest($key3->isPickable() === true, "key3 has isPickable() === true (pickable in ATTRLIST)");
+
+    // Test picking up trash via engine
+    $eng38 = new \Dimx\GameEngine($pm, 'w3_sec38_test', __DIR__ . '/../docs/dxw-examples/world3net.dxw');
+    $w3Sec38 = $eng38->loadOrSeedWorld();
+    $cris = new \Dimx\Player($w3Sec38, 'Cris', 'p_cris_sec38');
+    $w3Sec38->addPlayer($cris);
+    $parco = $w3Sec38->getRoom('parco');
+    $cris->move($parco);
+
+    // Player attempts to pick trash
+    $eng38->executeCommandAction($w3Sec38, $cris, 'pick', 'trash', '');
+    $crisMsgs = implode(' ', $cris->drainConsole());
+    assertTest(str_contains($crisMsgs, 'Could not take with me a trash can'), "Attempting to pick trash outputs 'Could not take with me a trash can' (got: '{$crisMsgs}')");
+    assertTest(!$cris->contains('trash'), "Player does NOT have trash in inventory");
+
+    // Player picks up key3
+    $eng38->executeCommandAction($w3Sec38, $cris, 'pick', 'key3', '');
+    $cris->drainConsole();
+    assertTest($cris->contains('key3'), "Player successfully picked up key3 (pickable item)");
+
+    // 2. Test PickUp button label in Panel and UIhtml
+    $defPanel = \Dimx\Panel::createDefaultPanel();
+    $btnPick = $defPanel->buttons['pick'] ?? null;
+    assertTest($btnPick !== null, "Default panel contains 'pick' control");
+    assertTest($btnPick->caption === 'PickUp', "Default panel 'pick' button caption is 'PickUp' (got: '{$btnPick->caption}')");
+
+    $uiHtml38 = new \Dimx\UIhtml($cris, null);
+    ob_start();
+    $uiHtml38->render([
+        'world'     => $w3Sec38,
+        'player'    => $cris,
+        'room'      => $parco,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $html38 = ob_get_clean();
+    assertTest(preg_match('/<button[^>]*id="btn_pick"[^>]*>\s*PickUp\s*<\/button>/i', $html38) === 1, "UIhtml renders button id='btn_pick' with text 'PickUp'");
+
+    // 3. Test locked link open message ("It's locked.")
+    // Move Cris to bungalowPatio where w22 is located
+    $bungalowPatio = $w3Sec38->getRoom('bungalowPatio');
+    $cris->move($bungalowPatio);
+    $w22 = $w3Sec38->getLink('w22');
+    assertTest($w22 !== null, "world3net defines link 'w22'");
+    assertTest($w22->isLocked() === true, "w22 is locked");
+    assertTest($w22->isOpen() === false, "w22 is closed");
+
+    // Attempting to open w22 by id
+    $eng38->executeCommandAction($w3Sec38, $cris, 'open', 'w22', '');
+    $w22Msgs = implode(' ', $cris->drainConsole());
+    assertTest(str_contains($w22Msgs, "It's locked."), "Attempting to open locked link 'w22' outputs 'It\\'s locked.' (got: '{$w22Msgs}')");
+
+    // Attempting to open by direction 'S'
+    $eng38->executeCommandAction($w3Sec38, $cris, 'open', 'S', '');
+    $sMsgs = implode(' ', $cris->drainConsole());
+    assertTest(str_contains($sMsgs, "It's locked."), "Attempting to open locked link via direction 'S' outputs 'It\\'s locked.' (got: '{$sMsgs}')");
+
+    // 4. Test navpad rendered HTML in bungalowPatio contains LINK id w22
+    ob_start();
+    $uiHtml38->render([
+        'world'     => $w3Sec38,
+        'player'    => $cris,
+        'room'      => $bungalowPatio,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $patioHtml = ob_get_clean();
+    preg_match('/<table id="navpad"[^>]*>(.*?)<\/table>/s', $patioHtml, $patioNavMatch);
+    $patioNav = $patioNavMatch[1] ?? '';
+    assertTest(str_contains($patioNav, 'data-obj-id="w22"'), "bungalowPatio navpad contains LINK ID data-obj-id='w22'");
+    assertTest(str_contains($patioNav, 'data-dir="S"'), "bungalowPatio navpad contains data-dir='S'");
+    assertTest(str_contains($patioNav, 'icoDoor.gif'), "bungalowPatio navpad contains door icon 'icoDoor.gif'");
+    assertTest(str_contains($patioNav, "sendCmd('go','w22')"), "bungalowPatio navpad click invokes sendCmd('go','w22')");
+
+    // 5. Test navpad rendered HTML in bungalow contains LINK id w21 (the door)
+    $bungalow = $w3Sec38->getRoom('bungalow');
+    $cris->move($bungalow);
+    ob_start();
+    $uiHtml38->render([
+        'world'     => $w3Sec38,
+        'player'    => $cris,
+        'room'      => $bungalow,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $bungHtml = ob_get_clean();
+    preg_match('/<table id="navpad"[^>]*>(.*?)<\/table>/s', $bungHtml, $bungNavMatch);
+    $bungNav = $bungNavMatch[1] ?? '';
+    assertTest(str_contains($bungNav, 'data-obj-id="w21"'), "bungalow navpad contains door LINK ID data-obj-id='w21'");
+    assertTest(str_contains($bungNav, 'data-dir="N"'), "bungalow navpad contains data-dir='N'");
+    assertTest(str_contains($bungNav, 'icoDoor.gif'), "bungalow navpad contains door icon 'icoDoor.gif'");
+    assertTest(str_contains($bungNav, "sendCmd('go','w21')"), "bungalow navpad click invokes sendCmd('go','w21')");
+
+    // 6. Test opening by direction 'N' in bungalow infers locked door w21
+    $eng38->executeCommandAction($w3Sec38, $cris, 'open', 'N', '');
+    $nMsgs = implode(' ', $cris->drainConsole());
+    assertTest(str_contains($nMsgs, "It's locked."), "In bungalow, 'open N' infers locked door w21 and outputs 'It\\'s locked.' (got: '{$nMsgs}')");
+
+    // 7. Verify UIhtml client script properly targets param for 1-arg commands and stops click event propagation
+    assertTest(str_contains($patioHtml, "submitCmd(cmdToSubmit, firstArg, '')"), "UIhtml client script routes 1-argument command target to param (submitCmd(cmdToSubmit, firstArg, ''))");
+    assertTest(str_contains($patioHtml, "event.stopPropagation()"), "Navpad links call event.stopPropagation() to prevent duplicate delegated dispatch");
+    assertTest(str_contains($patioHtml, "this.getAttribute('onclick')?.includes('sendCmd')"), "Delegated listener guards against elements with inline sendCmd");
 }
 
 // Clean up test worlds

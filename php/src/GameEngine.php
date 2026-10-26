@@ -443,9 +443,9 @@ class GameEngine
             case 'go':
                 $dir = $param ?: $targetId;
                 if (!empty($dir)) {
-                    $link = $currentRoom ? ($currentRoom->getWay($dir) ?? $currentRoom->getLinkByDirection($dir)) : null;
-                    if ($link !== null && !$link->isOpen()) {
-                        $linkName = ($link instanceof Link) ? $link->getDisplayName($currentRoom->id) : ($link->name ?? $link->id);
+                    $link = $currentRoom ? ($currentRoom->getWay($dir) ?? $currentRoom->getLinkByDirection($dir) ?? $this->findAccessibleObject($player, $dir)) : null;
+                    if ($link instanceof Link && !$link->isOpen()) {
+                        $linkName = $link->getDisplayName($currentRoom->id);
                         $player->display("{$linkName} is closed.");
                     } elseif ($player->go($dir)) {
                         $newRoom = $player->getRoom();
@@ -466,14 +466,19 @@ class GameEngine
             case 'pick':
             case 'take':
             case 'get':
-                if (!empty($targetId) && $currentRoom !== null) {
-                    $item = $this->findAccessibleObject($player, $targetId);
-                    if ($item instanceof Item && $item->isAccessibleFrom($player) && $item->pickable) {
-                        if ($item->move($player)) {
-                            $player->display("You picked up the <b>{$item->name}</b>.");
-                            $world->fireEvent('whenPicked', $item, $player, $player);
+                $pickTarget = !empty($targetId) ? $targetId : $param;
+                if (!empty($pickTarget) && $currentRoom !== null) {
+                    $item = $this->findAccessibleObject($player, $pickTarget);
+                    if ($item instanceof Item && $item->isAccessibleFrom($player)) {
+                        if ($item->isPickable()) {
+                            if ($item->move($player)) {
+                                $player->display("You picked up the <b>{$item->name}</b>.");
+                                $world->fireEvent('whenPicked', $item, $player, $player);
+                            } else {
+                                $player->display("You cannot carry the {$item->name} (inventory full).");
+                            }
                         } else {
-                            $player->display("You cannot carry the {$item->name} (inventory full).");
+                            $player->display("Could not take with me " . $item->name);
                         }
                     } else {
                         $player->display("The item is no longer available.");
@@ -484,8 +489,9 @@ class GameEngine
                 break;
 
             case 'drop':
-                if (!empty($targetId) && $currentRoom !== null) {
-                    $item = $player->contents[$targetId] ?? null;
+                $dropTarget = !empty($targetId) ? $targetId : $param;
+                if (!empty($dropTarget) && $currentRoom !== null) {
+                    $item = $player->contents[$dropTarget] ?? null;
                     if ($item instanceof Item && $item->move($currentRoom)) {
                         $player->display("You dropped the <b>{$item->name}</b>.");
                         $world->fireEvent('whenDropped', $item, $player, $currentRoom);
@@ -800,15 +806,52 @@ class GameEngine
         }
         // 4. Directional way or link in the room
         if ($currentRoom !== null) {
-            $way = $currentRoom->getWay($targetId) ?? $currentRoom->getLinkByDirection($targetId);
+            $way = $currentRoom->getWay($targetId);
             if ($way !== null) {
                 return $way;
             }
+            $targetUpper = strtoupper(trim($targetId));
+            $matchingLinks = [];
+            foreach ($currentRoom->getLinks() as $lnk) {
+                if (strtoupper($lnk->getDirection($currentRoom->id)) === $targetUpper) {
+                    $matchingLinks[] = $lnk;
+                }
+            }
+            if (!empty($matchingLinks)) {
+                // If any matching link is openable or locked, prefer it (e.g. door vs open passage in same direction)
+                foreach ($matchingLinks as $ml) {
+                    if ($ml->isOpenable() || $ml->isLocked() || !empty($ml->icon)) {
+                        return $ml;
+                    }
+                }
+                return $matchingLinks[0];
+            }
+            $way = $currentRoom->getLinkByDirection($targetId);
+            if ($way !== null) {
+                return $way;
+            }
+            $targetLower = strtolower(trim($targetId));
+            foreach ($currentRoom->getLinks() as $lnk) {
+                if ($lnk instanceof Link) {
+                    $displayName = strtolower($lnk->getDisplayName($currentRoom->id));
+                    $rawName = strtolower($lnk->name ?? '');
+                    if ($displayName === $targetLower || $rawName === $targetLower
+                        || ltrim($displayName, 'the ') === ltrim($targetLower, 'the ')
+                        || ltrim($rawName, 'the ') === ltrim($targetLower, 'the ')
+                        || str_contains($displayName, $targetLower)
+                        || str_contains($rawName, $targetLower)) {
+                        return $lnk;
+                    }
+                }
+            }
         }
-        // 5. Global world occupants or items
+        // 5. Global world occupants or items or links
         $world = $player->world ?? null;
         if ($world !== null) {
-            return $world->contents[$targetId] ?? $world->getCharacter($targetId) ?? null;
+            $globalObj = $world->contents[$targetId] ?? $world->getCharacter($targetId) ?? $world->getItem($targetId) ?? $world->getLink($targetId) ?? null;
+            if ($globalObj !== null && $globalObj->isAccessibleFrom($player)) {
+                return $globalObj;
+            }
         }
         return null;
     }

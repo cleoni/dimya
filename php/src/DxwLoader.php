@@ -367,10 +367,14 @@ class DxwLoader
                                     }
                                 }
                                 $img = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
-                                if (preg_match('/SHOWAREA\s+(-?\d+),(-?\d+),(-?\d+)/i', $rest, $saMatch)) {
+                                if (preg_match('/SHOWAREA\s+(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)/i', $rest, $saMatch)) {
                                     $img->showareaX1 = (int)$saMatch[1];
                                     $img->showareaX2 = (int)$saMatch[2];
                                     $img->showareaY  = (int)$saMatch[3];
+                                    $img->baseline   = (int)$saMatch[3];
+                                    if ($img->showareaX2 >= 0 && $img->showareaX1 >= 0 && $img->showareaX2 <= $img->showareaX1) {
+                                        $img->showareaX2 = -1;
+                                    }
                                 }
                                 $room->setImage($face, $img);
                             }
@@ -456,6 +460,9 @@ class DxwLoader
                                     $link->showX = -1;
                                     $link->showY = -1;
                                 }
+                                if (preg_match('/FOR\s+([^\s]+)/i', $rest, $forMatch)) {
+                                    $link->showFor = trim($forMatch[1]);
+                                }
                             }
                             $i++;
                         }
@@ -525,6 +532,9 @@ class DxwLoader
                                     $item->showmode = AdvObject::SHOW_ONSCREEN;
                                     $item->showX = -1;
                                     $item->showY = -1;
+                                }
+                                if (preg_match('/FOR\s+([^\s]+)/i', $rest, $forMatch)) {
+                                    $item->showFor = trim($forMatch[1]);
                                 }
                             }
                             $i++;
@@ -613,6 +623,9 @@ class DxwLoader
                                     $char->showmode = AdvObject::SHOW_ONSCREEN;
                                     $char->showX = -1;
                                     $char->showY = -1;
+                                }
+                                if (preg_match('/FOR\s+([^\s]+)/i', $rest, $forMatch)) {
+                                    $char->showFor = trim($forMatch[1]);
                                 }
                             }
                             $i++;

@@ -12,7 +12,7 @@ namespace Dimx;
 class Item extends PeopleContainer
 {
     public string $type = 'generic';
-    public bool $pickable = true;
+    public bool $pickable = false;
     public bool $hideable = true;
     public ?Image $innerImage = null;
     public ?Image $zoomImage = null;

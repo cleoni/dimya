@@ -262,7 +262,7 @@ class Character extends AdvObject
         }
 
         if ($obj->isLocked()) {
-            $this->display("It's locked");
+            $this->display("It's locked.");
             return false;
         }
 
@@ -472,8 +472,8 @@ class Character extends AdvObject
             return false;
         }
 
-        if (property_exists($item, 'pickable') && !$item->pickable) {
-            $this->display("Could not move {$item->name}");
+        if (!$item->isPickable()) {
+            $this->display("Could not take with me {$item->name}");
             return false;
         }
 

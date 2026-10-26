@@ -66,7 +66,7 @@ class Panel
         $panel->addButton(new Ctrl('go', Ctrl::TYPE_BUTTON, 'Go', 'Travel in a direction or passage', 'onGo', null, 'O'));
         $panel->addButton(new Ctrl('use', Ctrl::TYPE_BUTTON, 'Use', 'Use an item or activate mechanism', 'onUse', null, 'O'));
         $panel->addButton(new Ctrl('use2', Ctrl::TYPE_BUTTON, 'Use with', 'Use an item with another object', 'onUseWith', null, 'OO'));
-        $panel->addButton(new Ctrl('pick', Ctrl::TYPE_BUTTON, 'Pick', 'Pick up item from room', 'whenPicked', null, 'O'));
+        $panel->addButton(new Ctrl('pick', Ctrl::TYPE_BUTTON, 'PickUp', 'Pick up item from room', 'whenPicked', null, 'O'));
         $panel->addButton(new Ctrl('drop', Ctrl::TYPE_BUTTON, 'Drop', 'Drop an item to the room', 'whenDropped', null, 'O'));
         $panel->addButton(new Ctrl('open', Ctrl::TYPE_BUTTON, 'Open', 'Open a container or door', 'onOpen', null, 'O'));
         $panel->addButton(new Ctrl('close', Ctrl::TYPE_BUTTON, 'Close', 'Close a container or door', 'onClose', null, 'O'));
