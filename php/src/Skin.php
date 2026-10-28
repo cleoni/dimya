@@ -17,6 +17,7 @@ class Skin
     public string $panelBgColor = 'SILVER';
     public string $textColor = '#f8fafc';
     public string $buttonStyle = '';
+    public string $titleStyle = '';
     public string $stylesheet = '';
     public ?Image $picPlayer = null;
     public ?Image $picSpacer = null;
@@ -29,7 +30,7 @@ class Skin
     {
         $this->id = $id;
         $this->name = $name;
-        $this->skinFolder = rtrim($skinFolder ?? "http://localhost/dimx/skins/{$id}/", '/') . '/';
+        $this->skinFolder = rtrim($skinFolder ?? "/skins/{$id}/", '/') . '/';
         $this->picPlayer = new Image($this->skinFolder . 'uomo.gif', 64, 100);
         $this->picSpacer = new Image($this->skinFolder . 'blank.gif');
         $this->picFader = new Image($this->skinFolder . 'fadewhite.gif');
@@ -53,18 +54,71 @@ class Skin
     }
 
     /**
-     * Load skin settings from a .dxs specification file.
+     * Update the skin folder URL/path and rebase default images and icons.
+     */
+    public function setSkinFolder(string $skinFolder): void
+    {
+        $oldFolder = $this->skinFolder;
+        $this->skinFolder = rtrim($skinFolder, '/') . '/';
+        $this->picPlayer = new Image($this->skinFolder . 'uomo.gif', 64, 100);
+        $this->picSpacer = new Image($this->skinFolder . 'blank.gif');
+        $this->picFader = new Image($this->skinFolder . 'fadewhite.gif');
+
+        $defaultNames = [
+            'ICOPLAYER'    => 'icoPlayer.gif',
+            'ICOCHARACTER' => 'icouser.gif',
+            'ICOITEM'      => 'icoitem.gif',
+            'ICOWAY'       => 'icoway.gif',
+            'ICOWAYN'      => 'icowayn.gif',
+            'ICOWAYS'      => 'icoways.gif',
+            'ICOWAYE'      => 'icowaye.gif',
+            'ICOWAYW'      => 'icowayw.gif',
+            'ICOWAYU'      => 'icowayu.gif',
+            'ICOWAYD'      => 'icowayd.gif',
+            'ICOROTL'      => 'icorotl.gif',
+            'ICOROTR'      => 'icorotr.gif',
+            'ICOREV'       => 'reverse.gif',
+            'PICSPACER'    => 'blank.gif',
+        ];
+
+        foreach ($defaultNames as $key => $filename) {
+            if (!isset($this->icons[$key]) || empty($oldFolder) || str_starts_with($this->icons[$key], $oldFolder)) {
+                $this->icons[$key] = $this->skinFolder . $filename;
+            }
+        }
+    }
+
+    /**
+     * Load skin settings from a .dxs specification file or URL.
      */
     public static function loadFromDxs(string $filePath, ?string $folderUrl = null): ?self
     {
-        if (!file_exists($filePath)) {
+        $isUrl = str_starts_with($filePath, 'http://') || str_starts_with($filePath, 'https://');
+        $content = null;
+
+        if ($isUrl) {
+            $ctx = stream_context_create([
+                'http'  => ['timeout' => 3],
+                'https' => ['timeout' => 3],
+                'ssl'   => ['verify_peer' => false, 'verify_peer_name' => false],
+            ]);
+            $content = @file_get_contents($filePath, false, $ctx);
+            if ($content === false) {
+                return null;
+            }
+        } elseif (file_exists($filePath)) {
+            $content = file_get_contents($filePath);
+            if ($content === false) {
+                return null;
+            }
+        } else {
             return null;
         }
 
         $id = pathinfo(dirname($filePath), PATHINFO_BASENAME) ?: 'default';
         $skin = new self($id, ucfirst($id), $folderUrl);
 
-        $lines = file($filePath, FILE_IGNORE_NEW_LINES);
+        $lines = preg_split('/\r\n|\r|\n/', $content);
         if ($lines === false) {
             return $skin;
         }
@@ -83,15 +137,30 @@ class Skin
                 case 'NAME':
                     $skin->name = $val;
                     break;
+                case 'SKINFOLDER':
+                case 'IMAGESFOLDER':
+                    if ($val !== '') {
+                        $skin->setSkinFolder($val);
+                        $folderUrl = $skin->skinFolder;
+                    }
+                    break;
                 case 'PICPLAYER':
-                    $url = ($folderUrl ?? $skin->skinFolder) . $val;
+                    $url = (str_starts_with($val, 'http://') || str_starts_with($val, 'https://'))
+                        ? $val
+                        : (($folderUrl ?? $skin->skinFolder) . $val);
                     $skin->picPlayer = new Image($url, 64, 100);
                     break;
                 case 'PICSPACER':
-                    $skin->picSpacer = new Image(($folderUrl ?? $skin->skinFolder) . $val);
+                    $url = (str_starts_with($val, 'http://') || str_starts_with($val, 'https://'))
+                        ? $val
+                        : (($folderUrl ?? $skin->skinFolder) . $val);
+                    $skin->picSpacer = new Image($url);
                     break;
                 case 'PICFADER':
-                    $skin->picFader = new Image(($folderUrl ?? $skin->skinFolder) . $val);
+                    $url = (str_starts_with($val, 'http://') || str_starts_with($val, 'https://'))
+                        ? $val
+                        : (($folderUrl ?? $skin->skinFolder) . $val);
+                    $skin->picFader = new Image($url);
                     break;
                 case 'ICOPLAYER':
                 case 'ICOCHARACTER':
@@ -106,7 +175,10 @@ class Skin
                 case 'ICOROTL':
                 case 'ICOROTR':
                 case 'ICOREV':
-                    $skin->icons[$key] = ($folderUrl ?? $skin->skinFolder) . $val;
+                    $url = (str_starts_with($val, 'http://') || str_starts_with($val, 'https://'))
+                        ? $val
+                        : (($folderUrl ?? $skin->skinFolder) . $val);
+                    $skin->icons[$key] = $url;
                     break;
                 case 'BODYBGCOLOR':
                     if ($val !== '') $skin->bodyBgColor = $val;
@@ -116,6 +188,13 @@ class Skin
                     break;
                 case 'BUTTONSTYLE':
                     $skin->buttonStyle = $val;
+                    break;
+                case 'TITLESTYLE':
+                    $skin->titleStyle = str_ireplace(
+                        ['$SKINFOLDER', '$IMAGESFOLDER'],
+                        rtrim($folderUrl ?? $skin->skinFolder, '/'),
+                        $val
+                    );
                     break;
             }
         }

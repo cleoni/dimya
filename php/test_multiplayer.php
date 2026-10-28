@@ -63,6 +63,7 @@ $sections = [
     39 => ['title' => 'Testing Use With (use2) Execution Semantics: Done! on Success vs Nothing happens. (key2 on w22 vs w21 and key5 on w21)...', 'keywords' => ['use2', 'usewith', 'key2', 'key5', 'w21', 'w22', 'done', 'nothing happens', 'onusewith']],
     40 => ['title' => 'Testing VEHICLE Support & Onscreen Display/Click in bungalowStanza (world3net tele1 & tele2)...', 'keywords' => ['vehicle', 'tele1', 'tele2', 'bungalowstanza', 'teletransporter', 'innerimage', 'click', 'onscreen']],
     41 => ['title' => 'Testing System Snapshot (htmlAdminSnapshot) & maint.php Snapshot Action...', 'keywords' => ['snapshot', 'maint', 'htmladminsnapshot', 'adminpasswd', 'system snapshot', 'sec41']],
+    42 => ['title' => 'Testing SKINS Resolution (IMAGESFOLDER / baseUrl), No Hardcoded Localhost & Navpad Arrow Icons...', 'keywords' => ['skins', 'imagesfolder', 'base_url', 'localhost', 'navpad', 'icowayn', 'dxwloader', 'skin']],
 ];
 
 // CLI Options parsing
@@ -3807,6 +3808,73 @@ if (shouldRun(41)) {
     assertTest(str_contains($maintMain, 'Generate System Snapshot'), "maint.php console includes 'Generate System Snapshot' button");
 
     @$pm->resetWorld('w3_sec41_test');
+}
+
+// -----------------------------------------------------------------------------
+// Section 42: Testing SKINS Resolution (IMAGESFOLDER / baseUrl), No Hardcoded Localhost
+// -----------------------------------------------------------------------------
+if (shouldRun(42)) {
+    echo "\n--- Section 42: Testing SKINS Resolution (IMAGESFOLDER / baseUrl) & No Hardcoded Localhost ---\n";
+
+    // 1. Loading world3net with production baseUrl resolves IMAGESFOLDER_PUBLIC
+    $prodLoader = new \Dimx\DxwLoader('https://test.dimensionex.net');
+    $w3Prod = $prodLoader->load(__DIR__ . '/world3net.dxw');
+
+    assertTest($w3Prod->imagesFolder === 'https://www.dimensionex.net/pics/', "world3net imagesFolder resolved to IMAGESFOLDER_PUBLIC ('https://www.dimensionex.net/pics/')");
+    assertTest(!str_contains($w3Prod->imagesFolder, 'localhost'), "world3net imagesFolder does NOT contain 'localhost'");
+
+    // 2. Default skin folder resolution
+    assertTest($w3Prod->defaultSkin !== null, "world3net defaultSkin is defined");
+    assertTest($w3Prod->defaultSkin->skinFolder === 'https://www.dimensionex.net/skins/default/', "defaultSkin folder resolved to 'https://www.dimensionex.net/skins/default/' (got: '{$w3Prod->defaultSkin->skinFolder}')");
+    assertTest(!str_contains($w3Prod->defaultSkin->skinFolder, 'localhost'), "defaultSkin folder does NOT contain 'localhost'");
+
+    // 3. Arrow icons in default skin
+    $northIcon = $w3Prod->defaultSkin->getWayIcon('N');
+    assertTest($northIcon === 'https://www.dimensionex.net/skins/default/icowayn.gif', "defaultSkin getWayIcon('N') is 'https://www.dimensionex.net/skins/default/icowayn.gif' (got: '{$northIcon}')");
+    assertTest(!str_contains($northIcon, 'localhost'), "North arrow icon does NOT contain 'localhost'");
+
+    $southIcon = $w3Prod->defaultSkin->getWayIcon('S');
+    assertTest($southIcon === 'https://www.dimensionex.net/skins/default/icoways.gif', "defaultSkin getWayIcon('S') is 'https://www.dimensionex.net/skins/default/icoways.gif'");
+
+    $spacerIcon = $w3Prod->defaultSkin->getSpacerIcon();
+    assertTest(str_contains($spacerIcon, 'blank.gif'), "defaultSkin spacer icon references 'blank.gif'");
+    assertTest(!str_contains($spacerIcon, 'localhost'), "Spacer icon does NOT contain 'localhost'");
+
+    // 4. Other declared skins in world3net (aqua, forest)
+    assertTest(isset($w3Prod->skins['aqua']), "world3net has 'aqua' skin");
+    assertTest($w3Prod->skins['aqua']->skinFolder === 'https://www.dimensionex.net/skins/aqua/', "aqua skinFolder is 'https://www.dimensionex.net/skins/aqua/'");
+    assertTest(!str_contains($w3Prod->skins['aqua']->skinFolder, 'localhost'), "aqua skinFolder does NOT contain 'localhost'");
+
+    assertTest(isset($w3Prod->skins['forest']), "world3net has 'forest' skin");
+    assertTest($w3Prod->skins['forest']->skinFolder === 'https://www.dimensionex.net/skins/forest/', "forest skinFolder is 'https://www.dimensionex.net/skins/forest/'");
+    assertTest(!str_contains($w3Prod->skins['forest']->skinFolder, 'localhost'), "forest skinFolder does NOT contain 'localhost'");
+
+    // 5. Test resolution when IMAGESFOLDER is empty, but baseUrl is specified
+    $customLoader = new \Dimx\DxwLoader('https://test.dimensionex.net');
+    $customSkinFolder = $customLoader->resolveSkinFolderUrl('default', '');
+    assertTest($customSkinFolder === 'https://test.dimensionex.net/skins/default/', "When imagesFolder is empty, skin resolves against baseUrl ('https://test.dimensionex.net/skins/default/')");
+
+    // 6. Test resolution when IMAGESFOLDER is relative (/dimx/pics/)
+    $relSkinFolder = $customLoader->resolveSkinFolderUrl('default', '/dimx/pics/');
+    assertTest($relSkinFolder === 'https://test.dimensionex.net/dimx/skins/default/', "When imagesFolder is '/dimx/pics/', skin resolves to 'https://test.dimensionex.net/dimx/skins/default/'");
+
+    // 7. Test resolution when IMAGESFOLDER contains localhost, but baseUrl is a production host
+    $overrideSkinFolder = $customLoader->resolveSkinFolderUrl('default', 'https://localhost:8080/dimx/pics/');
+    assertTest($overrideSkinFolder === 'https://test.dimensionex.net/skins/default/', "Production baseUrl overrides localhost in imagesFolder");
+
+    // 8. Render UIhtml with a player and verify navpad arrow image URLs
+    $p42 = new \Dimx\Player($w3Prod, 'SkinTester', 'p_sk_42');
+    $w3Prod->addPlayer($p42);
+    $spiaggia2 = $w3Prod->getRoom('spiaggia2');
+    $p42->move($spiaggia2);
+
+    $ui42 = new \Dimx\UIhtml($p42);
+    ob_start();
+    $ui42->render(['world' => $w3Prod, 'player' => $p42]);
+    $html42 = ob_get_clean();
+
+    assertTest(str_contains($html42, 'https://www.dimensionex.net/skins/default/icowayn.gif'), "Rendered navpad contains public North arrow URL 'https://www.dimensionex.net/skins/default/icowayn.gif'");
+    assertTest(!str_contains($html42, 'localhost/dimx/skins/default/'), "Rendered HTML contains NO references to 'localhost/dimx/skins/default/'");
 }
 
 // Clean up test worlds

@@ -93,7 +93,7 @@ class World extends DimxObject
         $this->lastTick          = time();
 
         // Initialize default skin
-        $defaultSkin = new Skin('default', 'Default', 'http://localhost/dimx/skins/default/');
+        $defaultSkin = new Skin('default', 'Default', '/skins/default/');
         $this->skins['default'] = $defaultSkin;
         $this->defaultSkin = $defaultSkin;
     }

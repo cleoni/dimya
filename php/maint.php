@@ -45,7 +45,7 @@ if (!empty($action) && (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' || $action
                         $worldFile = __DIR__ . '/../docs/dxw-examples/world3net.dxw';
                     }
                 }
-                $baseUrl = $config['base_url'] ?? 'http://localhost';
+                $baseUrl = $config['base_url'] ?? '';
                 $engine  = new \Dimx\GameEngine($pm, $worldId, $worldFile, $baseUrl, $config);
                 $world   = $engine->loadOrSeedWorld();
 

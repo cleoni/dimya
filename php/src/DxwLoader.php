@@ -12,6 +12,7 @@ namespace Dimx;
 class DxwLoader
 {
     protected ?string $baseUrl = null;
+    protected ?string $sourcePath = null;
 
     public function __construct(?string $baseUrl = null)
     {
@@ -145,7 +146,9 @@ class DxwLoader
         }
 
         $world = new World('world_' . md5($sourceName), 'DimensioneX World');
+        $this->sourcePath = $sourceName;
         $imagesFolder = '';
+        $hasExplicitImagesFolder = false;
         $currentSection = 'WORLD';
 
         $total = count($cleanLines);
@@ -251,8 +254,9 @@ class DxwLoader
                     } elseif ($directive === 'IMAGESFOLDER') {
                         $imagesFolder = trim(substr($line, strlen($tokens[0])));
                         $world->imagesFolder = $imagesFolder;
+                        $hasExplicitImagesFolder = true;
                     } elseif ($directive === 'IMAGESFOLDER_PUBLIC') {
-                        if (empty($imagesFolder)) {
+                        if (!$hasExplicitImagesFolder) {
                             $imagesFolder = trim(substr($line, strlen($tokens[0])));
                             $world->imagesFolder = $imagesFolder;
                         }
@@ -301,13 +305,44 @@ class DxwLoader
                         foreach ($skinNames as $skName) {
                             if ($skName === '') continue;
                             $baseId = preg_replace('/\.dxs$/i', '', $skName);
-                            $localDxs = "C:/xampp/htdocs/dimx/skins/{$baseId}/{$baseId}.dxs";
-                            $folderUrl = "http://localhost/dimx/skins/{$baseId}/";
-                            $skinObj = Skin::loadFromDxs($localDxs, $folderUrl) ?? new Skin($baseId, ucfirst($baseId), $folderUrl);
-                            $world->skins[$baseId] = $skinObj;
+                            $folderUrl = $this->resolveSkinFolderUrl($baseId, $imagesFolder);
+
+                            $dxsLoaded = false;
+                            $dir = !empty($this->sourcePath) ? dirname($this->sourcePath) : '';
+                            $candidates = [
+                                ($dir ? "{$dir}/skins/{$baseId}/{$baseId}.dxs" : ''),
+                                ($dir ? "{$dir}/{$baseId}.dxs" : ''),
+                                dirname(__DIR__, 2) . "/dimx/skins/{$baseId}/{$baseId}.dxs",
+                                dirname(__DIR__, 2) . "/skins/{$baseId}/{$baseId}.dxs",
+                                dirname(__DIR__) . "/skins/{$baseId}/{$baseId}.dxs",
+                                (!empty($_SERVER['DOCUMENT_ROOT']) ? $_SERVER['DOCUMENT_ROOT'] . "/dimx/skins/{$baseId}/{$baseId}.dxs" : ''),
+                                (!empty($_SERVER['DOCUMENT_ROOT']) ? $_SERVER['DOCUMENT_ROOT'] . "/skins/{$baseId}/{$baseId}.dxs" : ''),
+                            ];
+                            foreach ($candidates as $candidate) {
+                                if (!empty($candidate) && file_exists($candidate)) {
+                                    $skinObj = Skin::loadFromDxs($candidate, $folderUrl);
+                                    if ($skinObj !== null) {
+                                        $world->skins[$baseId] = $skinObj;
+                                        $dxsLoaded = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!$dxsLoaded && (str_starts_with($folderUrl, 'http://') || str_starts_with($folderUrl, 'https://'))) {
+                                $remoteDxs = $folderUrl . "{$baseId}.dxs";
+                                $skinObj = Skin::loadFromDxs($remoteDxs, $folderUrl);
+                                if ($skinObj !== null) {
+                                    $world->skins[$baseId] = $skinObj;
+                                    $dxsLoaded = true;
+                                }
+                            }
+                            if (!$dxsLoaded) {
+                                $world->skins[$baseId] = new Skin($baseId, ucfirst($baseId), $folderUrl);
+                            }
                         }
                         if (!isset($world->skins['default'])) {
-                            $world->skins['default'] = new Skin('default', 'Default', 'http://localhost/dimx/skins/default/');
+                            $defaultFolder = $this->resolveSkinFolderUrl('default', $imagesFolder);
+                            $world->skins['default'] = new Skin('default', 'Default', $defaultFolder);
                         }
                         $world->defaultSkin = $world->skins['default'];
                     } elseif ($directive === 'SHOW' && isset($tokens[1]) && strtoupper($tokens[1]) === 'PROPERTIES') {
@@ -773,7 +808,77 @@ class DxwLoader
             $world->getDefaultCharacter();
         }
 
+        // Ensure default skin has its skin folder properly resolved against IMAGESFOLDER or baseUrl
+        if (!isset($world->skins['default'])) {
+            $defaultFolder = $this->resolveSkinFolderUrl('default', $imagesFolder);
+            $world->skins['default'] = new Skin('default', 'Default', $defaultFolder);
+        } else {
+            $defaultFolder = $this->resolveSkinFolderUrl('default', $imagesFolder);
+            if (empty($world->skins['default']->skinFolder) || str_contains($world->skins['default']->skinFolder, 'localhost')) {
+                $world->skins['default']->setSkinFolder($defaultFolder);
+            }
+        }
+        $world->defaultSkin = $world->skins['default'];
+
         return $world;
+    }
+
+    /**
+     * Resolves the skin folder URL for a given skin ID based on IMAGESFOLDER and baseUrl.
+     *
+     * In DimensioneX / DimensioneY:
+     * - If IMAGESFOLDER is a full URL (e.g. 'https://www.dimensionex.net/pics/'):
+     *   The skin folder resides parallel to pics: 'https://www.dimensionex.net/skins/<skinId>/'
+     * - If IMAGESFOLDER contains localhost but baseUrl is configured with a real host (non-localhost),
+     *   baseUrl takes precedence.
+     * - If IMAGESFOLDER is a relative path or empty:
+     *   The skin folder is resolved against baseUrl from config.
+     * - If no baseUrl, falls back to relative '/skins/<skinId>/'.
+     */
+    public function resolveSkinFolderUrl(string $skinId, string $imagesFolder): string
+    {
+        $skinId = trim($skinId);
+        $img = trim($imagesFolder);
+
+        $isLocalImg = (str_contains($img, 'localhost') || str_contains($img, '127.0.0.1'));
+        $base = rtrim((string)$this->baseUrl, '/');
+        $hasRealBase = (!empty($base) && !str_contains($base, 'localhost') && !str_contains($base, '127.0.0.1'));
+
+        // If imagesFolder contains localhost but baseUrl is configured with a real host,
+        // baseUrl takes precedence over localhost:
+        if ($isLocalImg && $hasRealBase) {
+            return "{$base}/skins/{$skinId}/";
+        }
+
+        // 1. If imagesFolder is an absolute HTTP/HTTPS URL
+        if (str_starts_with($img, 'http://') || str_starts_with($img, 'https://')) {
+            $trimmed = rtrim($img, '/');
+            $lastSlash = strrpos($trimmed, '/');
+            if ($lastSlash !== false && $lastSlash >= 8) { // past http:// or https://
+                $parent = substr($trimmed, 0, $lastSlash + 1);
+                return rtrim($parent, '/') . "/skins/{$skinId}/";
+            }
+            return rtrim($img, '/') . "/skins/{$skinId}/";
+        }
+
+        // 2. Relative or empty imagesFolder: resolve against baseUrl if available
+        if (!empty($img)) {
+            $trimmed = rtrim($img, '/');
+            $lastSlash = strrpos($trimmed, '/');
+            if ($lastSlash !== false) {
+                $parent = substr($trimmed, 0, $lastSlash + 1);
+                if (str_starts_with($parent, '/')) {
+                    return $base ? "{$base}{$parent}skins/{$skinId}/" : "{$parent}skins/{$skinId}/";
+                }
+                return $base ? "{$base}/{$parent}skins/{$skinId}/" : "{$parent}skins/{$skinId}/";
+            }
+        }
+
+        if (!empty($base)) {
+            return "{$base}/skins/{$skinId}/";
+        }
+
+        return "/skins/{$skinId}/";
     }
 
     /**
