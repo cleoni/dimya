@@ -48,7 +48,8 @@ class Skin
         $this->id = $id;
         $this->name = $name;
         $this->skinFolder = rtrim($skinFolder ?? "/skins/{$id}/", '/') . '/';
-        $this->picPlayer = new Image($this->skinFolder . 'uomo.gif', 64, 100);
+        $playerFile = ($this->id === 'default') ? 'uomo.gif' : 'player.gif';
+        $this->picPlayer = new Image($this->skinFolder . $playerFile, 64, 100);
         $this->picSpacer = new Image($this->skinFolder . 'blank.gif');
         $this->picFader = new Image($this->skinFolder . 'fadewhite.gif');
 
@@ -65,31 +66,32 @@ class Skin
     {
         $oldFolder = $this->skinFolder;
         $this->skinFolder = rtrim($skinFolder, '/') . '/';
-        $this->picPlayer = new Image($this->skinFolder . 'player.gif', 64, 100);
-        $this->picSpacer = new Image($this->skinFolder . 'blank.gif');
-        $this->picFader = new Image($this->skinFolder . 'fadewhite.gif');
 
-        foreach (self::DEFAULT_ICONS as $key => $filename) {
+        $playerFile = $this->picPlayer ? basename($this->picPlayer->src) : ($this->id === 'default' ? 'uomo.gif' : 'player.gif');
+        $spacerFile = $this->picSpacer ? basename($this->picSpacer->src) : 'blank.gif';
+        $faderFile  = $this->picFader ? basename($this->picFader->src) : 'fadewhite.gif';
+
+        $this->picPlayer = new Image($this->skinFolder . $playerFile, 64, 100);
+        $this->picSpacer = new Image($this->skinFolder . $spacerFile);
+        $this->picFader  = new Image($this->skinFolder . $faderFile);
+
+        foreach (self::DEFAULT_ICONS as $key => $defaultFilename) {
             $current = $this->icons[$key] ?? '';
-            // If unset, empty, referencing old folder, containing localhost, or is relative (e.g. pics/north.gif):
-            if (
-                empty($current) ||
-                empty($oldFolder) ||
-                str_starts_with($current, $oldFolder) ||
-                str_starts_with($current, 'pics/') ||
-                (!str_starts_with($current, 'http://') && !str_starts_with($current, 'https://') && !str_starts_with($current, '/'))
-            ) {
-                $this->icons[$key] = $this->skinFolder . $filename;
-            } elseif (str_contains($current, 'localhost') && !str_contains($this->skinFolder, 'localhost')) {
-                $this->icons[$key] = $this->skinFolder . basename($current);
+            if (empty($current)) {
+                $this->icons[$key] = $this->skinFolder . $defaultFilename;
+            } else {
+                // Preserve the defined icon filename (whether default or redefined by .dxs)
+                $basename = basename($current);
+                $this->icons[$key] = $this->skinFolder . $basename;
             }
         }
     }
 
     /**
      * Load skin settings from a .dxs specification file or URL.
+     * Note: The default skin cannot be redefined.
      */
-    public static function loadFromDxs(string $filePath, ?string $folderUrl = null): ?self
+    public static function loadFromDxs(string $filePath, ?string $folderUrl = null, ?string $id = null): ?self
     {
         $isUrl = str_starts_with($filePath, 'http://') || str_starts_with($filePath, 'https://');
         $content = null;
@@ -113,13 +115,37 @@ class Skin
             return null;
         }
 
-        $id = pathinfo(dirname($filePath), PATHINFO_BASENAME) ?: 'default';
-        $skin = new self($id, ucfirst($id), $folderUrl);
-
         $lines = preg_split('/\r\n|\r|\n/', $content);
         if ($lines === false) {
-            return $skin;
+            return null;
         }
+
+        // Determine skin ID: priority = explicit parameter > parsed SKIN directive > filename basename
+        $skinId = $id !== null && $id !== '' ? strtolower(trim($id)) : '';
+        if ($skinId === '') {
+            foreach ($lines as $line) {
+                $trimmed = trim($line);
+                if ($trimmed === '' || str_starts_with($trimmed, "'") || str_starts_with($trimmed, '#')) {
+                    continue;
+                }
+                $tokens = preg_split('/\s+/', $trimmed, 2);
+                if (strtoupper($tokens[0]) === 'SKIN' && isset($tokens[1]) && trim($tokens[1]) !== '') {
+                    $skinId = strtolower(trim($tokens[1]));
+                    break;
+                }
+            }
+        }
+        if ($skinId === '') {
+            $fn = pathinfo($filePath, PATHINFO_FILENAME);
+            $skinId = strtolower(trim($fn));
+        }
+
+        // The default skin cannot be redefined!
+        if ($skinId === 'default' || $skinId === '') {
+            return null;
+        }
+
+        $skin = new self($skinId, ucfirst($skinId), $folderUrl);
 
         foreach ($lines as $line) {
             $line = trim($line);
@@ -132,8 +158,13 @@ class Skin
             $val = isset($tokens[1]) ? trim($tokens[1]) : '';
 
             switch ($key) {
+                case 'SKIN':
+                    // Already inspected
+                    break;
                 case 'NAME':
-                    $skin->name = $val;
+                    if ($val !== '') {
+                        $skin->name = $val;
+                    }
                     break;
                 case 'SKINFOLDER':
                 case 'IMAGESFOLDER':

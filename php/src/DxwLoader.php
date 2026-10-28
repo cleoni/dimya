@@ -317,7 +317,11 @@ class DxwLoader
                         $skinNames = array_map('trim', explode(',', $skinsStr));
                         foreach ($skinNames as $skName) {
                             if ($skName === '') continue;
-                            $baseId = preg_replace('/\.dxs$/i', '', $skName);
+                            $baseId = strtolower(preg_replace('/\.dxs$/i', '', $skName));
+                            // The default skin cannot be redefined from .dxs
+                            if ($baseId === 'default') {
+                                continue;
+                            }
                             $folderUrl = $this->resolveSkinFolderUrl($baseId, $imagesFolder);
 
                             $dxsLoaded = false;
@@ -333,7 +337,7 @@ class DxwLoader
                             ];
                             foreach ($candidates as $candidate) {
                                 if (!empty($candidate) && file_exists($candidate)) {
-                                    $skinObj = Skin::loadFromDxs($candidate, $folderUrl);
+                                    $skinObj = Skin::loadFromDxs($candidate, $folderUrl, $baseId);
                                     if ($skinObj !== null) {
                                         $world->skins[$baseId] = $skinObj;
                                         $dxsLoaded = true;
@@ -343,7 +347,7 @@ class DxwLoader
                             }
                             if (!$dxsLoaded && (str_starts_with($folderUrl, 'http://') || str_starts_with($folderUrl, 'https://'))) {
                                 $remoteDxs = $folderUrl . "{$baseId}.dxs";
-                                $skinObj = Skin::loadFromDxs($remoteDxs, $folderUrl);
+                                $skinObj = Skin::loadFromDxs($remoteDxs, $folderUrl, $baseId);
                                 if ($skinObj !== null) {
                                     $world->skins[$baseId] = $skinObj;
                                     $dxsLoaded = true;
@@ -353,9 +357,11 @@ class DxwLoader
                                 $world->skins[$baseId] = new Skin($baseId, ucfirst($baseId), $folderUrl);
                             }
                         }
+                        $defaultFolder = $this->resolveSkinFolderUrl('default', $imagesFolder);
                         if (!isset($world->skins['default'])) {
-                            $defaultFolder = $this->resolveSkinFolderUrl('default', $imagesFolder);
                             $world->skins['default'] = new Skin('default', 'Default', $defaultFolder);
+                        } else {
+                            $world->skins['default']->setSkinFolder($defaultFolder);
                         }
                         $world->defaultSkin = $world->skins['default'];
                     } elseif ($directive === 'SHOW' && isset($tokens[1]) && strtoupper($tokens[1]) === 'PROPERTIES') {
@@ -823,11 +829,20 @@ class DxwLoader
 
         // Ensure all skins have their skin folder properly resolved against the finalized imagesFolder
         $isPublicServer = (!empty($this->baseUrl) && !str_contains($this->baseUrl, 'localhost') && !str_contains($this->baseUrl, '127.0.0.1'));
+        $defaultFolder = $this->resolveSkinFolderUrl('default', $world->imagesFolder);
         if (!isset($world->skins['default'])) {
-            $defaultFolder = $this->resolveSkinFolderUrl('default', $world->imagesFolder);
             $world->skins['default'] = new Skin('default', 'Default', $defaultFolder);
+        } else {
+            if (empty($world->skins['default']->skinFolder) || str_contains($world->skins['default']->skinFolder, 'localhost') || ($isPublicServer && !str_starts_with($world->skins['default']->skinFolder, 'http'))) {
+                $world->skins['default']->setSkinFolder($defaultFolder);
+            }
         }
+        $world->defaultSkin = $world->skins['default'];
+
         foreach ($world->skins as $sId => $skinObj) {
+            if ($sId === 'default') {
+                continue;
+            }
             $expectedFolder = $this->resolveSkinFolderUrl($sId, $world->imagesFolder);
             if (empty($skinObj->skinFolder) || str_contains($skinObj->skinFolder, 'localhost') || ($isPublicServer && !str_starts_with($skinObj->skinFolder, 'http'))) {
                 $skinObj->setSkinFolder($expectedFolder);

@@ -183,7 +183,7 @@ class GameEngine
             // Player ID in game engine lives in memory and changes every time the user logs in
             $engineId = 'p_' . ($numericId ?? '0') . '_' . bin2hex(random_bytes(4));
             $player   = new Player($world, $playerName, $engineId, 'Adventurer');
-            $player->skin      = $world->defaultSkin ?? new Skin('default', 'Ocean');
+            $player->skin      = $world->defaultSkin ?? new Skin('default', 'Default');
             $player->numericId = $numericId;
             $player->isBot     = $isBot;
             $player->showmode  = AdvObject::SHOW_ONSCREEN;
@@ -245,8 +245,10 @@ class GameEngine
             }
             if ($player->skin === null) {
                 $player->skin = $world->defaultSkin ?? new Skin('default', 'Default');
-            } elseif ($world->defaultSkin !== null && (empty($player->skin->skinFolder) || str_contains($player->skin->skinFolder, 'localhost'))) {
+            } elseif ($player->skin->id === 'default' && $world->defaultSkin !== null && (empty($player->skin->skinFolder) || str_contains($player->skin->skinFolder, 'localhost'))) {
                 $player->skin->setSkinFolder($world->defaultSkin->skinFolder);
+            } elseif ($player->skin->id !== 'default' && (empty($player->skin->skinFolder) || str_contains($player->skin->skinFolder, 'localhost')) && !empty($world->imagesFolder)) {
+                $player->skin->setSkinFolder(\Dimx\DxwLoader::getParentFolder($world->imagesFolder) . 'skins/' . $player->skin->id . '/');
             }
             if ($player->showmode === 0) {
                 $player->showmode = AdvObject::SHOW_ONSCREEN;

@@ -66,6 +66,7 @@ $sections = [
     42 => ['title' => 'Testing SKINS Resolution (IMAGESFOLDER / baseUrl), No Hardcoded Localhost & Navpad Arrow Icons...', 'keywords' => ['skins', 'imagesfolder', 'base_url', 'localhost', 'navpad', 'icowayn', 'dxwloader', 'skin']],
     43 => ['title' => 'Testing Default Item Icon (ICOITEM) & Fallbacks in UIhtml and Skin...', 'keywords' => ['icoitem', 'item icon', 'skin', 'default icon', 'uihtml', 'inventory', 'room items']],
     44 => ['title' => 'Testing Goal Instruction, $WORLD.mode = 0 & Physical Storage in dimx_hall_of_fame...', 'keywords' => ['goal', 'hall_of_fame', 'hof', 'mode', 'victory', 'completion']],
+    45 => ['title' => 'Testing Immutable Default Skin & Custom Skin Icon Redefinitions (.dxs & setSkinFolder)...', 'keywords' => ['skin', 'default', 'aqua', 'dxs', 'redefine', 'icowayn', 'setskinfolder', 'sec45']],
 ];
 
 // CLI Options parsing
@@ -4025,6 +4026,101 @@ if (shouldRun(44)) {
 
     // Clean up test world
     $pm->resetWorld('w44_goal_test');
+}
+
+// =========================================================================
+// Section 45: Testing Immutable Default Skin & Custom Skin Icon Redefinitions
+// =========================================================================
+if (shouldRun(45)) {
+    echo "\n--- Section 45: Testing Immutable Default Skin & Custom Skin Icon Redefinitions ---\n";
+
+    // 1. Default skin cannot be redefined via loadFromDxs
+    $fakeDxs = "SKIN default\nNAME HackedDefault\nICOWAYN hacked_north.gif\nEND_SKIN";
+    $fakePath = sys_get_temp_dir() . '/test_default.dxs';
+    file_put_contents($fakePath, $fakeDxs);
+    $attemptDef = \Dimx\Skin::loadFromDxs($fakePath, 'https://www.dimensionex.net/skins/default/', 'default');
+    assertTest($attemptDef === null, "Skin::loadFromDxs refuses to load or redefine 'default' skin");
+    @unlink($fakePath);
+
+    // 2. Default skin preserves default icon names from DEFAULT_ICONS
+    $defSkin = new \Dimx\Skin('default', 'Default', 'https://www.dimensionex.net/skins/default/');
+    assertTest($defSkin->id === 'default', "Default skin ID is 'default'");
+    assertTest($defSkin->name === 'Default', "Default skin name is 'Default'");
+    assertTest($defSkin->getWayIcon('N') === 'https://www.dimensionex.net/skins/default/icowayn.gif', "Default skin North icon is 'icowayn.gif'");
+    assertTest($defSkin->getWayIcon('S') === 'https://www.dimensionex.net/skins/default/icoways.gif', "Default skin South icon is 'icoways.gif'");
+    assertTest($defSkin->getItemIcon() === 'https://www.dimensionex.net/skins/default/icoitem.gif', "Default skin Item icon is 'icoitem.gif'");
+    assertTest(str_ends_with($defSkin->picPlayer->src, 'uomo.gif'), "Default skin picPlayer is 'uomo.gif'");
+
+    // 3. Custom skin (aqua) redefines icons according to DXS specification
+    $aquaDxs = <<<DXS
+SKIN aqua
+NAME Aqua
+PICPLAYER avatar.gif
+ICOWAYN north.gif
+ICOWAYS south.gif
+ICOWAYE right.gif
+ICOWAYW left.gif
+END_SKIN
+DXS;
+    $aquaPath = sys_get_temp_dir() . '/test_aqua.dxs';
+    file_put_contents($aquaPath, $aquaDxs);
+    $aquaSkin = \Dimx\Skin::loadFromDxs($aquaPath, 'https://www.dimensionex.net/skins/aqua/', 'aqua');
+    @unlink($aquaPath);
+
+    assertTest($aquaSkin !== null, "Custom skin 'aqua' loaded successfully");
+    assertTest($aquaSkin->id === 'aqua', "Aqua skin ID is 'aqua'");
+    assertTest($aquaSkin->name === 'Aqua', "Aqua skin Name is 'Aqua'");
+    assertTest($aquaSkin->getWayIcon('N') === 'https://www.dimensionex.net/skins/aqua/north.gif', "Aqua skin redefined North icon to 'north.gif' (not icowayn.gif)");
+    assertTest($aquaSkin->getWayIcon('E') === 'https://www.dimensionex.net/skins/aqua/right.gif', "Aqua skin redefined East icon to 'right.gif' (not icowaye.gif)");
+    assertTest(str_ends_with($aquaSkin->picPlayer->src, 'avatar.gif'), "Aqua skin picPlayer is 'avatar.gif' (not uomo.gif)");
+
+    // 4. setSkinFolder() rebases without clobbering redefined icons back to DEFAULT_ICONS
+    $aquaSkin->setSkinFolder('https://cdn.dimensionex.net/skins/aqua/');
+    assertTest($aquaSkin->getWayIcon('N') === 'https://cdn.dimensionex.net/skins/aqua/north.gif', "After setSkinFolder(), Aqua preserves 'north.gif' (not icowayn.gif)");
+    assertTest($aquaSkin->getWayIcon('E') === 'https://cdn.dimensionex.net/skins/aqua/right.gif', "After setSkinFolder(), Aqua preserves 'right.gif' (not icowaye.gif)");
+    assertTest(str_ends_with($aquaSkin->picPlayer->src, 'avatar.gif'), "After setSkinFolder(), Aqua preserves 'avatar.gif'");
+
+    // 5. Loading world3net leaves defaultSkin strictly isolated and immutable
+    $loader45 = new \Dimx\DxwLoader('https://test.dimensionex.net');
+    $world45 = $loader45->load(__DIR__ . '/world3net.dxw');
+    assertTest(isset($world45->skins['default']), "world45 has 'default' skin in skins list");
+    assertTest(isset($world45->skins['aqua']), "world45 has 'aqua' skin in skins list");
+    assertTest($world45->defaultSkin === $world45->skins['default'], "world45 defaultSkin is exactly skins['default']");
+    assertTest($world45->defaultSkin->id === 'default', "world45 defaultSkin ID is 'default'");
+    assertTest($world45->defaultSkin->skinFolder === 'https://www.dimensionex.net/skins/default/', "world45 defaultSkin folder is 'https://www.dimensionex.net/skins/default/'");
+    assertTest($world45->defaultSkin->getWayIcon('N') === 'https://www.dimensionex.net/skins/default/icowayn.gif', "world45 defaultSkin North icon is 'https://www.dimensionex.net/skins/default/icowayn.gif'");
+
+    // 6. Aqua skin in world3net uses its own folder and redefined north icon
+    $aquaInWorld = $world45->skins['aqua'];
+    assertTest($aquaInWorld->skinFolder === 'https://www.dimensionex.net/skins/aqua/', "Aqua skin folder in world is 'https://www.dimensionex.net/skins/aqua/'");
+    assertTest($aquaInWorld->getWayIcon('N') === 'https://www.dimensionex.net/skins/aqua/north.gif', "Aqua skin North icon in world is 'https://www.dimensionex.net/skins/aqua/north.gif'");
+
+    // 7. Verify rendered UI navpad for player on default skin outputs default icowayn.gif
+    $pDef = new \Dimx\Player($world45, 'DefaultPlayer', 'p_def_45');
+    $pDef->skin = $world45->defaultSkin;
+    $world45->addPlayer($pDef);
+    $sp45 = $world45->getRoom('spiaggia2');
+    $pDef->move($sp45);
+
+    $uiDef = new \Dimx\UIhtml($pDef);
+    ob_start();
+    $uiDef->render(['world' => $world45, 'player' => $pDef]);
+    $htmlDef = ob_get_clean();
+    assertTest(str_contains($htmlDef, 'https://www.dimensionex.net/skins/default/icowayn.gif'), "Rendered navpad for default skin contains 'https://www.dimensionex.net/skins/default/icowayn.gif'");
+    assertTest(!str_contains($htmlDef, 'skins/aqua/icowayn.gif'), "Rendered navpad does NOT contain invalid 'skins/aqua/icowayn.gif'");
+
+    // 8. Verify rendered UI navpad for player on aqua skin outputs aqua north.gif
+    $pAqua = new \Dimx\Player($world45, 'AquaPlayer', 'p_aqua_45');
+    $pAqua->skin = $aquaInWorld;
+    $world45->addPlayer($pAqua);
+    $pAqua->move($sp45);
+
+    $uiAqua = new \Dimx\UIhtml($pAqua);
+    ob_start();
+    $uiAqua->render(['world' => $world45, 'player' => $pAqua]);
+    $htmlAqua = ob_get_clean();
+    assertTest(str_contains($htmlAqua, 'https://www.dimensionex.net/skins/aqua/north.gif'), "Rendered navpad for aqua skin contains 'https://www.dimensionex.net/skins/aqua/north.gif'");
+    assertTest(!str_contains($htmlAqua, 'skins/aqua/icowayn.gif'), "Rendered navpad does NOT contain invalid 'skins/aqua/icowayn.gif'");
 }
 
 // Clean up test worlds

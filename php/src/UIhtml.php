@@ -764,7 +764,7 @@ class UIhtml extends UI
                             }
                             $charImg = $char->images['N'] ?? $char->image ?? $char->skin?->picPlayer ?? $skin->picPlayer ?? $world->defaultSkin?->picPlayer ?? null;
                             if (!$charImg && !empty($world->imagesFolder)) {
-                              $charImg = new \Dimx\Image(rtrim(str_replace('/pics/', '/skins/aqua/', $world->imagesFolder), '/') . '/avatar.gif', 64, 100);
+                              $charImg = new \Dimx\Image(\Dimx\DxwLoader::getParentFolder($world->imagesFolder) . 'skins/default/uomo.gif', 64, 100);
                             }
                             // Check SHOW FOR restriction
                             if (!empty($char->showFor) && $sceneImg !== null) {
