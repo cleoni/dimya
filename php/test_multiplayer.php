@@ -3585,18 +3585,21 @@ if (shouldRun(40)) {
     $hasOnscreenTele = preg_match('/<img[^>]+class="[^"]*dimx-onscreen-obj[^"]*"[^>]+data-obj-id="tele1"[^>]*onclick="clickObject\(this\)"/i', $htmlOutput);
     assertTest((bool)$hasOnscreenTele, "tele1 is rendered as an interactive on-screen object with dimx-onscreen-obj class and clickObject");
 
-    // 5. Test clicking tele1 (inspects vehicle and lists its inner contents)
+    // 5. Test clicking tele1 (inspects vehicle without revealing its inner contents from outside)
     $player40->drainConsole();
     $eng40->executeCommandAction($w3Sec40, $player40, 'click', '', 'tele1');
     $clickMsgs = implode(' ', $player40->drainConsole());
     assertTest(str_contains($clickMsgs, "It looks like one of those things in Star Trek."), "Clicking tele1 displays description (got: '{$clickMsgs}')");
-    assertTest(str_contains($clickMsgs, "a switch"), "Clicking tele1 reveals inner object 'a switch' inside tele1");
+    assertTest(!str_contains($clickMsgs, "a switch"), "Clicking tele1 from outside does NOT reveal inner object 'a switch'");
+    assertTest(!str_contains($clickMsgs, "Containing:"), "Clicking tele1 from outside does NOT show 'Containing:'");
 
-    // 6. Test looking at tele1
+    // 6. Test looking at tele1 (inspects vehicle without revealing its inner contents from outside)
     $player40->drainConsole();
     $eng40->executeCommandAction($w3Sec40, $player40, 'look', 'tele1', '');
     $lookMsgs = implode(' ', $player40->drainConsole());
     assertTest(str_contains($lookMsgs, "It looks like one of those things in Star Trek."), "Looking at tele1 displays description (got: '{$lookMsgs}')");
+    assertTest(!str_contains($lookMsgs, "a switch"), "Looking at tele1 from outside does NOT reveal inner object 'a switch'");
+    assertTest(!str_contains($lookMsgs, "Containing:"), "Looking at tele1 from outside does NOT show 'Containing:'");
 
     // 7. Verify default panel includes enter and exit buttons specifically for vehicles
     $defPanel = \Dimx\Panel::createDefaultPanel();
@@ -3633,6 +3636,37 @@ if (shouldRun(40)) {
     assertTest(str_contains($inVehicleHtml, 'fadewhite.gif'), "Vehicle interior overlay contains innerImage 'fadewhite.gif'");
     // The vehicle itself is not drawn on the scene floor while inside it
     assertTest(!str_contains($inVehicleHtml, 'lampadastyle.gif'), "Outer sprite 'lampadastyle.gif' is excluded from scene while inside the vehicle");
+    // Inner item switch2 is rendered in UIhtml
+    assertTest(str_contains($inVehicleHtml, 'data-obj-id="switch2"'), "While in vehicle, inner item 'switch2' is rendered in UIhtml");
+    assertTest(str_contains($inVehicleHtml, 'interruttore.gif'), "Inner item switch2 image 'interruttore.gif' is rendered");
+    assertTest(str_contains($inVehicleHtml, 'icoInterruttore.gif'), "Inner item switch2 icon 'icoInterruttore.gif' is rendered in Subcell E");
+    assertTest(str_contains($inVehicleHtml, 'the teletransporter'), "Title bar shows vehicle name 'the teletransporter'");
+    assertTest(str_contains($inVehicleHtml, 'No visible exits.'), "No visible exits shown while inside vehicle");
+
+    // 10b. Test interacting with switch2 while inside vehicle tele1
+    $player40->drainConsole();
+    $eng40->executeCommandAction($w3Sec40, $player40, 'look', 'switch2', '');
+    $lookSwitchMsgs = implode(' ', $player40->drainConsole());
+    assertTest(str_contains($lookSwitchMsgs, "It is a switch"), "Looking at switch2 inside vehicle displays description (got: '{$lookSwitchMsgs}')");
+
+    // Try using switch2 while broken
+    $player40->drainConsole();
+    $eng40->executeCommandAction($w3Sec40, $player40, 'use', 'switch2', '');
+    $useSwitchMsgs = implode(' ', $player40->drainConsole());
+    assertTest(str_contains($useSwitchMsgs, "The main control seems to be broken."), "Using broken switch2 outputs error prompt (got: '{$useSwitchMsgs}')");
+
+    // Give player the screwdriver and fix switch2 using use2 screwd switch2
+    $screwd = $w3Sec40->getItem('screwd');
+    assertTest($screwd !== null, "world3net item 'screwd' exists");
+    $screwd->move($player40);
+    assertTest(isset($player40->contents['screwd']), "Player carries screwdriver");
+
+    $player40->drainConsole();
+    $eng40->executeCommandAction($w3Sec40, $player40, 'use2', 'screwd', 'switch2');
+    $fixMsgs = implode(' ', $player40->drainConsole());
+    assertTest(str_contains($fixMsgs, "Hmmmm.... I seem to have fixed it."), "Using screwd on switch2 fixes it (got: '{$fixMsgs}')");
+    $switch2Obj = $w3Sec40->getItem('switch2');
+    assertTest((int)$switch2Obj->getProperty('broken') === 0, "switch2.broken is now 0");
 
     // 11. Exiting vehicle tele1
     $player40->drainConsole();
@@ -3643,6 +3677,20 @@ if (shouldRun(40)) {
 
     // 12. Attempting to exit when not in a vehicle
     $player40->drainConsole();
+    $eng40->executeCommandAction($w3Sec40, $player40, 'exit', '', '');
+    $exitFailMsgs = implode(' ', $player40->drainConsole());
+    assertTest(str_contains($exitFailMsgs, "You are not inside any vehicle."), "Attempting to exit when not in vehicle outputs 'You are not inside any vehicle.' (got: '{$exitFailMsgs}')");
+
+    // 13. Re-enter vehicle tele1 and activate fixed switch2 (teleports player to alien planet)
+    $player40->drainConsole();
+    $eng40->executeCommandAction($w3Sec40, $player40, 'enter', 'tele1', '');
+    assertTest($player40->container === $tele1, "Player re-entered tele1");
+
+    $player40->drainConsole();
+    $eng40->executeCommandAction($w3Sec40, $player40, 'use', 'switch2', '');
+    $useFixedMsgs = implode(' ', $player40->drainConsole());
+    assertTest(str_contains($useFixedMsgs, "ssWWWWzzzzsssss"), "Using fixed switch2 activates teleporter (got: '{$useFixedMsgs}')");
+    assertTest($player40->container?->id === 'pianeta', "Teleporter moved player to alien planet 'pianeta' (got: '{$player40->container?->id}')");
     $eng40->executeCommandAction($w3Sec40, $player40, 'exit', '', '');
     $exitFailMsgs = implode(' ', $player40->drainConsole());
     assertTest(str_contains($exitFailMsgs, "You are not inside any vehicle."), "Attempting to exit when not in vehicle outputs 'You are not inside any vehicle.' (got: '{$exitFailMsgs}')");

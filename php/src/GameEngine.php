@@ -416,7 +416,7 @@ class GameEngine
                         $msg = !empty($desc) ? $desc : "<b>{$targetObj->name}</b>";
                         $player->display($msg);
 
-                        if ($targetObj->isOpen()) {
+                        if ($targetObj->isOpen() && !$targetObj->isVehicle()) {
                             $contents = $targetObj->getContents(true);
                             if (!empty($contents)) {
                                 $itemLinks = [];
@@ -435,9 +435,12 @@ class GameEngine
                         $player->display("You do not see that here.");
                     }
                 } else {
-                    if ($currentRoom !== null) {
-                        $player->display("<b>{$currentRoom->name}</b>: {$currentRoom->evalDescription($player)}");
-                        $world->fireEvent('onLook', $currentRoom, $player, null);
+                    $activeCont = ($player->container instanceof AdvObject && $player->container->isVehicle())
+                        ? $player->container
+                        : $currentRoom;
+                    if ($activeCont !== null) {
+                        $player->display("<b>{$activeCont->name}</b>: {$activeCont->evalDescription($player)}");
+                        $world->fireEvent('onLook', $activeCont, $player, null);
                     } else {
                         $player->display("You are in the void.");
                     }
@@ -494,11 +497,14 @@ class GameEngine
 
             case 'drop':
                 $dropTarget = !empty($targetId) ? $targetId : $param;
-                if (!empty($dropTarget) && $currentRoom !== null) {
+                $dropDest = ($player->container instanceof AdvObject && $player->container->isVehicle())
+                    ? $player->container
+                    : $currentRoom;
+                if (!empty($dropTarget) && $dropDest !== null) {
                     $item = $player->contents[$dropTarget] ?? null;
-                    if ($item instanceof Item && $item->move($currentRoom)) {
+                    if ($item instanceof Item && $item->move($dropDest)) {
                         $player->display("You dropped the <b>{$item->name}</b>.");
-                        $world->fireEvent('whenDropped', $item, $player, $currentRoom);
+                        $world->fireEvent('whenDropped', $item, $player, $dropDest);
                     } else {
                         $player->display("You are not carrying that item.");
                     }
@@ -806,25 +812,57 @@ class GameEngine
      */
     public function findAccessibleObject(Player $player, string $targetId): ?AdvObject
     {
-        $currentRoom = $player->getRoom();
         // 1. Carried in player inventory
         if (isset($player->contents[$targetId])) {
             return $player->contents[$targetId];
         }
+
+        // If player is inside a vehicle:
+        if ($player->container instanceof AdvObject && $player->container->isVehicle()) {
+            $vehicle = $player->container;
+            if ($vehicle->id === $targetId) {
+                return $vehicle;
+            }
+            if (isset($vehicle->contents[$targetId])) {
+                return $vehicle->contents[$targetId];
+            }
+            // Inside open container in vehicle or player inventory
+            foreach ($vehicle->contents as $cont) {
+                if ($cont instanceof AdvObject && $cont->isOpen() && !$cont->isVehicle() && isset($cont->contents[$targetId])) {
+                    return $cont->contents[$targetId];
+                }
+            }
+            foreach ($player->contents as $cont) {
+                if ($cont instanceof AdvObject && $cont->isOpen() && !$cont->isVehicle() && isset($cont->contents[$targetId])) {
+                    return $cont->contents[$targetId];
+                }
+            }
+            // Global world lookup checked via isAccessibleFrom
+            $world = $player->world ?? null;
+            if ($world !== null) {
+                $globalObj = $world->contents[$targetId] ?? $world->getCharacter($targetId) ?? $world->getItem($targetId) ?? null;
+                if ($globalObj instanceof AdvObject && $globalObj->isAccessibleFrom($player)) {
+                    return $globalObj;
+                }
+            }
+            return null;
+        }
+
+        $currentRoom = $player->getRoom();
         // 2. Directly in current room
         if ($currentRoom !== null && isset($currentRoom->contents[$targetId])) {
             return $currentRoom->contents[$targetId];
         }
-        // 3. Inside an open container in the room or player inventory
+        // 3. Inside an open container in the room or player inventory (excluding vehicles)
         if ($currentRoom !== null) {
             foreach ($currentRoom->contents as $cont) {
-                if ($cont instanceof AdvObject && $cont->isOpen() && isset($cont->contents[$targetId])) {
+                if ($cont instanceof AdvObject && $cont->isOpen() && !$cont->isVehicle() && isset($cont->contents[$targetId])) {
                     return $cont->contents[$targetId];
                 }
             }
         }
         foreach ($player->contents as $cont) {
-            if ($cont instanceof AdvObject && $cont->isOpen() && isset($cont->contents[$targetId])) {
+            if ($cont instanceof AdvObject && $cont->isOpen() && !$cont->isVehicle() && isset($cont->contents[$targetId])) {
                 return $cont->contents[$targetId];
             }
         }

@@ -143,40 +143,45 @@ class UIjson extends UI
             return null;
         }
 
+        $isInsideVehicle = ($player->container instanceof AdvObject && $player->container->isVehicle());
+        $activeContainer = $isInsideVehicle ? $player->container : $room;
+
         // Room items (including accessible items inside open containers)
         $items = [];
-        foreach ($room->getItems() as $item) {
+        foreach ($activeContainer->getItems() as $item) {
             $items[] = $this->buildItemSnapshot($item, $player);
-            if ($item->isOpen()) {
+            if ($item->isOpen() && !$item->isVehicle()) {
                 $this->collectVisibleContents($item, $player, $items);
             }
         }
 
         // Room occupants (other players and NPCs)
         $occupants = [];
-        foreach ($room->getOccupants() as $occ) {
+        foreach ($activeContainer->getOccupants() as $occ) {
             if ($occ === $player) {
                 continue;
             }
             $occupants[] = $this->buildOccupantSnapshot($occ, $player);
         }
 
-        // Room exits / links
+        // Room exits / links - no room exits when inside vehicle
         $exits = [];
-        foreach ($room->getLinks() as $link) {
-            $exits[] = $this->buildExitSnapshot($link, $room, $player);
+        if (!$isInsideVehicle) {
+            foreach ($room->getLinks() as $link) {
+                $exits[] = $this->buildExitSnapshot($link, $room, $player);
+            }
         }
 
         $imgObj = $room->getImageForFacing($player->facing ?? 'N');
         $sceneImg = $imgObj ? $imgObj->src : null;
 
         return [
-            'id'                => $room->id,
-            'name'              => $room->name,
-            'description'       => $room->evalDescription($player),
-            'image'             => $sceneImg,
+            'id'                => $activeContainer->id,
+            'name'              => $activeContainer->name,
+            'description'       => $activeContainer->evalDescription($player),
+            'image'             => ($isInsideVehicle && !empty($activeContainer->innerImage?->src)) ? $activeContainer->innerImage->src : $sceneImg,
             'facing'            => $player->facing ?? 'N',
-            'has_several_faces' => $room->hasSeveralFaces(),
+            'has_several_faces' => !$isInsideVehicle && $room->hasSeveralFaces(),
             'items'             => $items,
             'occupants'         => $occupants,
             'exits'             => $exits,

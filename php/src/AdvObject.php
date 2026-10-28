@@ -308,12 +308,15 @@ class AdvObject extends DimxObject
         if ($myCont !== null && ($myCont === $cont || $myCont === $this)) {
             return true;
         }
-        if ($cont instanceof AdvObject && $cont->isanItem()) {
+        if ($cont instanceof AdvObject && $cont->isanItem() && !$cont->isVehicle()) {
             if ($cont->isOpen() && ($cont->container === $myCont || $cont->container === $from)) {
                 return true;
             }
         }
         if ($this->isLink() && $this instanceof Link) {
+            if ($myCont instanceof AdvObject && $myCont->isVehicle()) {
+                return false;
+            }
             $fromRoom = $from->getRoom();
             if ($fromRoom !== null && (isset($this->fromto[$fromRoom->id]) || $fromRoom->getWay($this->id) !== null || ($this->isBidirectional && $this->leadsTo($fromRoom->id)))) {
                 return true;
@@ -393,7 +396,7 @@ class AdvObject extends DimxObject
      */
     public function getContents(bool $checkOpen = false): array
     {
-        if ($checkOpen && $this->isanItem() && !$this->isOpen()) {
+        if ($checkOpen && ($this->isVehicle() || ($this->isanItem() && !$this->isOpen()))) {
             return [];
         }
         return $this->contents;

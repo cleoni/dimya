@@ -165,11 +165,14 @@ class UIhtml extends UI
             return;
         }
 
+        $isInsideVehicle = ($player->container instanceof \Dimx\AdvObject && $player->container->isVehicle());
+        $activeContainer = $isInsideVehicle ? $player->container : $currentRoom;
+
         $skin         = $world->skins['default'] ?? $world->defaultSkin ?? $player->skin ?? new Skin('default', 'Default');
-        $occupants    = $currentRoom ? array_values(array_filter($currentRoom->getOccupants(), fn($c) => !$c->isHidden())) : [];
-        $roomItems    = $currentRoom ? array_values(array_filter($currentRoom->getItems(), fn($i) => !$i->isHidden()))     : [];
+        $occupants    = $activeContainer ? array_values(array_filter($activeContainer->getOccupants(), fn($c) => !$c->isHidden())) : [];
+        $roomItems    = $activeContainer ? array_values(array_filter($activeContainer->getItems(), fn($i) => !$i->isHidden()))     : [];
         $inventory    = array_values(array_filter($player->contents, fn($i) => !$i->isHidden()));
-        $links        = $currentRoom ? array_values(array_filter($currentRoom->getLinks(), fn($l) => !$l->isHidden()))     : [];
+        $links        = (!$isInsideVehicle && $currentRoom) ? array_values(array_filter($currentRoom->getLinks(), fn($l) => !$l->isHidden()))     : [];
         $activePanel  = $player->getPanel() ?? $world->defaultPanel;
 
         // Portrait / vertical display detection (width < height at login or client)
@@ -718,7 +721,7 @@ class UIhtml extends UI
               <div class="dimx-cell-a">
                 <!-- Title bar: room name and player name -->
                 <div class="dimx-title-bar">
-                  <span>📍 <b><?= htmlspecialchars($currentRoom->name ?? 'Unknown') ?><?= ($currentRoom && $currentRoom->hasSeveralFaces()) ? ' - ' . htmlspecialchars(\Dimx\Link::getExtendedDirectionName($player->facing ?? 'N')) . ' view' : '' ?></b> (👤 <b><?= htmlspecialchars($player->name) ?></b>)</span>
+                  <span>📍 <b><?= htmlspecialchars($activeContainer->name ?? $currentRoom->name ?? 'Unknown') ?><?= (!$isInsideVehicle && $currentRoom && $currentRoom->hasSeveralFaces()) ? ' - ' . htmlspecialchars(\Dimx\Link::getExtendedDirectionName($player->facing ?? 'N')) . ' view' : '' ?></b> (👤 <b><?= htmlspecialchars($player->name) ?></b>)</span>
                   <?php if ($lockError): ?><span style="color:#f87171;font-size:11px">⚠ Lock busy</span><?php endif; ?>
                 </div>
 
@@ -745,7 +748,7 @@ class UIhtml extends UI
                              style="position:absolute;left:0;top:0;width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;z-index:2;display:block;" />
                       <?php else: ?>
                         <div class="dimx-scene-placeholder" style="width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;">
-                          [<?= htmlspecialchars($currentRoom->name ?? 'Scene') ?>]
+                          [<?= htmlspecialchars($activeContainer->name ?? $currentRoom->name ?? 'Scene') ?>]
                         </div>
                       <?php endif; ?>
 
@@ -807,7 +810,9 @@ class UIhtml extends UI
                               $rawPosY = (int)round($factorx * $screenY);
                               $posX = max(0, min($rawPosX, max(0, $scaledRoomW - $dispW)));
                               $posY = max(0, min($rawPosY, max(0, $scaledRoomH - $dispH)));
-                              $stackpos = 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
+                              $stackpos = $isInsideVehicle
+                                ? 206 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (254 - 206))
+                                : 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
                           ?>
                             <img src="<?= htmlspecialchars($imgSrc) ?>"
                                  alt="<?= htmlspecialchars($char->name) ?>"
@@ -958,7 +963,9 @@ class UIhtml extends UI
                               $posY = max(0, min($rawPosY, max(0, $scaledRoomH - $dispH)));
 
                               // Stacking depth order (layers 15..204)
-                              $stackpos = 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
+                              $stackpos = $isInsideVehicle
+                                ? 206 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (254 - 206))
+                                : 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
                         ?>
                           <img src="<?= htmlspecialchars($imgSrc) ?>"
                                alt="<?= htmlspecialchars($itm->name) ?>"
@@ -997,8 +1004,8 @@ class UIhtml extends UI
                         <?php foreach ($consoleMessages as $line): ?>
                           <div class="dimx-console-line"><?= nl2br($line) ?></div>
                         <?php endforeach; ?>
-                      <?php elseif ($currentRoom && !empty($currentRoom->evalDescription($player))): ?>
-                        <div class="dimx-room-desc"><?= nl2br(htmlspecialchars($currentRoom->evalDescription($player))) ?></div>
+                      <?php elseif ($activeContainer && !empty($activeContainer->evalDescription($player))): ?>
+                        <div class="dimx-room-desc"><?= nl2br(htmlspecialchars($activeContainer->evalDescription($player))) ?></div>
                       <?php endif; ?>
                     </div>
                   </div>

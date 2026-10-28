@@ -46,6 +46,7 @@
 *.zip
 *.tar.gz
 /docs/dimensionex-developers-reference-717.pdf
+/docs/PLAY-AS-BOT.md
 
 # ==========================================
 # DATABASE E DUMP DI DATI
