@@ -65,6 +65,18 @@ class GameEngine
             if (isset($this->config['tickLength']) && is_numeric($this->config['tickLength'])) {
                 $world->tickLength = max(1, (int)$this->config['tickLength']);
             }
+            if (!empty($world->imagesFolder)) {
+                $loader = new DxwLoader($this->baseUrl);
+                foreach ($world->skins as $sId => $skinObj) {
+                    $expectedFolder = $loader->resolveSkinFolderUrl($sId, $world->imagesFolder);
+                    if (empty($skinObj->skinFolder) || str_contains($skinObj->skinFolder, 'localhost')) {
+                        $skinObj->setSkinFolder($expectedFolder);
+                    }
+                }
+                if ($world->defaultSkin !== null && (empty($world->defaultSkin->skinFolder) || str_contains($world->defaultSkin->skinFolder, 'localhost'))) {
+                    $world->defaultSkin->setSkinFolder($loader->resolveSkinFolderUrl($world->defaultSkin->id ?? 'default', $world->imagesFolder));
+                }
+            }
             $this->pruneStalePlayers($world);
             return $world;
         }
@@ -232,7 +244,9 @@ class GameEngine
                 $player->isBot = true;
             }
             if ($player->skin === null) {
-                $player->skin = $world->defaultSkin ?? new Skin('default', 'Ocean');
+                $player->skin = $world->defaultSkin ?? new Skin('default', 'Default');
+            } elseif ($world->defaultSkin !== null && (empty($player->skin->skinFolder) || str_contains($player->skin->skinFolder, 'localhost'))) {
+                $player->skin->setSkinFolder($world->defaultSkin->skinFolder);
             }
             if ($player->showmode === 0) {
                 $player->showmode = AdvObject::SHOW_ONSCREEN;

@@ -149,6 +149,8 @@ class DxwLoader
         $this->sourcePath = $sourceName;
         $imagesFolder = '';
         $hasExplicitImagesFolder = false;
+        $hasPublicImagesFolder = false;
+        $hasLocalImagesFolder = false;
         $currentSection = 'WORLD';
 
         $total = count($cleanLines);
@@ -249,20 +251,31 @@ class DxwLoader
             // Process Section-Specific Blocks
             switch ($currentSection) {
                 case 'WORLD':
+                    $isPublicServer = (!empty($this->baseUrl) && !str_contains($this->baseUrl, 'localhost') && !str_contains($this->baseUrl, '127.0.0.1'));
                     if ($directive === 'NAME') {
                         $world->name = trim(substr($line, strlen($tokens[0])));
                     } elseif ($directive === 'IMAGESFOLDER') {
-                        $imagesFolder = trim(substr($line, strlen($tokens[0])));
-                        $world->imagesFolder = $imagesFolder;
+                        $rawFolder = trim(substr($line, strlen($tokens[0])));
                         $hasExplicitImagesFolder = true;
+                        if (!$hasPublicImagesFolder && !$hasLocalImagesFolder) {
+                            $imagesFolder = $rawFolder;
+                            $world->imagesFolder = $imagesFolder;
+                        }
                     } elseif ($directive === 'IMAGESFOLDER_PUBLIC') {
-                        if (!$hasExplicitImagesFolder) {
-                            $imagesFolder = trim(substr($line, strlen($tokens[0])));
+                        $rawFolder = trim(substr($line, strlen($tokens[0])));
+                        $hasPublicImagesFolder = true;
+                        if ($isPublicServer || (!$hasLocalImagesFolder && !$hasExplicitImagesFolder)) {
+                            $imagesFolder = $rawFolder;
                             $world->imagesFolder = $imagesFolder;
                         }
                     } elseif ($directive === 'IMAGESFOLDER_LOCAL') {
-                        if (empty($imagesFolder)) {
-                            $imagesFolder = trim(substr($line, strlen($tokens[0])));
+                        $rawFolder = trim(substr($line, strlen($tokens[0])));
+                        $hasLocalImagesFolder = true;
+                        if (!$isPublicServer) {
+                            $imagesFolder = $rawFolder;
+                            $world->imagesFolder = $imagesFolder;
+                        } elseif (empty($imagesFolder)) {
+                            $imagesFolder = $rawFolder;
                             $world->imagesFolder = $imagesFolder;
                         }
                     } elseif ($directive === 'BGCOLOR') {
@@ -808,14 +821,16 @@ class DxwLoader
             $world->getDefaultCharacter();
         }
 
-        // Ensure default skin has its skin folder properly resolved against IMAGESFOLDER or baseUrl
+        // Ensure all skins have their skin folder properly resolved against the finalized imagesFolder
+        $isPublicServer = (!empty($this->baseUrl) && !str_contains($this->baseUrl, 'localhost') && !str_contains($this->baseUrl, '127.0.0.1'));
         if (!isset($world->skins['default'])) {
-            $defaultFolder = $this->resolveSkinFolderUrl('default', $imagesFolder);
+            $defaultFolder = $this->resolveSkinFolderUrl('default', $world->imagesFolder);
             $world->skins['default'] = new Skin('default', 'Default', $defaultFolder);
-        } else {
-            $defaultFolder = $this->resolveSkinFolderUrl('default', $imagesFolder);
-            if (empty($world->skins['default']->skinFolder) || str_contains($world->skins['default']->skinFolder, 'localhost')) {
-                $world->skins['default']->setSkinFolder($defaultFolder);
+        }
+        foreach ($world->skins as $sId => $skinObj) {
+            $expectedFolder = $this->resolveSkinFolderUrl($sId, $world->imagesFolder);
+            if (empty($skinObj->skinFolder) || str_contains($skinObj->skinFolder, 'localhost') || ($isPublicServer && !str_starts_with($skinObj->skinFolder, 'http'))) {
+                $skinObj->setSkinFolder($expectedFolder);
             }
         }
         $world->defaultSkin = $world->skins['default'];
@@ -824,9 +839,35 @@ class DxwLoader
     }
 
     /**
+     * Extracts the parent folder of a given directory or URL (matching DimensioneX Utils.getParentFolder).
+     *
+     * Example:
+     * - 'https://www.dimensionex.net/pics/' => 'https://www.dimensionex.net/'
+     * - 'https://www.dimensionex.net/dimx/pics/' => 'https://www.dimensionex.net/dimx/'
+     * - '/dimx/pics/' => '/dimx/'
+     */
+    public static function getParentFolder(string $ofFolder): string
+    {
+        $ofFolder = trim($ofFolder);
+        if ($ofFolder === '') {
+            return '';
+        }
+        $trimmed = rtrim($ofFolder, '/');
+        $lastSlash = strrpos($trimmed, '/');
+        if ($lastSlash === false) {
+            return '';
+        }
+        if ($lastSlash < 8 && (str_starts_with($ofFolder, 'http://') || str_starts_with($ofFolder, 'https://'))) {
+            return rtrim($ofFolder, '/') . '/';
+        }
+        return substr($trimmed, 0, $lastSlash + 1);
+    }
+
+    /**
      * Resolves the skin folder URL for a given skin ID based on IMAGESFOLDER and baseUrl.
      *
      * In DimensioneX / DimensioneY:
+     * - Formula: (parent dir of(WORLD's imagefolder)) + "skins/" + (skin_id) + "/"
      * - If IMAGESFOLDER is a full URL (e.g. 'https://www.dimensionex.net/pics/'):
      *   The skin folder resides parallel to pics: 'https://www.dimensionex.net/skins/<skinId>/'
      * - If IMAGESFOLDER contains localhost but baseUrl is configured with a real host (non-localhost),
@@ -852,21 +893,17 @@ class DxwLoader
 
         // 1. If imagesFolder is an absolute HTTP/HTTPS URL
         if (str_starts_with($img, 'http://') || str_starts_with($img, 'https://')) {
-            $trimmed = rtrim($img, '/');
-            $lastSlash = strrpos($trimmed, '/');
-            if ($lastSlash !== false && $lastSlash >= 8) { // past http:// or https://
-                $parent = substr($trimmed, 0, $lastSlash + 1);
+            $parent = self::getParentFolder($img);
+            if (!empty($parent)) {
                 return rtrim($parent, '/') . "/skins/{$skinId}/";
             }
             return rtrim($img, '/') . "/skins/{$skinId}/";
         }
 
-        // 2. Relative or empty imagesFolder: resolve against baseUrl if available
+        // 2. Relative or empty imagesFolder: resolve parent against baseUrl if available
         if (!empty($img)) {
-            $trimmed = rtrim($img, '/');
-            $lastSlash = strrpos($trimmed, '/');
-            if ($lastSlash !== false) {
-                $parent = substr($trimmed, 0, $lastSlash + 1);
+            $parent = self::getParentFolder($img);
+            if (!empty($parent)) {
                 if (str_starts_with($parent, '/')) {
                     return $base ? "{$base}{$parent}skins/{$skinId}/" : "{$parent}skins/{$skinId}/";
                 }

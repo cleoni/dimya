@@ -3842,6 +3842,15 @@ if (shouldRun(42)) {
     assertTest(str_contains($spacerIcon, 'blank.gif'), "defaultSkin spacer icon references 'blank.gif'");
     assertTest(!str_contains($spacerIcon, 'localhost'), "Spacer icon does NOT contain 'localhost'");
 
+    // Test legacy normalization and rebasing
+    $testSkin = clone $w3Prod->defaultSkin;
+    $testSkin->icons['ICOWAYN'] = 'pics/north.gif';
+    assertTest($testSkin->getWayIcon('N') === 'https://www.dimensionex.net/skins/default/north.gif', "Legacy relative 'pics/north.gif' normalized to 'https://www.dimensionex.net/skins/default/north.gif'");
+    $testSkin->icons['ICOWAYN'] = 'icowayn.gif';
+    assertTest($testSkin->getWayIcon('N') === 'https://www.dimensionex.net/skins/default/icowayn.gif', "Legacy name 'icowayn.gif' kept as 'https://www.dimensionex.net/skins/default/icowayn.gif'");
+    $testSkin->icons['ICOWAYN'] = 'http://localhost/dimx/skins/default/icowayn.gif';
+    assertTest($testSkin->getWayIcon('N') === 'https://www.dimensionex.net/skins/default/icowayn.gif', "Legacy localhost URL normalized to 'https://www.dimensionex.net/skins/default/icowayn.gif'");
+
     // 4. Other declared skins in world3net (aqua, forest)
     assertTest(isset($w3Prod->skins['aqua']), "world3net has 'aqua' skin");
     assertTest($w3Prod->skins['aqua']->skinFolder === 'https://www.dimensionex.net/skins/aqua/', "aqua skinFolder is 'https://www.dimensionex.net/skins/aqua/'");

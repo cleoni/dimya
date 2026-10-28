@@ -169,6 +169,9 @@ class UIhtml extends UI
         $activeContainer = $isInsideVehicle ? $player->container : $currentRoom;
 
         $skin         = $player->skin ?? $world->skins['default'] ?? $world->defaultSkin ?? new Skin('default', 'Default');
+        if ($skin && (empty($skin->skinFolder) || str_contains($skin->skinFolder, 'localhost')) && !empty($world->imagesFolder)) {
+            $skin->setSkinFolder(\Dimx\DxwLoader::getParentFolder($world->imagesFolder) . 'skins/' . $skin->id . '/');
+        }
         $occupants    = $activeContainer ? array_values(array_filter($activeContainer->getOccupants(), fn($c) => !$c->isHidden())) : [];
         $roomItems    = $activeContainer ? array_values(array_filter($activeContainer->getItems(), fn($i) => !$i->isHidden()))     : [];
         $inventory    = array_values(array_filter($player->contents, fn($i) => !$i->isHidden()));

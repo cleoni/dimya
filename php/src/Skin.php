@@ -10,6 +10,23 @@ namespace Dimx;
  */
 class Skin
 {
+    public const DEFAULT_ICONS = [
+        'ICOPLAYER'    => 'icoPlayer.gif',
+        'ICOCHARACTER' => 'icouser.gif',
+        'ICOITEM'      => 'icoitem.gif',
+        'ICOWAY'       => 'icoway.gif',
+        'ICOWAYN'      => 'icowayn.gif',
+        'ICOWAYS'      => 'icoways.gif',
+        'ICOWAYE'      => 'icowaye.gif',
+        'ICOWAYW'      => 'icowayw.gif',
+        'ICOWAYU'      => 'icowayu.gif',
+        'ICOWAYD'      => 'icowayd.gif',
+        'ICOROTL'      => 'icorotl.gif',
+        'ICOROTR'      => 'icorotr.gif',
+        'ICOREV'       => 'reverse.gif',
+        'PICSPACER'    => 'blank.gif',
+    ];
+
     public string $id = 'default';
     public string $name = 'Default';
     public string $skinFolder = '';
@@ -35,22 +52,10 @@ class Skin
         $this->picSpacer = new Image($this->skinFolder . 'blank.gif');
         $this->picFader = new Image($this->skinFolder . 'fadewhite.gif');
 
-        $this->icons = [
-            'ICOPLAYER'    => $this->skinFolder . 'icoPlayer.gif',
-            'ICOCHARACTER' => $this->skinFolder . 'icouser.gif',
-            'ICOITEM'      => $this->skinFolder . 'icoitem.gif',
-            'ICOWAY'       => $this->skinFolder . 'icoway.gif',
-            'ICOWAYN'      => $this->skinFolder . 'icowayn.gif',
-            'ICOWAYS'      => $this->skinFolder . 'icoways.gif',
-            'ICOWAYE'      => $this->skinFolder . 'icowaye.gif',
-            'ICOWAYW'      => $this->skinFolder . 'icowayw.gif',
-            'ICOWAYU'      => $this->skinFolder . 'icowayu.gif',
-            'ICOWAYD'      => $this->skinFolder . 'icowayd.gif',
-            'ICOROTL'      => $this->skinFolder . 'icorotl.gif',
-            'ICOROTR'      => $this->skinFolder . 'icorotr.gif',
-            'ICOREV'       => $this->skinFolder . 'reverse.gif',
-            'PICSPACER'    => $this->skinFolder . 'blank.gif',
-        ];
+        $this->icons = [];
+        foreach (self::DEFAULT_ICONS as $key => $file) {
+            $this->icons[$key] = $this->skinFolder . $file;
+        }
     }
 
     /**
@@ -60,30 +65,23 @@ class Skin
     {
         $oldFolder = $this->skinFolder;
         $this->skinFolder = rtrim($skinFolder, '/') . '/';
-        $this->picPlayer = new Image($this->skinFolder . 'uomo.gif', 64, 100);
+        $this->picPlayer = new Image($this->skinFolder . 'player.gif', 64, 100);
         $this->picSpacer = new Image($this->skinFolder . 'blank.gif');
         $this->picFader = new Image($this->skinFolder . 'fadewhite.gif');
 
-        $defaultNames = [
-            'ICOPLAYER'    => 'icoPlayer.gif',
-            'ICOCHARACTER' => 'icouser.gif',
-            'ICOITEM'      => 'icoitem.gif',
-            'ICOWAY'       => 'icoway.gif',
-            'ICOWAYN'      => 'icowayn.gif',
-            'ICOWAYS'      => 'icoways.gif',
-            'ICOWAYE'      => 'icowaye.gif',
-            'ICOWAYW'      => 'icowayw.gif',
-            'ICOWAYU'      => 'icowayu.gif',
-            'ICOWAYD'      => 'icowayd.gif',
-            'ICOROTL'      => 'icorotl.gif',
-            'ICOROTR'      => 'icorotr.gif',
-            'ICOREV'       => 'reverse.gif',
-            'PICSPACER'    => 'blank.gif',
-        ];
-
-        foreach ($defaultNames as $key => $filename) {
-            if (!isset($this->icons[$key]) || empty($oldFolder) || str_starts_with($this->icons[$key], $oldFolder)) {
+        foreach (self::DEFAULT_ICONS as $key => $filename) {
+            $current = $this->icons[$key] ?? '';
+            // If unset, empty, referencing old folder, containing localhost, or is relative (e.g. pics/north.gif):
+            if (
+                empty($current) ||
+                empty($oldFolder) ||
+                str_starts_with($current, $oldFolder) ||
+                str_starts_with($current, 'pics/') ||
+                (!str_starts_with($current, 'http://') && !str_starts_with($current, 'https://') && !str_starts_with($current, '/'))
+            ) {
                 $this->icons[$key] = $this->skinFolder . $filename;
+            } elseif (str_contains($current, 'localhost') && !str_contains($this->skinFolder, 'localhost')) {
+                $this->icons[$key] = $this->skinFolder . basename($current);
             }
         }
     }
@@ -202,58 +200,93 @@ class Skin
         return $skin;
     }
 
+    /**
+     * Resolves an icon path/URL, normalizing relative paths (e.g. 'pics/...')
+     * and rebasing against the skin folder without altering icon filenames.
+     */
+    public function resolveIconUrl(?string $icon, string $defaultFilename): string
+    {
+        $folder = !empty($this->skinFolder) ? rtrim($this->skinFolder, '/') . '/' : ('/skins/' . $this->id . '/');
+        if (empty($icon)) {
+            return $folder . $defaultFilename;
+        }
+        $trimmed = trim($icon);
+        $basename = basename($trimmed);
+
+        // If it starts with pics/ or is a relative path without leading slash / scheme
+        if (str_starts_with($trimmed, 'pics/')) {
+            return $folder . $basename;
+        }
+        if (!str_starts_with($trimmed, 'http://') && !str_starts_with($trimmed, 'https://') && !str_starts_with($trimmed, '/')) {
+            return $folder . $basename;
+        }
+        // If it contains localhost but skinFolder is on a public host:
+        if ((str_contains($trimmed, 'localhost') || str_contains($trimmed, '127.0.0.1')) && !str_contains($folder, 'localhost') && !str_contains($folder, '127.0.0.1')) {
+            return $folder . $basename;
+        }
+
+        return $trimmed;
+    }
+
     public function getIcon(string $name): string
     {
-        return $this->icons[strtoupper($name)] ?? ($this->skinFolder . 'icoitem.gif');
+        $key = strtoupper($name);
+        $defaultFile = self::DEFAULT_ICONS[$key] ?? 'icoitem.gif';
+        return $this->resolveIconUrl($this->icons[$key] ?? null, $defaultFile);
     }
 
     public function getItemIcon(): string
     {
-        return $this->icons['ICOITEM'] ?? ($this->skinFolder . 'icoitem.gif');
+        return $this->resolveIconUrl($this->icons['ICOITEM'] ?? null, self::DEFAULT_ICONS['ICOITEM'] ?? 'icoitem.gif');
     }
 
     public function getCharacterIcon(): string
     {
-        return $this->icons['ICOCHARACTER'] ?? ($this->skinFolder . 'icouser.gif');
+        return $this->resolveIconUrl($this->icons['ICOCHARACTER'] ?? null, self::DEFAULT_ICONS['ICOCHARACTER'] ?? 'icouser.gif');
     }
 
     public function getPlayerIcon(): string
     {
-        return $this->icons['ICOPLAYER'] ?? ($this->skinFolder . 'icoPlayer.gif');
+        return $this->resolveIconUrl($this->icons['ICOPLAYER'] ?? null, self::DEFAULT_ICONS['ICOPLAYER'] ?? 'icoPlayer.gif');
     }
 
     public function getWayIcon(string $direction): string
     {
         $dir = strtoupper(trim($direction));
-        return match ($dir) {
-            'N'        => $this->icons['ICOWAYN'] ?? ($this->skinFolder . 'icowayn.gif'),
-            'S'        => $this->icons['ICOWAYS'] ?? ($this->skinFolder . 'icoways.gif'),
-            'E'        => $this->icons['ICOWAYE'] ?? ($this->skinFolder . 'icowaye.gif'),
-            'W'        => $this->icons['ICOWAYW'] ?? ($this->skinFolder . 'icowayw.gif'),
-            'U', 'UP'  => $this->icons['ICOWAYU'] ?? ($this->skinFolder . 'icowayu.gif'),
-            'D', 'DOWN'=> $this->icons['ICOWAYD'] ?? ($this->skinFolder . 'icowayd.gif'),
-            default    => $this->icons['ICOWAY'] ?? ($this->skinFolder . 'icoway.gif'),
+        $key = match ($dir) {
+            'N'         => 'ICOWAYN',
+            'S'         => 'ICOWAYS',
+            'E'         => 'ICOWAYE',
+            'W'         => 'ICOWAYW',
+            'U', 'UP'   => 'ICOWAYU',
+            'D', 'DOWN' => 'ICOWAYD',
+            default     => 'ICOWAY',
         };
+        $defaultFile = self::DEFAULT_ICONS[$key] ?? 'icoway.gif';
+        return $this->resolveIconUrl($this->icons[$key] ?? null, $defaultFile);
     }
 
     public function getSpacerIcon(): string
     {
-        return $this->picSpacer?->url ?? ($this->icons['PICSPACER'] ?? ($this->skinFolder . 'blank.gif'));
+        if ($this->picSpacer?->url) {
+            return $this->resolveIconUrl($this->picSpacer->url, 'blank.gif');
+        }
+        return $this->resolveIconUrl($this->icons['PICSPACER'] ?? null, 'blank.gif');
     }
 
     public function getRotLIcon(): string
     {
-        return $this->icons['ICOROTL'] ?? ($this->skinFolder . 'icorotl.gif');
+        return $this->resolveIconUrl($this->icons['ICOROTL'] ?? null, self::DEFAULT_ICONS['ICOROTL'] ?? 'icorotl.gif');
     }
 
     public function getRotRIcon(): string
     {
-        return $this->icons['ICOROTR'] ?? ($this->skinFolder . 'icorotr.gif');
+        return $this->resolveIconUrl($this->icons['ICOROTR'] ?? null, self::DEFAULT_ICONS['ICOROTR'] ?? 'icorotr.gif');
     }
 
     public function getRevIcon(): string
     {
-        return $this->icons['ICOREV'] ?? ($this->skinFolder . 'reverse.gif');
+        return $this->resolveIconUrl($this->icons['ICOREV'] ?? null, self::DEFAULT_ICONS['ICOREV'] ?? 'reverse.gif');
     }
 
     /**
