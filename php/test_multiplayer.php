@@ -65,6 +65,7 @@ $sections = [
     41 => ['title' => 'Testing System Snapshot (htmlAdminSnapshot) & maint.php Snapshot Action...', 'keywords' => ['snapshot', 'maint', 'htmladminsnapshot', 'adminpasswd', 'system snapshot', 'sec41']],
     42 => ['title' => 'Testing SKINS Resolution (IMAGESFOLDER / baseUrl), No Hardcoded Localhost & Navpad Arrow Icons...', 'keywords' => ['skins', 'imagesfolder', 'base_url', 'localhost', 'navpad', 'icowayn', 'dxwloader', 'skin']],
     43 => ['title' => 'Testing Default Item Icon (ICOITEM) & Fallbacks in UIhtml and Skin...', 'keywords' => ['icoitem', 'item icon', 'skin', 'default icon', 'uihtml', 'inventory', 'room items']],
+    44 => ['title' => 'Testing Goal Instruction, $WORLD.mode = 0 & Physical Storage in dimx_hall_of_fame...', 'keywords' => ['goal', 'hall_of_fame', 'hof', 'mode', 'victory', 'completion']],
 ];
 
 // CLI Options parsing
@@ -3951,6 +3952,70 @@ if (shouldRun(43)) {
         str_contains($lookMsgs, $expectedItemIcon),
         "Look command 'Containing:' list displays skin default ICOITEM image for item without icon ('{$expectedItemIcon}')"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Section 44: Testing Goal Instruction, $WORLD.mode = 0 & Physical Storage in dimx_hall_of_fame
+// ---------------------------------------------------------------------------
+if (shouldRun(44)) {
+    echo "\n--- Section 44: Testing Goal Instruction, \$WORLD.mode = 0 & Physical Storage in dimx_hall_of_fame ---\n";
+
+    $dxwLoader = new \Dimx\DxwLoader('https://test.dimensionex.net');
+    $w44 = $dxwLoader->load(__DIR__ . '/../docs/dxw-examples/world3net.dxw');
+    $w44->id = 'w44_goal_test';
+    $w44->title = 'The Beach';
+    $w44->version = '2.30';
+    $w44->mode = 1;
+    $w44->persistence = $pm;
+
+    $p44 = new \Dimx\Player($w44, 'ChampionBot', 'p_goal_44');
+    $p44->numericId = 4401;
+    $p44->score = 50;
+    $w44->addPlayer($p44);
+    $spiaggia = $w44->getRoom('spiaggia2');
+    $p44->move($spiaggia);
+
+    // Initial state
+    assertTest($w44->mode === 1, "World mode is initially 1 (running) before Goal");
+
+    // Execute Goal instruction with custom victory message
+    $runner = new \Dimx\ActionsRunner($w44, $w44, $p44, null);
+    $script = "Goal \"Hero of the Beach! The adventure is completed.\"";
+    $result = $runner->run($script);
+
+    assertTest($result === true, "ActionsRunner successfully executed Goal instruction");
+    assertTest($w44->mode === 0, "\$WORLD.mode is now 0 (adventure completed / game won)");
+    assertTest($p44->score === 60, "Player score was incremented by 10 points (got: {$p44->score})");
+
+    // Check message delivered to player console
+    $p44Msgs = implode(' ', $p44->drainConsole());
+    assertTest(
+        str_contains($p44Msgs, "Hero of the Beach!"),
+        "Goal victory message was broadcasted to player console: '{$p44Msgs}'"
+    );
+
+    // Verify physical storage in Hall of Fame (dimx_hall_of_fame or file fallback)
+    $hofEntries = $pm->getHallOfFame('w44_goal_test');
+    assertTest(!empty($hofEntries), "Hall of Fame contains recorded completion entry in physical storage");
+    $latestEntry = $hofEntries[0] ?? [];
+    assertTest(($latestEntry['player_name'] ?? '') === 'ChampionBot', "Latest HOF entry player_name is 'ChampionBot' (got: '{$latestEntry['player_name']}')");
+    assertTest(str_contains((string)($latestEntry['message'] ?? ''), 'Hero of the Beach!'), "Latest HOF entry message contains victory text");
+    assertTest(($latestEntry['world_title'] ?? '') === 'The Beach', "Latest HOF entry world_title is 'The Beach'");
+    assertTest(($latestEntry['world_version'] ?? '') === '2.30', "Latest HOF entry world_version is '2.30'");
+    assertTest((int)($latestEntry['player_numeric_id'] ?? 0) === 4401, "Latest HOF entry player_numeric_id is 4401");
+
+    // Test default message when Goal has no arguments
+    $runner2 = new \Dimx\ActionsRunner($w44, $w44, $p44, null);
+    $runner2->run("Goal");
+    $hofEntries2 = $pm->getHallOfFame('w44_goal_test');
+    $latestEntry2 = $hofEntries2[0] ?? [];
+    assertTest(
+        str_contains((string)($latestEntry2['message'] ?? ''), "<b>ChampionBot</b> has reached the goal!"),
+        "Goal without arguments creates default message '<b>ChampionBot</b> has reached the goal!'"
+    );
+
+    // Clean up test world
+    $pm->resetWorld('w44_goal_test');
 }
 
 // Clean up test worlds

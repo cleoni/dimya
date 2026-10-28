@@ -27,6 +27,7 @@ $inputPasswd     = (string)($_POST['adminPasswd'] ?? $_GET['adminPasswd'] ?? $_S
 $isAuthenticated = ($adminPasswd !== '' && hash_equals($adminPasswd, $inputPasswd));
 $message         = '';
 $messageType     = 'alert';
+$worldId         = $_SERVER['DIMX_WORLD_ID'] ?? 'main';
 
 if (!empty($action) && (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' || $action === 'snapshot')) {
     if (!$isAuthenticated) {
@@ -143,10 +144,12 @@ $savedFiles = array_merge(
 );
 
 // Row counts for diagnostics
-$worlds   = $pm->countRows('dimx_worlds');
-$players  = $pm->countRows('dimx_players');
-$settings = $pm->countRows('dimx_settings');
-$messages = $pm->countRows('dimx_messages');
+$worlds     = $pm->countRows('dimx_worlds');
+$players    = $pm->countRows('dimx_players');
+$settings   = $pm->countRows('dimx_settings');
+$messages   = $pm->countRows('dimx_messages');
+$hof        = $pm->countRows('dimx_hall_of_fame');
+$hofEntries = $pm->getHallOfFame($worldId, 15);
 
 // Active MySQL advisory locks (information_schema)
 $activeLocks = [];
@@ -237,6 +240,7 @@ if ($pm->isConnected()) {
       <div class="stat-box"><div class="stat-num"><?= $players >= 0 ? $players : '?' ?></div><div class="stat-label">Players</div></div>
       <div class="stat-box"><div class="stat-num"><?= $settings >= 0 ? $settings : '?' ?></div><div class="stat-label">Settings</div></div>
       <div class="stat-box"><div class="stat-num"><?= $messages >= 0 ? $messages : '?' ?></div><div class="stat-label">Chat Messages</div></div>
+      <div class="stat-box"><div class="stat-num"><?= $hof >= 0 ? $hof : '?' ?></div><div class="stat-label">Hall of Fame</div></div>
     </div>
     <?php endif; ?>
 
@@ -303,6 +307,40 @@ if ($pm->isConnected()) {
     </form>
   </div>
 
+  <!-- Hall of Fame -->
+  <div class="maint-card">
+    <h3>🏆 Hall of Fame (Game Completions)</h3>
+    <p style="font-size:13px;color:#94a3b8">Adventures completed and goals reached in this world.</p>
+    <?php if (!empty($hofEntries)): ?>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="border-bottom:1px solid #334155;color:#94a3b8;text-align:left">
+              <th style="padding:6px 8px">#</th>
+              <th style="padding:6px 8px">Player</th>
+              <th style="padding:6px 8px">World</th>
+              <th style="padding:6px 8px">Date / Time</th>
+              <th style="padding:6px 8px">Victory Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($hofEntries as $entry): ?>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                <td style="padding:6px 8px;color:#64748b"><?= htmlspecialchars((string)($entry['id'] ?? '')) ?></td>
+                <td style="padding:6px 8px;color:#38bdf8;font-weight:600"><?= htmlspecialchars((string)($entry['player_name'] ?? '')) ?></td>
+                <td style="padding:6px 8px;color:#94a3b8"><?= htmlspecialchars((string)($entry['world_title'] ?: $entry['world_id'])) ?> <?= !empty($entry['world_version']) ? 'v.' . htmlspecialchars((string)$entry['world_version']) : '' ?></td>
+                <td style="padding:6px 8px;color:#cbd5e1"><?= htmlspecialchars((string)($entry['created_at'] ?? '')) ?></td>
+                <td style="padding:6px 8px;color:#e2e8f0"><?= strip_tags((string)($entry['message'] ?? '')) ?></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php else: ?>
+      <p style="font-size:13px;color:#64748b;margin:0">No completions recorded yet.</p>
+    <?php endif; ?>
+  </div>
+
   <!-- Local file cache -->
   <div class="maint-card">
     <h3>📂 Local File Cache</h3>
@@ -330,16 +368,16 @@ return [
     'db' => [
         'host'   => '127.0.0.1',
         'port'   => 3306,
-        'dbname' => 'dimya',
-        'user'   => 'root',
-        'pass'   => 'secret',
+        'dbname' => 'dbname',
+        'user'   => 'dbuser',
+        'pass'   => '******',
     ],
-    'adminPasswd' => 'admin123',
+    'adminPasswd' => '******',
     'world_file'  => __DIR__ . '/../docs/dxw-examples/world3net.dxw',
     'tickLength'  => 30,
     'base_url'    => 'http://localhost',
     'testBots'    => [
-        'BotAlpha',
+        'testbot',
     ],
 ];</pre>
   </div>
