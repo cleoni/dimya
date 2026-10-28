@@ -168,7 +168,7 @@ class UIhtml extends UI
         $isInsideVehicle = ($player->container instanceof \Dimx\AdvObject && $player->container->isVehicle());
         $activeContainer = $isInsideVehicle ? $player->container : $currentRoom;
 
-        $skin         = $world->skins['default'] ?? $world->defaultSkin ?? $player->skin ?? new Skin('default', 'Default');
+        $skin         = $player->skin ?? $world->skins['default'] ?? $world->defaultSkin ?? new Skin('default', 'Default');
         $occupants    = $activeContainer ? array_values(array_filter($activeContainer->getOccupants(), fn($c) => !$c->isHidden())) : [];
         $roomItems    = $activeContainer ? array_values(array_filter($activeContainer->getItems(), fn($i) => !$i->isHidden()))     : [];
         $inventory    = array_values(array_filter($player->contents, fn($i) => !$i->isHidden()));
@@ -926,7 +926,7 @@ class UIhtml extends UI
                             $isIcon = ($itm->showmode === \Dimx\AdvObject::SHOW_ICON);
                             $imgSrc = ($isIcon && !empty($itm->icon))
                               ? $itm->icon
-                              : ($itm->images['N']->src ?? $itm->icon ?? null);
+                              : ($itm->images['N']->src ?? $itm->icon ?? ($isIcon ? $skin->getItemIcon() : null));
                             if ($imgSrc):
                               $baseW = $isIcon
                                 ? ($world->iconSize ?? 32)
@@ -1281,6 +1281,11 @@ class UIhtml extends UI
                       <div class="dimx-section-title" style="color:#a78bfa">People</div>
                       <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
                         <?php foreach ($offscreenChars as $oc): ?>
+                          <?php
+                            $charIcon = !empty($oc->icon)
+                                ? $oc->icon
+                                : ($oc instanceof \Dimx\Player ? $skin->getPlayerIcon() : $skin->getCharacterIcon());
+                          ?>
                           <div>
                             <a href="javascript:void(0)"
                                class="dimx-onscreen-obj"
@@ -1289,8 +1294,8 @@ class UIhtml extends UI
                                data-obj-name="<?= htmlspecialchars($oc->name) ?>"
                                onclick="clickObject(this)"
                                style="color:#e2e8f0;text-decoration:none;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-                               <?php if (!empty($oc->icon)): ?>
-                                 <img src="<?= htmlspecialchars($oc->icon) ?>" alt="<?= htmlspecialchars($oc->name) ?>" style="width:20px;height:20px;object-fit:contain;vertical-align:middle;border-radius:2px" />
+                               <?php if (!empty($charIcon)): ?>
+                                 <img src="<?= htmlspecialchars($charIcon) ?>" alt="<?= htmlspecialchars($oc->name) ?>" style="width:20px;height:20px;object-fit:contain;vertical-align:middle;border-radius:2px" />
                                <?php else: ?>
                                  <span>👤</span>
                                <?php endif; ?>
@@ -1306,6 +1311,9 @@ class UIhtml extends UI
                       <div class="dimx-section-title" style="color:#38bdf8">Items</div>
                       <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
                         <?php foreach ($roomItems as $itm): ?>
+                          <?php
+                            $itemIcon = !empty($itm->icon) ? $itm->icon : $skin->getItemIcon();
+                          ?>
                           <div>
                             <a href="javascript:void(0)"
                                class="dimx-onscreen-obj"
@@ -1314,8 +1322,8 @@ class UIhtml extends UI
                                data-obj-name="<?= htmlspecialchars($itm->name) ?>"
                                onclick="clickObject(this)"
                                style="color:#e2e8f0;text-decoration:none;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-                               <?php if (!empty($itm->icon)): ?>
-                                 <img src="<?= htmlspecialchars($itm->icon) ?>" alt="<?= htmlspecialchars($itm->name) ?>" style="width:20px;height:20px;object-fit:contain;vertical-align:middle;border-radius:2px" />
+                               <?php if (!empty($itemIcon)): ?>
+                                 <img src="<?= htmlspecialchars($itemIcon) ?>" alt="<?= htmlspecialchars($itm->name) ?>" style="width:20px;height:20px;object-fit:contain;vertical-align:middle;border-radius:2px" />
                                <?php else: ?>
                                  <span>📦</span>
                                <?php endif; ?>
@@ -1329,6 +1337,9 @@ class UIhtml extends UI
                     <div class="dimx-section-title" style="color:#94a3b8;text-transform:uppercase">🎒 Inventory</div>
                     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
                       <?php foreach ($inventory as $item): ?>
+                        <?php
+                          $itemIcon = !empty($item->icon) ? $item->icon : $skin->getItemIcon();
+                        ?>
                         <div style="background:rgba(255,255,255,0.06);padding:3px 6px;border-radius:3px;font-size:12px">
                           <a href="javascript:void(0)"
                              class="dimx-onscreen-obj"
@@ -1338,8 +1349,10 @@ class UIhtml extends UI
                              onclick="clickObject(this)"
                              style="color:#e2e8f0;text-decoration:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px"
                              title="Click to select this item">
-                            <?php if (!empty($item->icon)): ?>
-                              <img src="<?= htmlspecialchars($item->icon) ?>" alt="<?= htmlspecialchars($item->name) ?>" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;border-radius:2px" />
+                            <?php if (!empty($itemIcon)): ?>
+                              <img src="<?= htmlspecialchars($itemIcon) ?>" alt="<?= htmlspecialchars($item->name) ?>" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;border-radius:2px" />
+                            <?php else: ?>
+                              <span>📦</span>
                             <?php endif; ?>
                             <b><?= htmlspecialchars($item->name) ?></b>
                           </a>

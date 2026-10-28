@@ -207,6 +207,21 @@ class Skin
         return $this->icons[strtoupper($name)] ?? ($this->skinFolder . 'icoitem.gif');
     }
 
+    public function getItemIcon(): string
+    {
+        return $this->icons['ICOITEM'] ?? ($this->skinFolder . 'icoitem.gif');
+    }
+
+    public function getCharacterIcon(): string
+    {
+        return $this->icons['ICOCHARACTER'] ?? ($this->skinFolder . 'icouser.gif');
+    }
+
+    public function getPlayerIcon(): string
+    {
+        return $this->icons['ICOPLAYER'] ?? ($this->skinFolder . 'icoPlayer.gif');
+    }
+
     public function getWayIcon(string $direction): string
     {
         $dir = strtoupper(trim($direction));

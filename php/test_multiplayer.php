@@ -64,6 +64,7 @@ $sections = [
     40 => ['title' => 'Testing VEHICLE Support & Onscreen Display/Click in bungalowStanza (world3net tele1 & tele2)...', 'keywords' => ['vehicle', 'tele1', 'tele2', 'bungalowstanza', 'teletransporter', 'innerimage', 'click', 'onscreen']],
     41 => ['title' => 'Testing System Snapshot (htmlAdminSnapshot) & maint.php Snapshot Action...', 'keywords' => ['snapshot', 'maint', 'htmladminsnapshot', 'adminpasswd', 'system snapshot', 'sec41']],
     42 => ['title' => 'Testing SKINS Resolution (IMAGESFOLDER / baseUrl), No Hardcoded Localhost & Navpad Arrow Icons...', 'keywords' => ['skins', 'imagesfolder', 'base_url', 'localhost', 'navpad', 'icowayn', 'dxwloader', 'skin']],
+    43 => ['title' => 'Testing Default Item Icon (ICOITEM) & Fallbacks in UIhtml and Skin...', 'keywords' => ['icoitem', 'item icon', 'skin', 'default icon', 'uihtml', 'inventory', 'room items']],
 ];
 
 // CLI Options parsing
@@ -3875,6 +3876,81 @@ if (shouldRun(42)) {
 
     assertTest(str_contains($html42, 'https://www.dimensionex.net/skins/default/icowayn.gif'), "Rendered navpad contains public North arrow URL 'https://www.dimensionex.net/skins/default/icowayn.gif'");
     assertTest(!str_contains($html42, 'localhost/dimx/skins/default/'), "Rendered HTML contains NO references to 'localhost/dimx/skins/default/'");
+}
+
+// ---------------------------------------------------------------------------
+// Section 43: Testing Default Item Icon (ICOITEM) & Fallbacks in UIhtml and Skin
+// ---------------------------------------------------------------------------
+if (shouldRun(43)) {
+    echo "\n--- Section 43: Testing Default Item Icon (ICOITEM) & Fallbacks in UIhtml and Skin ---\n";
+
+    $defaultSkin = new \Dimx\Skin('default', 'Default', 'https://www.dimensionex.net/skins/default/');
+    assertTest($defaultSkin->getItemIcon() === 'https://www.dimensionex.net/skins/default/icoitem.gif', "Skin getItemIcon() returns default icoitem.gif URL (got: '{$defaultSkin->getItemIcon()}')");
+    assertTest($defaultSkin->getCharacterIcon() === 'https://www.dimensionex.net/skins/default/icouser.gif', "Skin getCharacterIcon() returns default icouser.gif URL (got: '{$defaultSkin->getCharacterIcon()}')");
+    assertTest($defaultSkin->getPlayerIcon() === 'https://www.dimensionex.net/skins/default/icoPlayer.gif', "Skin getPlayerIcon() returns default icoPlayer.gif URL (got: '{$defaultSkin->getPlayerIcon()}')");
+
+    // Load world3net
+    $dxwLoader = new \Dimx\DxwLoader('https://test.dimensionex.net');
+    $w43 = $dxwLoader->load(__DIR__ . '/../docs/dxw-examples/world3net.dxw');
+
+    // Create a player and room
+    $p43 = new \Dimx\Player($w43, 'IconTester', 'p_ico_43');
+    $w43->addPlayer($p43);
+    $testRoom = $w43->getRoom('spiaggia2');
+    $p43->move($testRoom);
+
+    // Create an item with NO custom icon defined
+    $itemWithoutIcon = new \Dimx\Item($w43, 'Plain Stone', 'plainstone');
+    $itemWithoutIcon->icon = null;
+    $itemWithoutIcon->move($testRoom);
+
+    // Create an item in player inventory with NO custom icon defined
+    $invItemWithoutIcon = new \Dimx\Item($w43, 'Plain Twig', 'plaintwig');
+    $invItemWithoutIcon->icon = null;
+    $invItemWithoutIcon->move($p43);
+
+    // Render UIhtml
+    $ui43 = new \Dimx\UIhtml($p43);
+    ob_start();
+    $ui43->render(['world' => $w43, 'player' => $p43]);
+    $html43 = ob_get_clean();
+
+    // Verify room items list renders skin's ICOITEM for Plain Stone
+    $expectedItemIcon = $w43->skins['default']->getItemIcon();
+    assertTest(
+        str_contains($html43, $expectedItemIcon),
+        "UIhtml renders Skin ICOITEM icon URL ('{$expectedItemIcon}')"
+    );
+    assertTest(
+        str_contains($html43, 'alt="Plain Stone"'),
+        "UIhtml room items list includes Plain Stone with alt attribute"
+    );
+    assertTest(
+        str_contains($html43, 'alt="Plain Twig"'),
+        "UIhtml inventory list includes Plain Twig with alt attribute"
+    );
+    // Verify room items and inventory do NOT use placeholder emoji for items
+    assertTest(
+        !str_contains($html43, '<span>📦</span>'),
+        "UIhtml does NOT render raw '<span>📦</span>' placeholder when skin default item icon is available"
+    );
+
+    // Verify container "Containing:" listing uses skin item icon
+    $box = new \Dimx\Item($w43, 'Wooden Box', 'woodenbox');
+    $box->openable = true;
+    $box->open = true;
+    $box->move($testRoom);
+    $innerItem = new \Dimx\Item($w43, 'Secret Gem', 'secretgem');
+    $innerItem->icon = null;
+    $innerItem->move($box);
+
+    $engine43 = new \Dimx\GameEngine($pm);
+    $engine43->executeCommandAction($w43, $p43, 'look', 'woodenbox', '');
+    $lookMsgs = implode(' ', $p43->drainConsole());
+    assertTest(
+        str_contains($lookMsgs, $expectedItemIcon),
+        "Look command 'Containing:' list displays skin default ICOITEM image for item without icon ('{$expectedItemIcon}')"
+    );
 }
 
 // Clean up test worlds

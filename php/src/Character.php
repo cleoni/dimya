@@ -307,9 +307,11 @@ class Character extends AdvObject
             $contents = $obj->getContents(true);
             if (!empty($contents)) {
                 $itemLinks = [];
+                $skin = $this->skin ?? $this->world?->skins['default'] ?? $this->world?->defaultSkin;
                 foreach ($contents as $it) {
-                    $iconImg = !empty($it->icon)
-                        ? "<img src=\"" . htmlspecialchars($it->icon) . "\" alt=\"" . htmlspecialchars($it->name) . "\" style=\"width:20px;height:20px;object-fit:contain;vertical-align:middle;margin-right:4px;border-radius:2px\" />"
+                    $ico = !empty($it->icon) ? $it->icon : ($skin?->getItemIcon() ?? '');
+                    $iconImg = !empty($ico)
+                        ? "<img src=\"" . htmlspecialchars($ico) . "\" alt=\"" . htmlspecialchars($it->name) . "\" style=\"width:20px;height:20px;object-fit:contain;vertical-align:middle;margin-right:4px;border-radius:2px\" />"
                         : "📦 ";
                     $itemLinks[] = "<a href=\"javascript:void(0)\" class=\"dimx-onscreen-obj\" data-obj-id=\"" . htmlspecialchars($it->id) . "\" data-obj-type=\"i\" data-obj-name=\"" . htmlspecialchars($it->name) . "\" onclick=\"clickObject(this)\" style=\"color:#38bdf8;text-decoration:none;display:inline-flex;align-items:center;cursor:pointer;\">{$iconImg}<b>" . htmlspecialchars($it->name) . "</b></a>";
                 }
