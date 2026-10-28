@@ -103,4 +103,17 @@ class DimxObject extends ManageableObject
         }
         return implode(", ", $names);
     }
+
+    public function __toString(): string
+    {
+        return $this->id . ' (' . $this->name . ')';
+    }
+
+    /**
+     * Generate HTML snapshot fragment for this object.
+     */
+    public function htmlAdminSnapshot(): string
+    {
+        return "<li>" . htmlspecialchars((string)$this) . "</li>\n";
+    }
 }

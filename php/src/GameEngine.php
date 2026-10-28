@@ -12,6 +12,8 @@ namespace Dimx;
  */
 class GameEngine
 {
+    public const ENGINE_VERSION = '1.0.0 (PHP) / DimensioneX 7.1.8-compat';
+
     public PersistenceManager $pm;
     public string $worldId;
     public ?string $worldFile;

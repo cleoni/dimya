@@ -9,6 +9,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/autoload.php';
 
+if (!defined('DIMX_TESTING')) {
+    define('DIMX_TESTING', true);
+}
+
 use Dimx\UI;
 use Dimx\UIhtml;
 use Dimx\UIjson;
@@ -58,6 +62,7 @@ $sections = [
     38 => ['title' => "Testing Non-pickable Items, PickUp Button Label & Locked Link Open Message ('It\\'s locked.')...", 'keywords' => ['pickable', 'trash', 'pickup', 'locked', 'w22', 'w21', 'open']],
     39 => ['title' => 'Testing Use With (use2) Execution Semantics: Done! on Success vs Nothing happens. (key2 on w22 vs w21 and key5 on w21)...', 'keywords' => ['use2', 'usewith', 'key2', 'key5', 'w21', 'w22', 'done', 'nothing happens', 'onusewith']],
     40 => ['title' => 'Testing VEHICLE Support & Onscreen Display/Click in bungalowStanza (world3net tele1 & tele2)...', 'keywords' => ['vehicle', 'tele1', 'tele2', 'bungalowstanza', 'teletransporter', 'innerimage', 'click', 'onscreen']],
+    41 => ['title' => 'Testing System Snapshot (htmlAdminSnapshot) & maint.php Snapshot Action...', 'keywords' => ['snapshot', 'maint', 'htmladminsnapshot', 'adminpasswd', 'system snapshot', 'sec41']],
 ];
 
 // CLI Options parsing
@@ -3643,6 +3648,117 @@ if (shouldRun(40)) {
     assertTest(str_contains($exitFailMsgs, "You are not inside any vehicle."), "Attempting to exit when not in vehicle outputs 'You are not inside any vehicle.' (got: '{$exitFailMsgs}')");
 
     @$pm->resetWorld('w3_sec40_test');
+}
+
+// -----------------------------------------------------------------------------
+// Section 41: Testing System Snapshot (htmlAdminSnapshot) & maint.php Snapshot Action
+// -----------------------------------------------------------------------------
+if (shouldRun(41)) {
+    echo "\n--- Section 41: Testing System Snapshot (htmlAdminSnapshot) & maint.php Snapshot Action ---\n";
+
+    // 1. Verify Engine Version constant
+    assertTest(defined('\Dimx\GameEngine::ENGINE_VERSION'), "GameEngine::ENGINE_VERSION constant is defined");
+    assertTest(!empty(\Dimx\GameEngine::ENGINE_VERSION), "GameEngine::ENGINE_VERSION is non-empty (got: '" . \Dimx\GameEngine::ENGINE_VERSION . "')");
+
+    // 2. Load world3net.dxw and verify entity counts
+    $eng41 = new \Dimx\GameEngine($pm, 'w3_sec41_test', __DIR__ . '/world3net.dxw');
+    $w3Sec41 = $eng41->loadOrSeedWorld();
+
+    assertTest(count($w3Sec41->rooms) === 28, "world3net has 28 rooms (got: " . count($w3Sec41->rooms) . ")");
+    assertTest(count($w3Sec41->characters) === 10, "world3net has 10 characters (got: " . count($w3Sec41->characters) . ")");
+    assertTest(count($w3Sec41->links) === 34, "world3net has 34 links (got: " . count($w3Sec41->links) . ")");
+    assertTest(count($w3Sec41->items) === 41, "world3net has 41 items (got: " . count($w3Sec41->items) . ")");
+    assertTest(count($w3Sec41->events) === 46, "world3net has 46 events (got: " . count($w3Sec41->events) . ")");
+    assertTest(count($w3Sec41->panels) === 2, "world3net has 2 panels (got: " . count($w3Sec41->panels) . ")");
+
+    // 3. Test htmlAdminSnapshot() structure
+    $snapshot = $w3Sec41->htmlAdminSnapshot();
+    assertTest(str_contains($snapshot, 'id="top"'), "Snapshot contains top anchor #top");
+    assertTest(str_contains($snapshot, 'Engine version: ' . \Dimx\GameEngine::ENGINE_VERSION), "Snapshot contains Engine version");
+    assertTest(str_contains($snapshot, 'World: The Beach v.2.30'), "Snapshot contains World title and version ('The Beach v.2.30')");
+    assertTest(str_contains($snapshot, 'Images folder: '), "Snapshot contains Images folder line");
+    assertTest(str_contains($snapshot, 'Server time is now: '), "Snapshot contains Server time line");
+    assertTest(str_contains($snapshot, 'Players: (none)'), "Snapshot displays Players: (none) when no players are connected");
+
+    // 4. Verify summary links to all sections
+    assertTest(str_contains($snapshot, '<a href="#rooms">28 rooms</a>'), "Summary links to #rooms (28 rooms)");
+    assertTest(str_contains($snapshot, '<a href="#characters">10 characters</a>'), "Summary links to #characters (10 characters)");
+    assertTest(str_contains($snapshot, '<a href="#events">(46) events</a>'), "Summary links to #events ((46) events)");
+    assertTest(str_contains($snapshot, '<a href="#ways">34 links</a>'), "Summary links to #ways (34 links)");
+    assertTest(str_contains($snapshot, '<a href="#items">41 items</a>'), "Summary links to #items (41 items)");
+    assertTest(str_contains($snapshot, '<a href="#properties">World properties</a>'), "Summary links to #properties (World properties)");
+    assertTest(str_contains($snapshot, '<a href="#panels">2 panels</a>'), "Summary links to #panels (2 panels)");
+
+    // 5. Verify section headers and anchors
+    assertTest(str_contains($snapshot, 'id="rooms"') && str_contains($snapshot, '<h1>28 rooms</h1>'), "Snapshot has #rooms section header");
+    assertTest(str_contains($snapshot, 'id="characters"') && str_contains($snapshot, '<h1>10 characters</h1>'), "Snapshot has #characters section header");
+    assertTest(str_contains($snapshot, 'id="events"') && str_contains($snapshot, '<h1>(46) events</h1>'), "Snapshot has #events section header");
+    assertTest(str_contains($snapshot, 'id="ways"') && str_contains($snapshot, '<h1>34 links</h1>'), "Snapshot has #ways section header");
+    assertTest(str_contains($snapshot, 'id="items"') && str_contains($snapshot, '<h1>Items</h1>'), "Snapshot has #items section header");
+    assertTest(str_contains($snapshot, 'Items count=41'), "Snapshot items section includes 'Items count=41'");
+    assertTest(str_contains($snapshot, 'id="properties"') && str_contains($snapshot, '<h1>World properties</h1>'), "Snapshot has #properties section header");
+    assertTest(str_contains($snapshot, 'id="panels"') && str_contains($snapshot, '<h1>2 panels</h1>'), "Snapshot has #panels section header");
+
+    // 6. Verify inner properties and formatting
+    assertTest(str_contains($snapshot, 'parcoLunetta (The park)'), "Snapshot lists room parcoLunetta");
+    assertTest(str_contains($snapshot, 'surfer (a surfer)'), "Snapshot lists character surfer");
+    assertTest(str_contains($snapshot, 'w6 (') && str_contains($snapshot, 'bar-- D'), "Snapshot lists link w6 with connections");
+    assertTest(str_contains($snapshot, 'a can') && str_contains($snapshot, 'in <a href="#barman">barman (the barman)</a>'), "Snapshot lists contained item in its container");
+    assertTest(str_contains($snapshot, 'default: look, click, go'), "Snapshot lists default panel with commands");
+    assertTest(str_contains($snapshot, 'chat: look, click, use'), "Snapshot lists chat panel with commands");
+    assertTest(str_contains($snapshot, '<a href="#top">Summary</a>'), "Snapshot includes 'Summary' back links");
+
+    // 7. Verify player list updates when a player connects
+    $player41 = new \Dimx\Player($w3Sec41, 'SnapshotPlayer', 'p_snap_41');
+    $w3Sec41->addPlayer($player41);
+    $snapshotWithPlayer = $w3Sec41->htmlAdminSnapshot();
+    assertTest(str_contains($snapshotWithPlayer, '<a href="#p_snap_41">p_snap_41 (SnapshotPlayer)</a>'), "Snapshot summary lists connected player link");
+    assertTest(str_contains($snapshotWithPlayer, 'p_snap_41 (SnapshotPlayer)'), "Player is listed under characters section");
+    assertTest(str_contains($snapshotWithPlayer, '0 messages'), "Player displays message count");
+    $w3Sec41->removePlayer($player41);
+
+    // 8. Testing maint.php integration
+    // 8a. Access denied without password
+    unset($_SESSION['adminPasswd']);
+    $_POST = [];
+    $_GET  = ['action' => 'snapshot'];
+    ob_start();
+    require __DIR__ . '/maint.php';
+    $maintDenyNoPwd = ob_get_clean();
+    assertTest(str_contains($maintDenyNoPwd, "Access denied: incorrect or missing admin password."), "maint.php denies snapshot without admin password");
+
+    // 8b. Access denied with wrong password
+    $_POST = [];
+    $_GET  = ['action' => 'snapshot', 'adminPasswd' => 'wrong_password_xyz'];
+    ob_start();
+    require __DIR__ . '/maint.php';
+    $maintDenyWrongPwd = ob_get_clean();
+    assertTest(str_contains($maintDenyWrongPwd, "Access denied: incorrect or missing admin password."), "maint.php denies snapshot with wrong password");
+
+    // 8c. Snapshot rendered with valid admin password
+    $adminPwd = (string)($config['adminPasswd'] ?? 'admin123');
+    $_POST = [];
+    $_GET  = ['action' => 'snapshot', 'adminPasswd' => $adminPwd];
+    ob_start();
+    require __DIR__ . '/maint.php';
+    $maintSnapshot = ob_get_clean();
+    assertTest(str_contains($maintSnapshot, '<!DOCTYPE html>'), "maint.php snapshot outputs valid HTML document");
+    assertTest(str_contains($maintSnapshot, '<title>The Beach - Snapshot</title>'), "maint.php snapshot includes page title");
+    assertTest(str_contains($maintSnapshot, 'snapshot-container'), "maint.php snapshot includes snapshot container");
+    assertTest(str_contains($maintSnapshot, '28 rooms'), "maint.php snapshot contains 28 rooms");
+    assertTest(str_contains($maintSnapshot, '10 characters'), "maint.php snapshot contains 10 characters");
+
+    // 8d. maint.php main page includes System Snapshot card and button
+    $_POST = [];
+    $_GET  = [];
+    ob_start();
+    require __DIR__ . '/maint.php';
+    $maintMain = ob_get_clean();
+    assertTest(str_contains($maintMain, '📸 System Snapshot'), "maint.php console includes System Snapshot card");
+    assertTest(str_contains($maintMain, 'value="snapshot"'), "maint.php console includes form with action=snapshot");
+    assertTest(str_contains($maintMain, 'Generate System Snapshot'), "maint.php console includes 'Generate System Snapshot' button");
+
+    @$pm->resetWorld('w3_sec41_test');
 }
 
 // Clean up test worlds

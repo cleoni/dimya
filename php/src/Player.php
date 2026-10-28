@@ -66,6 +66,11 @@ class Player extends Character
         $this->accepts = '*';
     }
 
+    public function isPlayer(): bool
+    {
+        return true;
+    }
+
     /**
      * Set the player's active UI handler.
      */

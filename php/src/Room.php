@@ -82,4 +82,30 @@ class Room extends PeopleContainer
         }
         return null;
     }
+
+    /**
+     * Generate HTML snapshot fragment for this room.
+     */
+    public function htmlAdminSnapshot(): string
+    {
+        $idEsc  = htmlspecialchars($this->id, ENT_QUOTES, 'UTF-8');
+        $strEsc = htmlspecialchars((string)$this, ENT_QUOTES, 'UTF-8');
+        $sb = "<li><b><a name=\"{$idEsc}\" id=\"{$idEsc}\">{$strEsc}</a></b>\n<ul>\n";
+        $sb .= "<li>properties:\n<ul>\n";
+        foreach ($this->getProperties() as $k => $v) {
+            if (str_starts_with((string)$k, '__')) continue;
+            $valStr = is_bool($v) ? ($v ? 'true' : 'false') : (is_array($v) ? json_encode($v) : (string)$v);
+            $sb .= "<li><b>" . htmlspecialchars((string)$k, ENT_QUOTES, 'UTF-8') . "</b>=" . htmlspecialchars($valStr, ENT_QUOTES, 'UTF-8') . "</li>\n";
+        }
+        $sb .= "<li><b>image</b>=" . $this->listImages() . "</li>\n";
+        $sb .= "<li><b>description</b>=" . htmlspecialchars($this->description, ENT_QUOTES, 'UTF-8') . "</li>\n";
+        $sb .= "</ul></li>\n";
+
+        $panel = $this->getPanel();
+        if ($panel !== null && strtolower($panel->id) !== 'default') {
+            $sb .= "<li>panel: " . htmlspecialchars((string)$panel, ENT_QUOTES, 'UTF-8') . "</li>\n";
+        }
+        $sb .= "</ul></li>\n";
+        return $sb;
+    }
 }

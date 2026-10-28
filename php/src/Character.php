@@ -662,4 +662,53 @@ class Character extends AdvObject
         }
         return true;
     }
+
+    /**
+     * Generate HTML snapshot fragment for this character.
+     */
+    public function htmlAdminSnapshot(): string
+    {
+        $idEsc  = htmlspecialchars($this->id, ENT_QUOTES, 'UTF-8');
+        $strEsc = htmlspecialchars((string)$this, ENT_QUOTES, 'UTF-8');
+        $contStr = 'null';
+        if ($this->container !== null) {
+            $contIdEsc  = htmlspecialchars($this->container->id, ENT_QUOTES, 'UTF-8');
+            $contStrEsc = htmlspecialchars((string)$this->container, ENT_QUOTES, 'UTF-8');
+            $contStr    = "<a href=\"#{$contIdEsc}\">{$contStrEsc}</a>";
+        }
+
+        $sb = "<li><b><a name=\"{$idEsc}\" id=\"{$idEsc}\">{$strEsc}</a></b>\n<ul>\n";
+        $sb .= "<li>in {$contStr}</li>\n";
+        $sb .= "<li>properties:\n<ul>\n";
+        foreach ($this->getProperties() as $k => $v) {
+            if (str_starts_with((string)$k, '__')) continue;
+            $valStr = is_bool($v) ? ($v ? 'true' : 'false') : (is_array($v) ? json_encode($v) : (string)$v);
+            $sb .= "<li><b>" . htmlspecialchars((string)$k, ENT_QUOTES, 'UTF-8') . "</b>=" . htmlspecialchars($valStr, ENT_QUOTES, 'UTF-8') . "</li>\n";
+        }
+        $sb .= "<li><b>image</b>=" . $this->listImages() . "</li>\n";
+        $sb .= "<li><b>showmode</b>=" . htmlspecialchars((string)$this->showmode, ENT_QUOTES, 'UTF-8') . "</li>\n";
+        $acceptsStr = is_array($this->accepts) ? implode(',', $this->accepts) : (string)($this->accepts ?? '');
+        $sb .= "<li><b>accepts</b>=" . htmlspecialchars($acceptsStr, ENT_QUOTES, 'UTF-8') . "</li>\n";
+        $sb .= "<li><b>facing</b>=" . htmlspecialchars((string)$this->facing, ENT_QUOTES, 'UTF-8') . "</li>\n";
+        $sb .= "</ul></li>\n";
+
+        $sb .= "<li>contents:\n<ul>\n";
+        foreach ($this->contents as $item) {
+            $itemIdEsc  = htmlspecialchars($item->id, ENT_QUOTES, 'UTF-8');
+            $itemStrEsc = htmlspecialchars((string)$item, ENT_QUOTES, 'UTF-8');
+            $sb .= "<li><a href=\"#{$itemIdEsc}\">{$itemStrEsc}</a></li>\n";
+        }
+        $sb .= "</ul></li>\n";
+
+        $sb .= "<li>space: free=" . $this->getFreeSpace() . "/used=" . $this->getUsedSpace() . "</li>\n";
+
+        if ($this instanceof Player) {
+            $sb .= "<li>" . count($this->messagesQueue) . " messages</li>\n";
+            $sb .= "<li>panel: " . htmlspecialchars($this->panel?->id ?? 'default', ENT_QUOTES, 'UTF-8') . "</li>\n";
+            $sb .= "<li>prevpanelids: " . htmlspecialchars((string)($this->prevPanelId ?? ''), ENT_QUOTES, 'UTF-8') . "</li>\n";
+        }
+
+        $sb .= "</ul></li>\n";
+        return $sb;
+    }
 }

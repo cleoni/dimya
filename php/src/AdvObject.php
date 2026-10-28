@@ -110,6 +110,37 @@ class AdvObject extends DimxObject
     }
 
     /**
+     * Compute used space in this container.
+     */
+    public function getUsedSpace(): int
+    {
+        $used = 0;
+        foreach ($this->contents as $child) {
+            $used += $child->volume;
+        }
+        return $used;
+    }
+
+    /**
+     * List all images associated with directional faces.
+     */
+    public function listImages(): string
+    {
+        if (empty($this->images)) {
+            return '';
+        }
+        $parts = [];
+        foreach ($this->images as $face => $img) {
+            if ($img instanceof Image) {
+                $parts[] = "{$face}=" . $img->toDXW();
+            } else {
+                $parts[] = "{$face}=" . (string)$img;
+            }
+        }
+        return implode('<BR>', $parts);
+    }
+
+    /**
      * Sets an image for a specific direction face.
      */
     public function setImage(string $face, Image $image): bool
@@ -498,6 +529,11 @@ class AdvObject extends DimxObject
     }
 
     public function isVehicle(): bool
+    {
+        return false;
+    }
+
+    public function isPlayer(): bool
     {
         return false;
     }

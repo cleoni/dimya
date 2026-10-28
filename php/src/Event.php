@@ -81,4 +81,21 @@ class Event extends ManageableObject
         }
         return $defaultResult;
     }
+
+    public function __toString(): string
+    {
+        $ret = $this->type . ' ' . $this->id;
+        if (!empty($this->formalParams)) {
+            $ret .= '(' . implode(',', $this->formalParams) . ')';
+        }
+        return $ret;
+    }
+
+    /**
+     * Generate HTML snapshot fragment for this event.
+     */
+    public function htmlAdminSnapshot(): string
+    {
+        return "<li> " . htmlspecialchars((string)$this, ENT_QUOTES, 'UTF-8') . "</li>\n";
+    }
 }

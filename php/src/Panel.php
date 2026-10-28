@@ -166,4 +166,18 @@ class Panel
         $allowed = $this->getAvailableCommands();
         return in_array($cmd, $allowed, true);
     }
+
+    public function __toString(): string
+    {
+        $btnIds = array_map(fn($b) => $b->id, $this->buttons);
+        return $this->id . ': ' . implode(', ', $btnIds);
+    }
+
+    /**
+     * Generate HTML snapshot fragment for this panel.
+     */
+    public function htmlAdminSnapshot(): string
+    {
+        return "<li> " . htmlspecialchars((string)$this, ENT_QUOTES, 'UTF-8') . "</li>\n";
+    }
 }

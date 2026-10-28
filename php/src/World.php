@@ -475,4 +475,112 @@ class World extends DimxObject
         }
         return false;
     }
+
+    /**
+     * Generate complete HTML snapshot of the world and engine state.
+     */
+    public function htmlAdminSnapshot(): string
+    {
+        $engineVersion = GameEngine::ENGINE_VERSION;
+        $worldVersion  = (string)($this->getProperty('version') ?? '1.0');
+        $serverTime    = date('D M d H:i:s T Y');
+
+        $roomsCount = count($this->rooms);
+        $charCount  = count($this->characters);
+        $eventCount = count($this->events);
+        $waysCount  = count($this->links);
+        $itemsCount = count($this->items);
+        $panelCount = count($this->panels);
+
+        $sb = "<a name=\"top\" id=\"top\"></a>\n";
+        $sb .= "<div class=\"snapshot-container\">\n";
+        $sb .= "Engine version: " . htmlspecialchars($engineVersion, ENT_QUOTES, 'UTF-8') . "<br>\n";
+        $sb .= "World: " . htmlspecialchars($this->name, ENT_QUOTES, 'UTF-8') . " v." . htmlspecialchars($worldVersion, ENT_QUOTES, 'UTF-8') . "<br>\n";
+        $sb .= "Images folder: " . htmlspecialchars($this->imagesFolder, ENT_QUOTES, 'UTF-8') . "<br>\n";
+        $sb .= "Server time is now: " . htmlspecialchars($serverTime, ENT_QUOTES, 'UTF-8') . "<br><br>\n";
+
+        $sb .= "Players: ";
+        if (empty($this->players)) {
+            $sb .= "(none)<br>\n";
+        } else {
+            $pLinks = [];
+            foreach ($this->players as $p) {
+                $pIdEsc   = htmlspecialchars($p->id, ENT_QUOTES, 'UTF-8');
+                $pNameEsc = htmlspecialchars((string)$p, ENT_QUOTES, 'UTF-8');
+                $pLinks[] = "<a href=\"#{$pIdEsc}\">{$pNameEsc}</a>";
+            }
+            $sb .= implode(', ', $pLinks) . "<br>\n";
+        }
+
+        $sb .= "<ul>\n";
+        $sb .= "<li><a href=\"#rooms\">{$roomsCount} rooms</a></li>\n";
+        $sb .= "<li><a href=\"#characters\">{$charCount} characters</a></li>\n";
+        $sb .= "<li><a href=\"#events\">({$eventCount}) events</a></li>\n";
+        $sb .= "<li><a href=\"#ways\">{$waysCount} links</a></li>\n";
+        $sb .= "<li><a href=\"#items\">{$itemsCount} items</a></li>\n";
+        $sb .= "<li><a href=\"#properties\">World properties</a></li>\n";
+        $sb .= "<li><a href=\"#panels\">{$panelCount} panels</a></li>\n";
+        $sb .= "</ul>\n";
+
+        // Rooms section
+        $sb .= "<p><a name=\"rooms\" id=\"rooms\"></a></p>\n<h1>{$roomsCount} rooms</h1>\n<ul>\n";
+        foreach ($this->rooms as $room) {
+            $sb .= $room->htmlAdminSnapshot();
+        }
+        $sb .= "</ul>\n<p><a href=\"#top\">Summary</a></p>\n";
+
+        // Characters section
+        $sb .= "<p><a name=\"characters\" id=\"characters\"></a></p>\n<h1>{$charCount} characters</h1>\n<ul>\n";
+        foreach ($this->characters as $char) {
+            $sb .= $char->htmlAdminSnapshot();
+        }
+        $sb .= "</ul>\n<p><a href=\"#top\">Summary</a></p>\n";
+
+        // Events section
+        $sb .= "<p><a name=\"events\" id=\"events\"></a></p>\n<h1>({$eventCount}) events</h1>\n<ul>\n";
+        foreach ($this->events as $event) {
+            $sb .= $event->htmlAdminSnapshot();
+        }
+        $sb .= "</ul>\n<p><a href=\"#top\">Summary</a></p>\n";
+
+        // Links / Ways section (supports both #ways and #links anchors)
+        $sb .= "<p><a name=\"ways\" id=\"ways\"></a><a name=\"links\" id=\"links\"></a></p>\n<h1>{$waysCount} links</h1>\n<ul>\n";
+        foreach ($this->links as $link) {
+            $sb .= $link->htmlAdminSnapshot();
+        }
+        $sb .= "</ul>\n<p><a href=\"#top\">Summary</a></p>\n";
+
+        // Items section
+        $sb .= "<p><a name=\"items\" id=\"items\"></a></p>\n<h1>Items</h1>\n<ul>\n";
+        foreach ($this->items as $item) {
+            $sb .= $item->htmlAdminSnapshot();
+        }
+        $sb .= "<li>Items count={$itemsCount}</li>\n";
+        $sb .= "</ul>\n<p><a href=\"#top\">Summary</a></p>\n";
+
+        // World properties section
+        $sb .= "<p><a name=\"properties\" id=\"properties\"></a></p>\n<h1>World properties</h1>\n<ul>\n";
+        foreach ($this->getProperties() as $k => $v) {
+            if (str_starts_with((string)$k, '__')) continue;
+            if (is_bool($v)) {
+                $valStr = $v ? 'true' : 'false';
+            } elseif (is_array($v)) {
+                $valStr = json_encode($v, JSON_UNESCAPED_SLASHES);
+            } else {
+                $valStr = (string)$v;
+            }
+            $sb .= "<li><b>" . htmlspecialchars((string)$k, ENT_QUOTES, 'UTF-8') . "</b>=" . htmlspecialchars($valStr, ENT_QUOTES, 'UTF-8') . "</li>\n";
+        }
+        $sb .= "</ul>\n<p><a href=\"#top\">Summary</a></p>\n";
+
+        // Panels section
+        $sb .= "<p><a name=\"panels\" id=\"panels\"></a></p>\n<h1>{$panelCount} panels</h1>\n<ul>\n";
+        foreach ($this->panels as $panel) {
+            $sb .= $panel->htmlAdminSnapshot();
+        }
+        $sb .= "</ul>\n<p><a href=\"#top\">Summary</a></p>\n";
+
+        $sb .= "</div>\n";
+        return $sb;
+    }
 }

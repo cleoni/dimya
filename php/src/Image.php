@@ -40,4 +40,18 @@ class Image extends ManageableObject
 
         return "<img src=\"{$src}\" alt=\"{$alt}\" title=\"{$alt}\"{$widthAttr}{$heightAttr}{$classAttr}{$styleAttr} border=\"0\" />";
     }
+
+    public function toDXW(): string
+    {
+        $sa = '';
+        if ($this->showareaX2 !== -1 || $this->baseline !== -1) {
+            $sa = " SHOWAREA {$this->showareaX1},{$this->showareaX2},{$this->baseline}";
+        }
+        return "IMAGE {$this->width}x{$this->height}{$sa} {$this->src}";
+    }
+
+    public function __toString(): string
+    {
+        return "Image(\"{$this->src}\", {$this->width}, {$this->height})";
+    }
 }

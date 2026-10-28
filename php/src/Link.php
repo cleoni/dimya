@@ -208,4 +208,36 @@ class Link extends AdvObject
         $dir = ($fromRoomId !== null) ? $this->getDirection($fromRoomId) : $this->direction;
         return self::getExtendedDirectionName($dir);
     }
+
+    public function __toString(): string
+    {
+        $sb = $this->id . ' (' . $this->name . ') {';
+        $conns = [];
+        foreach ($this->fromto as $fromId => $toRoom) {
+            $toId = $toRoom instanceof Room ? $toRoom->id : (string)$toRoom;
+            $dir = $this->getDirection((string)$fromId);
+            $conns[] = "{$fromId}-- {$dir} -->{$toId}";
+        }
+        $sb .= implode('; ', $conns) . '}';
+        return $sb;
+    }
+
+    /**
+     * Generate HTML snapshot fragment for this link.
+     */
+    public function htmlAdminSnapshot(): string
+    {
+        $sb = "<li> " . htmlspecialchars((string)$this, ENT_QUOTES, 'UTF-8') . "\n<ul>\n";
+        $sb .= "<li>properties:\n<ul>\n";
+        foreach ($this->getProperties() as $k => $v) {
+            if (str_starts_with((string)$k, '__')) continue;
+            $valStr = is_bool($v) ? ($v ? 'true' : 'false') : (is_array($v) ? json_encode($v) : (string)$v);
+            $sb .= "<li><b>" . htmlspecialchars((string)$k, ENT_QUOTES, 'UTF-8') . "</b>=" . htmlspecialchars($valStr, ENT_QUOTES, 'UTF-8') . "</li>\n";
+        }
+        $sb .= "<li><b>image</b>=" . $this->listImages() . "</li>\n";
+        $sb .= "<li><b>showmode</b>=" . htmlspecialchars((string)$this->showmode, ENT_QUOTES, 'UTF-8') . "</li>\n";
+        $sb .= "</ul></li>\n";
+        $sb .= "</ul></li>\n";
+        return $sb;
+    }
 }

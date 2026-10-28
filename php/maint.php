@@ -23,18 +23,70 @@ $adminPasswd = (string)($config['adminPasswd'] ?? '');
 $pm          = new PersistenceManager($dbConfig, __DIR__ . '/data');
 
 $action          = $_POST['action'] ?? $_GET['action'] ?? '';
-$inputPasswd     = (string)($_POST['adminPasswd'] ?? $_SESSION['adminPasswd'] ?? '');
+$inputPasswd     = (string)($_POST['adminPasswd'] ?? $_GET['adminPasswd'] ?? $_SESSION['adminPasswd'] ?? '');
 $isAuthenticated = ($adminPasswd !== '' && hash_equals($adminPasswd, $inputPasswd));
 $message         = '';
 $messageType     = 'alert';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($action)) {
+if (!empty($action) && (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' || $action === 'snapshot')) {
     if (!$isAuthenticated) {
         $message     = "Access denied: incorrect or missing admin password. Please enter the valid admin password.";
         $messageType = 'err';
     } else {
         $_SESSION['adminPasswd'] = $inputPasswd;
         switch ($action) {
+            case 'snapshot':
+                $worldId   = $_SERVER['DIMX_WORLD_ID'] ?? 'main';
+                $worldFile = $_SERVER['DIMX_WORLD_FILE'] ?? $_ENV['DIMX_WORLD_FILE'] ?? ($config['world_file'] ?? $config['default_world'] ?? null);
+                if (empty($worldFile) || !file_exists($worldFile)) {
+                    if (file_exists(__DIR__ . '/world3net.dxw')) {
+                        $worldFile = __DIR__ . '/world3net.dxw';
+                    } elseif (file_exists(__DIR__ . '/../docs/dxw-examples/world3net.dxw')) {
+                        $worldFile = __DIR__ . '/../docs/dxw-examples/world3net.dxw';
+                    }
+                }
+                $baseUrl = $config['base_url'] ?? 'http://localhost';
+                $engine  = new \Dimx\GameEngine($pm, $worldId, $worldFile, $baseUrl, $config);
+                $world   = $engine->loadOrSeedWorld();
+
+                if (!headers_sent()) {
+                    header('Content-Type: text/html; charset=UTF-8');
+                }
+                ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title><?= htmlspecialchars($world->name, ENT_QUOTES, 'UTF-8') ?> - Snapshot</title>
+  <style>
+    body {
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 0;
+      padding: 24px;
+    }
+    a { color: #38bdf8; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1 { color: #38bdf8; font-size: 18px; margin-top: 24px; border-bottom: 1px solid #334155; padding-bottom: 4px; }
+    ul { list-style-type: square; padding-left: 20px; }
+    li { margin: 2px 0; }
+    b { color: #e2e8f0; }
+    .snapshot-container { max-width: 960px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+<?= $world->htmlAdminSnapshot() ?>
+</body>
+</html>
+                <?php
+                if (!defined('DIMX_TESTING')) {
+                    exit;
+                }
+                return;
+
             case 'init_db':
                 if ($pm->isConnected()) {
                     $res     = $pm->initTables();
@@ -192,6 +244,17 @@ if ($pm->isConnected()) {
       <input type="hidden" name="action" value="init_db" />
       <input type="hidden" name="adminPasswd" class="form-admin-passwd" value="<?= htmlspecialchars($inputPasswd) ?>" />
       <button type="submit" class="btn">Initialize / Upgrade MySQL Tables</button>
+    </form>
+  </div>
+
+  <!-- System Snapshot -->
+  <div class="maint-card">
+    <h3>📸 System Snapshot</h3>
+    <p style="font-size:13px;color:#94a3b8">Generate a full runtime text snapshot of the game engine and world (rooms, characters, items, links, events, panels, and properties).</p>
+    <form method="POST" onsubmit="return syncPasswd(this)">
+      <input type="hidden" name="action" value="snapshot" />
+      <input type="hidden" name="adminPasswd" class="form-admin-passwd" value="<?= htmlspecialchars($inputPasswd) ?>" />
+      <button type="submit" class="btn">📸 Generate System Snapshot</button>
     </form>
   </div>
 
