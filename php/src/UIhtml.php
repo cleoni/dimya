@@ -230,7 +230,7 @@ class UIhtml extends UI
               width: 100%;
             }
             /* Cell A: uses all available width for left cell, grey frame */
-            .dimx-cell-a {
+            #scene {
               flex: 1 1 auto;
               min-width: 0;
               height: 100%;
@@ -242,7 +242,7 @@ class UIhtml extends UI
               background: #000040;
             }
             /* Cell B: 300 pixels wide, grey frame */
-            .dimx-cell-b {
+            #ctrls {
               width: 300px;
               flex: 0 0 300px;
               height: 100%;
@@ -253,7 +253,7 @@ class UIhtml extends UI
               padding: 10px;
             }
             /* Cell C: uses all width for a single cell, grey frame */
-            .dimx-cell-c {
+            #msgs {
               width: 100%;
               height: 100%;
               overflow-y: scroll;
@@ -297,7 +297,7 @@ class UIhtml extends UI
               width: 100%;
             }
             /* Subcell D: remaining width, room image and description below it */
-            .dimx-subcell-d {
+            #display {
               flex: 1 1 auto;
               min-width: 0;
               height: 100%;
@@ -307,7 +307,7 @@ class UIhtml extends UI
               flex-direction: column;
             }
             /* Subcell E: 250 pixels wide, navigation, inventory, stats */
-            .dimx-subcell-e {
+            #dashboard {
               width: 250px;
               flex: 0 0 250px;
               height: 100%;
@@ -363,7 +363,7 @@ class UIhtml extends UI
             }
             .dimx-tag:hover { background: #475569; }
 
-            .dimx-subcell-e .dimx-btn {
+            #dashboard .dimx-btn {
               background: #1e40af;
               color: #f8fafc;
               border: 1px solid #3b82f6;
@@ -375,12 +375,12 @@ class UIhtml extends UI
               align-items: center;
               gap: 4px;
             }
-            .dimx-subcell-e .dimx-btn:hover {
+            #dashboard .dimx-btn:hover {
               background: #1d4ed8;
               border-color: #60a5fa;
             }
             /* Cell B controls styling */
-            .dimx-cell-b .dimx-panel {
+            #ctrls .dimx-panel {
               background: transparent;
               padding: 0;
               display: flex;
@@ -388,7 +388,7 @@ class UIhtml extends UI
               gap: 6px;
               align-items: center;
             }
-            .dimx-cell-b .dimx-textbox {
+            #ctrls .dimx-textbox {
               width: 100%;
               padding: 6px 8px;
               background: #ffffff;
@@ -399,7 +399,7 @@ class UIhtml extends UI
               font-size: 13px;
               box-sizing: border-box;
             }
-            .dimx-cell-b .dimx-btn {
+            #ctrls .dimx-btn {
               background: #ececec;
               border: 1px solid #777777;
               color: #000000;
@@ -409,12 +409,12 @@ class UIhtml extends UI
               font-size: 13px;
               box-shadow: 1px 1px 0 #fff inset, 1px 1px 0 #333;
             }
-            .dimx-cell-b .dimx-btn:hover { background: #f4f4f4; }
-            .dimx-cell-b .dimx-btn:active {
+            #ctrls .dimx-btn:hover { background: #f4f4f4; }
+            #ctrls .dimx-btn:active {
               background: #d8d8d8;
               box-shadow: 1px 1px 0 #333 inset;
             }
-            .dimx-cell-b .dimx-btn.dimx-btn-active {
+            #ctrls .dimx-btn.dimx-btn-active {
               background: #2563eb !important;
               color: #ffffff !important;
               border-color: #1d4ed8 !important;
@@ -527,7 +527,7 @@ class UIhtml extends UI
               width: 100% !important;
             }
             /* Cell A (Scene frame): gets dynamic remaining height (*) */
-            .dimx-portrait .dimx-cell-a {
+            .dimx-portrait #scene {
               width: 100% !important;
               flex: 1 1 auto !important;
               min-height: 0 !important;
@@ -539,7 +539,7 @@ class UIhtml extends UI
               flex-direction: column !important;
             }
             /* Cell B (Controls frame): gets approx 35% of total height */
-            .dimx-portrait .dimx-cell-b {
+            .dimx-portrait #ctrls {
               width: 100% !important;
               flex: 0 0 35vh !important;
               height: 35vh !important;
@@ -557,7 +557,7 @@ class UIhtml extends UI
               width: 100% !important;
               display: flex !important;
             }
-            .dimx-portrait .dimx-cell-c {
+            .dimx-portrait #msgs {
               width: 100% !important;
               height: 100% !important;
               overflow-y: scroll !important;
@@ -570,7 +570,7 @@ class UIhtml extends UI
               min-height: 0 !important;
               width: 100% !important;
             }
-            .dimx-portrait .dimx-subcell-d {
+            .dimx-portrait #display {
               flex: 1 1 60% !important;
               min-width: 0 !important;
               height: 100% !important;
@@ -580,7 +580,7 @@ class UIhtml extends UI
               display: flex !important;
               flex-direction: column !important;
             }
-            .dimx-portrait .dimx-subcell-e {
+            .dimx-portrait #dashboard {
               flex: 0 0 40% !important;
               width: 40% !important;
               max-width: 40% !important;
@@ -607,7 +607,7 @@ class UIhtml extends UI
                 min-height: 0 !important;
                 width: 100% !important;
               }
-              .dimx-cell-a {
+              #scene {
                 width: 100% !important;
                 flex: 1 1 auto !important;
                 min-height: 0 !important;
@@ -618,7 +618,7 @@ class UIhtml extends UI
                 display: flex !important;
                 flex-direction: column !important;
               }
-              .dimx-cell-b {
+              #ctrls {
                 width: 100% !important;
                 flex: 0 0 35vh !important;
                 height: 35vh !important;
@@ -635,7 +635,7 @@ class UIhtml extends UI
                 width: 100% !important;
                 display: flex !important;
               }
-              .dimx-cell-c {
+              #msgs {
                 width: 100% !important;
                 height: 100% !important;
                 overflow-y: scroll !important;
@@ -647,7 +647,7 @@ class UIhtml extends UI
                 min-height: 0 !important;
                 width: 100% !important;
               }
-              .dimx-subcell-d {
+              #display {
                 flex: 1 1 60% !important;
                 min-width: 0 !important;
                 height: 100% !important;
@@ -657,7 +657,7 @@ class UIhtml extends UI
                 display: flex !important;
                 flex-direction: column !important;
               }
-              .dimx-subcell-e {
+              #dashboard {
                 flex: 0 0 40% !important;
                 width: 40% !important;
                 max-width: 40% !important;
@@ -683,12 +683,12 @@ class UIhtml extends UI
                 height: auto;
                 min-height: 0;
               }
-              .dimx-cell-a {
+              #scene {
                 border-right: none;
                 height: auto;
                 overflow-y: visible;
               }
-              .dimx-cell-b {
+              #ctrls {
                 width: 100%;
                 flex: 0 0 auto;
                 height: auto;
@@ -696,7 +696,7 @@ class UIhtml extends UI
               .dimx-inner-row {
                 flex-direction: column;
               }
-              .dimx-subcell-e {
+              #dashboard {
                 width: 100%;
                 flex: 0 0 auto;
                 border-left: none;
@@ -718,7 +718,7 @@ class UIhtml extends UI
             <div class="dimx-row-top">
 
               <!-- CELL A: Left cell, uses all available width -->
-              <div class="dimx-cell-a">
+              <div id="scene">
                 <!-- Title bar: room name and player name -->
                 <div class="dimx-title-bar">
                   <span>📍 <b><?= htmlspecialchars($activeContainer->name ?? $currentRoom->name ?? 'Unknown') ?><?= (!$isInsideVehicle && $currentRoom && $currentRoom->hasSeveralFaces()) ? ' - ' . htmlspecialchars(\Dimx\Link::getExtendedDirectionName($player->facing ?? 'N')) . ' view' : '' ?></b> (👤 <b><?= htmlspecialchars($player->name) ?></b>)</span>
@@ -729,7 +729,7 @@ class UIhtml extends UI
                 <div class="dimx-inner-row">
 
                   <!-- Subcell D: Room image and below it, description / main messages output -->
-                  <div class="dimx-subcell-d">
+                  <div id="display">
                     <div class="dimx-scene-container" style="position:relative;width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;background-color:<?= htmlspecialchars($world->bgcolor ?? '#000040') ?>;">
                       <?php
                         $sceneImg = $currentRoom ? $currentRoom->getImageForFacing($player->facing ?? 'N') : null;
@@ -1011,7 +1011,7 @@ class UIhtml extends UI
                   </div>
 
                   <!-- Subcell E: Navigation controls, inventory, stats (250px wide) -->
-                  <div class="dimx-subcell-e">
+                  <div id="dashboard">
                     <!-- Navigation / Exits (Navpad) -->
                     <?php
                       $isMultiface = $currentRoom && $currentRoom->hasSeveralFaces();
@@ -1393,7 +1393,7 @@ class UIhtml extends UI
               </div>
 
               <!-- CELL B: Right cell of top row (300px wide, ACTIONS panel) -->
-              <div class="dimx-cell-b" id="cellB">
+              <div id="ctrls">
                 <?php $activePanel = $player->getPanel() ?? $world->defaultPanel; ?>
                 <div id="cmdPrompt" class="dimx-cmd-prompt" title="Click to cancel pending command" onclick="clearPendingCmd()"></div>
                 <form id="cmdForm" method="POST" action="multiplayer.php" style="margin:0">
@@ -1412,7 +1412,7 @@ class UIhtml extends UI
             <!-- SECOND ROW: 15% height, single cell C spanning all width -->
             <div class="dimx-row-bottom">
               <!-- CELL C: Messages -->
-              <div class="dimx-cell-c" id="cellC">
+              <div id="msgs">
                 <div id="chatBox">
                   <?php foreach (($context['chat'] ?? []) as $chatMsg): ?>
                     <div id="msg_<?= htmlspecialchars((string)($chatMsg['id'] ?? '')) ?>" class="chat-line">
@@ -1686,7 +1686,7 @@ class UIhtml extends UI
             }
 
             function highlightButton(cmd, isActive) {
-              document.querySelectorAll('.dimx-cell-b .dimx-btn').forEach(btn => {
+              document.querySelectorAll('#ctrls .dimx-btn').forEach(btn => {
                 btn.classList.remove('dimx-btn-active');
               });
 
@@ -1838,8 +1838,8 @@ class UIhtml extends UI
             ?>
             let lastMsgId = <?= $initLastId ?>;
 
-            const cellC = document.getElementById('cellC');
-            if (cellC) cellC.scrollTop = cellC.scrollHeight;
+            const msgsBox = document.getElementById('msgs');
+            if (msgsBox) msgsBox.scrollTop = msgsBox.scrollHeight;
 
             function popMsg(msgId) {
               const el = document.getElementById('msg_' + msgId);
@@ -1888,8 +1888,8 @@ class UIhtml extends UI
                   while (box.children.length > 10) {
                     box.removeChild(box.firstChild);
                   }
-                  const cellC = document.getElementById('cellC');
-                  if (cellC) cellC.scrollTop = cellC.scrollHeight;
+                  const msgsBox = document.getElementById('msgs');
+                  if (msgsBox) msgsBox.scrollTop = msgsBox.scrollHeight;
                 }
               } catch (e) { /* network error — silent */ }
             }

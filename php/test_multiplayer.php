@@ -1552,12 +1552,12 @@ if (shouldRun(19)) {
 
     assertTest($pMobile->isPortrait === true, "Player isPortrait is true when screenWidth < screenHeight (390 < 844)");
     assertTest(str_contains($mobileHtml, 'dimx-root dimx-portrait'), "UIhtml renders 'dimx-root dimx-portrait' class when in portrait mode");
-    assertTest(str_contains($mobileHtml, '.dimx-portrait .dimx-cell-b'), "UIhtml CSS defines .dimx-portrait .dimx-cell-b");
+    assertTest(str_contains($mobileHtml, '.dimx-portrait #ctrls'), "UIhtml CSS defines .dimx-portrait #ctrls");
     assertTest(str_contains($mobileHtml, '35vh'), "UIhtml CSS specifies 35vh height for Cell B in portrait");
     assertTest(str_contains($mobileHtml, '15vh'), "UIhtml CSS specifies 15vh height for Cell C in portrait");
     assertTest(str_contains($mobileHtml, '.dimx-portrait .dimx-inner-row') && str_contains($mobileHtml, 'flex-direction: row'), "UIhtml CSS preserves row disposition for Subcells D and E in portrait");
-    assertTest(str_contains($mobileHtml, '.dimx-portrait .dimx-subcell-d'), "UIhtml CSS styles Subcell D in portrait at left");
-    assertTest(str_contains($mobileHtml, '.dimx-portrait .dimx-subcell-e'), "UIhtml CSS styles Subcell E in portrait at right");
+    assertTest(str_contains($mobileHtml, '.dimx-portrait #display'), "UIhtml CSS styles Subcell D in portrait at left");
+    assertTest(str_contains($mobileHtml, '.dimx-portrait #dashboard'), "UIhtml CSS styles Subcell E in portrait at right");
     assertTest(str_contains($mobileHtml, '@media (orientation: portrait)'), "UIhtml CSS includes responsive @media (orientation: portrait)");
 
     // Test landscape player does not get dimx-portrait class on root

@@ -25,6 +25,13 @@ Detailed documentation and diagrams have been generated and saved to the [`docs/
   - `$TARGET`: Secondary object, destination link/room, or situational string parameter (e.g. in `key.onUseWith`, the door being unlocked; in `onLook`, `"explicit"` if via Look button or `""` if via click; in `onLooseItem`, the item leaving the container).
   - `$WORLD`: The global world object representing the game world environment and properties (e.g. `$WORLD.mode`, `$WORLD.name`).
   - **Return Values & Action Cancellation (§4.1.4)**: Event scripts default to returning success (`true` / `1`). In cancellable events (`onExit`, `onLoose`, `onLooseItem`, `onLook`, `onSave`, `onSearch`, `beforeOpen`, `Living`, etc.), returning `0` or `false` via `Return` aborts and cancels the action.
+- **UIhtml Main Container IDs (`php/src/UIhtml.php`)**:
+  - When referring to UI sections, use their HTML `id` selectors:
+    - **`#scene`** (formerly `dimx-cell-a`): Main left/top game area containing the title bar and the inner split (`#display` and `#dashboard`).
+    - **`#display`** (formerly `dimx-subcell-d`): Left pane inside `#scene`, displaying the room image, on-screen objects/characters, and `#consoleBox` (room description and action output).
+    - **`#dashboard`** (formerly `dimx-subcell-e`): Right pane inside `#scene`, containing `#navpad` (directional compass/rotation pad), room items/people lists, inventory, and player stats.
+    - **`#ctrls`** (formerly `dimx-cell-b`): Command controls panel area (action buttons, speech textbox `#txtBox`, command prompt `#cmdPrompt`).
+    - **`#msgs`** (formerly `dimx-cell-c`): Bottom incoming chat and messages panel (containing `#chatBox`).
 - When in doubt regarding SmallBasic syntax and instructions, consult [`docs/SMALLBASIC.md`](docs/SMALLBASIC.md). For base events, commands, etc., consult [`docs/COMMANDS.md`](docs/COMMANDS.md), [`docs/dimensionex-developers-reference-717.pdf`](docs/dimensionex-developers-reference-717.pdf), and the original Java classes in [`docs/dimx-classes/`](docs/dimx-classes/). DimensioneY is derived from DimensioneX, and original behavior must be preserved to a certain extent. Mapping from DimensioneX classes to DimensioneY classes is advisable.
 - **Do NOT re-introduce intentionally dropped features**:
   - `Cluster` / clustering features.

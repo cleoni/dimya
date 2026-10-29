@@ -218,6 +218,11 @@ When a `STYLESHEET` is declared, the engine links `<skinFolder>/<stylesheet>` in
 
 | Selector | Type | Purpose |
 |---|:---:|---|
+| `#scene` | ID | Main game area container (title bar + `#display` and `#dashboard`). |
+| `#display` | ID | Left sub-pane inside `#scene` (room visual canvas and `#consoleBox`). |
+| `#dashboard` | ID | Right sub-pane inside `#scene` (includes `#navpad`, room items, inventory, and stats). |
+| `#ctrls` | ID | Command controls panel container (action buttons and speech input). |
+| `#msgs` | ID | Bottom chat/messages area container (wraps `#chatBox`). |
 | `#navpad` | ID | The table container for directional navigation buttons (compass / pad). |
 | `#consoleBox` | ID | Action feedback console box. |
 | `#chatBox` | ID | Multi-user chat history box. |
