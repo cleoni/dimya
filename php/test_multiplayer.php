@@ -3205,13 +3205,13 @@ if (shouldRun(37)) {
     $pTest = $engineShow->ensurePlayer($w3Show, 'ShowTester');
     $pTest->move($kitchen);
 
-    // Test at base size (factorx = 1.0, screenWidth = 1024)
+    // Test at design resolution (screenWidth = 1024 -> factorx = 1.3)
     $pTest->screenWidth = 1024;
     $pTest->screenHeight = 768;
-    assertTest($pTest->getFactorX() === 1.0, "ShowTester has factorx = 1.0 at design resolution 1024x768");
+    assertTest(abs($pTest->getFactorX() - 1.3) < 0.001, "ShowTester has factorx = 1.3 at design resolution 1024x768");
     $uiHtml = new \Dimx\UIhtml($pTest, $engineShow);
 
-    // Run multiple renders (e.g. 25 times) to verify random x position always stays within base SHOWAREA [185, 280]
+    // Run multiple renders (e.g. 25 times) to verify random x position always stays within scaled SHOWAREA [185, 280]
     $allLeftsValid = true;
     $allTopsValid = true;
     $leftsObserved = [];
@@ -3236,15 +3236,15 @@ if (shouldRun(37)) {
                 $topPx = (int)$tm[1];
                 $leftsObserved[] = $leftPx;
 
-                // Screen coordinates at base factorx = 1.0:
+                // Screen coordinates at factorx = 1.3:
                 // screenX = 1 + cartX
-                // cartX must fall in [185, 280], so leftPx >= 186
-                // and with sprite width 45, cartX <= 280 - 45 = 235, so leftPx <= 236
-                if ($leftPx < 186 || $leftPx > 236) {
+                // cartX must fall in [185, 235], so screenX in [186, 236]
+                // scaled leftPx in [round(1.3 * 186) = 242, round(1.3 * 236) = 307]
+                if ($leftPx < 242 || $leftPx > 307) {
                     $allLeftsValid = false;
                 }
-                // top: screenY = roomH (235) - cartY (55) - baseH (100) = 80px
-                if ($topPx !== 80) {
+                // top: screenY = roomH (235) - cartY (55) - baseH (100) = 80px -> round(1.3 * 80) = 104px
+                if ($topPx !== 104) {
                     $allTopsValid = false;
                 }
             } else {
@@ -3255,15 +3255,15 @@ if (shouldRun(37)) {
         }
     }
 
-    assertTest($allLeftsValid, "Tommy's random x position in kitchen at base size always falls within SHOWAREA [185, 280] (observed lefts: " . implode(', ', array_unique($leftsObserved)) . ")");
-    assertTest(min($leftsObserved) >= 186, "Tommy's minimum observed base left (" . min($leftsObserved) . "px) is >= 186px (1 + 185)");
-    assertTest(max($leftsObserved) <= 236, "Tommy's maximum observed base left (" . max($leftsObserved) . "px) is <= 236px (1 + 280 - 45)");
-    assertTest($allTopsValid, "Tommy's y coordinate correctly reflects baseline 55 (top: 80px = 235 - 55 - 100)");
+    assertTest($allLeftsValid, "Tommy's random x position in kitchen at 1024x768 always falls within scaled SHOWAREA (observed lefts: " . implode(', ', array_unique($leftsObserved)) . ")");
+    assertTest(min($leftsObserved) >= 242, "Tommy's minimum observed left (" . min($leftsObserved) . "px) is >= 242px (round(1.3 * 186))");
+    assertTest(max($leftsObserved) <= 307, "Tommy's maximum observed left (" . max($leftsObserved) . "px) is <= 307px (round(1.3 * 236))");
+    assertTest($allTopsValid, "Tommy's y coordinate correctly reflects baseline 55 scaled by 1.3 (top: 104px = round(1.3 * 80))");
 
-    // Test at standard screen (1280x800 -> factorx = 1.25)
+    // Test at standard screen (1280x800 -> factorx = 1.25 * 1.3 = 1.625)
     $pTest->screenWidth = 1280;
     $pTest->screenHeight = 800;
-    assertTest($pTest->getFactorX() === 1.25, "ShowTester has factorx = 1.25 on standard 1280x800 display");
+    assertTest(abs($pTest->getFactorX() - 1.625) < 0.001, "ShowTester has factorx = 1.625 on standard 1280x800 display");
 
     $scaledLefts = [];
     for ($i = 0; $i < 25; $i++) {
@@ -3284,8 +3284,8 @@ if (shouldRun(37)) {
         }
     }
     assertTest(!in_array(163, $scaledLefts, true), "Tommy is NEVER positioned at flawed left:163px on standard display");
-    assertTest(min($scaledLefts) >= 233, "Tommy's minimum scaled left (" . min($scaledLefts) . "px) is >= 233px (round(1.25 * 186))");
-    assertTest(max($scaledLefts) <= 295, "Tommy's maximum scaled left (" . max($scaledLefts) . "px) is <= 295px (round(1.25 * 236))");
+    assertTest(min($scaledLefts) >= 302, "Tommy's minimum scaled left (" . min($scaledLefts) . "px) is >= 302px (round(1.625 * 186))");
+    assertTest(max($scaledLefts) <= 384, "Tommy's maximum scaled left (" . max($scaledLefts) . "px) is <= 384px (round(1.625 * 236))");
 
     // 4. Test explicit coordinates (e.g. switch1: SHOW ICON 120,138)
     $switch1 = $w3Show->getItem('switch1');
@@ -3293,7 +3293,7 @@ if (shouldRun(37)) {
     assertTest($switch1->showX === 120, "switch1 has showX = 120");
     assertTest($switch1->showY === 138, "switch1 has showY = 138");
 
-    // Switch1 at base size (factorx = 1.0)
+    // Switch1 at 1024x768 (factorx = 1.3)
     $pTest->screenWidth = 1024;
     $pTest->screenHeight = 768;
     ob_start();
@@ -3309,9 +3309,9 @@ if (shouldRun(37)) {
     assertTest(preg_match('/<img[^>]*data-obj-id="switch1"[^>]*style="([^"]*)"/i', $switchHtml, $sm) === 1, "switch1 is rendered onscreen in kitchen");
     if (preg_match('/<img[^>]*data-obj-id="switch1"[^>]*style="([^"]*)"/i', $switchHtml, $sm)) {
         $swStyle = $sm[1];
-        // screenX = 1 + 120 = 121px; screenY = 235 - 138 - 32 = 65px
-        assertTest(str_contains($swStyle, 'left:121px'), "switch1 explicit X at base size is respected (left:121px)");
-        assertTest(str_contains($swStyle, 'top:65px'), "switch1 explicit Y at base size is respected (top:65px)");
+        // screenX = 1 + 120 = 121px -> round(1.3 * 121) = 157px; screenY = 235 - 138 - 32 = 65px -> round(1.3 * 65) = 85px
+        assertTest(str_contains($swStyle, 'left:157px'), "switch1 explicit X at 1024x768 is respected (left:157px)");
+        assertTest(str_contains($swStyle, 'top:85px'), "switch1 explicit Y at 1024x768 is respected (top:85px)");
     }
 }
 

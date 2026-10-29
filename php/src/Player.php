@@ -248,14 +248,14 @@ class Player extends Character
         $width = ($this->screenWidth > 0) ? $this->screenWidth : 800;
 
         // If client width > 1024, cap effective calculation width to 1024
-        // for worlds designed at <=640px, and cap enlargement factor to 1.6 max.
+        // for worlds designed at <=640px, and scale enlargement factor by 1.3x (capped at 2.08 max).
         $effectiveWidth = $width;
         if ($effectiveWidth > 1024 && $worldWidth <= 640) {
             $effectiveWidth = 1024;
         }
 
-        $factor = (float)($effectiveWidth / $worldWidth);
-        return min($factor, 1.6);
+        $factor = (float)($effectiveWidth / $worldWidth) * 1.3;
+        return min($factor, 2.08);
     }
 
     /**

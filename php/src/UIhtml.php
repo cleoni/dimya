@@ -179,7 +179,7 @@ class UIhtml extends UI
         $isPortrait   = !empty($player->isPortrait) || ($player->screenWidth > 0 && $player->screenHeight > 0 && $player->screenWidth < $player->screenHeight);
 
         // Viewport resolution scaling factor (factorx = clientWidth / worldDesignWidth)
-        $factorx = method_exists($player, 'getFactorX') ? $player->getFactorX() : 1.6;
+        $factorx = method_exists($player, 'getFactorX') ? $player->getFactorX() : 2.08;
         $roomW   = (!empty($currentRoom?->images['N']?->width)) ? $currentRoom->images['N']->width : ($world->sceneWidth ?? 350);
         $roomH   = (!empty($currentRoom?->images['N']?->height)) ? $currentRoom->images['N']->height : ($world->sceneHeight ?? 235);
         $scaledRoomW = (int)round($factorx * $roomW);
