@@ -12,7 +12,8 @@ Comprehensive technical documentation and formal specifications reside in the [`
 
 - [**docs/DXW_SPECIFICATION.md**](docs/DXW_SPECIFICATION.md) — **Official DimensioneX World Definition (.DXW) Language Specification** derived from the Developer's Reference (pp. 37–70). Covers all sections (`WORLD`, `GUI`, `ROOMS`, `LINKS`, `CHARACTERS`, `ITEMS`, `SETS`, `SCRIPTS`), control panels, attribute semantics, physical simulation, image show modes, and EBNF grammar.
 - [**docs/COMMANDS.md**](docs/COMMANDS.md) — **Game Engine Command Specification & API Reference**. Details all core commands (`click`, `go`, `rotate`, `look`, `use`, `use2`, `open`, `close`, `pick`, `drop`, `search`, `hide`, `put`, `give`, `enter`, `exit`, `say`, `save`, `login`, `logout`), event bindings, parameter handling, and custom panel buttons.
-- [**docs/CLASS_HIERARCHY.md**](docs/CLASS_HIERARCHY.md) — Complete class hierarchy mapping, Mermaid diagrams, subsystem breakdowns, and catalog of all 46 core engine classes.
+- [**docs/DIMX_CLASS_HIERARCHY.md**](docs/DIMX_CLASS_HIERARCHY.md) — Class hierarchy of the **original DimensioneX (Java)** project: mapping, Mermaid diagrams, subsystem breakdowns, and catalog of all 46 core engine classes.
+- [**docs/CLASS_HIERARCHY.md**](docs/CLASS_HIERARCHY.md) — Class hierarchy of **DimensioneY (this PHP implementation)**, same structure as the DimX one for comparison.
 - [**docs/uml_explorer.html**](docs/uml_explorer.html) — Standalone, interactive HTML UML explorer with dynamic search, subsystem filters, and class inspector.
 - [**docs/uml_specifications.puml**](docs/uml_specifications.puml) — Full PlantUML source code for rendering in PlantUML or IDE UML tools.
 - [**docs/dxw-examples/**](docs/dxw-examples/) — Reference `.dxw` world definition files:
