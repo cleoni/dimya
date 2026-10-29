@@ -36,12 +36,12 @@ $sections = [
     12 => ['title' => 'Testing UIbot vs UIjson and testBots Configuration...', 'keywords' => ['uibot', 'uijson', 'testbots', 'config', 'fallback', 'evalaction']],
     13 => ['title' => 'Testing adminPasswd in config and maint.php authentication...', 'keywords' => ['admin', 'adminpasswd', 'maint', 'maintenance', 'config', 'auth', 'uihtml', 'title', 'console']],
     14 => ['title' => 'Testing Event Model Roles ($OWNER, $AGENT, $TARGET, $WORLD) & Return Values...', 'keywords' => ['event', 'roles', '$owner', '$agent', '$target', '$world', 'return', 'cancel', 'action', 'owner', 'agent', 'target']],
-    15 => ['title' => 'Testing UIhtml Cell B Command Buttons & On-Screen Object Targeting...', 'keywords' => ['uihtml', 'cell b', 'buttons', 'onscreen', 'targeting', 'switch', 'jquery', 'command_defs', 'clickobject', 'identifyobject']],
+    15 => ['title' => 'Testing UIhtml Ctrls (#ctrls) Command Buttons & On-Screen Object Targeting...', 'keywords' => ['uihtml', 'ctrls', 'buttons', 'onscreen', 'targeting', 'switch', 'jquery', 'command_defs', 'clickobject', 'identifyobject']],
     16 => ['title' => "Testing 'open' and 'close' Commands & actOpen / actClose on 'box' in World 2...", 'keywords' => ['open', 'close', 'box', 'actopen', 'actclose', 'world2', 'cardboard', 'actionsrunner']],
     17 => ['title' => 'Testing World 2 Full Flow: Look at Closed Box, Use Switch in Bungalow, Open Box & Pick Apple...', 'keywords' => ['flow', 'box', 'switch', 'bungalow', 'open', 'pick', 'apple', 'goal', 'uibot', 'evaldescription', 'is closed', 'is open', 'containing', 'rocca', 'spiaggia']],
     18 => ['title' => 'Testing Speak Instruction Behavior & Inanimate Object Fallback...', 'keywords' => ['speak', 'surfer', 'switch', 'voice', 'system', 'sound', 'sys', 'fallback', 'inanimate', 'bungalow']],
     19 => ['title' => 'Testing UIhtml Smartphone Portrait / Vertical Layout (*, 35%, 15%)...', 'keywords' => ['portrait', 'vertical', 'smartphone', 'uihtml', 'layout', '35%', '15%']],
-    20 => ['title' => 'Testing Messages Box (Cell C), popmsg Command & Per-Player Incoming Message Queue...', 'keywords' => ['cell c', 'popmsg', 'messages', 'queue', 'trim', '10', 'dismiss', 'x', 'incoming', 'speak', 'broadcast']],
+    20 => ['title' => 'Testing Messages Box (Msgs / #msgs), popmsg Command & Per-Player Incoming Message Queue...', 'keywords' => ['msgs', 'popmsg', 'messages', 'queue', 'trim', '10', 'dismiss', 'x', 'incoming', 'speak', 'broadcast']],
     21 => ['title' => 'Testing ROOM DEFAULT Directive & Player Initial Spawn Room Resolution...', 'keywords' => ['default', 'room default', 'spawn', 'startroom', 'world3net', 'spiaggia2', 'parcolunetta']],
     22 => ['title' => 'Testing Character/Player Default showMode (ONSCREEN=1), UIjson vs UIbot Exposure & UIhtml Rendering...', 'keywords' => ['showmode', 'onscreen', 'offscreen', 'uijson', 'uibot', 'uihtml', 'character', 'player', 'avatar', 'people']],
     23 => ['title' => 'Testing SETS Section, RndSet Function & Initial Object Positioning (scroll3)...', 'keywords' => ['sets', 'set', 'rndset', 'scroll3', 'setbeach', 'position', 'defcontainer', 'reset']],
@@ -1172,10 +1172,10 @@ assertTest((float)$testChar->getProperty('Health') === 9.0, "Living script updat
 }
 
 // -------------------------------------------------------------
-// Test 15: Testing UIhtml Cell B Command Buttons & On-Screen Object Targeting...
+// Test 15: Testing UIhtml Ctrls (#ctrls) Command Buttons & On-Screen Object Targeting...
 // -------------------------------------------------------------
 if (shouldRun(15)) {
-    echo "\n15. Testing UIhtml Cell B Command Buttons & On-Screen Object Targeting...\n";
+    echo "\n15. Testing UIhtml Ctrls (#ctrls) Command Buttons & On-Screen Object Targeting...\n";
 // Load world2.dxw to test bungalow and switch
 $dxwFile = dirname(__DIR__) . '/docs/dxw-examples/world2.dxw';
 $w2Loader = new \Dimx\DxwLoader();
@@ -1201,16 +1201,16 @@ $w2Ui->render([
 $bungalowHtml = ob_get_clean();
 
 assertTest(str_contains($bungalowHtml, 'jquery-3.7.1.min.js'), "UIhtml includes jQuery library");
-assertTest(str_contains($bungalowHtml, 'id="cmdPrompt"'), "UIhtml cell B contains cmdPrompt div");
+assertTest(str_contains($bungalowHtml, 'id="cmdPrompt"'), "UIhtml Ctrls (#ctrls) contains cmdPrompt div");
 assertTest(str_contains($bungalowHtml, 'const COMMAND_DEFS = {'), "UIhtml defines generic COMMAND_DEFS dictionary");
 assertTest(str_contains($bungalowHtml, "function identifyObject("), "UIhtml includes identifyObject function");
 assertTest(str_contains($bungalowHtml, "function clickObject("), "UIhtml includes clickObject function");
 assertTest(str_contains($bungalowHtml, "function handleCommand("), "UIhtml includes handleCommand function");
-assertTest(str_contains($bungalowHtml, "data-cmd=\"use\" data-model=\"O\""), "UIhtml cell B USE button has data-cmd='use' and data-model='O'");
-assertTest(str_contains($bungalowHtml, "data-cmd=\"look\" data-model=\"O\""), "UIhtml cell B LOOK button has data-cmd='look' and data-model='O'");
+assertTest(str_contains($bungalowHtml, "data-cmd=\"use\" data-model=\"O\""), "UIhtml Ctrls (#ctrls) USE button has data-cmd='use' and data-model='O'");
+assertTest(str_contains($bungalowHtml, "data-cmd=\"look\" data-model=\"O\""), "UIhtml Ctrls (#ctrls) LOOK button has data-cmd='look' and data-model='O'");
 assertTest(str_contains($bungalowHtml, 'data-obj-id="switch"') && str_contains($bungalowHtml, 'data-obj-type="i"'), "UIhtml renders switch as on-screen object with id='switch' and type='i'");
-assertTest(str_contains($bungalowHtml, "width:560px;height:376px") || str_contains($bungalowHtml, "width: 560px; height: 376px") || str_contains($bungalowHtml, 'width="560"'), "UIhtml scales bungalow room scene to 560x376 for 1280x800 desktop client");
-assertTest(str_contains($bungalowHtml, "left:101px;top:216px;width:32px;height:32px;"), "UIhtml positions and renders switch on scene with 32x32 icon size at left:101px;top:216px;width:32px;height:32px;");
+assertTest(str_contains($bungalowHtml, "width:728px;height:489px") || str_contains($bungalowHtml, "width: 728px; height: 489px") || str_contains($bungalowHtml, 'width="728"'), "UIhtml scales bungalow room scene to 728x489 for 1280x800 desktop client (factorx=2.08)");
+assertTest(str_contains($bungalowHtml, "left:131px;top:281px;width:32px;height:32px;"), "UIhtml positions and renders switch on scene with 32x32 icon size at left:131px;top:281px;width:32px;height:32px;");
 }
 
 // -------------------------------------------------------------
@@ -1290,7 +1290,7 @@ assertTest(
     "AdvObject::evalDescription() includes 'is closed' hint: '{$evalBoxDesc}'"
 );
 
-// Render in UIhtml: verify subcell D console output formats line break before 'a cardboard box is closed.'
+// Render in UIhtml: verify Display DIV (#display) console output formats line break before 'a cardboard box is closed.'
 ob_start();
 $htmlUiEarly = new \Dimx\UIhtml($pFlow);
 $htmlUiEarly->render([
@@ -1303,7 +1303,7 @@ $htmlUiEarly->render([
 $lookBoxClosedHtml = ob_get_clean();
 assertTest(
     str_contains($lookBoxClosedHtml, '<br />') && str_contains($lookBoxClosedHtml, 'a cardboard box is closed.'),
-    "UIhtml console in subcell D formats line breaks so 'a cardboard box is closed.' appears on a new line"
+    "UIhtml console in Display DIV (#display) formats line breaks so 'a cardboard box is closed.' appears on a new line"
 );
 
 // 2. Move to bungalow room: go U (to rocca), then go E (to bungalow)
@@ -1357,7 +1357,7 @@ $htmlUi->render([
 ]);
 $spiaggiaHtml = ob_get_clean();
 
-// Contained items must NOT appear in the room items list in cell B / subcell E
+// Contained items must NOT appear in the room items list in Ctrls (#ctrls) / Dashboard (#dashboard)
 $itemsListStart = strpos($spiaggiaHtml, 'dimx-section-title" style="color:#38bdf8">Items</div>');
 $invListStart = strpos($spiaggiaHtml, '🎒 Inventory</div>');
 $itemsListSection = ($itemsListStart !== false && $invListStart !== false)
@@ -1369,10 +1369,10 @@ assertTest(
 );
 assertTest(
     !str_contains($itemsListSection, '(open)') && !str_contains($itemsListSection, '(closed)'),
-    "Items list in subcell E omits (open)/(closed) status as requested"
+    "Items list in Dashboard (#dashboard) omits (open)/(closed) status as requested"
 );
 
-// Look at box in UIhtml: verify subcell D console output formats line break before 'a cardboard box is open.'
+// Look at box in UIhtml: verify Display DIV (#display) console output formats line break before 'a cardboard box is open.'
 ob_start();
 $htmlUi->render([
     'world'     => $w2FlowWorld,
@@ -1384,7 +1384,7 @@ $htmlUi->render([
 $lookBoxHtml = ob_get_clean();
 assertTest(
     str_contains($lookBoxHtml, '<br />') && str_contains($lookBoxHtml, 'a cardboard box is open.'),
-    "UIhtml console in subcell D formats line breaks so 'a cardboard box is open.' appears on a new line"
+    "UIhtml console in Display DIV (#display) formats line breaks so 'a cardboard box is open.' appears on a new line"
 );
 
 // Contained items appear directly after/below open message in console
@@ -1395,7 +1395,7 @@ assertTest(str_contains($spiaggiaHtml, 'data-obj-type="i"'), "UIhtml displays ap
 assertTest(str_contains($spiaggiaHtml, 'onclick="clickObject(this)"'), "UIhtml displays apple with clickable onclick handler");
 assertTest(str_contains($spiaggiaHtml, 'icoMela.gif'), "UIhtml displays clickable icon for apple (icoMela.gif)");
 assertTest(str_contains($spiaggiaHtml, 'an apple'), "UIhtml displays name 'an apple'");
-assertTest(str_contains($spiaggiaHtml, "\$(document).on('click', '.dimx-onscreen-obj, [data-obj-id]'"), "UIhtml includes delegated point-and-click handler for objects anywhere including cell B");
+assertTest(str_contains($spiaggiaHtml, "\$(document).on('click', '.dimx-onscreen-obj, [data-obj-id]'"), "UIhtml includes delegated point-and-click handler for objects anywhere including Ctrls (#ctrls)");
 
 // b) Bot UIs: bots can see apple item id
 $openSnapshot = $botUi->buildRoomSnapshot($spiaggiaRoom, $pFlow);
@@ -1554,11 +1554,11 @@ if (shouldRun(19)) {
     assertTest($pMobile->isPortrait === true, "Player isPortrait is true when screenWidth < screenHeight (390 < 844)");
     assertTest(str_contains($mobileHtml, 'dimx-root dimx-portrait'), "UIhtml renders 'dimx-root dimx-portrait' class when in portrait mode");
     assertTest(str_contains($mobileHtml, '.dimx-portrait #ctrls'), "UIhtml CSS defines .dimx-portrait #ctrls");
-    assertTest(str_contains($mobileHtml, '35vh'), "UIhtml CSS specifies 35vh height for Cell B in portrait");
-    assertTest(str_contains($mobileHtml, '15vh'), "UIhtml CSS specifies 15vh height for Cell C in portrait");
-    assertTest(str_contains($mobileHtml, '.dimx-portrait .dimx-inner-row') && str_contains($mobileHtml, 'flex-direction: row'), "UIhtml CSS preserves row disposition for Subcells D and E in portrait");
-    assertTest(str_contains($mobileHtml, '.dimx-portrait #display'), "UIhtml CSS styles Subcell D in portrait at left");
-    assertTest(str_contains($mobileHtml, '.dimx-portrait #dashboard'), "UIhtml CSS styles Subcell E in portrait at right");
+    assertTest(str_contains($mobileHtml, '35vh'), "UIhtml CSS specifies 35vh height for Ctrls (#ctrls) in portrait");
+    assertTest(str_contains($mobileHtml, '15vh'), "UIhtml CSS specifies 15vh height for Msgs (#msgs) in portrait");
+    assertTest(str_contains($mobileHtml, '.dimx-portrait .dimx-inner-row') && str_contains($mobileHtml, 'flex-direction: row'), "UIhtml CSS preserves row disposition for Display DIV (#display) and Dashboard (#dashboard) in portrait");
+    assertTest(str_contains($mobileHtml, '.dimx-portrait #display'), "UIhtml CSS styles Display DIV (#display) in portrait at left");
+    assertTest(str_contains($mobileHtml, '.dimx-portrait #dashboard'), "UIhtml CSS styles Dashboard (#dashboard) in portrait at right");
     assertTest(str_contains($mobileHtml, '@media (orientation: portrait)'), "UIhtml CSS includes responsive @media (orientation: portrait)");
 
     // Test landscape player does not get dimx-portrait class on root
@@ -1583,10 +1583,10 @@ if (shouldRun(19)) {
 }
 
 // --------------------------------------------------------------------------
-// 20. Messages Box (Cell C), popmsg Command & Per-Player Incoming Message Queue
+// 20. Messages Box (Msgs / #msgs), popmsg Command & Per-Player Incoming Message Queue
 // --------------------------------------------------------------------------
 if (shouldRun(20)) {
-    echo "\n20. Testing Messages Box (Cell C), popmsg Command & Per-Player Incoming Message Queue...\n";
+    echo "\n20. Testing Messages Box (Msgs / #msgs), popmsg Command & Per-Player Incoming Message Queue...\n";
 
     $msgWorld = new \Dimx\World('msg_test_world', 'Message Test World');
     $roomLounge = new \Dimx\Room($msgWorld, 'The Lounge', 'lounge');
@@ -1778,7 +1778,7 @@ if (shouldRun(22)) {
     assertTest(strpos($htmlAliceView, 'data-obj-name="BobShowTester"') !== false, "UIhtml includes BobShowTester on screen");
     assertTest(preg_match('/<img[^>]*class="[^"]*dimx-onscreen-obj[^"]*"[^>]*data-obj-name="BobShowTester"/i', $htmlAliceView) === 1, "UIhtml renders onscreen Bob as sprite on room scene");
 
-    // Add offscreen NPC to room and verify UIhtml scene omission and Subcell E People listing
+    // Add offscreen NPC to room and verify UIhtml scene omission and Dashboard (#dashboard) People listing
     $offscreenNpc = new \Dimx\Character($showWorld, 'ShyGhost', 'shy_ghost', 'A ghost in the shadows');
     $offscreenNpc->showmode = \Dimx\AdvObject::SHOW_OFFSCREEN;
     $offscreenNpc->move($beachRoom);
@@ -1805,14 +1805,14 @@ if (shouldRun(22)) {
     }
     assertTest($ghostBot !== null && !array_key_exists('showmode', $ghostBot), "UIbot occupant ShyGhost omits 'showmode'");
 
-    // In UIhtml, offscreen NPC is NOT on scene image, but is listed in Subcell E People section
+    // In UIhtml, offscreen NPC is NOT on scene image, but is listed in Dashboard (#dashboard) People section
     ob_start();
     $htmlHandler->render(['success' => true, 'world' => $showWorld, 'player' => $pAlice]);
     $htmlWithGhost = ob_get_clean();
 
     assertTest(preg_match('/<img[^>]*data-obj-id="shy_ghost"[^>]*style="position:absolute/i', $htmlWithGhost) === 0, "UIhtml does NOT render offscreen character on room scene");
-    assertTest(strpos($htmlWithGhost, '>People</div>') !== false, "UIhtml renders 'People' section in Subcell E for offscreen characters");
-    assertTest(strpos($htmlWithGhost, 'data-obj-name="ShyGhost"') !== false, "UIhtml lists ShyGhost in Subcell E People section as clickable object");
+    assertTest(strpos($htmlWithGhost, '>People</div>') !== false, "UIhtml renders 'People' section in Dashboard (#dashboard) for offscreen characters");
+    assertTest(strpos($htmlWithGhost, 'data-obj-name="ShyGhost"') !== false, "UIhtml lists ShyGhost in Dashboard (#dashboard) People section as clickable object");
 }
 
 // ----------------------------------------------------------------------------
@@ -3642,7 +3642,7 @@ if (shouldRun(40)) {
     // Inner item switch2 is rendered in UIhtml
     assertTest(str_contains($inVehicleHtml, 'data-obj-id="switch2"'), "While in vehicle, inner item 'switch2' is rendered in UIhtml");
     assertTest(str_contains($inVehicleHtml, 'interruttore.gif'), "Inner item switch2 image 'interruttore.gif' is rendered");
-    assertTest(str_contains($inVehicleHtml, 'icoInterruttore.gif'), "Inner item switch2 icon 'icoInterruttore.gif' is rendered in Subcell E");
+    assertTest(str_contains($inVehicleHtml, 'icoInterruttore.gif'), "Inner item switch2 icon 'icoInterruttore.gif' is rendered in Dashboard (#dashboard)");
     assertTest(str_contains($inVehicleHtml, 'the teletransporter'), "Title bar shows vehicle name 'the teletransporter'");
     assertTest(str_contains($inVehicleHtml, 'No visible exits.'), "No visible exits shown while inside vehicle");
 

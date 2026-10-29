@@ -209,13 +209,13 @@ END_GUI
   * The web interface is **fully responsive** and adapts automatically to any browser viewport, desktop screen, tablet, or smartphone.
   * **No URL Parameters / No Login Dropdown**: There is **no dropdown list in the login form** to choose a screen size, nor are `width` or `height` query parameters required when calling `multiplayer.php`. The client browser automatically measures viewport dimensions and dynamically applies responsive CSS layouts.
   * **Landscape Layout**:
-    * **Row 1 (Top, 85% height)**: Divided horizontally into **Cell A** (left, filling available width, containing Subcell D room scene/description and Subcell E navigation/occupants/inventory/stats side-by-side) and **Cell B** (right, 300px controls panel).
-    * **Row 2 (Bottom, 15% height)**: **Cell C** spanning full width (messages console with alternating `#101040` / `#313161` row stripes and dismiss buttons).
+    * **Row 1 (Top, 85% height)**: Divided horizontally into **Scene (`#scene`)** (left, filling available width, containing **Display DIV (`#display`)** room scene/description and **Dashboard (`#dashboard`)** navigation/occupants/inventory/stats side-by-side) and **Ctrls (`#ctrls`)** (right, 300px controls panel).
+    * **Row 2 (Bottom, 15% height)**: **Msgs (`#msgs`)** spanning full width (messages console with alternating `#101040` / `#313161` row stripes and dismiss buttons).
   * **Portrait / Mobile Layout (`width < height`)**:
-    * Automatically rearranges the three main cells into vertically stacked, full-width rows:
-      1. **Cell A (Scene Frame)**: Placed on top across full width, dynamically receiving all remaining height (`*`). Inside Cell A, row disposition is preserved with Subcell D (scene + description) on the left and Subcell E (navigation + inventory + stats) on the right.
-      2. **Cell B (Controls Frame)**: Positioned directly below Cell A across full width, occupying **35%** of total viewport height (`35vh`).
-      3. **Cell C (Messages Frame)**: Bottom row across full width, occupying **15%** of total viewport height (`15vh`).
+    * Automatically rearranges the three main DIVs into vertically stacked, full-width rows:
+      1. **Scene (`#scene`, Scene Frame)**: Placed on top across full width, dynamically receiving all remaining height (`*`). Inside Scene, row disposition is preserved with Display DIV (`#display`, scene + description) on the left and Dashboard (`#dashboard`, navigation + inventory + stats) on the right.
+      2. **Ctrls (`#ctrls`, Controls Frame)**: Positioned directly below Scene across full width, occupying **35%** of total viewport height (`35vh`).
+      3. **Msgs (`#msgs`, Messages Frame)**: Bottom row across full width, occupying **15%** of total viewport height (`15vh`).
 * **Proportional Scene & Sprite Scaling (`factorx`)**:
   * In the engine (`Client.java` / `UIhtml`), viewport scene elements and on-screen coordinates are proportionally scaled based on the ratio between the client's screen width and the world's design screen width:
     $$\text{factorx} = \frac{\text{client.screenwidth}}{\text{world.screenwidth}}$$
