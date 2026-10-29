@@ -234,7 +234,7 @@ class UIhtml extends UI
               flex: 1 1 auto;
               min-width: 0;
               height: 100%;
-              overflow-y: scroll;
+              overflow-y: auto;
               border-right: 2px solid #808080;
               border-bottom: 2px solid #808080;
               display: flex;
@@ -246,7 +246,7 @@ class UIhtml extends UI
               width: 300px;
               flex: 0 0 300px;
               height: 100%;
-              overflow-y: scroll;
+              overflow-y: auto;
               border-bottom: 2px solid #808080;
               background: #d4d4d4;
               color: #000000;
@@ -256,7 +256,7 @@ class UIhtml extends UI
             #msgs {
               width: 100%;
               height: 100%;
-              overflow-y: scroll;
+              overflow-y: auto;
               background: #000030;
               color: #e2e8f0;
               padding: 8px 12px;
@@ -301,7 +301,7 @@ class UIhtml extends UI
               flex: 1 1 auto;
               min-width: 0;
               height: 100%;
-              overflow-y: scroll;
+              overflow-y: auto;
               padding: 8px;
               display: flex;
               flex-direction: column;
@@ -311,10 +311,24 @@ class UIhtml extends UI
               width: 250px;
               flex: 0 0 250px;
               height: 100%;
-              overflow-y: scroll;
+              overflow-y: auto;
               padding: 8px;
               border-left: 1px solid #444466;
               background: #000040;
+            }
+            /* Subtle / hidden scrollbars while preserving y-scrollability */
+            #scene, #display, #dashboard, #ctrls, #msgs {
+              scrollbar-width: none;
+              -ms-overflow-style: none;
+            }
+            #scene::-webkit-scrollbar,
+            #display::-webkit-scrollbar,
+            #dashboard::-webkit-scrollbar,
+            #ctrls::-webkit-scrollbar,
+            #msgs::-webkit-scrollbar {
+              display: none;
+              width: 0;
+              height: 0;
             }
             .dimx-scene-container {
               position: relative;
@@ -547,7 +561,7 @@ class UIhtml extends UI
               min-height: 0 !important;
               border-right: none !important;
               border-bottom: 2px solid #808080 !important;
-              overflow-y: scroll !important;
+              overflow-y: auto !important;
             }
             /* Row 2 / Cell C (Messages frame): gets approx 15% of total height */
             .dimx-portrait .dimx-row-bottom {
@@ -560,7 +574,7 @@ class UIhtml extends UI
             .dimx-portrait #msgs {
               width: 100% !important;
               height: 100% !important;
-              overflow-y: scroll !important;
+              overflow-y: auto !important;
             }
             /* Subcells D (left) and E (right) stay in a row */
             .dimx-portrait .dimx-inner-row {
@@ -574,7 +588,7 @@ class UIhtml extends UI
               flex: 1 1 60% !important;
               min-width: 0 !important;
               height: 100% !important;
-              overflow-y: scroll !important;
+              overflow-y: auto !important;
               overflow-x: auto !important;
               padding: 8px !important;
               display: flex !important;
@@ -586,7 +600,7 @@ class UIhtml extends UI
               max-width: 40% !important;
               min-width: 120px !important;
               height: 100% !important;
-              overflow-y: scroll !important;
+              overflow-y: auto !important;
               padding: 8px !important;
               border-left: 1px solid #444466 !important;
               border-top: none !important;
@@ -626,7 +640,7 @@ class UIhtml extends UI
                 min-height: 0 !important;
                 border-right: none !important;
                 border-bottom: 2px solid #808080 !important;
-                overflow-y: scroll !important;
+                overflow-y: auto !important;
               }
               .dimx-row-bottom {
                 height: 15vh !important;
@@ -638,7 +652,7 @@ class UIhtml extends UI
               #msgs {
                 width: 100% !important;
                 height: 100% !important;
-                overflow-y: scroll !important;
+                overflow-y: auto !important;
               }
               .dimx-inner-row {
                 display: flex !important;
@@ -651,7 +665,7 @@ class UIhtml extends UI
                 flex: 1 1 60% !important;
                 min-width: 0 !important;
                 height: 100% !important;
-                overflow-y: scroll !important;
+                overflow-y: auto !important;
                 overflow-x: auto !important;
                 padding: 8px !important;
                 display: flex !important;
@@ -663,7 +677,7 @@ class UIhtml extends UI
                 max-width: 40% !important;
                 min-width: 120px !important;
                 height: 100% !important;
-                overflow-y: scroll !important;
+                overflow-y: auto !important;
                 padding: 8px !important;
                 border-left: 1px solid #444466 !important;
                 border-top: none !important;
