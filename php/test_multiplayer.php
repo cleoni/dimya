@@ -4278,6 +4278,36 @@ if (shouldRun(44)) {
         "PlayerDefault UIhtml body, td uses Default BODYSTYLE"
     );
 
+    // 11. Verify BUTTONSTYLE inline style on #ctrls command buttons with $SKINICON interpolation
+    assertTest(
+        $aquaSkin->buttonStyle === '{background: dimgray $SKINICON no-repeat; text-align: left; padding-left: 17px; color: white; cursor: hand; font-family: Tahoma; font-size: 9pt; height: 21px}',
+        "Aqua skin parsed BUTTONSTYLE with \$SKINICON placeholder"
+    );
+    assertTest(
+        $forestSkin->buttonStyle === '{background: #00CC00 $SKINICON no-repeat; text-align: left; padding-left: 17px; color: black; cursor: hand; font-family: Lucida Sans, Lucida Console; font-size: 8pt; height: 24px; border: 2px outset #00CC00;}',
+        "Forest skin parsed BUTTONSTYLE with \$SKINICON placeholder"
+    );
+    assertTest(
+        $defaultSkin->buttonStyle === '',
+        "Default skin has empty BUTTONSTYLE"
+    );
+    assertTest(
+        str_contains($htmlAqua, 'id="btn_look"') &&
+        str_contains($htmlAqua, 'style="background: dimgray url(http://www.dimensionex.net/skins/aqua/panlook.gif) no-repeat; text-align: left; padding-left: 17px; color: white; cursor: hand; font-family: Tahoma; font-size: 9pt; height: 21px"') &&
+        str_contains($htmlAqua, 'style="background: dimgray url(http://www.dimensionex.net/skins/aqua/pansay.gif) no-repeat; text-align: left; padding-left: 17px; color: white; cursor: hand; font-family: Tahoma; font-size: 9pt; height: 21px"'),
+        "PlayerAqua #ctrls buttons render inline style from BUTTONSTYLE with \$SKINICON replaced by url(http://www.dimensionex.net/skins/aqua/pan<cmd>.gif)"
+    );
+    assertTest(
+        str_contains($htmlForest, 'id="btn_look"') &&
+        str_contains($htmlForest, 'style="background: #00CC00 url(https://www.dimensionex.net/skins/forest/panlook.gif) no-repeat; text-align: left; padding-left: 17px; color: black; cursor: hand; font-family: Lucida Sans, Lucida Console; font-size: 8pt; height: 24px; border: 2px outset #00CC00;"') &&
+        str_contains($htmlForest, 'style="background: #00CC00 url(https://www.dimensionex.net/skins/forest/pansay.gif) no-repeat; text-align: left; padding-left: 17px; color: black; cursor: hand; font-family: Lucida Sans, Lucida Console; font-size: 8pt; height: 24px; border: 2px outset #00CC00;"'),
+        "PlayerForest #ctrls buttons render inline style from BUTTONSTYLE with \$SKINICON replaced by url(https://www.dimensionex.net/skins/forest/pan<cmd>.gif)"
+    );
+    assertTest(
+        str_contains($htmlDefault, '<button type="button" class="dimx-btn" id="btn_look" data-cmd="look" data-model="O" title="Look around or inspect object" onclick="sendCmd(\'look\');">Look</button>'),
+        "PlayerDefault #ctrls buttons omit inline style when BUTTONSTYLE is empty"
+    );
+
     @$pm->resetWorld($sec44WorldId);
 }
 

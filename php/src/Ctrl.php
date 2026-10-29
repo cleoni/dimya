@@ -71,12 +71,28 @@ class Ctrl extends ManageableObject
         $captionEsc = htmlspecialchars($this->caption, ENT_QUOTES);
         $modelEsc = htmlspecialchars($this->eventModel, ENT_QUOTES);
 
+        $styleAttr = '';
+        if ($skin !== null && trim($skin->buttonStyle) !== '') {
+            $rawButtonStyle = trim($skin->buttonStyle);
+            if (preg_match('/\{([^}]*)\}/s', $rawButtonStyle, $bsm)) {
+                $inlineButtonStyle = trim($bsm[1]);
+            } else {
+                $inlineButtonStyle = trim($rawButtonStyle, " \t\n\r\0\x0B{}");
+            }
+            if ($inlineButtonStyle !== '') {
+                $skinFolder = rtrim($skin->skinFolder, '/') . '/';
+                $skinIconUrl = 'url(' . $skinFolder . 'pan' . $this->id . '.gif)';
+                $inlineButtonStyle = str_ireplace('$SKINICON', $skinIconUrl, $inlineButtonStyle);
+                $styleAttr = ' style="' . htmlspecialchars($inlineButtonStyle, ENT_QUOTES) . '"';
+            }
+        }
+
         $iconHtml = '';
         if ($this->icon !== null) {
             $iconHtml = "<img src=\"" . htmlspecialchars($this->icon, ENT_QUOTES) . "\" class=\"dimx-btn-icon\" alt=\"\" /> ";
         }
 
-        return "<button type=\"button\" class=\"dimx-btn\" id=\"btn_{$idEsc}\" data-cmd=\"{$idEsc}\" data-model=\"{$modelEsc}\" title=\"{$titleEsc}\" onclick=\"sendCmd('{$idEsc}');\">{$iconHtml}{$captionEsc}</button>\n";
+        return "<button type=\"button\" class=\"dimx-btn\" id=\"btn_{$idEsc}\" data-cmd=\"{$idEsc}\" data-model=\"{$modelEsc}\" title=\"{$titleEsc}\"{$styleAttr} onclick=\"sendCmd('{$idEsc}');\">{$iconHtml}{$captionEsc}</button>\n";
     }
 
     protected function renderDropdown(): string

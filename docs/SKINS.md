@@ -13,12 +13,13 @@ This document provides the definitive specification for user interface skins and
 | `SKIN <id>` / `END_SKIN` block, `ID` | Implemented - `SKIN <id>` and `ID <id>` set `Skin::$id` (fallback: descriptor filename stripped of `_net.dxs` / `.dxs`) |
 | `NAME`, `SKINFOLDER` / `IMAGESFOLDER` | Implemented - uses `SKINFOLDER` / `IMAGESFOLDER` if defined in `.dxs`; otherwise defaults to `<worldImagesParent>/skins/<skinId>/` |
 | `PICPLAYER`, `PICSPACER`, `PICFADER`, `ICOPLAYER`, `ICOCHARACTER`, `ICOITEM`, `ICOWAY*`, `ICOROT*`, `ICOREV`, `SNDNEWMSG` | Implemented (omitted directives fall back to hard-coded default filenames inside `Skin::$skinFolder`) |
-| `BODYBGCOLOR`, `BODYSTYLE`, `PANELBGCOLOR`, `PANELBACKGROUND`, `PANELSTYLE`, `TITLESTYLE`, `LIST1BGCOLOR`, `LIST2BGCOLOR`, `LISTSTYLE` | Implemented |
-| `BUTTONSTYLE`, `STYLESHEET` | Partial - parsed into `Skin::$buttonStyle`, `Skin::$stylesheet` |
+| `BODYBGCOLOR`, `BODYSTYLE`, `PANELBGCOLOR`, `PANELBACKGROUND`, `PANELSTYLE`, `BUTTONSTYLE`, `TITLESTYLE`, `LIST1BGCOLOR`, `LIST2BGCOLOR`, `LISTSTYLE` | Implemented |
+| `STYLESHEET` | Partial - parsed into `Skin::$stylesheet` |
 | `BODYBACKGROUND` | Deprecated - ignored if encountered by the skin loader |
 | `SYSMSGSTYLE`, `LINKSTYLE`, `ALINKSTYLE`, `ICONLABELSTYLE` | Ignored (not parsed) |
 | `$SKINFOLDER` / `$IMAGESFOLDER` | Implemented in `TITLESTYLE` |
-| `$ICON`, `$SKINICON` | Not implemented |
+| `$SKINICON` | Implemented in `BUTTONSTYLE` (replaced with `url(<SKINFOLDER>pan<cmdId>.gif)`) |
+| `$ICON` | Not implemented |
 | `_net` skins | Implemented (via `SKINFOLDER` in `.dxs` and/or direct `http(s)://` `.dxs` URL in `SKINS`) |
 | `.txt` descriptor fallback | Not implemented |
 
@@ -204,7 +205,7 @@ END_SKIN
 | **`PANELBGCOLOR`** | No | `SILVER` | Background color for command button panels (`#ctrls` and `#navpad`). |
 | **`PANELBACKGROUND`** | No | `""` *(none)* | Background wallpaper image for the command panel bar (`#ctrls`), resolved against `SKINFOLDER`. |
 | **`PANELSTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#600000;}` | CSS style in `{ }` applied to controls and buttons inside `#ctrls` (`#ctrls .dimx-btn`). |
-| **`BUTTONSTYLE`** | No | `""` | CSS style applied to buttons. Supports `$ICON` and `$SKINICON` substitutions. **[DimY: partial - parsed into `Skin::$buttonStyle` but not rendered; `$ICON`/`$SKINICON` not substituted]** |
+| **`BUTTONSTYLE`** | No | `""` | CSS style in `{ }` written as each command button's inline `style` attribute inside `#ctrls`. Supports `$SKINICON` substitution (`url(<SKINFOLDER>pan<cmdId>.gif)`). (`$ICON` is not used in DimY.) |
 | **`TITLESTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#FFFF10;background-color:#000090;}` | CSS style for top title bar (`#dimx-title-bar`). Supports `$SKINFOLDER` / `$IMAGESFOLDER` interpolation. |
 | **`LIST1BGCOLOR`** | No | `#000000` (`#101040` in DimY) | Background color for odd-numbered rows in the chat / messages frame (`#msgs`). |
 | **`LIST2BGCOLOR`** | No | `#414141` (`#313161` in DimY) | Background color for even-numbered rows in the chat / messages frame (`#msgs`). |
@@ -217,17 +218,17 @@ END_SKIN
 
 In `BUTTONSTYLE` and `TITLESTYLE`, the engine performs automatic token substitution at runtime:
 
-1. **`$SKINFOLDER`** and **`$IMAGESFOLDER`**: **[DimY: partial - only substituted in `TITLESTYLE`, which is not rendered]**
-   - Replaced by the absolute URL or resolved relative path to the skin's asset directory.
+1. **`$SKINFOLDER`** and **`$IMAGESFOLDER`**:
+   - Replaced by the absolute URL or resolved relative path to the skin's asset directory (`Skin::$skinFolder`).
    - Example in `TITLESTYLE`:
      ```text
      TITLESTYLE {background-image: url($SKINFOLDER/banner.png); font-family: Tahoma;}
      ```
-2. **`$ICON`**: **[DimX only - not yet implemented in DimY]**
-   - In `BUTTONSTYLE`, replaced by the button's individual icon URL if defined in the panel definition.
-3. **`$SKINICON`**: **[DimX only - not yet implemented in DimY]**
-   - Automatically resolves to `<skinFolder>/pan<cmdId>.gif`.
+2. **`$SKINICON`**:
+   - In `BUTTONSTYLE`, replaced with `url(<SKINFOLDER>pan<cmdId>.gif)` when rendering each command button in `#ctrls`.
    - Allows skin creators to supply customized icon textures for standard commands (e.g., `panlook.gif`, `pango.gif`, `pansay.gif`).
+3. **`$ICON`**: **[DimX only - not used in DimY]**
+   - In DimensioneX `BUTTONSTYLE`, replaced by the button's individual icon URL if defined in the panel definition.
 
 ---
 
