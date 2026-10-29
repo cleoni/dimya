@@ -66,6 +66,7 @@ $sections = [
     42 => ['title' => 'Testing SKINS Resolution (IMAGESFOLDER / baseUrl), No Hardcoded Localhost & Navpad Arrow Icons...', 'keywords' => ['skins', 'imagesfolder', 'base_url', 'localhost', 'navpad', 'icowayn', 'dxwloader', 'skin']],
     43 => ['title' => 'Testing Default Item Icon (ICOITEM) & Fallbacks in UIhtml and Skin...', 'keywords' => ['icoitem', 'item icon', 'skin', 'default icon', 'uihtml', 'inventory', 'room items']],
     44 => ['title' => 'Testing SKINFOLDER Resolution, aqua_net.dxs URL Loading, Login Skin Dropdown & Per-Player Skin Navpad Icons...', 'keywords' => ['skinfolder', 'aqua_net', 'aqua', 'forest', 'default', 'dropdown', 'login', 'navpad', 'player skin']],
+    45 => ['title' => 'Testing Sounds & Music Login Checkboxes, PlaySound Routing (Player, Room, $WORLD), Embedded Sound Player & Skin SNDNEWMSG...', 'keywords' => ['sounds', 'music', 'playsound', 'sndnewmsg', 'sndplayer', 'audio', 'skin', 'uihtml']],
 ];
 
 // CLI Options parsing
@@ -4278,6 +4279,224 @@ if (shouldRun(44)) {
     );
 
     @$pm->resetWorld($sec44WorldId);
+}
+
+// ---------------------------------------------------------------------------
+// 45. Sounds & Music Login Checkboxes, PlaySound Routing, Embedded Player & SNDNEWMSG
+// ---------------------------------------------------------------------------
+if (shouldRun(45)) {
+    echo "\n45. " . $sections[45]['title'] . "\n";
+
+    $sec45WorldId = 'w3_sec45_sounds';
+    $sec45WorldFile = __DIR__ . '/world3net_aquanet.dxw';
+    @$pm->resetWorld($sec45WorldId);
+
+    $sec45Engine = new GameEngine($pm, $sec45WorldId, $sec45WorldFile, '', $config);
+    $sec45Ui = new UIhtml(null, $sec45Engine);
+
+    // 1. Verify Login form has Sounds and Music checkboxes BEFORE Skin chooser
+    ob_start();
+    $sec45Ui->renderLogin(null, 'TestUser', 'aqua', true, false);
+    $loginHtml = (string)ob_get_clean();
+
+    $posSounds = strpos($loginHtml, 'id="sounds"');
+    $posMusic  = strpos($loginHtml, 'id="music"');
+    $posSkin   = strpos($loginHtml, 'id="skin"');
+
+    assertTest(
+        $posSounds !== false && str_contains($loginHtml, 'type="checkbox"') && str_contains($loginHtml, 'Sounds'),
+        "UIhtml login form renders 'Sounds' checkbox"
+    );
+    assertTest(
+        $posMusic !== false && str_contains($loginHtml, 'Music'),
+        "UIhtml login form renders 'Music' checkbox"
+    );
+    assertTest(
+        $posSounds !== false && $posMusic !== false && $posSkin !== false && $posSounds < $posSkin && $posMusic < $posSkin,
+        "Both 'Sounds' and 'Music' checkboxes appear before the 'Skin' chooser in UIhtml::renderLogin()"
+    );
+
+    // 2. Verify Skin SNDNEWMSG resolution (default and custom .dxs)
+    $sec45World = $sec45Engine->loadOrSeedWorld();
+    $defaultSkin = $sec45World->getSkin('default');
+    $aquaSkin    = $sec45World->getSkin('aqua');
+    $forestSkin  = $sec45World->getSkin('forest');
+
+    assertTest(
+        $defaultSkin !== null && $defaultSkin->sndNewmsg === 'https://www.dimensionex.net/skins/default/sndnewmsg.wav',
+        "Default skin resolves SNDNEWMSG to SKINFOLDER + sndnewmsg.wav (got '{$defaultSkin?->sndNewmsg}')"
+    );
+    assertTest(
+        $aquaSkin !== null && $aquaSkin->sndNewmsg === 'http://www.dimensionex.net/skins/aqua/drip.wav',
+        "Aqua skin resolves SNDNEWMSG from .dxs (drip.wav) against SKINFOLDER (got '{$aquaSkin?->sndNewmsg}')"
+    );
+    assertTest(
+        $forestSkin !== null && $forestSkin->sndNewmsg === 'https://www.dimensionex.net/skins/forest/notify4.wav',
+        "Forest skin resolves SNDNEWMSG from .dxs (notify4.wav) against SKINFOLDER (got '{$forestSkin?->sndNewmsg}')"
+    );
+
+    // 3. Log in 3 players with different Sounds/Music settings:
+    //    - PlayerSoundOn:  sounds=true,  music=true  (in start room 'spiaggia2', skin='aqua')
+    //    - PlayerSoundOff: sounds=false, music=true  (in start room 'spiaggia2', skin='default')
+    //    - PlayerOtherRoom: sounds=true, music=false (moved to 'parco', skin='forest')
+    $uiSoundOn = new UIhtml(null, $sec45Engine);
+    $resOn = $sec45Engine->processCommand('PlayerSoundOn', 'login', '', '', $uiSoundOn, 4501, false, true, null, 'aqua', true, true);
+    $pSoundOn = $resOn['player'];
+
+    $uiSoundOff = new UIhtml(null, $sec45Engine);
+    $resOff = $sec45Engine->processCommand('PlayerSoundOff', 'login', '', '', $uiSoundOff, 4502, false, true, null, 'default', false, true);
+    $pSoundOff = $resOff['player'];
+
+    $uiOther = new UIhtml(null, $sec45Engine);
+    $resOther = $sec45Engine->processCommand('PlayerOtherRoom', 'login', '', '', $uiOther, 4503, false, true, null, 'forest', true, false);
+    $pOther = $resOther['player'];
+
+    assertTest(
+        $pSoundOn->sounds === true && $pSoundOn->music === true,
+        "PlayerSoundOn keeps sounds=true and music=true inside Player instance"
+    );
+    assertTest(
+        $pSoundOff->sounds === false && $pSoundOff->music === true,
+        "PlayerSoundOff keeps sounds=false and music=true inside Player instance"
+    );
+    assertTest(
+        $pOther->sounds === true && $pOther->music === false,
+        "PlayerOtherRoom keeps sounds=true and music=false inside Player instance"
+    );
+
+    // Move PlayerOtherRoom to a different room ('parco')
+    $world = $sec45Engine->loadOrSeedWorld();
+    $pOnInWorld    = $world->getPlayerByName('PlayerSoundOn');
+    $pOffInWorld   = $world->getPlayerByName('PlayerSoundOff');
+    $pOtherInWorld = $world->getPlayerByName('PlayerOtherRoom');
+    $roomSpiaggia2 = $world->getRoom('spiaggia2');
+    $roomParco     = $world->getRoom('parco');
+    if ($pOtherInWorld !== null && $roomParco !== null) {
+        $pOtherInWorld->move($roomParco);
+    }
+    // Clear any initial login messages/sounds
+    $pOnInWorld?->drainSound();
+    $pOnInWorld?->drainNewMessages();
+    $pOffInWorld?->drainSound();
+    $pOffInWorld?->drainNewMessages();
+    $pOtherInWorld?->drainSound();
+    $pOtherInWorld?->drainNewMessages();
+
+    // 4. Test PlaySound directed to a single Player (default $AGENT or explicit player)
+    $runner = new \Dimx\ActionsRunner($world, $roomSpiaggia2, $pOnInWorld, null);
+    $runner->run('PlaySound " splash.wav "');
+
+    assertTest(
+        $pOnInWorld->sound === 'https://www.dimensionex.net/pics/splash.wav',
+        "PlaySound 'splash.wav' (to \$AGENT) resolves with IMAGESFOLDER to 'https://www.dimensionex.net/pics/splash.wav' (got '{$pOnInWorld->sound}')"
+    );
+
+    ob_start();
+    $uiSoundOn->render([
+        'world'    => $world,
+        'player'   => $pOnInWorld,
+        'room'     => $pOnInWorld->getRoom(),
+        'messages' => [],
+        'chat'     => [],
+    ]);
+    $htmlOnSingle = (string)ob_get_clean();
+
+    assertTest(
+        str_contains($htmlOnSingle, '<audio id="sndplayer"') &&
+        str_contains($htmlOnSingle, 'https://www.dimensionex.net/pics/splash.wav') &&
+        str_contains($htmlOnSingle, 'autoplay'),
+        "UIhtml embeds hidden <audio id=\"sndplayer\" autoplay> with IMAGESFOLDER + soundFile for sound-enabled player"
+    );
+    assertTest(
+        $pOnInWorld->sound === null,
+        "Pending one-shot sound on Player is drained after UIhtml::render()"
+    );
+
+    // 5. Test PlaySound directed to a Room: all players in that room receive it (sound-enabled only), players in other rooms do not
+    $runnerRoom = new \Dimx\ActionsRunner($world, $roomSpiaggia2, $pOnInWorld, null);
+    $runnerRoom->run('PlaySound spiaggia2, "Gong.wav"');
+
+    assertTest(
+        $pOnInWorld->sound === 'https://www.dimensionex.net/pics/Gong.wav',
+        "PlaySound to room 'spiaggia2' queues sound for sound-enabled PlayerSoundOn in that room"
+    );
+    assertTest(
+        $pOffInWorld->sound === null,
+        "PlaySound to room 'spiaggia2' does NOT queue sound for sound-disabled PlayerSoundOff in that room"
+    );
+    assertTest(
+        $pOtherInWorld->sound === null,
+        "PlaySound to room 'spiaggia2' does NOT queue sound for PlayerOtherRoom in another room ('parco')"
+    );
+
+    // Render UIhtml for PlayerSoundOff: must NOT have <audio id="sndplayer">
+    ob_start();
+    $uiSoundOff->render([
+        'world'    => $world,
+        'player'   => $pOffInWorld,
+        'room'     => $pOffInWorld->getRoom(),
+        'messages' => [],
+        'chat'     => [],
+    ]);
+    $htmlOffRoom = (string)ob_get_clean();
+    assertTest(
+        !str_contains($htmlOffRoom, '<audio id="sndplayer"'),
+        "UIhtml does NOT embed <audio id=\"sndplayer\"> for PlayerSoundOff (Sounds disabled at login)"
+    );
+    $pOnInWorld->drainSound();
+
+    // 6. Test PlaySound directed to $WORLD: all sound-enabled players in the world receive it
+    $runnerWorld = new \Dimx\ActionsRunner($world, $roomSpiaggia2, $pOnInWorld, null);
+    $runnerWorld->run('PlaySound $WORLD, "thunder.wav"');
+
+    assertTest(
+        $pOnInWorld->sound === 'https://www.dimensionex.net/pics/thunder.wav' &&
+        $pOtherInWorld->sound === 'https://www.dimensionex.net/pics/thunder.wav' &&
+        $pOffInWorld->sound === null,
+        "PlaySound to \$WORLD queues 'https://www.dimensionex.net/pics/thunder.wav' for all sound-enabled players across all rooms, and not for sound-disabled players"
+    );
+    $pOnInWorld->drainSound();
+    $pOtherInWorld->drainSound();
+
+    // 7. Test Skin SNDNEWMSG playback when a new message pops in for sound-enabled vs sound-disabled players
+    $world->postChatMessage('Surfer', 'Hey there, waves are great today!', null, 'spiaggia2');
+
+    assertTest(
+        $pOnInWorld->newMessages === true && $pOffInWorld->newMessages === true && $pOtherInWorld->newMessages === false,
+        "Room chat message sets newMessages=true on occupants of 'spiaggia2'"
+    );
+
+    ob_start();
+    $uiSoundOn->render([
+        'world'    => $world,
+        'player'   => $pOnInWorld,
+        'room'     => $pOnInWorld->getRoom(),
+        'messages' => [],
+        'chat'     => $pOnInWorld->getMessages(),
+    ]);
+    $htmlOnMsg = (string)ob_get_clean();
+
+    ob_start();
+    $uiSoundOff->render([
+        'world'    => $world,
+        'player'   => $pOffInWorld,
+        'room'     => $pOffInWorld->getRoom(),
+        'messages' => [],
+        'chat'     => $pOffInWorld->getMessages(),
+    ]);
+    $htmlOffMsg = (string)ob_get_clean();
+
+    assertTest(
+        str_contains($htmlOnMsg, '<audio id="sndplayer"') &&
+        str_contains($htmlOnMsg, 'http://www.dimensionex.net/skins/aqua/drip.wav'),
+        "Sound-enabled PlayerSoundOn (Aqua skin) plays skin SNDNEWMSG ('http://www.dimensionex.net/skins/aqua/drip.wav') when a new message pops in"
+    );
+    assertTest(
+        !str_contains($htmlOffMsg, '<audio id="sndplayer"'),
+        "Sound-disabled PlayerSoundOff does NOT get <audio id=\"sndplayer\"> when a new message pops in"
+    );
+
+    @$pm->resetWorld($sec45WorldId);
 }
 
 // Clean up test worlds

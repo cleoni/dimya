@@ -12,11 +12,11 @@ This document provides the definitive specification for user interface skins and
 | `SKINS` directive in `.dxw` | Implemented - each listed skin (`default`, `<file>.dxs`, or direct `http(s)://` `.dxs` URL) is loaded into `World::$skins`; players can select their preferred skin in the login connect form (`Player::$skin`), while `World::$defaultSkin` remains `default` |
 | `SKIN <id>` / `END_SKIN` block, `ID` | Implemented - `SKIN <id>` and `ID <id>` set `Skin::$id` (fallback: descriptor filename stripped of `_net.dxs` / `.dxs`) |
 | `NAME`, `SKINFOLDER` / `IMAGESFOLDER` | Implemented - uses `SKINFOLDER` / `IMAGESFOLDER` if defined in `.dxs`; otherwise defaults to `<worldImagesParent>/skins/<skinId>/` |
-| `PICPLAYER`, `PICSPACER`, `PICFADER`, `ICOPLAYER`, `ICOCHARACTER`, `ICOITEM`, `ICOWAY*`, `ICOROT*`, `ICOREV` | Implemented (omitted directives fall back to hard-coded default filenames inside `Skin::$skinFolder`) |
+| `PICPLAYER`, `PICSPACER`, `PICFADER`, `ICOPLAYER`, `ICOCHARACTER`, `ICOITEM`, `ICOWAY*`, `ICOROT*`, `ICOREV`, `SNDNEWMSG` | Implemented (omitted directives fall back to hard-coded default filenames inside `Skin::$skinFolder`) |
 | `BODYBGCOLOR`, `BODYSTYLE`, `PANELBGCOLOR`, `PANELBACKGROUND`, `PANELSTYLE`, `TITLESTYLE`, `LIST1BGCOLOR`, `LIST2BGCOLOR`, `LISTSTYLE` | Implemented |
 | `BUTTONSTYLE`, `STYLESHEET` | Partial - parsed into `Skin::$buttonStyle`, `Skin::$stylesheet` |
 | `BODYBACKGROUND` | Deprecated - ignored if encountered by the skin loader |
-| `SNDNEWMSG`, `SYSMSGSTYLE`, `LINKSTYLE`, `ALINKSTYLE`, `ICONLABELSTYLE` | Ignored (not parsed) |
+| `SYSMSGSTYLE`, `LINKSTYLE`, `ALINKSTYLE`, `ICONLABELSTYLE` | Ignored (not parsed) |
 | `$SKINFOLDER` / `$IMAGESFOLDER` | Implemented in `TITLESTYLE` |
 | `$ICON`, `$SKINICON` | Not implemented |
 | `_net` skins | Implemented (via `SKINFOLDER` in `.dxs` and/or direct `http(s)://` `.dxs` URL in `SKINS`) |
@@ -193,7 +193,7 @@ END_SKIN
 | **`ICOROTL`** | No | `left.gif` (`icorotl.gif` in DimY) | Icon/button to rotate view left in panoramic rooms. |
 | **`ICOROTR`** | No | `right.gif` (`icorotr.gif` in DimY) | Icon/button to rotate view right in panoramic rooms. |
 | **`ICOREV`** | No | `reverse.gif` | Icon/button to turn around (180°) in panoramic rooms. |
-| **`SNDNEWMSG`** | No | `newmsg.wav` | Audio notification clip played when an incoming chat message arrives. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
+| **`SNDNEWMSG`** | No | `sndnewmsg.wav` | Audio notification clip played to sound-enabled players when an incoming chat message arrives (resolved against `SKINFOLDER`, stored in `Skin::$sndNewmsg`). |
 | **`BODYBGCOLOR`** | No | `#000040` | Background color applied to the `UIhtml` `<body>` background property. |
 | **`BODYBACKGROUND`** | No | `""` *(none)* | **Deprecated.** Background image texture for the main browser window; ignored if encountered by the skin loader. |
 | **`BODYSTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#00FFFF;margin:0;}` | CSS style applied to all text inside `body` and `td` tags (`body, td`). |

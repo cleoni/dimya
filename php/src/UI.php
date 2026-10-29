@@ -157,14 +157,26 @@ abstract class UI
         $skin     = trim((string)($merged['skin'] ?? ''));
         $reset    = isset($merged['reset']) && ($merged['reset'] === '1' || $merged['reset'] === 1 || $merged['reset'] === 'true' || $merged['reset'] === true);
 
+        $hasSounds = array_key_exists('sounds', $merged) || array_key_exists('audio', $merged);
+        $rawSounds = $merged['sounds'] ?? $merged['audio'] ?? null;
+        $sounds    = ($rawSounds === '1' || $rawSounds === 1 || $rawSounds === 'true' || $rawSounds === true || $rawSounds === 'on');
+
+        $hasMusic = array_key_exists('music', $merged);
+        $rawMusic = $merged['music'] ?? null;
+        $music    = ($rawMusic === '1' || $rawMusic === 1 || $rawMusic === 'true' || $rawMusic === true || $rawMusic === 'on');
+
         return [
-            'username' => $username,
-            'password' => $password,
-            'cmd'      => $cmd,
-            'param'    => $param,
-            'target'   => $target,
-            'skin'     => $skin,
-            'reset'    => $reset,
+            'username'   => $username,
+            'password'   => $password,
+            'cmd'        => $cmd,
+            'param'      => $param,
+            'target'     => $target,
+            'skin'       => $skin,
+            'sounds'     => $sounds,
+            'has_sounds' => $hasSounds,
+            'music'      => $music,
+            'has_music'  => $hasMusic,
+            'reset'      => $reset,
         ];
     }
 }

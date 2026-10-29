@@ -241,9 +241,11 @@ class ActionsRunner
             'DISPLAY',
             'PRINT'      => $this->actDisplay($args),
             'PRINTRIGHT' => $this->actDisplay($args, true),
-            'CALL'       => $this->actCall($args, $argString),
-            'BROADCAST'  => $this->actBroadcast($args),
-            'MOVE'       => $this->actMove($args),
+            'CALL'           => $this->actCall($args, $argString),
+            'BROADCAST'      => $this->actBroadcast($args),
+            'PLAYSOUND'      => $this->actPlaySound($args),
+            'BROADCASTSOUND' => $this->actBroadcastSound($args),
+            'MOVE'           => $this->actMove($args),
             'GOAL'       => $this->actGoal($args),
             'RETURN'     => $this->actReturn($args),
             'OPEN'       => $this->actOpen($args),
@@ -652,6 +654,89 @@ class ActionsRunner
         $rawMsg = $args[0] ?? '';
         $msg = (string)$this->evalValue((string)$rawMsg);
         return $this->world->broadcast($msg);
+    }
+
+    /**
+     * PlaySound [destination,] soundFile
+     * Plays a one-shot sound FX to a player, a room/PeopleContainer, or $WORLD.
+     *
+     * - If destination is omitted, default destination is $AGENT (or $OWNER / $WORLD fallback).
+     * - If destination is a Player, that player receives the sound.
+     * - If destination is a Room / PeopleContainer, all players in that container receive the sound.
+     * - If destination is $WORLD, all players in the world receive the sound.
+     */
+    protected function actPlaySound(array $args): bool
+    {
+        if (empty($args)) {
+            return false;
+        }
+
+        if (count($args) === 1) {
+            $destination = ($this->agent instanceof DimxObject)
+                ? $this->agent
+                : (($this->owner instanceof DimxObject) ? $this->owner : $this->world);
+            $rawSound = (string)$args[0];
+        } else {
+            $p0 = trim((string)$args[0]);
+            $destObj = $this->resolveObject($p0);
+            if ($destObj === null) {
+                $evalDest = $this->evalValue($p0);
+                if ($evalDest instanceof DimxObject) {
+                    $destObj = $evalDest;
+                } elseif (is_string($evalDest) && $evalDest !== '') {
+                    $destObj = $this->world->getObjectExt($evalDest);
+                }
+            }
+            if ($destObj !== null) {
+                $destination = $destObj;
+                $rawSound = (string)$args[1];
+            } else {
+                $destination = ($this->agent instanceof DimxObject)
+                    ? $this->agent
+                    : (($this->owner instanceof DimxObject) ? $this->owner : $this->world);
+                $rawSound = (string)$args[0];
+            }
+        }
+
+        $evalSound = $this->evalValue($rawSound);
+        $soundFile = ($evalSound !== null && $evalSound !== '') ? (string)$evalSound : $rawSound;
+        if ((str_starts_with($soundFile, '"') && str_ends_with($soundFile, '"')) ||
+            (str_starts_with($soundFile, "'") && str_ends_with($soundFile, "'"))) {
+            $soundFile = substr($soundFile, 1, -1);
+        }
+        $soundFile = trim($soundFile);
+        if ($soundFile === '') {
+            return false;
+        }
+
+        if ($destination instanceof DimxObject) {
+            return $destination->playSound($soundFile);
+        }
+
+        return false;
+    }
+
+    /**
+     * BroadcastSound soundFile
+     * Plays a one-shot sound FX to all connected players in the world.
+     */
+    protected function actBroadcastSound(array $args): bool
+    {
+        if (empty($args)) {
+            return false;
+        }
+        $rawSound  = (string)$args[0];
+        $evalSound = $this->evalValue($rawSound);
+        $soundFile = ($evalSound !== null && $evalSound !== '') ? (string)$evalSound : $rawSound;
+        if ((str_starts_with($soundFile, '"') && str_ends_with($soundFile, '"')) ||
+            (str_starts_with($soundFile, "'") && str_ends_with($soundFile, "'"))) {
+            $soundFile = substr($soundFile, 1, -1);
+        }
+        $soundFile = trim($soundFile);
+        if ($soundFile === '') {
+            return false;
+        }
+        return $this->world->playSound($soundFile);
     }
 
     /**

@@ -23,6 +23,24 @@ class Player extends Character
     public ?string $prevPanelId = null;
     public bool $listening = true;
 
+    /** @var bool Whether player enabled Sound FX at login */
+    public bool $sounds = false;
+
+    /** @var bool Whether player enabled Music at login */
+    public bool $music = false;
+
+    /** @var bool Alias for $sounds (DimensioneX Client.audioSupport compatibility) */
+    public bool $audioSupport = false;
+
+    /** @var bool Alias for $music (DimensioneX Client.musicSupport compatibility) */
+    public bool $musicSupport = false;
+
+    /** @var string|null Pending one-shot sound FX URL for next UIhtml render */
+    public ?string $sound = null;
+
+    /** @var bool Whether a new incoming chat message arrived since last render */
+    public bool $newMessages = false;
+
     /** @var int Client viewport screen width in pixels (default 1280) */
     public int $screenWidth = 1280;
 
@@ -126,6 +144,63 @@ class Player extends Character
     }
 
     /**
+     * Enable or disable Sound FX support for this player.
+     */
+    public function setSounds(bool $enabled): void
+    {
+        $this->sounds = $enabled;
+        $this->audioSupport = $enabled;
+    }
+
+    /**
+     * Enable or disable Music support for this player.
+     */
+    public function setMusic(bool $enabled): void
+    {
+        $this->music = $enabled;
+        $this->musicSupport = $enabled;
+    }
+
+    /**
+     * Queue a one-shot sound FX for this player if Sounds are enabled.
+     * The sound filename is resolved relative to the World's IMAGESFOLDER.
+     */
+    public function playSound(string $soundfile): bool
+    {
+        if (!$this->sounds && !$this->audioSupport) {
+            return false;
+        }
+        $soundfile = trim($soundfile);
+        if ($soundfile === '') {
+            return false;
+        }
+        $this->sound = ($this->world !== null)
+            ? $this->world->resolveSoundUrl($soundfile)
+            : $soundfile;
+        return true;
+    }
+
+    /**
+     * Read and clear any pending one-shot sound FX URL for this player.
+     */
+    public function drainSound(): ?string
+    {
+        $s = $this->sound;
+        $this->sound = null;
+        return $s;
+    }
+
+    /**
+     * Read and clear the new-messages notification flag for this player.
+     */
+    public function drainNewMessages(): bool
+    {
+        $has = $this->newMessages;
+        $this->newMessages = false;
+        return $has;
+    }
+
+    /**
      * Display a system message or text output on the player's main console.
      */
     public function display(string $msg): bool
@@ -153,6 +228,7 @@ class Player extends Character
         while (count($this->messagesQueue) > 10) {
             array_shift($this->messagesQueue);
         }
+        $this->newMessages = true;
         return $msg;
     }
 

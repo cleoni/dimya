@@ -49,6 +49,15 @@ class DimxObject extends ManageableObject
     }
 
     /**
+     * Play a sound FX to players in or connected to this entity.
+     * Default returns false unless overridden by World, PeopleContainer/Room, or Player.
+     */
+    public function playSound(string $soundfile): bool
+    {
+        return false;
+    }
+
+    /**
      * Add an AdvObject to this object's contents.
      */
     public function addObject(AdvObject $obj): bool

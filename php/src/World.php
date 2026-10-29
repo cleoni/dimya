@@ -468,6 +468,44 @@ class World extends DimxObject
         return true;
     }
 
+    /**
+     * Broadcast a one-shot sound FX to all connected players in the world.
+     */
+    public function playSound(string $soundfile): bool
+    {
+        $this->logDebug("Playing sound '{$soundfile}' in world {$this->id}");
+        foreach ($this->players as $player) {
+            $player->playSound($soundfile);
+        }
+        return true;
+    }
+
+    /**
+     * Resolve a sound filename against the world's IMAGESFOLDER.
+     */
+    public function resolveSoundUrl(string $soundfile): string
+    {
+        $soundfile = trim($soundfile);
+        if ($soundfile === '') {
+            return '';
+        }
+        if (
+            str_starts_with($soundfile, 'http://') ||
+            str_starts_with($soundfile, 'https://') ||
+            str_starts_with($soundfile, '/')
+        ) {
+            return $soundfile;
+        }
+        $folder = rtrim($this->imagesFolder, '/');
+        if ($folder !== '') {
+            if (str_starts_with($soundfile, $folder . '/')) {
+                return $soundfile;
+            }
+            return $folder . '/' . $soundfile;
+        }
+        return $soundfile;
+    }
+
     public function logDebug(string $msg): void
     {
         $line = "[" . date('H:i:s') . "] {$msg}";

@@ -22,7 +22,7 @@ class UIhtml extends UI
     /**
      * Render the login form for human players.
      */
-    public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null, ?string $selectedSkin = null): void
+    public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null, ?string $selectedSkin = null, bool $sounds = false, bool $music = false): void
     {
         if (!headers_sent()) {
             header('Content-Type: text/html; charset=utf-8');
@@ -46,8 +46,12 @@ class UIhtml extends UI
             p.sub{margin:0 0 18px;font-size:13px;color:#94a3b8}
             .err{background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fca5a5;padding:10px 12px;border-radius:6px;font-size:13px;margin-bottom:16px}
             label{display:block;font-size:12px;color:#cbd5e1;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
-            input,select{width:100%;padding:10px 12px;background:#0f172a;border:1px solid #475569;border-radius:6px;color:#f8fafc;font-size:14px;box-sizing:border-box;margin-bottom:16px}
-            input:focus,select:focus{outline:none;border-color:#38bdf8;box-shadow:0 0 0 2px rgba(56,189,248,0.25)}
+            input[type="text"],input[type="password"],select{width:100%;padding:10px 12px;background:#0f172a;border:1px solid #475569;border-radius:6px;color:#f8fafc;font-size:14px;box-sizing:border-box;margin-bottom:16px}
+            input[type="text"]:focus,input[type="password"]:focus,select:focus{outline:none;border-color:#38bdf8;box-shadow:0 0 0 2px rgba(56,189,248,0.25)}
+            .checkbox-row{display:flex;gap:20px;margin-bottom:16px;align-items:center}
+            .checkbox-item{display:flex;align-items:center;gap:8px}
+            .checkbox-item input[type="checkbox"]{width:16px;height:16px;margin:0;cursor:pointer;accent-color:#2563eb}
+            .checkbox-item label{margin:0;cursor:pointer;display:inline}
             button{width:100%;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:14px;transition:background 0.2s}
             button:hover{background:#1d4ed8}
             .hint{font-size:11px;color:#64748b;margin-top:14px;text-align:center;line-height:1.4}
@@ -69,6 +73,17 @@ class UIhtml extends UI
 
               <label for="password">Password</label>
               <input type="password" id="password" name="password" placeholder="Your password…" required />
+
+              <div class="checkbox-row">
+                <div class="checkbox-item">
+                  <input type="checkbox" id="sounds" name="sounds" value="1"<?= $sounds ? ' checked' : '' ?> />
+                  <label for="sounds">Sounds</label>
+                </div>
+                <div class="checkbox-item">
+                  <input type="checkbox" id="music" name="music" value="1"<?= $music ? ' checked' : '' ?> />
+                  <label for="music">Music</label>
+                </div>
+              </div>
 
               <label for="skin">Skin</label>
               <select id="skin" name="skin">
@@ -186,6 +201,22 @@ class UIhtml extends UI
         $inventory    = array_values(array_filter($player->contents, fn($i) => !$i->isHidden()));
         $links        = (!$isInsideVehicle && $currentRoom) ? array_values(array_filter($currentRoom->getLinks(), fn($l) => !$l->isHidden()))     : [];
         $activePanel  = $player->getPanel() ?? $world->defaultPanel;
+
+        // One-shot Sound FX resolution (only for players who enabled Sounds at login)
+        $soundsEnabled = !empty($player->sounds) || !empty($player->audioSupport);
+        $pendingSound  = $context['sound'] ?? $player->drainSound();
+        $hasNewMsgs    = !empty($context['new_messages']) || $player->drainNewMessages();
+        $soundUrl      = null;
+        if ($soundsEnabled) {
+            if (!empty($pendingSound)) {
+                $soundUrl = $world->resolveSoundUrl((string)$pendingSound);
+            } elseif ($hasNewMsgs && !empty($skin->sndNewmsg)) {
+                $soundUrl = $skin->sndNewmsg;
+            }
+        } else {
+            $player->drainSound();
+            $player->drainNewMessages();
+        }
 
         // Portrait / vertical display detection (width < height at login or client)
         $isPortrait   = !empty($player->isPortrait) || ($player->screenWidth > 0 && $player->screenHeight > 0 && $player->screenWidth < $player->screenHeight);
@@ -1502,6 +1533,9 @@ class UIhtml extends UI
                     </div>
                   <?php endforeach; ?>
                 </div>
+                <?php if ($soundsEnabled && !empty($soundUrl)): ?>
+                  <audio id="sndplayer" src="<?= htmlspecialchars($soundUrl) ?>" autoplay hidden style="display:none"><source src="<?= htmlspecialchars($soundUrl) ?>" type="audio/wav"></audio>
+                <?php endif; ?>
               </div>
             </div>
 
@@ -1904,8 +1938,24 @@ class UIhtml extends UI
             if (cBox) cBox.scrollTop = cBox.scrollHeight;
 
             // ---- Async chat ----
-            const WORLD_ID   = <?= json_encode($worldId) ?>;
-            const PLAYER_NAME = <?= json_encode($playerName) ?>;
+            const WORLD_ID       = <?= json_encode($worldId) ?>;
+            const PLAYER_NAME    = <?= json_encode($playerName) ?>;
+            const SOUNDS_ENABLED = <?= $soundsEnabled ? 'true' : 'false' ?>;
+            const SND_NEW_MSG    = <?= json_encode($skin->sndNewmsg ?? '') ?>;
+
+            function playOneShotSound(url) {
+              if (!SOUNDS_ENABLED || !url) return;
+              let audio = document.getElementById('sndplayer');
+              if (!audio) {
+                audio = document.createElement('audio');
+                audio.id = 'sndplayer';
+                audio.hidden = true;
+                audio.style.display = 'none';
+                (document.getElementById('msgs') || document.body).appendChild(audio);
+              }
+              audio.src = url;
+              audio.play().catch(function() {});
+            }
             <?php
             $initialChat = $context['chat'] ?? [];
             $initLastId = (int)($player->spawnMessageId ?? 0);
@@ -1970,6 +2020,9 @@ class UIhtml extends UI
                   }
                   const msgsBox = document.getElementById('msgs');
                   if (msgsBox) msgsBox.scrollTop = msgsBox.scrollHeight;
+                  if (SOUNDS_ENABLED && SND_NEW_MSG) {
+                    playOneShotSound(SND_NEW_MSG);
+                  }
                 }
               } catch (e) { /* network error — silent */ }
             }

@@ -152,7 +152,9 @@ class GameEngine
         bool $isBot = false,
         bool $isNewLogin = false,
         ?string $existingEngineId = null,
-        ?string $skinId = null
+        ?string $skinId = null,
+        ?bool $sounds = null,
+        ?bool $music = null
     ): Player {
         $player = null;
         $chosenSkin = ($skinId !== null && trim($skinId) !== '') ? $world->getSkin($skinId) : null;
@@ -192,6 +194,12 @@ class GameEngine
             $player->skin      = $chosenSkin ?? $world->defaultSkin ?? new Skin('default', 'Default');
             $player->numericId = $numericId;
             $player->isBot     = $isBot;
+            if ($sounds !== null) {
+                $player->setSounds($sounds);
+            }
+            if ($music !== null) {
+                $player->setMusic($music);
+            }
             $player->showmode  = AdvObject::SHOW_ONSCREEN;
             if ($player->skin?->picPlayer) {
                 $player->images['N'] = clone $player->skin->picPlayer;
@@ -260,6 +268,12 @@ class GameEngine
             if ($isBot) {
                 $player->isBot = true;
             }
+            if ($sounds !== null) {
+                $player->setSounds($sounds);
+            }
+            if ($music !== null) {
+                $player->setMusic($music);
+            }
             if ($chosenSkin !== null) {
                 $player->setSkin($chosenSkin);
             } elseif ($player->skin === null) {
@@ -322,40 +336,48 @@ class GameEngine
         bool $isBot = false,
         bool $isNewLogin = false,
         ?string $existingEngineId = null,
-        ?string $skinId = null
+        ?string $skinId = null,
+        ?bool $sounds = null,
+        ?bool $music = null
     ): array {
         $cmd      = strtolower(trim($cmd ?: 'look'));
         $param    = trim($param);
         $targetId = trim($targetId);
 
         $consoleMessages = [];
+        $pendingSound    = null;
+        $hasNewMsgs      = false;
         $lockError       = false;
         $loggedOut       = in_array($cmd, ['logout'], true);
 
         // Concurrency-controlled execution via WorldLock (MySQL GET_LOCK)
         if ($this->pdo !== null && $this->lock !== null) {
             $result = $this->lock->executeAtomic($this->worldId, function (\PDO $pdo) use (
-                $playerName, $cmd, $param, $targetId, $ui, $loggedOut, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId
+                $playerName, $cmd, $param, $targetId, $ui, $loggedOut, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music
             ): array {
                 $world  = $this->loadOrSeedWorld();
-                $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId);
+                $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music);
 
                 $this->executeCommandAction($world, $player, $cmd, $param, $targetId);
 
                 // Advance world clock tick
                 $world->tick();
 
-                // Drain console output for this player
-                $msgs = $player->drainConsole();
+                // Drain console output and pending sound/message flags for this player
+                $msgs         = $player->drainConsole();
+                $pendingSound = $player->drainSound();
+                $hasNewMsgs   = $player->drainNewMessages();
 
                 // Save mutated world state back to persistence
                 $this->pm->saveWorld($world);
 
                 return [
-                    'world'      => $world,
-                    'player'     => $player,
-                    'msgs'       => $msgs,
-                    'logged_out' => $loggedOut,
+                    'world'        => $world,
+                    'player'       => $player,
+                    'msgs'         => $msgs,
+                    'sound'        => $pendingSound,
+                    'new_messages' => $hasNewMsgs,
+                    'logged_out'   => $loggedOut,
                 ];
             });
 
@@ -369,6 +391,12 @@ class GameEngine
                     ?? new Player($world, $playerName, $existingEngineId ?? ('p_' . ($numericId ?? '0') . '_' . bin2hex(random_bytes(4))));
                 $player->numericId = $numericId;
                 $player->isBot     = $isBot;
+                if ($sounds !== null) {
+                    $player->setSounds($sounds);
+                }
+                if ($music !== null) {
+                    $player->setMusic($music);
+                }
                 if ($skinId !== null && $skinId !== '' && ($sk = $world->getSkin($skinId)) !== null) {
                     $player->setSkin($sk);
                 }
@@ -376,17 +404,21 @@ class GameEngine
                 $world           = $result['world'];
                 $player          = $result['player'];
                 $consoleMessages = $result['msgs'];
+                $pendingSound    = $result['sound'] ?? null;
+                $hasNewMsgs      = (bool)($result['new_messages'] ?? false);
                 $loggedOut       = $result['logged_out'] ?? $loggedOut;
             }
         } else {
             // Graceful degradation when DB is offline (session / memory fallback)
             $world  = $this->loadOrSeedWorld();
-            $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId);
+            $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music);
 
             $this->executeCommandAction($world, $player, $cmd, $param, $targetId);
 
             $world->tick();
             $consoleMessages = $player->drainConsole();
+            $pendingSound    = $player->drainSound();
+            $hasNewMsgs      = $player->drainNewMessages();
             $this->pm->saveWorld($world);
         }
 
@@ -405,6 +437,8 @@ class GameEngine
             'room'         => $player->getRoom(),
             'messages'     => $consoleMessages,
             'chat'         => $chatMessages,
+            'sound'        => $pendingSound,
+            'new_messages' => $hasNewMsgs,
             'lockError'    => $lockError,
             'cmd'          => $cmd,
             'param'        => $param,

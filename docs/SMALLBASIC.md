@@ -23,10 +23,10 @@
 | Variables | Script variables (global/local), `Dim` | Not implemented (only `object.property` assignment and reading) |
 | Flow control | `For ... Next`, `For Each ... Next` | Not implemented |
 | Flow control | `If / Else / End_If` | Implemented (nested; no `ElseIf`, as in DimX) |
-| Statements | `AttachEvent`, `Ban`, `Dim`, `Debug`, `DropItems`, `Kill`, `NewRoom`, `PlaySound`, `PlayBackground`, `Reset`, `RefreshView`, `SaveSetting`, `SendCmd`, `SetAdd`, `SetRemove`, `SendPage`, `Journal` | Not implemented (silently ignored) |
+| Statements | `AttachEvent`, `Ban`, `Dim`, `Debug`, `DropItems`, `Kill`, `NewRoom`, `PlayBackground`, `Reset`, `RefreshView`, `SaveSetting`, `SendCmd`, `SetAdd`, `SetRemove`, `SendPage`, `Journal` | Not implemented (silently ignored) |
 | Statements | `MoveOutside` | Dropped in DimY (Cluster) |
 | Statements | `Call`, `Goal`, `Move`, `Print`, `PrintRight`, `Return`, `SetPanel` | Partial (see inline notes) |
-| Statements | `Speak`, `Display` | Implemented |
+| Statements | `Speak`, `Display`, `PlaySound`, `BroadcastSound` | Implemented |
 | Functions | All 55 built-ins except `RndSet`, `RndInt` (2-arg form only), `NOT` (partial) | Not implemented (see per-function tags) |
 | Dropped | `Cluster`, `Dict` / `DictSorted` | Dropped in DimY (native PHP arrays are used instead) |
 | DimY extras | `Broadcast`, `Open`, `Close`, `Search`, `Give` statements | DimY-only, not part of the DimX reference below |
@@ -717,9 +717,7 @@ NewRoom id
 
 ### 3.9.16 PlaySound
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
-
-Plays an audio sound clip once on the recipient's client.
+Plays a one-shot audio sound clip on the recipient's client (`UIhtml` embedded `<audio id="sndplayer">` for players who enabled **Sounds** at login; relative filenames are resolved against the World's `IMAGESFOLDER`).
 
 ```basic
 PlaySound [dest,] soundFile

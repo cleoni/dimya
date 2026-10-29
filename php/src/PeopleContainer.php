@@ -49,6 +49,23 @@ class PeopleContainer extends AdvObject
     }
 
     /**
+     * Broadcasts a one-shot sound FX to all players inside this container.
+     */
+    public function playSound(string $soundfile): bool
+    {
+        if ($this->world !== null) {
+            $this->world->logDebug("Playing sound '{$soundfile}' in container {$this->id}");
+        }
+
+        foreach ($this->contents as $obj) {
+            if ($obj instanceof Character) {
+                $obj->playSound($soundfile);
+            }
+        }
+        return true;
+    }
+
+    /**
      * Retrieve current UI panel.
      */
     public function getPanel(): ?Panel

@@ -31,6 +31,7 @@ class Skin
         'ICOROTL'      => 'icorotl.gif',
         'ICOROTR'      => 'icorotr.gif',
         'ICOREV'       => 'reverse.gif',
+        'SNDNEWMSG'    => 'sndnewmsg.wav',
     ];
 
     public string $id = 'default';
@@ -51,6 +52,7 @@ class Skin
     public string $titleStyle = '{font-size: 10pt;font-family: Tahoma;color:#FFFF10;background-color:#000090;}';
     public string $rawTitleStyle = '{font-size: 10pt;font-family: Tahoma;color:#FFFF10;background-color:#000090;}';
     public string $stylesheet = '';
+    public string $sndNewmsg = '';
     public ?Image $picPlayer = null;
     public ?Image $picSpacer = null;
     public ?Image $picFader = null;
@@ -117,6 +119,9 @@ class Skin
             $file = $this->mediaFiles[$key] ?? self::DEFAULT_MEDIA_FILES[$key];
             $this->icons[$key] = $this->resolveMediaUrl($file);
         }
+
+        $sndNewmsgFile = $this->mediaFiles['SNDNEWMSG'] ?? self::DEFAULT_MEDIA_FILES['SNDNEWMSG'];
+        $this->sndNewmsg = ($sndNewmsgFile !== '') ? $this->resolveMediaUrl($sndNewmsgFile) : '';
 
         if ($this->rawPanelBackground !== '') {
             $this->panelBackground = $this->resolveMediaUrl($this->rawPanelBackground);
@@ -250,6 +255,7 @@ class Skin
                     case 'ICOROTL':
                     case 'ICOROTR':
                     case 'ICOREV':
+                    case 'SNDNEWMSG':
                         if ($val !== '') {
                             $customMedia[$key] = $val;
                         }
@@ -422,6 +428,11 @@ class Skin
     public function getRevIcon(): string
     {
         return $this->icons['ICOREV'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOREV']);
+    }
+
+    public function getSndNewmsg(): string
+    {
+        return $this->sndNewmsg;
     }
 
     /**
