@@ -23,10 +23,10 @@
 | Variables | Script variables (global/local), `Dim` | Not implemented (only `object.property` assignment and reading) |
 | Flow control | `For ... Next`, `For Each ... Next` | Not implemented |
 | Flow control | `If / Else / End_If` | Implemented (nested; no `ElseIf`, as in DimX) |
-| Statements | `AttachEvent`, `Ban`, `Dim`, `Debug`, `DropItems`, `Kill`, `NewRoom`, `PlayBackground`, `Reset`, `RefreshView`, `SaveSetting`, `SendCmd`, `SetAdd`, `SetRemove`, `SendPage`, `Journal` | Not implemented (silently ignored) |
+| Statements | `AttachEvent`, `Ban`, `Dim`, `Debug`, `DropItems`, `Kill`, `NewRoom`, `Reset`, `RefreshView`, `SaveSetting`, `SendCmd`, `SetAdd`, `SetRemove`, `SendPage`, `Journal` | Not implemented (silently ignored) |
 | Statements | `MoveOutside` | Dropped in DimY (Cluster) |
 | Statements | `Call`, `Goal`, `Move`, `Print`, `PrintRight`, `Return`, `SetPanel` | Partial (see inline notes) |
-| Statements | `Speak`, `Display`, `PlaySound`, `BroadcastSound` | Implemented |
+| Statements | `Speak`, `Display`, `PlaySound`, `BroadcastSound`, `PlayBackground`, `BroadcastBackground` | Implemented |
 | Functions | All 55 built-ins except `RndSet`, `RndInt` (2-arg form only), `NOT` (partial) | Not implemented (see per-function tags) |
 | Dropped | `Cluster`, `Dict` / `DictSorted` | Dropped in DimY (native PHP arrays are used instead) |
 | DimY extras | `Broadcast`, `Open`, `Close`, `Search`, `Give` statements | DimY-only, not part of the DimX reference below |
@@ -731,9 +731,7 @@ PlaySound [dest,] soundFile
 
 ### 3.9.17 PlayBackground
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
-
-Plays background music or an audio stream (optionally looping).
+Plays background music or an audio stream (optionally looping) on the recipient's client (`UIhtml` silent `<audio id="bgplayer">` controlled via JavaScript/jQuery `playBackgroundMusic(src, loop)` for players who enabled **Music** at login; relative filenames are resolved against the World's `IMAGESFOLDER`, and the background music is kept as a property of the target `Room`/`PeopleContainer` or `$WORLD`).
 
 ```basic
 PlayBackground [dest,] soundFile [, loop]

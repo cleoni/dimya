@@ -346,6 +346,7 @@ class GameEngine
 
         $consoleMessages = [];
         $pendingSound    = null;
+        $pendingBgMusic  = null;
         $hasNewMsgs      = false;
         $lockError       = false;
         $loggedOut       = in_array($cmd, ['logout'], true);
@@ -363,21 +364,23 @@ class GameEngine
                 // Advance world clock tick
                 $world->tick();
 
-                // Drain console output and pending sound/message flags for this player
-                $msgs         = $player->drainConsole();
-                $pendingSound = $player->drainSound();
-                $hasNewMsgs   = $player->drainNewMessages();
+                // Drain console output and pending sound/music/message flags for this player
+                $msgs           = $player->drainConsole();
+                $pendingSound   = $player->drainSound();
+                $pendingBgMusic = $player->drainBackgroundSound();
+                $hasNewMsgs     = $player->drainNewMessages();
 
                 // Save mutated world state back to persistence
                 $this->pm->saveWorld($world);
 
                 return [
-                    'world'        => $world,
-                    'player'       => $player,
-                    'msgs'         => $msgs,
-                    'sound'        => $pendingSound,
-                    'new_messages' => $hasNewMsgs,
-                    'logged_out'   => $loggedOut,
+                    'world'            => $world,
+                    'player'           => $player,
+                    'msgs'             => $msgs,
+                    'sound'            => $pendingSound,
+                    'background_music' => $pendingBgMusic,
+                    'new_messages'     => $hasNewMsgs,
+                    'logged_out'       => $loggedOut,
                 ];
             });
 
@@ -405,6 +408,7 @@ class GameEngine
                 $player          = $result['player'];
                 $consoleMessages = $result['msgs'];
                 $pendingSound    = $result['sound'] ?? null;
+                $pendingBgMusic  = $result['background_music'] ?? null;
                 $hasNewMsgs      = (bool)($result['new_messages'] ?? false);
                 $loggedOut       = $result['logged_out'] ?? $loggedOut;
             }
@@ -418,6 +422,7 @@ class GameEngine
             $world->tick();
             $consoleMessages = $player->drainConsole();
             $pendingSound    = $player->drainSound();
+            $pendingBgMusic  = $player->drainBackgroundSound();
             $hasNewMsgs      = $player->drainNewMessages();
             $this->pm->saveWorld($world);
         }
@@ -432,14 +437,15 @@ class GameEngine
         $chatMessages = $player->getMessages();
 
         return [
-            'world'        => $world,
-            'player'       => $player,
-            'room'         => $player->getRoom(),
-            'messages'     => $consoleMessages,
-            'chat'         => $chatMessages,
-            'sound'        => $pendingSound,
-            'new_messages' => $hasNewMsgs,
-            'lockError'    => $lockError,
+            'world'            => $world,
+            'player'           => $player,
+            'room'             => $player->getRoom(),
+            'messages'         => $consoleMessages,
+            'chat'             => $chatMessages,
+            'sound'            => $pendingSound,
+            'background_music' => $pendingBgMusic,
+            'new_messages'     => $hasNewMsgs,
+            'lockError'        => $lockError,
             'cmd'          => $cmd,
             'param'        => $param,
             'target'       => $targetId,

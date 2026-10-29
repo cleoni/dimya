@@ -4496,6 +4496,149 @@ if (shouldRun(45)) {
         "Sound-disabled PlayerSoundOff does NOT get <audio id=\"sndplayer\"> when a new message pops in"
     );
 
+    // 8. Test Background Music (#bgplayer silent by default for music-enabled players, absent for music-disabled players)
+    ob_start();
+    $uiOther->render([
+        'world'    => $world,
+        'player'   => $pOtherInWorld,
+        'room'     => $pOtherInWorld->getRoom(),
+        'messages' => [],
+        'chat'     => [],
+    ]);
+    $htmlOther = (string)ob_get_clean();
+
+    assertTest(
+        str_contains($htmlOnMsg, '<audio id="bgplayer"') &&
+        !str_contains($htmlOnMsg, 'playBackgroundMusic("') &&
+        str_contains($htmlOffMsg, '<audio id="bgplayer"') &&
+        !str_contains($htmlOther, '<audio id="bgplayer"'),
+        "UIhtml renders silent <audio id=\"bgplayer\"> for music-enabled players (PlayerSoundOn & PlayerSoundOff) and omits it for music-disabled PlayerOtherRoom"
+    );
+
+    $posCtrls    = strpos($htmlOnMsg, 'id="ctrls"');
+    $posBgPlayer = strpos($htmlOnMsg, 'id="bgplayer"');
+    $posMsgs     = strpos($htmlOnMsg, 'id="msgs"');
+    assertTest(
+        $posCtrls !== false && $posBgPlayer !== false && $posMsgs !== false &&
+        $posCtrls < $posBgPlayer && $posBgPlayer < $posMsgs &&
+        str_contains($htmlOnMsg, 'function refreshAreas('),
+        "UIhtml places <audio id=\"bgplayer\"> inside #ctrls (before #msgs) and includes selective refreshAreas() for #scene, #ctrls, and #msgs"
+    );
+
+    // 9. Test world3net bar.onReceive triggering PlayBackground "reggaeton.mp3" upon room entry
+    $barRoom = $world->getRoom('bar');
+    $pOnInWorld->go('w24'); // spiaggia2 -> spiaggia3
+    $pOnInWorld->go('w4a'); // spiaggia3 -> bar (fires bar.onReceive -> PlayBackground "reggaeton.mp3")
+
+    assertTest(
+        $pOnInWorld->getRoom()->id === 'bar' &&
+        $barRoom->backgroundMusic === 'https://www.dimensionex.net/pics/reggaeton.mp3' &&
+        $barRoom->backgroundMusicLoop === false &&
+        (int)$pOnInWorld->getProperty('barmusic') === 1,
+        "Walking into 'bar' in world3net fires bar.onReceive -> PlayBackground \"reggaeton.mp3\", setting bar->backgroundMusic to 'https://www.dimensionex.net/pics/reggaeton.mp3' and \$TARGET.barmusic = 1"
+    );
+
+    ob_start();
+    $uiSoundOn->render([
+        'world'            => $world,
+        'player'           => $pOnInWorld,
+        'room'             => $pOnInWorld->getRoom(),
+        'background_music' => $pOnInWorld->drainBackgroundSound(),
+        'messages'         => [],
+        'chat'             => [],
+    ]);
+    $htmlBarMusic = (string)ob_get_clean();
+
+    assertTest(
+        str_contains($htmlBarMusic, '<audio id="bgplayer"') &&
+        str_contains($htmlBarMusic, 'playBackgroundMusic(') &&
+        str_contains($htmlBarMusic, 'reggaeton.mp3') &&
+        str_contains($htmlBarMusic, ', false);'),
+        "UIhtml scene render in 'bar' invokes playBackgroundMusic(\"https://www.dimensionex.net/pics/reggaeton.mp3\", false)"
+    );
+
+    // 10. Test PlayBackground with loop=true option and persistence across logout/login
+    $runnerBar = new \Dimx\ActionsRunner($world, $barRoom, $pOnInWorld, null);
+    $runnerBar->run('PlayBackground "reggaeton.mp3", true');
+
+    assertTest(
+        $barRoom->backgroundMusic === 'https://www.dimensionex.net/pics/reggaeton.mp3' &&
+        $barRoom->backgroundMusicLoop === true,
+        "PlayBackground with loop=true updates room->backgroundMusicLoop to true"
+    );
+    // Drain the immediate one-time player notification and save the world to simulate logout/re-login
+    $pOnInWorld->drainBackgroundSound();
+    $pm->saveWorld($world);
+
+    // Simulate a fresh scene render after logging back in (no new PlayBackground triggered, $pOnInWorld->backgroundSound is null)
+    $reloadedWorld = $pm->loadWorld($sec45WorldId);
+    $reloadedBar = $reloadedWorld->getRoom('bar');
+    $reloadedPOn = $reloadedWorld->getPlayer($pSoundOn->id);
+
+    ob_start();
+    $uiSoundOn->render([
+        'world'    => $reloadedWorld,
+        'player'   => $reloadedPOn,
+        'room'     => $reloadedBar,
+        'messages' => [],
+        'chat'     => [],
+    ]);
+    $htmlReloadedBar = (string)ob_get_clean();
+
+    assertTest(
+        $reloadedBar->backgroundMusic === 'https://www.dimensionex.net/pics/reggaeton.mp3' &&
+        $reloadedBar->backgroundMusicLoop === true &&
+        str_contains($htmlReloadedBar, 'reggaeton.mp3') &&
+        str_contains($htmlReloadedBar, ', true);'),
+        "Room backgroundMusic and loop flag persist on the room across save/reload (logout/login) and trigger playBackgroundMusic(..., true) on scene render without re-running PlayBackground"
+    );
+
+    // 11. Test PlayBackground $WORLD and independence of #sndplayer (PlaySound) + #bgplayer (PlayBackground)
+    $runnerWorldBg = new \Dimx\ActionsRunner($reloadedWorld, $reloadedWorld, $reloadedPOn, null);
+    $runnerWorldBg->run('PlayBackground $WORLD, "sndMimovie.mp3", true');
+    $runnerWorldBg->run('PlaySound $WORLD, "splash.wav"');
+
+    $reloadedPOff = $reloadedWorld->getPlayer($pSoundOff->id); // sounds=false, music=true in spiaggia2 (no room bgMusic)
+    $reloadedPOther = $reloadedWorld->getPlayer($pOther->id); // sounds=true, music=false in parco
+
+    ob_start();
+    $uiSoundOff->render([
+        'world'    => $reloadedWorld,
+        'player'   => $reloadedPOff,
+        'room'     => $reloadedPOff->getRoom(),
+        'messages' => [],
+        'chat'     => [],
+    ]);
+    $htmlWorldBgOff = (string)ob_get_clean();
+
+    ob_start();
+    $uiOther->render([
+        'world'    => $reloadedWorld,
+        'player'   => $reloadedPOther,
+        'room'     => $reloadedPOther->getRoom(),
+        'messages' => [],
+        'chat'     => [],
+    ]);
+    $htmlWorldBgOther = (string)ob_get_clean();
+
+    assertTest(
+        $reloadedWorld->backgroundMusic === 'https://www.dimensionex.net/pics/sndMimovie.mp3' &&
+        $reloadedWorld->backgroundMusicLoop === true &&
+        !str_contains($htmlWorldBgOff, '<audio id="sndplayer"') &&
+        str_contains($htmlWorldBgOff, '<audio id="bgplayer"') &&
+        str_contains($htmlWorldBgOff, 'sndMimovie.mp3'),
+        "PlayerSoundOff (sounds=false, music=true) in a room without room music receives \$WORLD background music ('sndMimovie.mp3') on #bgplayer and no #sndplayer"
+    );
+
+    assertTest(
+        str_contains($htmlWorldBgOther, '<audio id="sndplayer"') &&
+        str_contains($htmlWorldBgOther, 'splash.wav') &&
+        !str_contains($htmlWorldBgOther, '<audio id="bgplayer"') &&
+        !str_contains($htmlWorldBgOther, 'playBackgroundMusic("') &&
+        true,
+        "PlayerOtherRoom (sounds=true, music=false) receives PlaySound ('splash.wav') on #sndplayer and no #bgplayer / playBackgroundMusic call"
+    );
+
     @$pm->resetWorld($sec45WorldId);
 }
 

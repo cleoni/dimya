@@ -106,6 +106,7 @@ class Character extends AdvObject
                 }
                 if ($this->world !== null) {
                     $this->world->fireEvent('onEnter', $vehicle, $this, $destRoom);
+                    $this->world->fireEvent('onReceive', $destRoom, $this, $vehicle);
                 }
             }
             return $moved;
@@ -140,6 +141,7 @@ class Character extends AdvObject
             }
             if ($this->world !== null) {
                 $this->world->fireEvent('onEnter', $this, $this, $destRoom);
+                $this->world->fireEvent('onReceive', $destRoom, $this, $this);
             }
         }
 
@@ -635,6 +637,7 @@ class Character extends AdvObject
         if ($this->move($destRoom)) {
             if ($this->world !== null) {
                 $this->world->fireEvent('onEnter', $this, $this, $destRoom);
+                $this->world->fireEvent('onReceive', $destRoom, $this, $this);
                 $this->world->fireEvent('onLoose', $vehicle, $this, $this);
             }
             $vehDesc = (stripos($vehicle->name, 'the ') === 0 || stripos($vehicle->name, 'a ') === 0) ? $vehicle->name : "the {$vehicle->name}";

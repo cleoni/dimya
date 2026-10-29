@@ -241,11 +241,13 @@ class ActionsRunner
             'DISPLAY',
             'PRINT'      => $this->actDisplay($args),
             'PRINTRIGHT' => $this->actDisplay($args, true),
-            'CALL'           => $this->actCall($args, $argString),
-            'BROADCAST'      => $this->actBroadcast($args),
-            'PLAYSOUND'      => $this->actPlaySound($args),
-            'BROADCASTSOUND' => $this->actBroadcastSound($args),
-            'MOVE'           => $this->actMove($args),
+            'CALL'                => $this->actCall($args, $argString),
+            'BROADCAST'           => $this->actBroadcast($args),
+            'PLAYSOUND'           => $this->actPlaySound($args),
+            'BROADCASTSOUND'      => $this->actBroadcastSound($args),
+            'PLAYBACKGROUND'      => $this->actPlayBackground($args),
+            'BROADCASTBACKGROUND' => $this->actBroadcastBackground($args),
+            'MOVE'                => $this->actMove($args),
             'GOAL'       => $this->actGoal($args),
             'RETURN'     => $this->actReturn($args),
             'OPEN'       => $this->actOpen($args),
@@ -740,6 +742,119 @@ class ActionsRunner
     }
 
     /**
+     * PlayBackground [destination,] soundFile [, loop]
+     * Plays background music and stores it as a property of the target Room/PeopleContainer or $WORLD.
+     *
+     * - If destination is omitted, defaults to the active Room/PeopleContainer ($OWNER if PeopleContainer,
+     *   or $AGENT's current room) and notifies the player(s).
+     * - If destination is a Room / PeopleContainer, sets backgroundMusic on that container and plays for occupants.
+     * - If destination is $WORLD, sets backgroundMusic on $WORLD and plays for all connected players.
+     * - If destination is a Player, plays for that player (and sets on their current room if any).
+     */
+    protected function actPlayBackground(array $args): bool
+    {
+        if (empty($args)) {
+            return false;
+        }
+
+        $destObj  = null;
+        $rawSound = '';
+        $rawLoop  = null;
+
+        if (count($args) === 1) {
+            $rawSound = (string)$args[0];
+        } else {
+            $p0 = trim((string)$args[0]);
+            $candidate = $this->resolveObject($p0);
+            if ($candidate === null) {
+                $evalDest = $this->evalValue($p0);
+                if ($evalDest instanceof DimxObject) {
+                    $candidate = $evalDest;
+                } elseif (is_string($evalDest) && $evalDest !== '' && $evalDest !== $p0) {
+                    $candidate = $this->world->getObjectExt($evalDest);
+                }
+            }
+
+            if ($candidate !== null) {
+                $destObj  = $candidate;
+                $rawSound = (string)$args[1];
+                $rawLoop  = $args[2] ?? null;
+            } else {
+                // Compact 2-arg form: PlayBackground soundFile, loop
+                $rawSound = (string)$args[0];
+                $rawLoop  = $args[1];
+            }
+        }
+
+        $evalSound = $this->evalValue($rawSound);
+        $soundFile = ($evalSound !== null && $evalSound !== '') ? (string)$evalSound : $rawSound;
+        if ((str_starts_with($soundFile, '"') && str_ends_with($soundFile, '"')) ||
+            (str_starts_with($soundFile, "'") && str_ends_with($soundFile, "'"))) {
+            $soundFile = substr($soundFile, 1, -1);
+        }
+        $soundFile = trim($soundFile);
+
+        $loop = false;
+        if ($rawLoop !== null) {
+            $evalLoop = $this->evalCondition((string)$rawLoop);
+            $loop = !empty($evalLoop) && strtolower((string)$evalLoop) !== 'false' && (string)$evalLoop !== '0';
+        }
+
+        if ($destObj !== null) {
+            if ($destObj instanceof Player && $destObj->getRoom() instanceof PeopleContainer) {
+                $destObj->getRoom()->playBackground($soundFile, $loop);
+            }
+            return $destObj->playBackground($soundFile, $loop);
+        }
+
+        // Default destination when omitted: set on the room ($OWNER if PeopleContainer, else $AGENT's room)
+        $targetContainer = ($this->owner instanceof PeopleContainer)
+            ? $this->owner
+            : (($this->agent instanceof Character) ? $this->agent->getRoom() : null);
+
+        if ($targetContainer instanceof PeopleContainer) {
+            $targetContainer->playBackground($soundFile, $loop);
+            if ($this->agent instanceof Player) {
+                $this->agent->playBackground($soundFile, $loop);
+            }
+            return true;
+        }
+
+        if ($this->agent instanceof DimxObject) {
+            return $this->agent->playBackground($soundFile, $loop);
+        }
+
+        return $this->world->playBackground($soundFile, $loop);
+    }
+
+    /**
+     * BroadcastBackground soundFile [, loop]
+     * Plays background music across the entire world and stores it on $WORLD.
+     */
+    protected function actBroadcastBackground(array $args): bool
+    {
+        if (empty($args)) {
+            return false;
+        }
+        $rawSound  = (string)$args[0];
+        $evalSound = $this->evalValue($rawSound);
+        $soundFile = ($evalSound !== null && $evalSound !== '') ? (string)$evalSound : $rawSound;
+        if ((str_starts_with($soundFile, '"') && str_ends_with($soundFile, '"')) ||
+            (str_starts_with($soundFile, "'") && str_ends_with($soundFile, "'"))) {
+            $soundFile = substr($soundFile, 1, -1);
+        }
+        $soundFile = trim($soundFile);
+
+        $loop = false;
+        if (isset($args[1])) {
+            $evalLoop = $this->evalCondition((string)$args[1]);
+            $loop = !empty($evalLoop) && strtolower((string)$evalLoop) !== 'false' && (string)$evalLoop !== '0';
+        }
+
+        return $this->world->playBackground($soundFile, $loop);
+    }
+
+    /**
      * Move what, where
      */
     protected function actMove(array $args): bool
@@ -751,8 +866,13 @@ class ActionsRunner
         $whatObj = $this->resolveObject((string)$args[0]);
         $whereObj = $this->resolveObject((string)$args[1]);
 
-        if ($whatObj instanceof AdvObject && $whereObj !== null) {
-            return $whatObj->move($whereObj);
+        if ($whatObj instanceof AdvObject && $whereObj instanceof AdvObject) {
+            $moved = $whatObj->move($whereObj);
+            if ($moved && $this->world !== null && ($whatObj instanceof Character || $whatObj->isVehicle())) {
+                $this->world->fireEvent('onEnter', $whatObj, $this->agent ?? $whatObj, $whereObj);
+                $this->world->fireEvent('onReceive', $whereObj, $this->agent ?? $whatObj, $whatObj);
+            }
+            return $moved;
         }
 
         return false;

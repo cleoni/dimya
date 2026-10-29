@@ -218,6 +218,31 @@ class UIhtml extends UI
             $player->drainNewMessages();
         }
 
+        // Background Music resolution (only for players who enabled Music at login)
+        $musicEnabled = !empty($player->music) || !empty($player->musicSupport);
+        $pendingBg    = $context['background_music'] ?? $player->drainBackgroundSound();
+        $bgMusic      = null;
+        $bgTriggered  = false;
+        if (is_array($pendingBg) && !empty($pendingBg['src'])) {
+            $bgTriggered = true;
+        }
+        if ($musicEnabled) {
+            if (is_array($pendingBg) && !empty($pendingBg['src'])) {
+                $bgMusic = [
+                    'src'  => $world->resolveSoundUrl((string)$pendingBg['src']),
+                    'loop' => !empty($pendingBg['loop']),
+                ];
+            } elseif ($activeContainer !== null && ($contBg = $activeContainer->getBackgroundMusic()) !== null) {
+                $bgMusic = $contBg;
+            } elseif ($currentRoom !== null && $currentRoom !== $activeContainer && ($roomBg = $currentRoom->getBackgroundMusic()) !== null) {
+                $bgMusic = $roomBg;
+            } elseif (($worldBg = $world->getBackgroundMusic()) !== null) {
+                $bgMusic = $worldBg;
+            }
+        } else {
+            $player->drainBackgroundSound();
+        }
+
         // Portrait / vertical display detection (width < height at login or client)
         $isPortrait   = !empty($player->isPortrait) || ($player->screenWidth > 0 && $player->screenHeight > 0 && $player->screenWidth < $player->screenHeight);
 
@@ -825,6 +850,7 @@ class UIhtml extends UI
                   <?php if ($lockError): ?><span style="color:#f87171;font-size:11px">⚠ Lock busy</span><?php endif; ?>
                 </div>
 
+                <div id="dimx-scene-meta" style="display:none" data-panel-id="<?= htmlspecialchars($activePanel?->id ?? 'default') ?>" data-sound-url="<?= htmlspecialchars($soundUrl ?? '') ?>" data-bg-src="<?= htmlspecialchars($bgMusic['src'] ?? '') ?>" data-bg-loop="<?= !empty($bgMusic['loop']) ? '1' : '0' ?>" data-bg-triggered="<?= $bgTriggered ? '1' : '0' ?>"></div>
                 <!-- Inner row split into Subcell D (left) and Subcell E (right) -->
                 <div class="dimx-inner-row">
 
@@ -1499,7 +1525,7 @@ class UIhtml extends UI
               <div id="ctrls" style="<?= $ctrlsStyle ?>">
                 <?php $activePanel = $player->getPanel() ?? $world->defaultPanel; ?>
                 <div id="cmdPrompt" class="dimx-cmd-prompt" title="Click to cancel pending command" onclick="clearPendingCmd()"></div>
-                <form id="cmdForm" method="POST" action="multiplayer.php" style="margin:0">
+                <form id="cmdForm" data-panel-id="<?= htmlspecialchars($activePanel?->id ?? 'default') ?>" method="POST" action="multiplayer.php" style="margin:0" onsubmit="return handleFormSubmit(event)">
                   <input type="hidden" name="cmd"    id="cmdInput"    value="look" />
                   <input type="hidden" name="param"  id="paramInput"  value="" />
                   <input type="hidden" name="target" id="targetInput" value="" />
@@ -1508,6 +1534,9 @@ class UIhtml extends UI
                   <?php endif; ?>
                   <?= $activePanel?->toHtml($skin) ?>
                 </form>
+                <?php if ($musicEnabled): ?>
+                  <audio id="bgplayer" hidden style="display:none"></audio>
+                <?php endif; ?>
               </div>
 
             </div>
@@ -1535,6 +1564,9 @@ class UIhtml extends UI
                 </div>
                 <?php if ($soundsEnabled && !empty($soundUrl)): ?>
                   <audio id="sndplayer" src="<?= htmlspecialchars($soundUrl) ?>" autoplay hidden style="display:none"><source src="<?= htmlspecialchars($soundUrl) ?>" type="audio/wav"></audio>
+                <?php endif; ?>
+                <?php if ($musicEnabled): ?>
+                  <!-- bgplayer moved to #ctrls -->
                 <?php endif; ?>
               </div>
             </div>
@@ -1922,7 +1954,143 @@ class UIhtml extends UI
               document.getElementById('cmdInput').value   = cmd;
               document.getElementById('paramInput').value  = param;
               document.getElementById('targetInput').value = target;
-              document.getElementById('cmdForm').submit();
+              // Full page navigation for logout/disconnect
+              if (cmd === 'logout') {
+                document.getElementById('cmdForm').submit();
+                return;
+              }
+
+              // Clear speech input box after submitting 'say'
+              if (cmd === 'say') {
+                const tb = document.getElementById('txtBox');
+                if (tb) tb.value = '';
+              }
+
+              // Asynchronous submission with selective refresh of #scene, #ctrls, and #msgs
+              if (typeof window.fetch === 'function' && typeof window.DOMParser === 'function') {
+                const body = new URLSearchParams();
+                body.set('cmd', cmd);
+                body.set('param', param);
+                body.set('target', target);
+
+                fetch('multiplayer.php', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                  body: body.toString(),
+                  credentials: 'same-origin'
+                })
+                .then(function(res) { return res.text(); })
+                .then(function(html) {
+                  refreshAreas(html);
+                })
+                .catch(function() {
+                  document.getElementById('cmdForm').submit();
+                });
+              } else {
+                document.getElementById('cmdForm').submit();
+              }
+            }
+
+            function handleFormSubmit(e) {
+              if (e && typeof e.preventDefault === 'function') {
+                e.preventDefault();
+              }
+              const cmd    = document.getElementById('cmdInput')?.value || 'look';
+              const param  = document.getElementById('paramInput')?.value || '';
+              const target = document.getElementById('targetInput')?.value || '';
+              submitCmd(cmd, param, target);
+              return false;
+            }
+
+            /**
+             * Selective UI area refresher operating on #scene, #ctrls, and #msgs.
+             * Replaces only the areas that need refreshing while keeping #bgplayer inside #ctrls intact.
+             */
+            function refreshAreas(html, areas = { scene: true, ctrls: true, msgs: true }) {
+              const doc = new DOMParser().parseFromString(html, 'text/html');
+              const newScene = doc.getElementById('scene');
+              if (!newScene) {
+                // Full screen replacement (e.g., logout or session expired login page)
+                document.open();
+                document.write(html);
+                document.close();
+                return;
+              }
+
+              // 1. Refresh #scene (title bar, #display, #consoleBox, #dashboard)
+              if (areas.scene !== false) {
+                const curScene = document.getElementById('scene');
+                if (curScene) {
+                  curScene.innerHTML = newScene.innerHTML;
+                  const cBox = document.getElementById('consoleBox');
+                  if (cBox) cBox.scrollTop = cBox.scrollHeight;
+                }
+              }
+
+              // 2. Selectively refresh #ctrls (#cmdForm only when panel changes, keeping #bgplayer untouched)
+              if (areas.ctrls !== false) {
+                const newForm = doc.getElementById('cmdForm');
+                const curForm = document.getElementById('cmdForm');
+                if (curForm && newForm) {
+                  const curPanelId = curForm.getAttribute('data-panel-id') || '';
+                  const newPanelId = newForm.getAttribute('data-panel-id') || '';
+                  const curPanelEl = curForm.querySelector('.dimx-panel');
+                  const newPanelEl = newForm.querySelector('.dimx-panel');
+                  if (curPanelId !== newPanelId || (curPanelEl && newPanelEl && curPanelEl.innerHTML !== newPanelEl.innerHTML)) {
+                    curForm.setAttribute('data-panel-id', newPanelId);
+                    curForm.innerHTML = newForm.innerHTML;
+                  }
+                }
+              }
+
+              // 3. Selectively sync #msgs / #chatBox
+              if (areas.msgs !== false) {
+                const newChatBox = doc.getElementById('chatBox');
+                const curChatBox = document.getElementById('chatBox');
+                if (curChatBox && newChatBox) {
+                  let appended = false;
+                  const serverIds = new Set();
+                  newChatBox.querySelectorAll('.chat-line').forEach(function(line) {
+                    const lineId = line.id;
+                    if (lineId) {
+                      serverIds.add(lineId);
+                      if (!document.getElementById(lineId)) {
+                        curChatBox.appendChild(line.cloneNode(true));
+                        appended = true;
+                        const numId = parseInt(lineId.replace(/^msg_/, ''), 10);
+                        if (!isNaN(numId) && typeof lastMsgId !== 'undefined' && numId > lastMsgId) {
+                          lastMsgId = numId;
+                        }
+                      }
+                    }
+                  });
+                  curChatBox.querySelectorAll('.chat-line').forEach(function(line) {
+                    if (line.id && !serverIds.has(line.id)) {
+                      line.remove();
+                    }
+                  });
+                  if (appended) {
+                    const mBox = document.getElementById('msgs');
+                    if (mBox) mBox.scrollTop = mBox.scrollHeight;
+                  }
+                }
+              }
+
+              // 4. Execute backend audio/music orders from #dimx-scene-meta
+              const meta = document.getElementById('dimx-scene-meta');
+              if (meta) {
+                const soundUrl    = meta.getAttribute('data-sound-url') || '';
+                const bgSrc       = meta.getAttribute('data-bg-src') || '';
+                const bgLoop      = meta.getAttribute('data-bg-loop') === '1';
+                const bgTriggered = meta.getAttribute('data-bg-triggered') === '1';
+
+                if (soundUrl) {
+                  playOneShotSound(soundUrl);
+                }
+                if (bgSrc) {
+                  playBackgroundMusic(bgSrc, bgLoop, bgTriggered);
+                }
+              }
             }
 
             // Global window exports
@@ -1931,16 +2099,19 @@ class UIhtml extends UI
             window.handleCommand   = handleCommand;
             window.sendCmd         = sendCmd;
             window.submitCmd       = submitCmd;
-            window.clearPendingCmd = clearPendingCmd;
+            window.clearPendingCmd  = clearPendingCmd;
+            window.refreshAreas     = refreshAreas;
+            window.handleFormSubmit = handleFormSubmit;
 
             // Auto-scroll console
             const cBox = document.getElementById('consoleBox');
             if (cBox) cBox.scrollTop = cBox.scrollHeight;
 
-            // ---- Async chat ----
+            // ---- Async chat & Audio/Music players ----
             const WORLD_ID       = <?= json_encode($worldId) ?>;
             const PLAYER_NAME    = <?= json_encode($playerName) ?>;
             const SOUNDS_ENABLED = <?= $soundsEnabled ? 'true' : 'false' ?>;
+            const MUSIC_ENABLED  = <?= $musicEnabled ? 'true' : 'false' ?>;
             const SND_NEW_MSG    = <?= json_encode($skin->sndNewmsg ?? '') ?>;
 
             function playOneShotSound(url) {
@@ -1956,6 +2127,33 @@ class UIhtml extends UI
               audio.src = url;
               audio.play().catch(function() {});
             }
+
+            function playBackgroundMusic(src, loop = false, forceRestart = false) {
+              if (!MUSIC_ENABLED || !src) return;
+              const $bg = $('#bgplayer');
+              const player = $bg.length ? $bg[0] : document.getElementById('bgplayer');
+              if (!player) return;
+              player.loop = !!loop;
+              const currentSrc = player.getAttribute('src') || '';
+              if (currentSrc === src && !forceRestart) {
+                return;
+              }
+              if (currentSrc !== src) {
+                $bg.attr('src', src);
+              } else {
+                try { player.currentTime = 0; } catch (e) {}
+              }
+              const playPromise = player.play();
+              if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(function() {});
+              }
+            }
+            window.playBackgroundMusic = playBackgroundMusic;
+            <?php if ($musicEnabled && $bgMusic !== null && !empty($bgMusic['src'])): ?>
+            $(function() {
+              playBackgroundMusic(<?= json_encode($bgMusic['src']) ?>, <?= !empty($bgMusic['loop']) ? 'true' : 'false' ?>);
+            });
+            <?php endif; ?>
             <?php
             $initialChat = $context['chat'] ?? [];
             $initLastId = (int)($player->spawnMessageId ?? 0);

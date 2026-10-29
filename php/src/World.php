@@ -481,6 +481,26 @@ class World extends DimxObject
     }
 
     /**
+     * Sets the background music property on the world and broadcasts it to all connected players.
+     */
+    public function playBackground(string $soundfile, bool $loop = false): bool
+    {
+        $soundfile = trim($soundfile);
+        $resolved  = ($soundfile !== '') ? $this->resolveSoundUrl($soundfile) : '';
+
+        $this->backgroundMusic = ($resolved !== '') ? $resolved : null;
+        $this->backgroundMusicLoop = $loop;
+        $this->setProperty('backgroundMusic', $this->backgroundMusic);
+        $this->setProperty('backgroundMusicLoop', $loop);
+
+        $this->logDebug("Playing background sound '{$soundfile}' (loop=" . ($loop ? 'true' : 'false') . ") in world {$this->id}");
+        foreach ($this->players as $player) {
+            $player->playBackground($soundfile, $loop);
+        }
+        return true;
+    }
+
+    /**
      * Resolve a sound filename against the world's IMAGESFOLDER.
      */
     public function resolveSoundUrl(string $soundfile): string

@@ -15,6 +15,12 @@ class DimxObject extends ManageableObject
     public string $name = '';
     public ?World $world = null;
 
+    /** @var string|null Background music URL associated with this object (Room/World) */
+    public ?string $backgroundMusic = null;
+
+    /** @var bool Whether background music on this object should loop */
+    public bool $backgroundMusicLoop = false;
+
     /** @var array<string, AdvObject> Contained objects indexed by their unique ID */
     public array $contents = [];
 
@@ -55,6 +61,33 @@ class DimxObject extends ManageableObject
     public function playSound(string $soundfile): bool
     {
         return false;
+    }
+
+    /**
+     * Play or set background music on this entity (World, PeopleContainer/Room, or Player).
+     * Default returns false unless overridden.
+     */
+    public function playBackground(string $soundfile, bool $loop = false): bool
+    {
+        return false;
+    }
+
+    /**
+     * Retrieve the background music configuration (['src' => string, 'loop' => bool]) if set on this object.
+     * @return array{src: string, loop: bool}|null
+     */
+    public function getBackgroundMusic(): ?array
+    {
+        $src = $this->backgroundMusic ?? $this->getProperty('backgroundMusic');
+        if (!is_string($src) || trim($src) === '') {
+            return null;
+        }
+        $loopVal = $this->backgroundMusicLoop || !empty($this->getProperty('backgroundMusicLoop'));
+        $resolved = ($this->world !== null) ? $this->world->resolveSoundUrl($src) : trim($src);
+        return [
+            'src'  => $resolved,
+            'loop' => (bool)$loopVal,
+        ];
     }
 
     /**

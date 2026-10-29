@@ -38,6 +38,12 @@ class Player extends Character
     /** @var string|null Pending one-shot sound FX URL for next UIhtml render */
     public ?string $sound = null;
 
+    /** @var string|null Pending background music URL for next UIhtml render */
+    public ?string $backgroundSound = null;
+
+    /** @var bool Whether pending background music should loop */
+    public bool $backgroundSoundLoop = false;
+
     /** @var bool Whether a new incoming chat message arrived since last render */
     public bool $newMessages = false;
 
@@ -188,6 +194,46 @@ class Player extends Character
         $s = $this->sound;
         $this->sound = null;
         return $s;
+    }
+
+    /**
+     * Queue background music for this player if Music is enabled.
+     * The sound filename is resolved relative to the World's IMAGESFOLDER.
+     */
+    public function playBackground(string $soundfile, bool $loop = false): bool
+    {
+        if (!$this->music && !$this->musicSupport) {
+            return false;
+        }
+        $soundfile = trim($soundfile);
+        if ($soundfile === '') {
+            $this->backgroundSound = null;
+            $this->backgroundSoundLoop = false;
+            return false;
+        }
+        $this->backgroundSound = ($this->world !== null)
+            ? $this->world->resolveSoundUrl($soundfile)
+            : $soundfile;
+        $this->backgroundSoundLoop = $loop;
+        return true;
+    }
+
+    /**
+     * Read and clear any pending background music command for this player.
+     * @return array{src: string, loop: bool}|null
+     */
+    public function drainBackgroundSound(): ?array
+    {
+        if ($this->backgroundSound === null || $this->backgroundSound === '') {
+            return null;
+        }
+        $res = [
+            'src'  => $this->backgroundSound,
+            'loop' => $this->backgroundSoundLoop,
+        ];
+        $this->backgroundSound = null;
+        $this->backgroundSoundLoop = false;
+        return $res;
     }
 
     /**

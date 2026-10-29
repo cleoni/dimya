@@ -66,6 +66,33 @@ class PeopleContainer extends AdvObject
     }
 
     /**
+     * Sets the background music property on this container/room and broadcasts it to all players inside.
+     */
+    public function playBackground(string $soundfile, bool $loop = false): bool
+    {
+        $soundfile = trim($soundfile);
+        $resolved  = ($soundfile !== '' && $this->world !== null)
+            ? $this->world->resolveSoundUrl($soundfile)
+            : $soundfile;
+
+        $this->backgroundMusic = ($resolved !== '') ? $resolved : null;
+        $this->backgroundMusicLoop = $loop;
+        $this->setProperty('backgroundMusic', $this->backgroundMusic);
+        $this->setProperty('backgroundMusicLoop', $loop);
+
+        if ($this->world !== null) {
+            $this->world->logDebug("Setting background sound '{$soundfile}' (loop=" . ($loop ? 'true' : 'false') . ") in container {$this->id}");
+        }
+
+        foreach ($this->contents as $obj) {
+            if ($obj instanceof Character) {
+                $obj->playBackground($soundfile, $loop);
+            }
+        }
+        return true;
+    }
+
+    /**
      * Retrieve current UI panel.
      */
     public function getPanel(): ?Panel
