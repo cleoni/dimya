@@ -55,4 +55,4 @@ php -S localhost:8000
 
 - **Game Client**: `http://localhost:8000/` or `http://localhost:8000/multiplayer.php`
 - **Maintenance Console**: `http://localhost:8000/maint.php`
-- **Configuration**: [`php/config.php`](php/config.php) (template in [`php/config.sample.php`](php/config.sample.php) — configures `db`, `adminPasswd`, `world_file`, `tickLength` [default `30`s], `msgRefreshRate` [default `5`s for `#msgs` refresh in `UIhtml`], `base_url`, and `testBots`)
+- **Configuration**: [`php/config.php`](php/config.php) (template in [`php/config.sample.php`](php/config.sample.php) — configures `db`, `adminPasswd`, `serverType` [`'public'` default or `'local'`], `world_file`, `tickLength` [default `30`s], `msgRefreshRate` [default `5`s for `#msgs` refresh in `UIhtml`], `base_url`, and `testBots`)

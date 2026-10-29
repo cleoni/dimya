@@ -9,7 +9,7 @@
 
 | Feature | DimY status |
 |---|---|
-| `WORLD`: `NAME`, `IMAGESFOLDER`, `IMAGESFOLDER_LOCAL/PUBLIC`, `VERSION`, `BGCOLOR` | Implemented (`IMAGESFOLDER_LOCAL/PUBLIC` only as fallback when `IMAGESFOLDER` is absent; no `serverType` switch) |
+| `WORLD`: `NAME`, `IMAGESFOLDER`, `IMAGESFOLDER_LOCAL/PUBLIC`, `VERSION`, `BGCOLOR` | Implemented (`IMAGESFOLDER_LOCAL` and `IMAGESFOLDER_PUBLIC` selected according to `GameEngine::$serverType` / `config.php` `'serverType'`) |
 | `WORLD`: `ENCODING`, `AUTHOR`, `AUTHOREMAIL`, `SITE`, `HELP`, `COUNTERHTML`, `SAVEGAME_PERSISTENCE`, `MUTING` | Not parsed (silently ignored) |
 | `WORLD`: `INTERPHONE` | Not parsed (the `World::$interphone` property exists but keeps its default `1`) |
 | `WORLD`: `CLUSTER` | Dropped in DimY |
@@ -164,8 +164,8 @@ END_WORLD
 |---|---|---|---|
 | `NAME` | String | *Required* | Title of the world and default identifier. |
 | `IMAGESFOLDER` | URL | (none) | Base URL for images and sounds. Must end with a trailing forward slash `/`. Never use Windows backslashes `\`. |
-| `IMAGESFOLDER_LOCAL` | URL | (none) | Asset path prioritized when running in local development mode (`serverType=local`). **[DimY: partial - no `serverType` switch; used only as fallback when `IMAGESFOLDER` is not set]** |
-| `IMAGESFOLDER_PUBLIC` | URL | (none) | Asset path prioritized when deployed to production (`serverType=public`). **[DimY: partial - no `serverType` switch; used only as fallback when `IMAGESFOLDER` is not set]** |
+| `IMAGESFOLDER_LOCAL` | URL | (none) | Asset path prioritized when running in local development mode (`serverType = 'local'` in `config.php` / `GameEngine::$serverType`). |
+| `IMAGESFOLDER_PUBLIC` | URL | (none) | Asset path prioritized when deployed to production (`serverType = 'public'` in `config.php` / `GameEngine::$serverType`, default). |
 | `ENCODING` | Keyword | `UTF-8` | Source file character encoding (`UTF-8` or `ANSI`). **[DimY: parsed but ignored - encoding is auto-detected: non-UTF-8 input is converted from ISO-8859-1/Windows-1252]** |
 | `VERSION` | String | `1.0` | World script version (independent of engine version). |
 | `AUTHOR` | String | `""` | Creator name or organization. **[DimX only - not yet implemented in DimY]** (not parsed) |

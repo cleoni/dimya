@@ -12,24 +12,28 @@ namespace Dimx;
 class DxwLoader
 {
     protected ?string $baseUrl = null;
+    protected string $serverType = 'public';
     protected ?string $sourcePath = null;
 
-    public function __construct(?string $baseUrl = null)
+    public function __construct(?string $baseUrl = null, string $serverType = 'public')
     {
         $this->baseUrl = $baseUrl ? rtrim($baseUrl, '/') : null;
+        $st = strtolower(trim($serverType));
+        $this->serverType = ($st === 'local') ? 'local' : 'public';
     }
 
     /**
      * Load and parse a .DXW file into a World object.
      *
-     * @param string $source File path or HTTP(S) URL
+     * @param string      $source     File path or HTTP(S) URL
+     * @param string|null $serverType Optional override ('public' or 'local')
      * @return World
      * @throws \RuntimeException
      */
-    public function load(string $source): World
+    public function load(string $source, ?string $serverType = null): World
     {
         $content = $this->fetchContent($source);
-        return $this->parse($content, $source);
+        return $this->parse($content, $source, $serverType);
     }
 
     /**
@@ -69,8 +73,15 @@ class DxwLoader
     /**
      * Parse raw DXW string into a World object.
      */
-    public function parse(string $rawContent, string $sourceName = ''): World
+    public function parse(string $rawContent, string $sourceName = '', ?string $serverType = null): World
     {
+        $activeServerType = $this->serverType;
+        if ($serverType !== null && trim($serverType) !== '') {
+            $st = strtolower(trim($serverType));
+            if ($st === 'public' || $st === 'local') {
+                $activeServerType = $st;
+            }
+        }
         // Ensure content is normalized to UTF-8
         if (!mb_check_encoding($rawContent, 'UTF-8')) {
             $rawContent = mb_convert_encoding($rawContent, 'UTF-8', 'ISO-8859-1, Windows-1252, UTF-8');
@@ -148,7 +159,7 @@ class DxwLoader
         $world = new World('world_' . md5($sourceName), 'DimensioneX World');
         $this->sourcePath = $sourceName;
         $imagesFolder = '';
-        $hasExplicitImagesFolder = false;
+        $hasTypeSpecificImagesFolder = false;
         $currentSection = 'WORLD';
 
         $total = count($cleanLines);
@@ -252,18 +263,26 @@ class DxwLoader
                     if ($directive === 'NAME') {
                         $world->name = trim(substr($line, strlen($tokens[0])));
                     } elseif ($directive === 'IMAGESFOLDER') {
-                        $imagesFolder = trim(substr($line, strlen($tokens[0])));
-                        $world->imagesFolder = $imagesFolder;
-                        $hasExplicitImagesFolder = true;
-                    } elseif ($directive === 'IMAGESFOLDER_PUBLIC') {
-                        if (!$hasExplicitImagesFolder) {
-                            $imagesFolder = trim(substr($line, strlen($tokens[0])));
+                        $val = trim(substr($line, strlen($tokens[0])));
+                        if (!$hasTypeSpecificImagesFolder) {
+                            $imagesFolder = $val;
                             $world->imagesFolder = $imagesFolder;
                         }
-                    } elseif ($directive === 'IMAGESFOLDER_LOCAL') {
-                        if (empty($imagesFolder)) {
-                            $imagesFolder = trim(substr($line, strlen($tokens[0])));
+                    } elseif ($directive === 'IMAGESFOLDER_PUBLIC') {
+                        $val = trim(substr($line, strlen($tokens[0])));
+                        $world->setProperty('imagesFolderPublic', $val);
+                        if ($activeServerType === 'public') {
+                            $imagesFolder = $val;
                             $world->imagesFolder = $imagesFolder;
+                            $hasTypeSpecificImagesFolder = true;
+                        }
+                    } elseif ($directive === 'IMAGESFOLDER_LOCAL') {
+                        $val = trim(substr($line, strlen($tokens[0])));
+                        $world->setProperty('imagesFolderLocal', $val);
+                        if ($activeServerType === 'local') {
+                            $imagesFolder = $val;
+                            $world->imagesFolder = $imagesFolder;
+                            $hasTypeSpecificImagesFolder = true;
                         }
                     } elseif ($directive === 'BGCOLOR') {
                         $world->bgcolor = trim(substr($line, strlen($tokens[0])));

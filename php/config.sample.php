@@ -32,6 +32,14 @@ return [
     'adminPasswd' => 'admin',
 
     // -------------------------------------------------------------------------
+    // Server Type ("public" or "local")
+    // -------------------------------------------------------------------------
+    // Determines whether the game engine runs in production ("public", default)
+    // or development ("local") mode. Maps to GameEngine::$serverType and selects
+    // between IMAGESFOLDER_PUBLIC and IMAGESFOLDER_LOCAL when loading a .dxw world.
+    'serverType' => 'public',
+
+    // -------------------------------------------------------------------------
     // World Definition File (.dxw)
     // -------------------------------------------------------------------------
     // The single authoritative world definition file for this installation.

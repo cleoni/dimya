@@ -2474,6 +2474,8 @@ if (shouldRun(31)) {
     assertTest($mainConfig['tickLength'] === 30, "config.php 'tickLength' defaults to 30: " . var_export($mainConfig['tickLength'], true));
     assertTest(isset($mainConfig['msgRefreshRate']), "config.php defines 'msgRefreshRate'");
     assertTest($mainConfig['msgRefreshRate'] === 5, "config.php 'msgRefreshRate' defaults to 5: " . var_export($mainConfig['msgRefreshRate'], true));
+    assertTest(isset($mainConfig['serverType']), "config.php defines 'serverType'");
+    assertTest($mainConfig['serverType'] === 'public', "config.php 'serverType' defaults to 'public': " . var_export($mainConfig['serverType'], true));
 
     // 2. Check config.sample.php setting
     $sampleConfigFile = __DIR__ . '/config.sample.php';
@@ -2483,6 +2485,37 @@ if (shouldRun(31)) {
     assertTest($sampleConfig['tickLength'] === 30, "config.sample.php 'tickLength' defaults to 30: " . var_export($sampleConfig['tickLength'], true));
     assertTest(isset($sampleConfig['msgRefreshRate']), "config.sample.php defines 'msgRefreshRate'");
     assertTest($sampleConfig['msgRefreshRate'] === 5, "config.sample.php 'msgRefreshRate' defaults to 5: " . var_export($sampleConfig['msgRefreshRate'], true));
+    assertTest(isset($sampleConfig['serverType']), "config.sample.php defines 'serverType'");
+    assertTest($sampleConfig['serverType'] === 'public', "config.sample.php 'serverType' defaults to 'public': " . var_export($sampleConfig['serverType'], true));
+
+    // 2c. Test GameEngine::$serverType & DxwLoader IMAGESFOLDER_PUBLIC vs IMAGESFOLDER_LOCAL
+    $engineDefaultType = new \Dimx\GameEngine($pm, 'servertype_default', null, '', []);
+    assertTest($engineDefaultType->serverType === 'public', "GameEngine::\$serverType defaults to 'public'");
+
+    $engineLocalType = new \Dimx\GameEngine($pm, 'servertype_local', null, '', ['serverType' => 'local']);
+    assertTest($engineLocalType->serverType === 'local', "GameEngine::\$serverType maps to 'local' when configured");
+
+    $dxwDualFolder = <<<'DXW'
+WORLD
+    NAME Dual Folder World
+    IMAGESFOLDER_LOCAL https://localhost:8080/dimx/pics/
+    IMAGESFOLDER_PUBLIC https://www.dimensionex.net/pics/
+ROOMS
+    ROOM r1
+        NAME Room 1
+        IMAGE test.jpg
+END_ROOMS
+END_WORLD
+DXW;
+    $loaderPublic = new \Dimx\DxwLoader('', 'public');
+    $wPublic = $loaderPublic->parse($dxwDualFolder, 'dual_pub.dxw');
+    assertTest($wPublic->imagesFolder === 'https://www.dimensionex.net/pics/', "DxwLoader with serverType='public' selects IMAGESFOLDER_PUBLIC ('{$wPublic->imagesFolder}')");
+    assertTest(($wPublic->getRoom('r1')?->images['N']?->src ?? '') === 'https://www.dimensionex.net/pics/test.jpg', "Room image resolved against IMAGESFOLDER_PUBLIC when serverType='public'");
+
+    $loaderLocal = new \Dimx\DxwLoader('', 'local');
+    $wLocal = $loaderLocal->parse($dxwDualFolder, 'dual_loc.dxw');
+    assertTest($wLocal->imagesFolder === 'https://localhost:8080/dimx/pics/', "DxwLoader with serverType='local' selects IMAGESFOLDER_LOCAL ('{$wLocal->imagesFolder}')");
+    assertTest(($wLocal->getRoom('r1')?->images['N']?->src ?? '') === 'https://localhost:8080/dimx/pics/test.jpg', "Room image resolved against IMAGESFOLDER_LOCAL when serverType='local'");
 
     // 2b. Test UIhtml refreshes #msgs every msgRefreshRate seconds (default 5s -> 5000ms, custom 8s -> 8000ms)
     $msgRateWorld = new \Dimx\World('msg_rate_world', 'Msg Rate World');

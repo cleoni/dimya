@@ -335,6 +335,7 @@ return [
         'pass'   => 'secret',
     ],
     'adminPasswd' => 'admin123',
+    'serverType'  => 'public',
     'world_file'  => __DIR__ . '/../docs/dxw-examples/world3net.dxw',
     'tickLength'  => 30,
     'msgRefreshRate' => 5,

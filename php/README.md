@@ -101,6 +101,7 @@ return [
         'pass'   => 'your_password',
     ],
     'adminPasswd'    => 'admin',
+    'serverType'     => 'public',
     'world_file'     => __DIR__ . '/../docs/dxw-examples/world1.dxw',
     'tickLength'     => 30,
     'msgRefreshRate' => 5,
@@ -115,6 +116,7 @@ return [
 | :--- | :--- | :--- |
 | `db` | `127.0.0.1:3306` | MySQL / MariaDB connection credentials (`host`, `port`, `dbname`, `user`, `pass`). Falls back to `php/data/` if unreachable. |
 | `adminPasswd` | `'admin'` | Password required for administrative operations in [`maint.php`](maint.php). |
+| `serverType` | `'public'` | Server environment mode (`'public'` for production or `'local'` for development). Maps to `GameEngine::$serverType` and selects `IMAGESFOLDER_PUBLIC` vs `IMAGESFOLDER_LOCAL` when loading `.dxw` files. |
 | `world_file` | `world1.dxw` | Authoritative `.dxw` world definition file (local path or HTTP/HTTPS URL). |
 | `tickLength` | `30` | World clock tick interval in seconds for global `onTick` and character `Living` events. |
 | `msgRefreshRate` | `5` | Refresh interval in seconds at which [`UIhtml`](src/UIhtml.php) polls [`chat.php`](chat.php) to refresh `#msgs`. |

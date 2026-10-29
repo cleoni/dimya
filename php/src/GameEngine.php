@@ -21,6 +21,7 @@ class GameEngine
     public ?\PDO $pdo = null;
     public ?WorldLock $lock = null;
     public array $config = [];
+    public string $serverType = 'public';
 
     /** Inactivity timeout for automatically disconnecting idle players (seconds) */
     public int $playerTimeout = 1800; // 30 minutes
@@ -42,6 +43,13 @@ class GameEngine
             $loadedConfig = @require __DIR__ . '/../config.php';
             if (is_array($loadedConfig)) {
                 $this->config = $loadedConfig;
+            }
+        }
+
+        if (isset($this->config['serverType']) && is_string($this->config['serverType'])) {
+            $st = strtolower(trim($this->config['serverType']));
+            if ($st === 'public' || $st === 'local') {
+                $this->serverType = $st;
             }
         }
 
@@ -87,7 +95,7 @@ class GameEngine
                     }
                 }
             }
-            $loader = new DxwLoader($this->baseUrl);
+            $loader = new DxwLoader($this->baseUrl, $this->serverType);
             try {
                 $world = $loader->load($resolvedFile);
             } catch (\Throwable $e) {
