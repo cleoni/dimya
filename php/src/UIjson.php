@@ -24,7 +24,7 @@ class UIjson extends UI
     /**
      * Render authentication required response.
      */
-    public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null): void
+    public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null, ?string $selectedSkin = null): void
     {
         $this->sendJson([
             'success' => false,

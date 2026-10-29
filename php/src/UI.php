@@ -75,7 +75,7 @@ abstract class UI
     /**
      * Render a login screen or authentication prompt.
      */
-    abstract public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null): void;
+    abstract public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null, ?string $selectedSkin = null): void;
 
     /**
      * Render an error message.
@@ -154,6 +154,7 @@ abstract class UI
         $cmd      = ($rawCmd !== null && trim((string)$rawCmd) !== '') ? strtolower(trim((string)$rawCmd)) : 'login';
         $param    = trim((string)($merged['param'] ?? $merged['direction'] ?? $merged['dir'] ?? $merged['value'] ?? $merged['msgid'] ?? $merged['arg0'] ?? $merged['arg1'] ?? $merged['item1'] ?? ''));
         $target   = trim((string)($merged['target'] ?? $merged['target_id'] ?? $merged['arg2'] ?? $merged['item2'] ?? $merged['target2'] ?? $merged['item'] ?? $merged['with'] ?? ''));
+        $skin     = trim((string)($merged['skin'] ?? ''));
         $reset    = isset($merged['reset']) && ($merged['reset'] === '1' || $merged['reset'] === 1 || $merged['reset'] === 'true' || $merged['reset'] === true);
 
         return [
@@ -162,6 +163,7 @@ abstract class UI
             'cmd'      => $cmd,
             'param'    => $param,
             'target'   => $target,
+            'skin'     => $skin,
             'reset'    => $reset,
         ];
     }

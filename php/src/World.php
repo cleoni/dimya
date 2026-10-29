@@ -98,6 +98,26 @@ class World extends DimxObject
         $this->defaultSkin = $defaultSkin;
     }
 
+    /**
+     * Retrieve a Skin instance from this world by its ID or Name (case-insensitive).
+     */
+    public function getSkin(?string $idOrName): ?Skin
+    {
+        if ($idOrName === null) {
+            return null;
+        }
+        $target = strtolower(trim($idOrName));
+        if ($target === '') {
+            return null;
+        }
+        foreach ($this->skins as $key => $skin) {
+            if (strtolower((string)$key) === $target || strtolower($skin->id) === $target || strtolower($skin->name) === $target) {
+                return $skin;
+            }
+        }
+        return null;
+    }
+
     public function getPanel(string $id): ?Panel
     {
         return $this->panels[strtolower(trim($id))] ?? null;

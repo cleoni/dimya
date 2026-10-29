@@ -22,12 +22,16 @@ class UIhtml extends UI
     /**
      * Render the login form for human players.
      */
-    public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null): void
+    public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null, ?string $selectedSkin = null): void
     {
         if (!headers_sent()) {
             header('Content-Type: text/html; charset=utf-8');
         }
         $valUser = htmlspecialchars($defaultUsername ?? '');
+        $world = $this->player?->world ?? ($this->engine ? $this->engine->loadOrSeedWorld() : null);
+        $skinsList = (!empty($world?->skins) && is_array($world->skins))
+            ? $world->skins
+            : ['default' => new Skin('default', 'Default')];
         ?>
         <!DOCTYPE html>
         <html lang="en">
@@ -42,8 +46,8 @@ class UIhtml extends UI
             p.sub{margin:0 0 18px;font-size:13px;color:#94a3b8}
             .err{background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fca5a5;padding:10px 12px;border-radius:6px;font-size:13px;margin-bottom:16px}
             label{display:block;font-size:12px;color:#cbd5e1;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
-            input{width:100%;padding:10px 12px;background:#0f172a;border:1px solid #475569;border-radius:6px;color:#f8fafc;font-size:14px;box-sizing:border-box;margin-bottom:16px}
-            input:focus{outline:none;border-color:#38bdf8;box-shadow:0 0 0 2px rgba(56,189,248,0.25)}
+            input,select{width:100%;padding:10px 12px;background:#0f172a;border:1px solid #475569;border-radius:6px;color:#f8fafc;font-size:14px;box-sizing:border-box;margin-bottom:16px}
+            input:focus,select:focus{outline:none;border-color:#38bdf8;box-shadow:0 0 0 2px rgba(56,189,248,0.25)}
             button{width:100%;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:14px;transition:background 0.2s}
             button:hover{background:#1d4ed8}
             .hint{font-size:11px;color:#64748b;margin-top:14px;text-align:center;line-height:1.4}
@@ -65,6 +69,14 @@ class UIhtml extends UI
 
               <label for="password">Password</label>
               <input type="password" id="password" name="password" placeholder="Your password…" required />
+
+              <label for="skin">Skin</label>
+              <select id="skin" name="skin">
+                <?php foreach ($skinsList as $sk): ?>
+                  <?php $isSelected = ($selectedSkin !== null && $selectedSkin !== '') && (strcasecmp($sk->id, $selectedSkin) === 0 || strcasecmp($sk->name, $selectedSkin) === 0); ?>
+                  <option value="<?= htmlspecialchars($sk->id) ?>"<?= $isSelected ? ' selected' : '' ?>><?= htmlspecialchars($sk->name) ?></option>
+                <?php endforeach; ?>
+              </select>
 
               <button type="submit">Play</button>
             </form>
@@ -774,9 +786,6 @@ class UIhtml extends UI
                               continue;
                             }
                             $charImg = $char->images['N'] ?? $char->image ?? $char->skin?->picPlayer ?? $skin->picPlayer ?? $world->defaultSkin?->picPlayer ?? null;
-                            if (!$charImg && !empty($world->imagesFolder)) {
-                              $charImg = new \Dimx\Image(rtrim(str_replace('/pics/', '/skins/aqua/', $world->imagesFolder), '/') . '/avatar.gif', 64, 100);
-                            }
                             // Check SHOW FOR restriction
                             if (!empty($char->showFor) && $sceneImg !== null) {
                               $sceneUrl = $sceneImg->src;

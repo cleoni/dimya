@@ -71,11 +71,27 @@ class GameEngine
 
         // 2. Not found — seed from .dxw file if specified
         if (!empty($this->worldFile)) {
+            $resolvedFile = $this->worldFile;
+            $isUrl = str_starts_with($resolvedFile, 'http://') || str_starts_with($resolvedFile, 'https://');
+            if (!$isUrl && !file_exists($resolvedFile)) {
+                $base = basename($resolvedFile);
+                $fallbacks = [
+                    dirname(__DIR__) . '/' . $base,
+                    dirname(__DIR__, 2) . '/docs/dxw-examples/' . $base,
+                    dirname(__DIR__, 2) . '/' . $base,
+                ];
+                foreach ($fallbacks as $fb) {
+                    if (file_exists($fb)) {
+                        $resolvedFile = $fb;
+                        break;
+                    }
+                }
+            }
             $loader = new DxwLoader($this->baseUrl);
             try {
-                $world = $loader->load($this->worldFile);
+                $world = $loader->load($resolvedFile);
             } catch (\Throwable $e) {
-                error_log("Failed loading world '{$this->worldFile}': " . $e->getMessage());
+                error_log("Failed loading world '{$resolvedFile}': " . $e->getMessage());
             }
         }
 
@@ -135,9 +151,11 @@ class GameEngine
         ?int $numericId = null,
         bool $isBot = false,
         bool $isNewLogin = false,
-        ?string $existingEngineId = null
+        ?string $existingEngineId = null,
+        ?string $skinId = null
     ): Player {
         $player = null;
+        $chosenSkin = ($skinId !== null && trim($skinId) !== '') ? $world->getSkin($skinId) : null;
 
         if (!$isNewLogin) {
             // Ongoing session: find existing in-memory player
@@ -171,7 +189,7 @@ class GameEngine
             // Player ID in game engine lives in memory and changes every time the user logs in
             $engineId = 'p_' . ($numericId ?? '0') . '_' . bin2hex(random_bytes(4));
             $player   = new Player($world, $playerName, $engineId, 'Adventurer');
-            $player->skin      = $world->defaultSkin ?? new Skin('default', 'Ocean');
+            $player->skin      = $chosenSkin ?? $world->defaultSkin ?? new Skin('default', 'Default');
             $player->numericId = $numericId;
             $player->isBot     = $isBot;
             $player->showmode  = AdvObject::SHOW_ONSCREEN;
@@ -190,6 +208,17 @@ class GameEngine
 
             // Restore saved profile (score, location, properties, inventory) from persistence
             $this->pm->loadPlayerProfile($world, $player);
+
+            // Apply chosen skin (or saved skinId from profile if no explicit skin choice was supplied)
+            if ($chosenSkin !== null) {
+                $player->setSkin($chosenSkin);
+            } else {
+                $savedSkinId = $player->getProperty('skinId');
+                $savedSkin = (is_string($savedSkinId) && $savedSkinId !== '') ? $world->getSkin($savedSkinId) : null;
+                if ($savedSkin !== null) {
+                    $player->setSkin($savedSkin);
+                }
+            }
 
             // Ensure showmode and avatar images remain properly configured after profile load
             $player->showmode = AdvObject::SHOW_ONSCREEN;
@@ -231,8 +260,10 @@ class GameEngine
             if ($isBot) {
                 $player->isBot = true;
             }
-            if ($player->skin === null) {
-                $player->skin = $world->defaultSkin ?? new Skin('default', 'Ocean');
+            if ($chosenSkin !== null) {
+                $player->setSkin($chosenSkin);
+            } elseif ($player->skin === null) {
+                $player->skin = $world->defaultSkin ?? new Skin('default', 'Default');
             }
             if ($player->showmode === 0) {
                 $player->showmode = AdvObject::SHOW_ONSCREEN;
@@ -278,6 +309,7 @@ class GameEngine
      * @param bool $isBot Whether player is a bot
      * @param bool $isNewLogin Whether this request represents a new login connection
      * @param string|null $existingEngineId Known in-memory player ID from active session
+     * @param string|null $skinId Optional chosen skin ID or name from login/session
      * @return array<string, mixed> Execution outcome context
      */
     public function processCommand(
@@ -289,7 +321,8 @@ class GameEngine
         ?int $numericId = null,
         bool $isBot = false,
         bool $isNewLogin = false,
-        ?string $existingEngineId = null
+        ?string $existingEngineId = null,
+        ?string $skinId = null
     ): array {
         $cmd      = strtolower(trim($cmd ?: 'look'));
         $param    = trim($param);
@@ -302,10 +335,10 @@ class GameEngine
         // Concurrency-controlled execution via WorldLock (MySQL GET_LOCK)
         if ($this->pdo !== null && $this->lock !== null) {
             $result = $this->lock->executeAtomic($this->worldId, function (\PDO $pdo) use (
-                $playerName, $cmd, $param, $targetId, $ui, $loggedOut, $numericId, $isBot, $isNewLogin, $existingEngineId
+                $playerName, $cmd, $param, $targetId, $ui, $loggedOut, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId
             ): array {
                 $world  = $this->loadOrSeedWorld();
-                $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId);
+                $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId);
 
                 $this->executeCommandAction($world, $player, $cmd, $param, $targetId);
 
@@ -336,6 +369,9 @@ class GameEngine
                     ?? new Player($world, $playerName, $existingEngineId ?? ('p_' . ($numericId ?? '0') . '_' . bin2hex(random_bytes(4))));
                 $player->numericId = $numericId;
                 $player->isBot     = $isBot;
+                if ($skinId !== null && $skinId !== '' && ($sk = $world->getSkin($skinId)) !== null) {
+                    $player->setSkin($sk);
+                }
             } else {
                 $world           = $result['world'];
                 $player          = $result['player'];
@@ -345,7 +381,7 @@ class GameEngine
         } else {
             // Graceful degradation when DB is offline (session / memory fallback)
             $world  = $this->loadOrSeedWorld();
-            $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId);
+            $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId);
 
             $this->executeCommandAction($world, $player, $cmd, $param, $targetId);
 

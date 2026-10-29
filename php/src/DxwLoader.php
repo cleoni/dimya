@@ -301,43 +301,71 @@ class DxwLoader
                     } elseif ($directive === 'SKINS') {
                         $skinsStr = trim(substr($line, strlen($tokens[0])));
                         $world->setProperty('skinslist', $skinsStr);
-                        $skinNames = array_map('trim', explode(',', $skinsStr));
-                        foreach ($skinNames as $skName) {
-                            if ($skName === '') continue;
-                            $baseId = preg_replace('/\.dxs$/i', '', $skName);
-                            $folderUrl = $this->resolveSkinFolderUrl($baseId, $imagesFolder);
+                        $skinSpecs = array_map('trim', explode(',', $skinsStr));
+                        $world->skins = [];
+                        $folderResolver = fn(string $skinId): string => $this->resolveSkinFolderUrl($skinId, $imagesFolder);
+
+                        foreach ($skinSpecs as $skSpec) {
+                            if ($skSpec === '') continue;
+
+                            // 1. Built-in default skin: has no .dxs file, uses hard-coded media defaults in its resolved SKINFOLDER
+                            if (strtolower($skSpec) === 'default') {
+                                $defaultFolder = $this->resolveSkinFolderUrl('default', $imagesFolder);
+                                $world->skins['default'] = new Skin('default', 'Default', $defaultFolder);
+                                continue;
+                            }
+
+                            // 2. Direct HTTP/HTTPS .dxs URL (e.g. https://www.dimensionex.net/skins/aqua/aqua_net.dxs)
+                            if (str_starts_with($skSpec, 'http://') || str_starts_with($skSpec, 'https://')) {
+                                $skinObj = Skin::loadFromDxs($skSpec, null, $folderResolver);
+                                if ($skinObj !== null) {
+                                    $world->skins[$skinObj->id] = $skinObj;
+                                } else {
+                                    $urlPath = (string)(parse_url($skSpec, PHP_URL_PATH) ?: $skSpec);
+                                    $baseId = preg_replace('/(_net)?\.dxs$/i', '', pathinfo($urlPath, PATHINFO_BASENAME)) ?: 'custom';
+                                    $world->skins[$baseId] = new Skin($baseId, ucfirst($baseId), $this->resolveSkinFolderUrl($baseId, $imagesFolder));
+                                }
+                                continue;
+                            }
+
+                            // 3. Local or relative skin filename/id (e.g. aqua.dxs, forest.dxs, aqua_net.dxs, or forest)
+                            $fileName = str_ends_with(strtolower($skSpec), '.dxs') ? $skSpec : "{$skSpec}.dxs";
+                            $baseId   = preg_replace('/\.dxs$/i', '', $skSpec);
+                            $folderId = preg_replace('/_net$/i', '', $baseId) ?: $baseId;
+                            $folderUrl = $this->resolveSkinFolderUrl($folderId, $imagesFolder);
 
                             $dxsLoaded = false;
                             $dir = !empty($this->sourcePath) ? dirname($this->sourcePath) : '';
                             $candidates = [
-                                ($dir ? "{$dir}/skins/{$baseId}/{$baseId}.dxs" : ''),
-                                ($dir ? "{$dir}/{$baseId}.dxs" : ''),
-                                dirname(__DIR__, 2) . "/dimx/skins/{$baseId}/{$baseId}.dxs",
-                                dirname(__DIR__, 2) . "/skins/{$baseId}/{$baseId}.dxs",
-                                dirname(__DIR__) . "/skins/{$baseId}/{$baseId}.dxs",
-                                (!empty($_SERVER['DOCUMENT_ROOT']) ? $_SERVER['DOCUMENT_ROOT'] . "/dimx/skins/{$baseId}/{$baseId}.dxs" : ''),
-                                (!empty($_SERVER['DOCUMENT_ROOT']) ? $_SERVER['DOCUMENT_ROOT'] . "/skins/{$baseId}/{$baseId}.dxs" : ''),
+                                ($dir ? "{$dir}/skins/{$folderId}/{$fileName}" : ''),
+                                ($dir ? "{$dir}/skins/{$baseId}/{$fileName}" : ''),
+                                ($dir ? "{$dir}/{$fileName}" : ''),
+                                dirname(__DIR__, 2) . "/dimx/skins/{$folderId}/{$fileName}",
+                                dirname(__DIR__, 2) . "/skins/{$folderId}/{$fileName}",
+                                dirname(__DIR__) . "/skins/{$folderId}/{$fileName}",
+                                (!empty($_SERVER['DOCUMENT_ROOT']) ? $_SERVER['DOCUMENT_ROOT'] . "/dimx/skins/{$folderId}/{$fileName}" : ''),
+                                (!empty($_SERVER['DOCUMENT_ROOT']) ? $_SERVER['DOCUMENT_ROOT'] . "/skins/{$folderId}/{$fileName}" : ''),
                             ];
                             foreach ($candidates as $candidate) {
                                 if (!empty($candidate) && file_exists($candidate)) {
-                                    $skinObj = Skin::loadFromDxs($candidate, $folderUrl);
+                                    $skinObj = Skin::loadFromDxs($candidate, $folderUrl, $folderResolver);
                                     if ($skinObj !== null) {
-                                        $world->skins[$baseId] = $skinObj;
+                                        $world->skins[$skinObj->id] = $skinObj;
                                         $dxsLoaded = true;
                                         break;
                                     }
                                 }
                             }
                             if (!$dxsLoaded && (str_starts_with($folderUrl, 'http://') || str_starts_with($folderUrl, 'https://'))) {
-                                $remoteDxs = $folderUrl . "{$baseId}.dxs";
-                                $skinObj = Skin::loadFromDxs($remoteDxs, $folderUrl);
+                                $remoteDxs = $folderUrl . $fileName;
+                                $skinObj = Skin::loadFromDxs($remoteDxs, $folderUrl, $folderResolver);
                                 if ($skinObj !== null) {
-                                    $world->skins[$baseId] = $skinObj;
+                                    $world->skins[$skinObj->id] = $skinObj;
                                     $dxsLoaded = true;
                                 }
                             }
                             if (!$dxsLoaded) {
-                                $world->skins[$baseId] = new Skin($baseId, ucfirst($baseId), $folderUrl);
+                                $world->skins[$folderId] = new Skin($folderId, ucfirst($folderId), $folderUrl);
                             }
                         }
                         if (!isset($world->skins['default'])) {
@@ -809,14 +837,11 @@ class DxwLoader
         }
 
         // Ensure default skin has its skin folder properly resolved against IMAGESFOLDER or baseUrl
+        $defaultFolder = $this->resolveSkinFolderUrl('default', $imagesFolder);
         if (!isset($world->skins['default'])) {
-            $defaultFolder = $this->resolveSkinFolderUrl('default', $imagesFolder);
             $world->skins['default'] = new Skin('default', 'Default', $defaultFolder);
-        } else {
-            $defaultFolder = $this->resolveSkinFolderUrl('default', $imagesFolder);
-            if (empty($world->skins['default']->skinFolder) || str_contains($world->skins['default']->skinFolder, 'localhost')) {
-                $world->skins['default']->setSkinFolder($defaultFolder);
-            }
+        } elseif (!$world->skins['default']->hasExplicitSkinFolder) {
+            $world->skins['default']->setSkinFolder($defaultFolder);
         }
         $world->defaultSkin = $world->skins['default'];
 

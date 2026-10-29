@@ -14,7 +14,7 @@
 | `WORLD`: `INTERPHONE` | Not parsed (the `World::$interphone` property exists but keeps its default `1`) |
 | `WORLD`: `CLUSTER` | Dropped in DimY |
 | `Include` directive (any section) | Not parsed (silently ignored) |
-| `GUI`: `SCENE SIZE`, `SCREEN SIZE`, `SKINS` | Implemented |
+| `GUI`: `SCENE SIZE`, `SCREEN SIZE`, [`SKINS`](SKINS.md) | Implemented |
 | `GUI`: `SCENE LOOK`, `LOGOSRC`, `MAP`, `COMPASS`, `MSGLISTSIZE`, `SHOW PROPERTIES`, `HOOKS` | Parsed and stored as world properties, but not used by the UI/engine |
 | `GUI`: `PANEL`, `PANEL ... VERSION OF`, controls (`BUTTON`, `CR`, `MAP`, `TEXTBOX`, `LABEL`, `DROPDOWN`, `DELETE`, `CMD`) | Not parsed; only the built-in `default`/`chat` panels (`Panel::createDefaultPanel()`) exist |
 | `GUI`: `PAGE` templates and placeholders | Not parsed (`Page` class exists but is not loaded from DXW) |
@@ -234,7 +234,7 @@ END_GUI
 * **`MAP <filename | URL>`**: Default mini-map image (recommended size: `200x200`). **[DimY: parsed but ignored - stored as `map`, no mini-map is rendered]**
 * **`COMPASS <true | false>`**: If `true`, the navigation compass is permanently shown in the top bar; if `false`, only shown in rooms with multiple view angles. **[DimY: parsed but ignored - stored as `compass`; UIhtml always uses its own navpad logic]**
 * **`MSGLISTSIZE <int>`**: Maximum number of speech/event messages retained in the active console box (default: `3`). **[DimY: parsed but ignored - stored as `msgListSize`]**
-* **`SKINS <list>`**: Comma-separated list of available skin definition files (`.dxs`). The first is the default. Built-in skin is referenced as `default`.
+* **`SKINS <list>`**: Comma-separated list of available skin definition files (`.dxs`), remote `.dxs` URLs, or `default`. See the complete [**Skins & `.dxs` Specification (`docs/SKINS.md`)**](SKINS.md) for skin principles, `SKINFOLDER` resolution rules, and `.dxs` directives.
 * **`SHOW PROPERTIES <list>`**: Explicit list of object properties exposed in the player UI stats panel. (See [Display Rules](#73-display-rules-capital-letter-rule)). **[DimY: parsed but ignored - stored as `showproperties`, not consulted by UIhtml]**
 
 ### 4.2 External Hooks (HOOKS)

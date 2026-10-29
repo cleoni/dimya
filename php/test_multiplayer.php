@@ -65,6 +65,7 @@ $sections = [
     41 => ['title' => 'Testing System Snapshot (htmlAdminSnapshot) & maint.php Snapshot Action...', 'keywords' => ['snapshot', 'maint', 'htmladminsnapshot', 'adminpasswd', 'system snapshot', 'sec41']],
     42 => ['title' => 'Testing SKINS Resolution (IMAGESFOLDER / baseUrl), No Hardcoded Localhost & Navpad Arrow Icons...', 'keywords' => ['skins', 'imagesfolder', 'base_url', 'localhost', 'navpad', 'icowayn', 'dxwloader', 'skin']],
     43 => ['title' => 'Testing Default Item Icon (ICOITEM) & Fallbacks in UIhtml and Skin...', 'keywords' => ['icoitem', 'item icon', 'skin', 'default icon', 'uihtml', 'inventory', 'room items']],
+    44 => ['title' => 'Testing SKINFOLDER Resolution, aqua_net.dxs URL Loading, Login Skin Dropdown & Per-Player Skin Navpad Icons...', 'keywords' => ['skinfolder', 'aqua_net', 'aqua', 'forest', 'default', 'dropdown', 'login', 'navpad', 'player skin']],
 ];
 
 // CLI Options parsing
@@ -3951,6 +3952,145 @@ if (shouldRun(43)) {
         str_contains($lookMsgs, $expectedItemIcon),
         "Look command 'Containing:' list displays skin default ICOITEM image for item without icon ('{$expectedItemIcon}')"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Section 44: Testing SKINFOLDER Resolution, aqua_net.dxs URL Loading, Login Skin Dropdown & Per-Player Skin Navpad Icons
+// ---------------------------------------------------------------------------
+if (shouldRun(44)) {
+    echo "\n--- Section 44: Testing SKINFOLDER Resolution, aqua_net.dxs URL Loading, Login Skin Dropdown & Per-Player Skin Navpad Icons ---\n";
+
+    // 1. Load world3net_aquanet.dxw (which specifies SKINS https://www.dimensionex.net/skins/aqua/aqua_net.dxs,forest.dxs,default)
+    $loader44 = new \Dimx\DxwLoader('https://test.dimensionex.net');
+    $w44 = $loader44->load(__DIR__ . '/world3net_aquanet.dxw');
+
+    assertTest(isset($w44->skins['aqua']), "world3net_aquanet.dxw loaded 'aqua' skin from https://www.dimensionex.net/skins/aqua/aqua_net.dxs");
+    assertTest(isset($w44->skins['forest']), "world3net_aquanet.dxw loaded 'forest' skin from forest.dxs");
+    assertTest(isset($w44->skins['default']), "world3net_aquanet.dxw loaded 'default' skin");
+
+    $aquaSkin    = $w44->skins['aqua'];
+    $forestSkin  = $w44->skins['forest'];
+    $defaultSkin = $w44->skins['default'];
+
+    // Verify skin IDs and names
+    assertTest($aquaSkin->id === 'aqua' && $aquaSkin->name === 'Aqua', "aqua_net.dxs parsed SKIN id='aqua' and NAME='Aqua' (got id='{$aquaSkin->id}', name='{$aquaSkin->name}')");
+    assertTest($forestSkin->id === 'forest' && $forestSkin->name === 'Forest', "forest.dxs parsed SKIN id='forest' and NAME='Forest' (got id='{$forestSkin->id}', name='{$forestSkin->name}')");
+    assertTest($defaultSkin->id === 'default' && $defaultSkin->name === 'Default', "default skin has id='default' and name='Default'");
+
+    // Verify SKINFOLDER determination rule:
+    // - aqua_net.dxs explicitly defines SKINFOLDER http://www.dimensionex.net/skins/aqua/
+    assertTest(
+        $aquaSkin->hasExplicitSkinFolder === true && $aquaSkin->skinFolder === 'http://www.dimensionex.net/skins/aqua/',
+        "aqua_net.dxs uses its explicit SKINFOLDER ('http://www.dimensionex.net/skins/aqua/', got '{$aquaSkin->skinFolder}')"
+    );
+    // - forest.dxs has no SKINFOLDER, so it uses default calculation from world IMAGESFOLDER (https://www.dimensionex.net/pics/ -> https://www.dimensionex.net/skins/forest/)
+    assertTest(
+        $forestSkin->hasExplicitSkinFolder === false && $forestSkin->skinFolder === 'https://www.dimensionex.net/skins/forest/',
+        "forest.dxs (no SKINFOLDER in .dxs) calculates SKINFOLDER from world IMAGESFOLDER ('https://www.dimensionex.net/skins/forest/', got '{$forestSkin->skinFolder}')"
+    );
+    // - default skin has no .dxs file, uses default calculation from world IMAGESFOLDER (https://www.dimensionex.net/skins/default/)
+    assertTest(
+        $defaultSkin->hasExplicitSkinFolder === false && $defaultSkin->skinFolder === 'https://www.dimensionex.net/skins/default/',
+        "default skin calculates SKINFOLDER from world IMAGESFOLDER ('https://www.dimensionex.net/skins/default/', got '{$defaultSkin->skinFolder}')"
+    );
+
+    // Verify Skin isolation & directional icon URLs per Skin instance
+    assertTest($aquaSkin->getWayIcon('N') === 'http://www.dimensionex.net/skins/aqua/north.gif', "Aqua skin North icon is 'http://www.dimensionex.net/skins/aqua/north.gif'");
+    assertTest($aquaSkin->getWayIcon('S') === 'http://www.dimensionex.net/skins/aqua/south.gif', "Aqua skin South icon is 'http://www.dimensionex.net/skins/aqua/south.gif'");
+    assertTest($aquaSkin->getWayIcon('E') === 'http://www.dimensionex.net/skins/aqua/right.gif', "Aqua skin East icon is 'http://www.dimensionex.net/skins/aqua/right.gif'");
+    assertTest($aquaSkin->getWayIcon('W') === 'http://www.dimensionex.net/skins/aqua/left.gif', "Aqua skin West icon is 'http://www.dimensionex.net/skins/aqua/left.gif'");
+
+    assertTest($forestSkin->getWayIcon('N') === 'https://www.dimensionex.net/skins/forest/north.gif', "Forest skin North icon is 'https://www.dimensionex.net/skins/forest/north.gif'");
+    assertTest($forestSkin->getWayIcon('E') === 'https://www.dimensionex.net/skins/forest/right.gif', "Forest skin East icon is 'https://www.dimensionex.net/skins/forest/right.gif'");
+
+    assertTest($defaultSkin->getWayIcon('N') === 'https://www.dimensionex.net/skins/default/icowayn.gif', "Default skin North icon is 'https://www.dimensionex.net/skins/default/icowayn.gif'");
+    assertTest($defaultSkin->getWayIcon('E') === 'https://www.dimensionex.net/skins/default/icowaye.gif', "Default skin East icon is 'https://www.dimensionex.net/skins/default/icowaye.gif'");
+
+    // 2. Test Connect Form Skin Dropdown in UIhtml::renderLogin()
+    $sec44WorldId = 'w3_sec44_test';
+    @$pm->resetWorld($sec44WorldId);
+    $engine44 = new \Dimx\GameEngine($pm, $sec44WorldId, __DIR__ . '/world3net_aquanet.dxw', 'https://test.dimensionex.net');
+    $loginUi = new \Dimx\UIhtml(null, $engine44);
+    ob_start();
+    $loginUi->renderLogin(null, 'TestRunner', 'forest');
+    $loginHtml = ob_get_clean();
+
+    assertTest(str_contains($loginHtml, '<select id="skin" name="skin">'), "Connect form includes <select id=\"skin\" name=\"skin\"> dropdown");
+    assertTest(str_contains($loginHtml, '<option value="aqua">Aqua</option>'), "Connect form dropdown includes Aqua skin option");
+    assertTest(str_contains($loginHtml, '<option value="forest" selected>Forest</option>'), "Connect form dropdown includes Forest skin option (selected)");
+    assertTest(str_contains($loginHtml, '<option value="default">Default</option>'), "Connect form dropdown includes Default skin option");
+
+    // 3. Test Per-Player Skin Choice & #navpad Directional Icon Rendering in UIhtml::render()
+    // Connect Player 1 choosing 'aqua', Player 2 choosing 'forest', Player 3 choosing 'default'
+    $resAqua = $engine44->processCommand('PlayerAqua', 'look', '', '', null, 441, false, true, null, 'aqua');
+    $pAqua = $resAqua['player'];
+    assertTest($pAqua->skin !== null && $pAqua->skin->id === 'aqua', "PlayerAqua has chosen Skin instance 'aqua' assigned to \$player->skin");
+
+    $resForest = $engine44->processCommand('PlayerForest', 'look', '', '', null, 442, false, true, null, 'forest');
+    $pForest = $resForest['player'];
+    assertTest($pForest->skin !== null && $pForest->skin->id === 'forest', "PlayerForest has chosen Skin instance 'forest' assigned to \$player->skin");
+
+    $resDefault = $engine44->processCommand('PlayerDefault', 'look', '', '', null, 443, false, true, null, 'default');
+    $pDefault = $resDefault['player'];
+    assertTest($pDefault->skin !== null && $pDefault->skin->id === 'default', "PlayerDefault has chosen Skin instance 'default' assigned to \$player->skin");
+
+    // Verify PlayerAqua's skin was not overwritten when PlayerForest and PlayerDefault connected
+    assertTest($pAqua->skin->id === 'aqua' && $pAqua->skin->skinFolder === 'http://www.dimensionex.net/skins/aqua/', "PlayerAqua's skin remains 'aqua' and untouched by other players' skins");
+
+    // Render #navpad for each player in spiaggia (which has N, W, and E exits)
+    $pAqua->move($resAqua['world']->getRoom('spiaggia'));
+    $resAqua['room'] = $resAqua['world']->getRoom('spiaggia');
+    $uiAqua = new \Dimx\UIhtml($pAqua, $engine44);
+    ob_start();
+    $uiAqua->render($resAqua);
+    $htmlAqua = ob_get_clean();
+
+    $pForest->move($resForest['world']->getRoom('spiaggia'));
+    $resForest['room'] = $resForest['world']->getRoom('spiaggia');
+    $uiForest = new \Dimx\UIhtml($pForest, $engine44);
+    ob_start();
+    $uiForest->render($resForest);
+    $htmlForest = ob_get_clean();
+
+    $pDefault->move($resDefault['world']->getRoom('spiaggia'));
+    $resDefault['room'] = $resDefault['world']->getRoom('spiaggia');
+    $uiDefault = new \Dimx\UIhtml($pDefault, $engine44);
+    ob_start();
+    $uiDefault->render($resDefault);
+    $htmlDefault = ob_get_clean();
+
+    // Extract #navpad table from each player's rendered HTML
+    $extractNavpad = function (string $html): string {
+        $start = strpos($html, '<table id="navpad"');
+        if ($start === false) return '';
+        $end = strpos($html, '</table>', $start);
+        return $end !== false ? substr($html, $start, $end - $start + 8) : '';
+    };
+
+    $navpadAqua    = $extractNavpad($htmlAqua);
+    $navpadForest  = $extractNavpad($htmlForest);
+    $navpadDefault = $extractNavpad($htmlDefault);
+
+    assertTest(
+        str_contains($navpadAqua, 'http://www.dimensionex.net/skins/aqua/north.gif') &&
+        str_contains($navpadAqua, 'http://www.dimensionex.net/skins/aqua/right.gif') &&
+        str_contains($navpadAqua, 'http://www.dimensionex.net/skins/aqua/blank.gif'),
+        "PlayerAqua #navpad renders Aqua directional icons (north.gif, right.gif, blank.gif from http://www.dimensionex.net/skins/aqua/)"
+    );
+    assertTest(
+        str_contains($navpadForest, 'https://www.dimensionex.net/skins/forest/north.gif') &&
+        str_contains($navpadForest, 'https://www.dimensionex.net/skins/forest/right.gif') &&
+        str_contains($navpadForest, 'https://www.dimensionex.net/skins/forest/blank.gif'),
+        "PlayerForest #navpad renders Forest directional icons (north.gif, right.gif, blank.gif from https://www.dimensionex.net/skins/forest/)"
+    );
+    assertTest(
+        str_contains($navpadDefault, 'https://www.dimensionex.net/skins/default/icowayn.gif') &&
+        str_contains($navpadDefault, 'https://www.dimensionex.net/skins/default/icowaye.gif') &&
+        str_contains($navpadDefault, 'https://www.dimensionex.net/skins/default/blank.gif'),
+        "PlayerDefault #navpad renders Default directional icons (icowayn.gif, icowaye.gif, blank.gif from https://www.dimensionex.net/skins/default/)"
+    );
+
+    @$pm->resetWorld($sec44WorldId);
 }
 
 // Clean up test worlds

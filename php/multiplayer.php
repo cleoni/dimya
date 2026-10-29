@@ -43,6 +43,7 @@ $createBotUi = function (string $name) use ($testBots): UI {
 $input         = UI::parseInput();
 $requestedUser = $input['username'];
 $password      = $input['password'];
+$requestedSkin = $input['skin'] ?? '';
 $resetWorld    = $input['reset'] || (isset($_GET['reset']) && $_GET['reset'] === '1');
 
 // 3. Determine client type (bot / JSON API vs human / HTML browser)
@@ -66,6 +67,7 @@ if ($resetWorld) {
         $_SESSION['dimx_numeric_id'],
         $_SESSION['dimx_is_bot'],
         $_SESSION['dimx_engine_player_id'],
+        $_SESSION['dimx_skin'],
         $_SESSION['dimx_world_obj']
     );
 } elseif ($activeResetToken !== '' && (!isset($_SESSION['dimx_world_reset_token']) || $_SESSION['dimx_world_reset_token'] !== $activeResetToken)) {
@@ -75,9 +77,14 @@ if ($resetWorld) {
         $_SESSION['dimx_numeric_id'],
         $_SESSION['dimx_is_bot'],
         $_SESSION['dimx_engine_player_id'],
+        $_SESSION['dimx_skin'],
         $_SESSION['dimx_world_obj']
     );
 }
+
+// Instantiate core GameEngine early so UIhtml::renderLogin can list available world SKINS
+$engine = new GameEngine($pm, $worldId, $worldFile, $baseUrl, $config);
+$ui->setEngine($engine);
 
 // 5. Player Authentication & Account Handling
 $sessionUser     = (string)($_SESSION['dimx_player'] ?? '');
@@ -87,6 +94,11 @@ $sessionEngineId = $_SESSION['dimx_engine_player_id'] ?? null;
 $isBot           = ($clientType === 'json');
 $isNewLogin      = false;
 
+if ($requestedSkin !== '') {
+    $_SESSION['dimx_skin'] = $requestedSkin;
+}
+$activeSkin = $requestedSkin !== '' ? $requestedSkin : (string)($_SESSION['dimx_skin'] ?? '');
+
 if (!empty($requestedUser)) {
     // If client supplied an explicit username:
     // Check if session is already authenticated for this exact user
@@ -95,13 +107,13 @@ if (!empty($requestedUser)) {
     } else {
         // Authenticate credentials or auto-create account
         if ($password === '') {
-            $ui->renderLogin("Password is required for player '{$requestedUser}'.", $requestedUser);
+            $ui->renderLogin("Password is required for player '{$requestedUser}'.", $requestedUser, $activeSkin);
             exit;
         }
 
         $auth = $pm->authenticateOrCreatePlayer($worldId, $requestedUser, $password, $isBot);
         if (!$auth['success']) {
-            $ui->renderLogin($auth['error'] ?? 'Authentication failed.', $requestedUser);
+            $ui->renderLogin($auth['error'] ?? 'Authentication failed.', $requestedUser, $activeSkin);
             exit;
         }
 
@@ -123,7 +135,7 @@ if (!empty($requestedUser)) {
     $playerName = $sessionUser;
 } else {
     // No username provided and no authenticated session
-    $ui->renderLogin();
+    $ui->renderLogin(null, null, $activeSkin);
     exit;
 }
 
@@ -134,11 +146,8 @@ $_SESSION['dimx_world_reset_token'] = $activeResetToken;
 // Ensure UI instance matches finalized playerName
 if ($clientType === 'json') {
     $ui = $createBotUi($playerName);
+    $ui->setEngine($engine);
 }
-
-// 7. Instantiate core GameEngine for atomic command processing
-$engine = new GameEngine($pm, $worldId, $worldFile, $baseUrl, $config);
-$ui->setEngine($engine);
 
 // 8. Process player command inside concurrency critical section
 $result = $engine->processCommand(
@@ -150,7 +159,8 @@ $result = $engine->processCommand(
     $numericId ? (int)$numericId : null,
     (bool)$isBot,
     $isNewLogin,
-    $sessionEngineId
+    $sessionEngineId,
+    $activeSkin !== '' ? $activeSkin : null
 );
 
 // Store the active in-memory player ID in session
@@ -165,7 +175,8 @@ if (!empty($result['logged_out'])) {
         $_SESSION['dimx_authenticated'],
         $_SESSION['dimx_numeric_id'],
         $_SESSION['dimx_is_bot'],
-        $_SESSION['dimx_engine_player_id']
+        $_SESSION['dimx_engine_player_id'],
+        $_SESSION['dimx_skin']
     );
 }
 

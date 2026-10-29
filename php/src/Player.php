@@ -80,6 +80,21 @@ class Player extends Character
     }
 
     /**
+     * Assign a Skin instance to this player and update default player avatar/icon accordingly.
+     */
+    public function setSkin(Skin $skin): void
+    {
+        $this->skin = $skin;
+        $this->setProperty('skinId', $skin->id);
+        if ($skin->picPlayer !== null) {
+            $this->images['N'] = clone $skin->picPlayer;
+        }
+        if (!empty($skin->icons['ICOPLAYER'])) {
+            $this->icon = $skin->icons['ICOPLAYER'];
+        }
+    }
+
+    /**
      * Get the player's active UI handler.
      */
     public function getUI(): mixed

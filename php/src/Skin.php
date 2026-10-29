@@ -10,96 +10,142 @@ namespace Dimx;
  */
 class Skin
 {
+    /**
+     * Hard-coded default filenames for all skin media elements.
+     * Every Skin instance initializes with these defaults so no media link is ever missing.
+     */
+    public const DEFAULT_MEDIA_FILES = [
+        'PICPLAYER'    => 'uomo.gif',
+        'PICSPACER'    => 'blank.gif',
+        'PICFADER'     => 'fadewhite.gif',
+        'ICOPLAYER'    => 'icoPlayer.gif',
+        'ICOCHARACTER' => 'icouser.gif',
+        'ICOITEM'      => 'icoitem.gif',
+        'ICOWAY'       => 'icoway.gif',
+        'ICOWAYN'      => 'icowayn.gif',
+        'ICOWAYS'      => 'icoways.gif',
+        'ICOWAYE'      => 'icowaye.gif',
+        'ICOWAYW'      => 'icowayw.gif',
+        'ICOWAYU'      => 'icowayu.gif',
+        'ICOWAYD'      => 'icowayd.gif',
+        'ICOROTL'      => 'icorotl.gif',
+        'ICOROTR'      => 'icorotr.gif',
+        'ICOREV'       => 'reverse.gif',
+    ];
+
     public string $id = 'default';
     public string $name = 'Default';
     public string $skinFolder = '';
+    public bool $hasExplicitSkinFolder = false;
     public string $bodyBgColor = '#1e293b';
     public string $panelBgColor = 'SILVER';
     public string $textColor = '#f8fafc';
     public string $buttonStyle = '';
     public string $titleStyle = '';
+    public string $rawTitleStyle = '';
     public string $stylesheet = '';
     public ?Image $picPlayer = null;
     public ?Image $picSpacer = null;
     public ?Image $picFader = null;
 
-    /** @var array<string, string> Icon file associations */
+    /** @var array<string, string> Raw media filenames/URLs per directive key */
+    protected array $mediaFiles = self::DEFAULT_MEDIA_FILES;
+
+    /** @var array<string, string> Resolved icon URLs */
     public array $icons = [];
 
     public function __construct(string $id = 'default', string $name = 'Default', ?string $skinFolder = null)
     {
         $this->id = $id;
         $this->name = $name;
+        $this->mediaFiles = self::DEFAULT_MEDIA_FILES;
         $this->skinFolder = rtrim($skinFolder ?? "/skins/{$id}/", '/') . '/';
-        $this->picPlayer = new Image($this->skinFolder . 'uomo.gif', 64, 100);
-        $this->picSpacer = new Image($this->skinFolder . 'blank.gif');
-        $this->picFader = new Image($this->skinFolder . 'fadewhite.gif');
-
-        $this->icons = [
-            'ICOPLAYER'    => $this->skinFolder . 'icoPlayer.gif',
-            'ICOCHARACTER' => $this->skinFolder . 'icouser.gif',
-            'ICOITEM'      => $this->skinFolder . 'icoitem.gif',
-            'ICOWAY'       => $this->skinFolder . 'icoway.gif',
-            'ICOWAYN'      => $this->skinFolder . 'icowayn.gif',
-            'ICOWAYS'      => $this->skinFolder . 'icoways.gif',
-            'ICOWAYE'      => $this->skinFolder . 'icowaye.gif',
-            'ICOWAYW'      => $this->skinFolder . 'icowayw.gif',
-            'ICOWAYU'      => $this->skinFolder . 'icowayu.gif',
-            'ICOWAYD'      => $this->skinFolder . 'icowayd.gif',
-            'ICOROTL'      => $this->skinFolder . 'icorotl.gif',
-            'ICOROTR'      => $this->skinFolder . 'icorotr.gif',
-            'ICOREV'       => $this->skinFolder . 'reverse.gif',
-            'PICSPACER'    => $this->skinFolder . 'blank.gif',
-        ];
+        $this->applyMediaFiles();
     }
 
     /**
-     * Update the skin folder URL/path and rebase default images and icons.
+     * Resolve a single media filename or URL against this skin's skinFolder.
      */
-    public function setSkinFolder(string $skinFolder): void
+    protected function resolveMediaUrl(string $val): string
     {
-        $oldFolder = $this->skinFolder;
-        $this->skinFolder = rtrim($skinFolder, '/') . '/';
-        $this->picPlayer = new Image($this->skinFolder . 'uomo.gif', 64, 100);
-        $this->picSpacer = new Image($this->skinFolder . 'blank.gif');
-        $this->picFader = new Image($this->skinFolder . 'fadewhite.gif');
+        $val = trim($val);
+        if (
+            str_starts_with($val, 'http://') ||
+            str_starts_with($val, 'https://') ||
+            str_starts_with($val, '/')
+        ) {
+            return $val;
+        }
+        return $this->skinFolder . $val;
+    }
 
-        $defaultNames = [
-            'ICOPLAYER'    => 'icoPlayer.gif',
-            'ICOCHARACTER' => 'icouser.gif',
-            'ICOITEM'      => 'icoitem.gif',
-            'ICOWAY'       => 'icoway.gif',
-            'ICOWAYN'      => 'icowayn.gif',
-            'ICOWAYS'      => 'icoways.gif',
-            'ICOWAYE'      => 'icowaye.gif',
-            'ICOWAYW'      => 'icowayw.gif',
-            'ICOWAYU'      => 'icowayu.gif',
-            'ICOWAYD'      => 'icowayd.gif',
-            'ICOROTL'      => 'icorotl.gif',
-            'ICOROTR'      => 'icorotr.gif',
-            'ICOREV'       => 'reverse.gif',
-            'PICSPACER'    => 'blank.gif',
+    /**
+     * Resolve and populate picPlayer, picSpacer, picFader, icons, and titleStyle
+     * from the current skinFolder and mediaFiles map.
+     */
+    public function applyMediaFiles(): void
+    {
+        $this->picPlayer = new Image($this->resolveMediaUrl($this->mediaFiles['PICPLAYER']), 64, 100);
+        $this->picSpacer = new Image($this->resolveMediaUrl($this->mediaFiles['PICSPACER']));
+        $this->picFader  = new Image($this->resolveMediaUrl($this->mediaFiles['PICFADER']));
+
+        $iconKeys = [
+            'ICOPLAYER',
+            'ICOCHARACTER',
+            'ICOITEM',
+            'ICOWAY',
+            'ICOWAYN',
+            'ICOWAYS',
+            'ICOWAYE',
+            'ICOWAYW',
+            'ICOWAYU',
+            'ICOWAYD',
+            'ICOROTL',
+            'ICOROTR',
+            'ICOREV',
+            'PICSPACER',
         ];
 
-        foreach ($defaultNames as $key => $filename) {
-            if (!isset($this->icons[$key]) || empty($oldFolder) || str_starts_with($this->icons[$key], $oldFolder)) {
-                $this->icons[$key] = $this->skinFolder . $filename;
-            }
+        foreach ($iconKeys as $key) {
+            $file = $this->mediaFiles[$key] ?? self::DEFAULT_MEDIA_FILES[$key];
+            $this->icons[$key] = $this->resolveMediaUrl($file);
+        }
+
+        if ($this->rawTitleStyle !== '') {
+            $this->titleStyle = str_ireplace(
+                ['$SKINFOLDER', '$IMAGESFOLDER'],
+                rtrim($this->skinFolder, '/'),
+                $this->rawTitleStyle
+            );
         }
     }
 
     /**
-     * Load skin settings from a .dxs specification file or URL.
+     * Update the skin folder URL/path and rebase all relative media files and icons
+     * belonging to this Skin instance without overwriting custom filenames.
      */
-    public static function loadFromDxs(string $filePath, ?string $folderUrl = null): ?self
+    public function setSkinFolder(string $skinFolder): void
+    {
+        $this->skinFolder = rtrim($skinFolder, '/') . '/';
+        $this->applyMediaFiles();
+    }
+
+    /**
+     * Load skin settings from a .dxs specification file or URL.
+     *
+     * @param string        $filePath       Local file path or HTTP(S) URL to the .dxs file
+     * @param string|null   $folderUrl      Optional fallback skinFolder URL
+     * @param callable|null $folderResolver Optional callback fn(string $skinId): string to compute default SKINFOLDER from World's IMAGESFOLDER
+     */
+    public static function loadFromDxs(string $filePath, ?string $folderUrl = null, ?callable $folderResolver = null): ?self
     {
         $isUrl = str_starts_with($filePath, 'http://') || str_starts_with($filePath, 'https://');
         $content = null;
 
         if ($isUrl) {
             $ctx = stream_context_create([
-                'http'  => ['timeout' => 3],
-                'https' => ['timeout' => 3],
+                'http'  => ['timeout' => 5],
+                'https' => ['timeout' => 5],
                 'ssl'   => ['verify_peer' => false, 'verify_peer_name' => false],
             ]);
             $content = @file_get_contents($filePath, false, $ctx);
@@ -115,145 +161,194 @@ class Skin
             return null;
         }
 
-        $id = pathinfo(dirname($filePath), PATHINFO_BASENAME) ?: 'default';
-        $skin = new self($id, ucfirst($id), $folderUrl);
+        $urlPath  = (string)(parse_url($filePath, PHP_URL_PATH) ?: $filePath);
+        $baseName = pathinfo($urlPath, PATHINFO_FILENAME);
+        $id       = preg_replace('/_net$/i', '', $baseName) ?: (pathinfo(dirname($urlPath), PATHINFO_BASENAME) ?: 'default');
+
+        $parsedName         = null;
+        $explicitSkinFolder = null;
+        $customMedia        = [];
+        $bodyBgColor        = null;
+        $panelBgColor       = null;
+        $buttonStyle        = null;
+        $rawTitleStyle      = null;
+        $stylesheet         = null;
 
         $lines = preg_split('/\r\n|\r|\n/', $content);
-        if ($lines === false) {
-            return $skin;
+        if (is_array($lines)) {
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if ($line === '' || str_starts_with($line, "'") || str_starts_with($line, '#')) {
+                    continue;
+                }
+
+                // Strip inline comment starting with ' unless inside braces/styles
+                $tokens = preg_split('/\s+/', $line, 2);
+                $key = strtoupper($tokens[0]);
+                $val = isset($tokens[1]) ? trim($tokens[1]) : '';
+
+                switch ($key) {
+                    case 'SKIN':
+                    case 'ID':
+                        if ($val !== '') {
+                            $idTokens = preg_split('/\s+/', $val);
+                            if (!empty($idTokens[0])) {
+                                $id = trim($idTokens[0]);
+                            }
+                        }
+                        break;
+                    case 'END_SKIN':
+                        break;
+                    case 'NAME':
+                        if ($val !== '') {
+                            $parsedName = $val;
+                        }
+                        break;
+                    case 'SKINFOLDER':
+                    case 'IMAGESFOLDER':
+                        if ($val !== '') {
+                            $explicitSkinFolder = $val;
+                        }
+                        break;
+                    case 'PICPLAYER':
+                    case 'PICSPACER':
+                    case 'PICFADER':
+                    case 'ICOPLAYER':
+                    case 'ICOCHARACTER':
+                    case 'ICOITEM':
+                    case 'ICOWAY':
+                    case 'ICOWAYN':
+                    case 'ICOWAYS':
+                    case 'ICOWAYE':
+                    case 'ICOWAYW':
+                    case 'ICOWAYU':
+                    case 'ICOWAYD':
+                    case 'ICOROTL':
+                    case 'ICOROTR':
+                    case 'ICOREV':
+                        if ($val !== '') {
+                            $customMedia[$key] = $val;
+                        }
+                        break;
+                    case 'BODYBGCOLOR':
+                        if ($val !== '') {
+                            $bodyBgColor = $val;
+                        }
+                        break;
+                    case 'PANELBGCOLOR':
+                        if ($val !== '') {
+                            $panelBgColor = $val;
+                        }
+                        break;
+                    case 'BUTTONSTYLE':
+                        $buttonStyle = $val;
+                        break;
+                    case 'TITLESTYLE':
+                        $rawTitleStyle = $val;
+                        break;
+                    case 'STYLESHEET':
+                        if ($val !== '') {
+                            $stylesheet = $val;
+                        }
+                        break;
+                }
+            }
         }
 
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if ($line === '' || str_starts_with($line, "'") || str_starts_with($line, '#')) {
-                continue;
-            }
-
-            $tokens = preg_split('/\s+/', $line, 2);
-            $key = strtoupper($tokens[0]);
-            $val = isset($tokens[1]) ? trim($tokens[1]) : '';
-
-            switch ($key) {
-                case 'NAME':
-                    $skin->name = $val;
-                    break;
-                case 'SKINFOLDER':
-                case 'IMAGESFOLDER':
-                    if ($val !== '') {
-                        $skin->setSkinFolder($val);
-                        $folderUrl = $skin->skinFolder;
-                    }
-                    break;
-                case 'PICPLAYER':
-                    $url = (str_starts_with($val, 'http://') || str_starts_with($val, 'https://'))
-                        ? $val
-                        : (($folderUrl ?? $skin->skinFolder) . $val);
-                    $skin->picPlayer = new Image($url, 64, 100);
-                    break;
-                case 'PICSPACER':
-                    $url = (str_starts_with($val, 'http://') || str_starts_with($val, 'https://'))
-                        ? $val
-                        : (($folderUrl ?? $skin->skinFolder) . $val);
-                    $skin->picSpacer = new Image($url);
-                    break;
-                case 'PICFADER':
-                    $url = (str_starts_with($val, 'http://') || str_starts_with($val, 'https://'))
-                        ? $val
-                        : (($folderUrl ?? $skin->skinFolder) . $val);
-                    $skin->picFader = new Image($url);
-                    break;
-                case 'ICOPLAYER':
-                case 'ICOCHARACTER':
-                case 'ICOITEM':
-                case 'ICOWAY':
-                case 'ICOWAYN':
-                case 'ICOWAYS':
-                case 'ICOWAYE':
-                case 'ICOWAYW':
-                case 'ICOWAYU':
-                case 'ICOWAYD':
-                case 'ICOROTL':
-                case 'ICOROTR':
-                case 'ICOREV':
-                    $url = (str_starts_with($val, 'http://') || str_starts_with($val, 'https://'))
-                        ? $val
-                        : (($folderUrl ?? $skin->skinFolder) . $val);
-                    $skin->icons[$key] = $url;
-                    break;
-                case 'BODYBGCOLOR':
-                    if ($val !== '') $skin->bodyBgColor = $val;
-                    break;
-                case 'PANELBGCOLOR':
-                    if ($val !== '') $skin->panelBgColor = $val;
-                    break;
-                case 'BUTTONSTYLE':
-                    $skin->buttonStyle = $val;
-                    break;
-                case 'TITLESTYLE':
-                    $skin->titleStyle = str_ireplace(
-                        ['$SKINFOLDER', '$IMAGESFOLDER'],
-                        rtrim($folderUrl ?? $skin->skinFolder, '/'),
-                        $val
-                    );
-                    break;
-            }
+        // Determine SKINFOLDER:
+        // 1. If SKINFOLDER (or IMAGESFOLDER) is defined in the .dxs file, use it directly.
+        // 2. Otherwise calculate default SKINFOLDER from World's IMAGESFOLDER and the skin's ID.
+        if ($explicitSkinFolder !== null && $explicitSkinFolder !== '') {
+            $resolvedFolder = $explicitSkinFolder;
+        } elseif ($folderResolver !== null) {
+            $resolvedFolder = (string)$folderResolver($id);
+        } elseif ($folderUrl !== null && $folderUrl !== '') {
+            $resolvedFolder = $folderUrl;
+        } else {
+            $resolvedFolder = "/skins/{$id}/";
         }
+
+        $skin = new self($id, $parsedName ?? ucfirst($id), $resolvedFolder);
+        $skin->hasExplicitSkinFolder = ($explicitSkinFolder !== null && $explicitSkinFolder !== '');
+
+        foreach ($customMedia as $k => $v) {
+            $skin->mediaFiles[$k] = $v;
+        }
+        if ($bodyBgColor !== null) {
+            $skin->bodyBgColor = $bodyBgColor;
+        }
+        if ($panelBgColor !== null) {
+            $skin->panelBgColor = $panelBgColor;
+        }
+        if ($buttonStyle !== null) {
+            $skin->buttonStyle = $buttonStyle;
+        }
+        if ($rawTitleStyle !== null) {
+            $skin->rawTitleStyle = $rawTitleStyle;
+        }
+        if ($stylesheet !== null) {
+            $skin->stylesheet = $stylesheet;
+        }
+
+        $skin->applyMediaFiles();
 
         return $skin;
     }
 
     public function getIcon(string $name): string
     {
-        return $this->icons[strtoupper($name)] ?? ($this->skinFolder . 'icoitem.gif');
+        return $this->icons[strtoupper($name)] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOITEM']);
     }
 
     public function getItemIcon(): string
     {
-        return $this->icons['ICOITEM'] ?? ($this->skinFolder . 'icoitem.gif');
+        return $this->icons['ICOITEM'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOITEM']);
     }
 
     public function getCharacterIcon(): string
     {
-        return $this->icons['ICOCHARACTER'] ?? ($this->skinFolder . 'icouser.gif');
+        return $this->icons['ICOCHARACTER'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOCHARACTER']);
     }
 
     public function getPlayerIcon(): string
     {
-        return $this->icons['ICOPLAYER'] ?? ($this->skinFolder . 'icoPlayer.gif');
+        return $this->icons['ICOPLAYER'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOPLAYER']);
     }
 
     public function getWayIcon(string $direction): string
     {
         $dir = strtoupper(trim($direction));
         return match ($dir) {
-            'N'        => $this->icons['ICOWAYN'] ?? ($this->skinFolder . 'icowayn.gif'),
-            'S'        => $this->icons['ICOWAYS'] ?? ($this->skinFolder . 'icoways.gif'),
-            'E'        => $this->icons['ICOWAYE'] ?? ($this->skinFolder . 'icowaye.gif'),
-            'W'        => $this->icons['ICOWAYW'] ?? ($this->skinFolder . 'icowayw.gif'),
-            'U', 'UP'  => $this->icons['ICOWAYU'] ?? ($this->skinFolder . 'icowayu.gif'),
-            'D', 'DOWN'=> $this->icons['ICOWAYD'] ?? ($this->skinFolder . 'icowayd.gif'),
-            default    => $this->icons['ICOWAY'] ?? ($this->skinFolder . 'icoway.gif'),
+            'N'        => $this->icons['ICOWAYN'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOWAYN']),
+            'S'        => $this->icons['ICOWAYS'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOWAYS']),
+            'E'        => $this->icons['ICOWAYE'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOWAYE']),
+            'W'        => $this->icons['ICOWAYW'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOWAYW']),
+            'U', 'UP'  => $this->icons['ICOWAYU'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOWAYU']),
+            'D', 'DOWN'=> $this->icons['ICOWAYD'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOWAYD']),
+            default    => $this->icons['ICOWAY']  ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOWAY']),
         };
     }
 
     public function getSpacerIcon(): string
     {
-        return $this->picSpacer?->url ?? ($this->icons['PICSPACER'] ?? ($this->skinFolder . 'blank.gif'));
+        return (!empty($this->picSpacer?->src))
+            ? $this->picSpacer->src
+            : ($this->icons['PICSPACER'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['PICSPACER']));
     }
 
     public function getRotLIcon(): string
     {
-        return $this->icons['ICOROTL'] ?? ($this->skinFolder . 'icorotl.gif');
+        return $this->icons['ICOROTL'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOROTL']);
     }
 
     public function getRotRIcon(): string
     {
-        return $this->icons['ICOROTR'] ?? ($this->skinFolder . 'icorotr.gif');
+        return $this->icons['ICOROTR'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOROTR']);
     }
 
     public function getRevIcon(): string
     {
-        return $this->icons['ICOREV'] ?? ($this->skinFolder . 'reverse.gif');
+        return $this->icons['ICOREV'] ?? ($this->skinFolder . self::DEFAULT_MEDIA_FILES['ICOREV']);
     }
 
     /**
