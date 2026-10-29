@@ -39,6 +39,8 @@ class Skin
     public bool $hasExplicitSkinFolder = false;
     public string $bodyBgColor = '#1e293b';
     public string $panelBgColor = 'SILVER';
+    public string $panelBackground = '';
+    public string $rawPanelBackground = '';
     public string $textColor = '#f8fafc';
     public string $buttonStyle = '';
     public string $titleStyle = '';
@@ -111,6 +113,12 @@ class Skin
             $this->icons[$key] = $this->resolveMediaUrl($file);
         }
 
+        if ($this->rawPanelBackground !== '') {
+            $this->panelBackground = $this->resolveMediaUrl($this->rawPanelBackground);
+        } else {
+            $this->panelBackground = '';
+        }
+
         if ($this->rawTitleStyle !== '') {
             $this->titleStyle = str_ireplace(
                 ['$SKINFOLDER', '$IMAGESFOLDER'],
@@ -170,6 +178,7 @@ class Skin
         $customMedia        = [];
         $bodyBgColor        = null;
         $panelBgColor       = null;
+        $rawPanelBackground = null;
         $buttonStyle        = null;
         $rawTitleStyle      = null;
         $stylesheet         = null;
@@ -240,6 +249,9 @@ class Skin
                             $panelBgColor = $val;
                         }
                         break;
+                    case 'PANELBACKGROUND':
+                        $rawPanelBackground = $val;
+                        break;
                     case 'BUTTONSTYLE':
                         $buttonStyle = $val;
                         break;
@@ -279,6 +291,9 @@ class Skin
         }
         if ($panelBgColor !== null) {
             $skin->panelBgColor = $panelBgColor;
+        }
+        if ($rawPanelBackground !== null) {
+            $skin->rawPanelBackground = $rawPanelBackground;
         }
         if ($buttonStyle !== null) {
             $skin->buttonStyle = $buttonStyle;
@@ -365,7 +380,7 @@ body {
     padding: 0;
 }
 .dimx-panel {
-    background-color: {$this->panelBgColor};
+    background-color: transparent;
     padding: 10px;
     border-radius: 8px;
     display: flex;

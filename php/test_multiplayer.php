@@ -4090,6 +4090,33 @@ if (shouldRun(44)) {
         "PlayerDefault #navpad renders Default directional icons (icowayn.gif, icowaye.gif, blank.gif from https://www.dimensionex.net/skins/default/)"
     );
 
+    // 4. Verify #ctrls PANELBGCOLOR and PANELBACKGROUND per chosen skin
+    assertTest(
+        $aquaSkin->panelBgColor === 'SILVER' && $aquaSkin->panelBackground === 'http://www.dimensionex.net/skins/aqua/aqua_sea.jpg',
+        "Aqua skin parsed PANELBGCOLOR='SILVER' and PANELBACKGROUND='http://www.dimensionex.net/skins/aqua/aqua_sea.jpg'"
+    );
+    assertTest(
+        $forestSkin->panelBgColor === 'SILVER' && $forestSkin->panelBackground === 'https://www.dimensionex.net/skins/forest/vine-001.jpg',
+        "Forest skin parsed PANELBGCOLOR='SILVER' and PANELBACKGROUND='https://www.dimensionex.net/skins/forest/vine-001.jpg'"
+    );
+    assertTest(
+        $defaultSkin->panelBgColor === 'SILVER' && $defaultSkin->panelBackground === '',
+        "Default skin has PANELBGCOLOR='SILVER' and empty PANELBACKGROUND"
+    );
+
+    assertTest(
+        str_contains($htmlAqua, '<div id="ctrls" style="background-color:SILVER;background-image:url(\'http://www.dimensionex.net/skins/aqua/aqua_sea.jpg\');">'),
+        "PlayerAqua #ctrls div has background-color:SILVER and background-image url('http://www.dimensionex.net/skins/aqua/aqua_sea.jpg')"
+    );
+    assertTest(
+        str_contains($htmlForest, '<div id="ctrls" style="background-color:SILVER;background-image:url(\'https://www.dimensionex.net/skins/forest/vine-001.jpg\');">'),
+        "PlayerForest #ctrls div has background-color:SILVER and background-image url('https://www.dimensionex.net/skins/forest/vine-001.jpg')"
+    );
+    assertTest(
+        str_contains($htmlDefault, '<div id="ctrls" style="background-color:SILVER;">'),
+        "PlayerDefault #ctrls div has background-color:SILVER and no background-image"
+    );
+
     @$pm->resetWorld($sec44WorldId);
 }
 

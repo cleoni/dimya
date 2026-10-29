@@ -260,7 +260,10 @@ class UIhtml extends UI
               height: 100%;
               overflow-y: auto;
               border-bottom: 2px solid #808080;
-              background: #d4d4d4;
+              background-color: <?= htmlspecialchars($skin->panelBgColor ?: 'SILVER') ?>;
+<?php if (!empty($skin->panelBackground)): ?>
+              background-image: url('<?= htmlspecialchars($skin->panelBackground) ?>');
+<?php endif; ?>
               color: #000000;
               padding: 10px;
             }
@@ -1416,7 +1419,13 @@ class UIhtml extends UI
               </div>
 
               <!-- CELL B: Right cell of top row (300px wide, ACTIONS panel) -->
-              <div id="ctrls">
+              <?php
+                $ctrlsStyle = 'background-color:' . htmlspecialchars($skin->panelBgColor ?: 'SILVER') . ';';
+                if (!empty($skin->panelBackground)) {
+                    $ctrlsStyle .= "background-image:url('" . htmlspecialchars($skin->panelBackground) . "');";
+                }
+              ?>
+              <div id="ctrls" style="<?= $ctrlsStyle ?>">
                 <?php $activePanel = $player->getPanel() ?? $world->defaultPanel; ?>
                 <div id="cmdPrompt" class="dimx-cmd-prompt" title="Click to cancel pending command" onclick="clearPendingCmd()"></div>
                 <form id="cmdForm" method="POST" action="multiplayer.php" style="margin:0">

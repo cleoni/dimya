@@ -13,9 +13,9 @@ This document provides the definitive specification for user interface skins and
 | `SKIN <id>` / `END_SKIN` block, `ID` | Implemented - `SKIN <id>` and `ID <id>` set `Skin::$id` (fallback: descriptor filename stripped of `_net.dxs` / `.dxs`) |
 | `NAME`, `SKINFOLDER` / `IMAGESFOLDER` | Implemented - uses `SKINFOLDER` / `IMAGESFOLDER` if defined in `.dxs`; otherwise defaults to `<worldImagesParent>/skins/<skinId>/` |
 | `PICPLAYER`, `PICSPACER`, `PICFADER`, `ICOPLAYER`, `ICOCHARACTER`, `ICOITEM`, `ICOWAY*`, `ICOROT*`, `ICOREV` | Implemented (omitted directives fall back to hard-coded default filenames inside `Skin::$skinFolder`) |
-| `BODYBGCOLOR`, `PANELBGCOLOR` | Implemented |
+| `BODYBGCOLOR`, `PANELBGCOLOR`, `PANELBACKGROUND` | Implemented |
 | `TITLESTYLE`, `BUTTONSTYLE`, `STYLESHEET` | Partial - parsed into `Skin::$titleStyle`, `Skin::$buttonStyle`, `Skin::$stylesheet` |
-| `SNDNEWMSG`, `BODYBACKGROUND`, `BODYSTYLE`, `SYSMSGSTYLE`, `LINKSTYLE`, `ALINKSTYLE`, `ICONLABELSTYLE`, `PANELBACKGROUND`, `PANELSTYLE`, `LIST1BGCOLOR`, `LIST2BGCOLOR`, `LISTSTYLE`, `CTRLBANNER` | Ignored (not parsed) |
+| `SNDNEWMSG`, `BODYBACKGROUND`, `BODYSTYLE`, `SYSMSGSTYLE`, `LINKSTYLE`, `ALINKSTYLE`, `ICONLABELSTYLE`, `PANELSTYLE`, `LIST1BGCOLOR`, `LIST2BGCOLOR`, `LISTSTYLE`, `CTRLBANNER` | Ignored (not parsed) |
 | `$SKINFOLDER` / `$IMAGESFOLDER` | Partial - substituted in `TITLESTYLE` |
 | `$ICON`, `$SKINICON` | Not implemented |
 | `_net` skins | Implemented (via `SKINFOLDER` in `.dxs` and/or direct `http(s)://` `.dxs` URL in `SKINS`) |
@@ -200,8 +200,8 @@ END_SKIN
 | **`LINKSTYLE`** | No | `{font-family:Tahoma;color:#EE30EE;}` | CSS style for hypertext links (`<a>`). **[DimX only - not yet implemented in DimY: directive is not parsed]** |
 | **`ALINKSTYLE`** | No | `{font-family:Tahoma;color:#EE30EE;}` | CSS style for active / hovered hyperlinks. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
 | **`ICONLABELSTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#DDDDDD;}` | CSS style for caption text displayed underneath on-screen icons. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
-| **`PANELBGCOLOR`** | No | `SILVER` | Background color for command button panels. |
-| **`PANELBACKGROUND`** | No | `""` *(none)* | Background wallpaper image for the command panel bar. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
+| **`PANELBGCOLOR`** | No | `SILVER` | Background color for command button panels (`#ctrls` and `#navpad`). |
+| **`PANELBACKGROUND`** | No | `""` *(none)* | Background wallpaper image for the command panel bar (`#ctrls`), resolved against `SKINFOLDER`. |
 | **`PANELSTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#600000;}` | CSS style for labels and text inside command panels. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
 | **`BUTTONSTYLE`** | No | `""` | CSS style applied to buttons. Supports `$ICON` and `$SKINICON` substitutions. **[DimY: partial - parsed into `Skin::$buttonStyle` but not rendered; `$ICON`/`$SKINICON` not substituted]** |
 | **`TITLESTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#FFFF10;background-color:#000090;}` | CSS style for top title bar and header frames. Supports `$SKINFOLDER`. **[DimY: partial - parsed with `$SKINFOLDER`/`$IMAGESFOLDER` substitution into `Skin::$titleStyle`, but not rendered]** |
