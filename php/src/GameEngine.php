@@ -432,6 +432,9 @@ class GameEngine
         }
 
         $storageLabel = $this->pm->checkConnection()['type'];
+        $msgRefreshRate = (isset($this->config['msgRefreshRate']) && is_numeric($this->config['msgRefreshRate']) && (int)$this->config['msgRefreshRate'] > 0)
+            ? (int)$this->config['msgRefreshRate']
+            : 5;
 
         // Messages box (Cell C) displays the player's 10 most recent incoming messages only (arrival order)
         $chatMessages = $player->getMessages();
@@ -446,12 +449,13 @@ class GameEngine
             'background_music' => $pendingBgMusic,
             'new_messages'     => $hasNewMsgs,
             'lockError'        => $lockError,
-            'cmd'          => $cmd,
-            'param'        => $param,
-            'target'       => $targetId,
-            'storageLabel' => $storageLabel,
-            'worldId'      => $this->worldId,
-            'logged_out'   => $loggedOut,
+            'cmd'              => $cmd,
+            'param'            => $param,
+            'target'           => $targetId,
+            'storageLabel'     => $storageLabel,
+            'worldId'          => $this->worldId,
+            'msgRefreshRate'   => $msgRefreshRate,
+            'logged_out'       => $loggedOut,
         ];
     }
 

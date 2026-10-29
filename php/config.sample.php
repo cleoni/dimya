@@ -49,6 +49,13 @@ return [
     'tickLength' => 30,
 
     // -------------------------------------------------------------------------
+    // Messages Panel (#msgs) Refresh Rate (seconds)
+    // -------------------------------------------------------------------------
+    // Interval in seconds at which the web client (UIhtml) polls the server
+    // to refresh incoming chat and system messages in DIV #msgs (default: 5 seconds).
+    'msgRefreshRate' => 5,
+
+    // -------------------------------------------------------------------------
     // Base URL
     // -------------------------------------------------------------------------
     // Base URL for web resources, client scripts, and media assets

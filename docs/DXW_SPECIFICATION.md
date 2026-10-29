@@ -210,7 +210,7 @@ END_GUI
   * **No URL Parameters / No Login Dropdown**: There is **no dropdown list in the login form** to choose a screen size, nor are `width` or `height` query parameters required when calling `multiplayer.php`. The client browser automatically measures viewport dimensions and dynamically applies responsive CSS layouts.
   * **Landscape Layout**:
     * **Row 1 (Top, 85% height)**: Divided horizontally into **Scene (`#scene`)** (left, filling available width, containing **Display DIV (`#display`)** room scene/description and **Dashboard (`#dashboard`)** navigation/occupants/inventory/stats side-by-side) and **Ctrls (`#ctrls`)** (right, 300px controls panel).
-    * **Row 2 (Bottom, 15% height)**: **Msgs (`#msgs`)** spanning full width (messages console with alternating `#101040` / `#313161` row stripes and dismiss buttons).
+    * **Row 2 (Bottom, 15% height)**: **Msgs (`#msgs`)** spanning full width (messages console with alternating `#101040` / `#313161` row stripes and dismiss buttons, refreshed automatically every `msgRefreshRate` seconds as configured in `php/config.php`, default `5`s).
   * **Portrait / Mobile Layout (`width < height`)**:
     * Automatically rearranges the three main DIVs into vertically stacked, full-width rows:
       1. **Scene (`#scene`, Scene Frame)**: Placed on top across full width, dynamically receiving all remaining height (`*`). Inside Scene, row disposition is preserved with Display DIV (`#display`, scene + description) on the left and Dashboard (`#dashboard`, navigation + inventory + stats) on the right.

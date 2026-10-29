@@ -158,6 +158,14 @@ class UIhtml extends UI
         $lockError       = (bool)($context['lockError'] ?? false);
         $worldId         = $context['worldId'] ?? $world->id;
         $playerName      = $player->name;
+        $rawRefreshRate  = $context['msgRefreshRate'] ?? $this->engine?->config['msgRefreshRate'] ?? null;
+        if ($rawRefreshRate === null && file_exists(__DIR__ . '/../config.php')) {
+            $loadedCfg = @require __DIR__ . '/../config.php';
+            if (is_array($loadedCfg) && isset($loadedCfg['msgRefreshRate'])) {
+                $rawRefreshRate = $loadedCfg['msgRefreshRate'];
+            }
+        }
+        $msgRefreshRate  = (is_numeric($rawRefreshRate) && (int)$rawRefreshRate > 0) ? (int)$rawRefreshRate : 5;
 
         // Render departure / logged-out screen
         if (!empty($context['logged_out'])) {
@@ -2108,11 +2116,12 @@ class UIhtml extends UI
             if (cBox) cBox.scrollTop = cBox.scrollHeight;
 
             // ---- Async chat & Audio/Music players ----
-            const WORLD_ID       = <?= json_encode($worldId) ?>;
-            const PLAYER_NAME    = <?= json_encode($playerName) ?>;
-            const SOUNDS_ENABLED = <?= $soundsEnabled ? 'true' : 'false' ?>;
-            const MUSIC_ENABLED  = <?= $musicEnabled ? 'true' : 'false' ?>;
-            const SND_NEW_MSG    = <?= json_encode($skin->sndNewmsg ?? '') ?>;
+            const WORLD_ID         = <?= json_encode($worldId) ?>;
+            const PLAYER_NAME      = <?= json_encode($playerName) ?>;
+            const SOUNDS_ENABLED   = <?= $soundsEnabled ? 'true' : 'false' ?>;
+            const MUSIC_ENABLED    = <?= $musicEnabled ? 'true' : 'false' ?>;
+            const SND_NEW_MSG      = <?= json_encode($skin->sndNewmsg ?? '') ?>;
+            const MSG_REFRESH_RATE = <?= $msgRefreshRate ?>;
 
             function playOneShotSound(url) {
               if (!SOUNDS_ENABLED || !url) return;
@@ -2225,9 +2234,9 @@ class UIhtml extends UI
               } catch (e) { /* network error — silent */ }
             }
 
-            // Initial load + recurring poll every 3 seconds
+            // Initial load + recurring poll every <?= $msgRefreshRate ?> seconds (msgRefreshRate)
             pollChat();
-            setInterval(pollChat, 3000);
+            setInterval(pollChat, <?= $msgRefreshRate * 1000 ?>);
 
             // Responsive orientation adjustment on resize / rotate
             function updateOrientationClass() {

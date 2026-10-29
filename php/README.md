@@ -66,7 +66,7 @@ All core game entities reside in the `Dimx\` namespace under [`src/`](src/):
 
 ---
 
-## 3. Database Setup (MySQL) & Player Accounts
+## 3. Database Setup (MySQL), Server Settings & Player Accounts
 
 If using MySQL, create a database and import [`schema.sql`](schema.sql):
 
@@ -88,7 +88,9 @@ All players (human and bot) are stored in `dimx_players`:
 * **Account exists**: Authenticates supplied password with `password_verify()`. If incorrect, connection is refused.
 * **Account does not exist**: Registers and creates the account automatically, hashing the password and generating a new numeric ID.
 
-Configure your credentials in `config.php`:
+### Server Settings (`config.php` / `config.sample.php`)
+
+Copy [`config.sample.php`](config.sample.php) to [`config.php`](config.php) and configure your server settings:
 ```php
 return [
     'db' => [
@@ -98,8 +100,27 @@ return [
         'user'   => 'root',
         'pass'   => 'your_password',
     ],
+    'adminPasswd'    => 'admin',
+    'world_file'     => __DIR__ . '/../docs/dxw-examples/world1.dxw',
+    'tickLength'     => 30,
+    'msgRefreshRate' => 5,
+    'base_url'       => 'http://localhost',
+    'testBots'       => [
+        'testbot',
+    ],
 ];
 ```
+
+| Setting | Default | Description |
+| :--- | :--- | :--- |
+| `db` | `127.0.0.1:3306` | MySQL / MariaDB connection credentials (`host`, `port`, `dbname`, `user`, `pass`). Falls back to `php/data/` if unreachable. |
+| `adminPasswd` | `'admin'` | Password required for administrative operations in [`maint.php`](maint.php). |
+| `world_file` | `world1.dxw` | Authoritative `.dxw` world definition file (local path or HTTP/HTTPS URL). |
+| `tickLength` | `30` | World clock tick interval in seconds for global `onTick` and character `Living` events. |
+| `msgRefreshRate` | `5` | Refresh interval in seconds at which [`UIhtml`](src/UIhtml.php) polls [`chat.php`](chat.php) to refresh `#msgs`. |
+| `base_url` | `'http://localhost'` | Base URL used when resolving relative media paths. |
+| `testBots` | `['testbot']` | Bot account nicknames that receive diagnostic [`UIjson`](src/UIjson.php) payloads instead of [`UIbot`](src/UIbot.php). |
+
 *(If MySQL is not reachable, the engine will automatically store files in `php/data/`)*.
 
 ---

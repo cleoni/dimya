@@ -2472,6 +2472,8 @@ if (shouldRun(31)) {
     $mainConfig = require $configFile;
     assertTest(isset($mainConfig['tickLength']), "config.php defines 'tickLength'");
     assertTest($mainConfig['tickLength'] === 30, "config.php 'tickLength' defaults to 30: " . var_export($mainConfig['tickLength'], true));
+    assertTest(isset($mainConfig['msgRefreshRate']), "config.php defines 'msgRefreshRate'");
+    assertTest($mainConfig['msgRefreshRate'] === 5, "config.php 'msgRefreshRate' defaults to 5: " . var_export($mainConfig['msgRefreshRate'], true));
 
     // 2. Check config.sample.php setting
     $sampleConfigFile = __DIR__ . '/config.sample.php';
@@ -2479,6 +2481,30 @@ if (shouldRun(31)) {
     $sampleConfig = require $sampleConfigFile;
     assertTest(isset($sampleConfig['tickLength']), "config.sample.php defines 'tickLength'");
     assertTest($sampleConfig['tickLength'] === 30, "config.sample.php 'tickLength' defaults to 30: " . var_export($sampleConfig['tickLength'], true));
+    assertTest(isset($sampleConfig['msgRefreshRate']), "config.sample.php defines 'msgRefreshRate'");
+    assertTest($sampleConfig['msgRefreshRate'] === 5, "config.sample.php 'msgRefreshRate' defaults to 5: " . var_export($sampleConfig['msgRefreshRate'], true));
+
+    // 2b. Test UIhtml refreshes #msgs every msgRefreshRate seconds (default 5s -> 5000ms, custom 8s -> 8000ms)
+    $msgRateWorld = new \Dimx\World('msg_rate_world', 'Msg Rate World');
+    $msgRateRoom  = new \Dimx\Room($msgRateWorld, 'Lobby', 'lobby', 'Lobby room.');
+    $msgRateWorld->addRoom($msgRateRoom);
+    $msgRatePlayer = new \Dimx\Player($msgRateWorld, 'RateTester', 'p_rate_tester');
+    $msgRatePlayer->move($msgRateRoom);
+
+    $uiDefaultRate = new \Dimx\UIhtml($msgRatePlayer);
+    ob_start();
+    $uiDefaultRate->render(['world' => $msgRateWorld, 'player' => $msgRatePlayer, 'room' => $msgRateRoom]);
+    $defaultRateHtml = ob_get_clean();
+    assertTest(str_contains($defaultRateHtml, 'const MSG_REFRESH_RATE = 5;'), "UIhtml sets MSG_REFRESH_RATE = 5 by default");
+    assertTest(str_contains($defaultRateHtml, 'setInterval(pollChat, 5000);'), "UIhtml refreshes #msgs every 5000ms (5 seconds) by default");
+
+    $customRateEngine = new \Dimx\GameEngine($pm, 'msg_rate_custom', null, '', ['msgRefreshRate' => 8]);
+    $uiCustomRate = new \Dimx\UIhtml($msgRatePlayer, $customRateEngine);
+    ob_start();
+    $uiCustomRate->render(['world' => $msgRateWorld, 'player' => $msgRatePlayer, 'room' => $msgRateRoom]);
+    $customRateHtml = ob_get_clean();
+    assertTest(str_contains($customRateHtml, 'const MSG_REFRESH_RATE = 8;'), "UIhtml sets MSG_REFRESH_RATE = 8 when configured in GameEngine config");
+    assertTest(str_contains($customRateHtml, 'setInterval(pollChat, 8000);'), "UIhtml refreshes #msgs every 8000ms (8 seconds) when msgRefreshRate = 8");
 
     // 3. Test GameEngine applies tickLength from config to World
     $customEngine = new \Dimx\GameEngine($pm, 'tick_config_test', null, '', ['tickLength' => 45]);

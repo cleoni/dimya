@@ -337,6 +337,7 @@ return [
     'adminPasswd' => 'admin123',
     'world_file'  => __DIR__ . '/../docs/dxw-examples/world3net.dxw',
     'tickLength'  => 30,
+    'msgRefreshRate' => 5,
     'base_url'    => 'http://localhost',
     'testBots'    => [
         'BotAlpha',
