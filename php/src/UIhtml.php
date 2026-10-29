@@ -306,10 +306,10 @@ class UIhtml extends UI
               display: flex;
               flex-direction: column;
             }
-            /* Subcell E: 250 pixels wide, navigation, inventory, stats */
+            /* #dashboard: 200 pixels wide, navigation, inventory, stats */
             #dashboard {
-              width: 250px;
-              flex: 0 0 250px;
+              width: 200px;
+              flex: 0 0 200px;
               height: 100%;
               overflow-y: auto;
               padding: 8px;
@@ -1024,7 +1024,7 @@ class UIhtml extends UI
                     </div>
                   </div>
 
-                  <!-- Subcell E: Navigation controls, inventory, stats (250px wide) -->
+                  <!-- #dashboard: Navigation controls, inventory, stats (200px wide) -->
                   <div id="dashboard">
                     <!-- Navigation / Exits (Navpad) -->
                     <?php
