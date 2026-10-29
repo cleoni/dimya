@@ -13,9 +13,9 @@ This document provides the definitive specification for user interface skins and
 | `SKIN <id>` / `END_SKIN` block, `ID` | Implemented - `SKIN <id>` and `ID <id>` set `Skin::$id` (fallback: descriptor filename stripped of `_net.dxs` / `.dxs`) |
 | `NAME`, `SKINFOLDER` / `IMAGESFOLDER` | Implemented - uses `SKINFOLDER` / `IMAGESFOLDER` if defined in `.dxs`; otherwise defaults to `<worldImagesParent>/skins/<skinId>/` |
 | `PICPLAYER`, `PICSPACER`, `PICFADER`, `ICOPLAYER`, `ICOCHARACTER`, `ICOITEM`, `ICOWAY*`, `ICOROT*`, `ICOREV` | Implemented (omitted directives fall back to hard-coded default filenames inside `Skin::$skinFolder`) |
-| `BODYBGCOLOR`, `PANELBGCOLOR`, `PANELBACKGROUND` | Implemented |
+| `BODYBGCOLOR`, `PANELBGCOLOR`, `PANELBACKGROUND`, `PANELSTYLE`, `LIST1BGCOLOR`, `LIST2BGCOLOR`, `LISTSTYLE` | Implemented |
 | `TITLESTYLE`, `BUTTONSTYLE`, `STYLESHEET` | Partial - parsed into `Skin::$titleStyle`, `Skin::$buttonStyle`, `Skin::$stylesheet` |
-| `SNDNEWMSG`, `BODYBACKGROUND`, `BODYSTYLE`, `SYSMSGSTYLE`, `LINKSTYLE`, `ALINKSTYLE`, `ICONLABELSTYLE`, `PANELSTYLE`, `LIST1BGCOLOR`, `LIST2BGCOLOR`, `LISTSTYLE`, `CTRLBANNER` | Ignored (not parsed) |
+| `SNDNEWMSG`, `BODYBACKGROUND`, `BODYSTYLE`, `SYSMSGSTYLE`, `LINKSTYLE`, `ALINKSTYLE`, `ICONLABELSTYLE`, `CTRLBANNER` | Ignored (not parsed) |
 | `$SKINFOLDER` / `$IMAGESFOLDER` | Partial - substituted in `TITLESTYLE` |
 | `$ICON`, `$SKINICON` | Not implemented |
 | `_net` skins | Implemented (via `SKINFOLDER` in `.dxs` and/or direct `http(s)://` `.dxs` URL in `SKINS`) |
@@ -202,12 +202,12 @@ END_SKIN
 | **`ICONLABELSTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#DDDDDD;}` | CSS style for caption text displayed underneath on-screen icons. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
 | **`PANELBGCOLOR`** | No | `SILVER` | Background color for command button panels (`#ctrls` and `#navpad`). |
 | **`PANELBACKGROUND`** | No | `""` *(none)* | Background wallpaper image for the command panel bar (`#ctrls`), resolved against `SKINFOLDER`. |
-| **`PANELSTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#600000;}` | CSS style for labels and text inside command panels. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
+| **`PANELSTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#600000;}` | CSS style in `{ }` applied to controls and buttons inside `#ctrls` (`#ctrls .dimx-btn`). |
 | **`BUTTONSTYLE`** | No | `""` | CSS style applied to buttons. Supports `$ICON` and `$SKINICON` substitutions. **[DimY: partial - parsed into `Skin::$buttonStyle` but not rendered; `$ICON`/`$SKINICON` not substituted]** |
 | **`TITLESTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#FFFF10;background-color:#000090;}` | CSS style for top title bar and header frames. Supports `$SKINFOLDER`. **[DimY: partial - parsed with `$SKINFOLDER`/`$IMAGESFOLDER` substitution into `Skin::$titleStyle`, but not rendered]** |
-| **`LIST1BGCOLOR`** | No | `#000000` | Background color for odd-numbered rows in the chat / log frame. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
-| **`LIST2BGCOLOR`** | No | `#414141` | Background color for even-numbered rows in the chat / log frame. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
-| **`LISTSTYLE`** | No | `{font-size:8pt;font-family:Tahoma;color:#A0B0C0;}` | Typography style for messages inside the chat / log queue. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
+| **`LIST1BGCOLOR`** | No | `#000000` (`#101040` in DimY) | Background color for odd-numbered rows in the chat / messages frame (`#msgs`). |
+| **`LIST2BGCOLOR`** | No | `#414141` (`#313161` in DimY) | Background color for even-numbered rows in the chat / messages frame (`#msgs`). |
+| **`LISTSTYLE`** | No | `{font-size:8pt;font-family:Tahoma;color:#A0B0C0;}` | Typography style between `{ }` applied to `#chatBox` inside `#msgs`. |
 | **`CTRLBANNER`** | No | `""` *(none)* | Header image tag or game logo rendered at the top of the command panel. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
 | **`STYLESHEET`** | No | `""` *(none)* | Filename of an external CSS stylesheet residing inside the skin folder. **[DimY: partial - parsed into `Skin::$stylesheet`, not yet linked in HTML]** |
 

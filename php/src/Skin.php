@@ -41,6 +41,10 @@ class Skin
     public string $panelBgColor = 'SILVER';
     public string $panelBackground = '';
     public string $rawPanelBackground = '';
+    public string $panelStyle = '{font-size: 10pt;font-family: Tahoma;color:#600000;}';
+    public string $list1BgColor = '#101040';
+    public string $list2BgColor = '#313161';
+    public string $listStyle = '{font-size: 8pt;font-family: Tahoma;color:#A0B0C0;}';
     public string $textColor = '#f8fafc';
     public string $buttonStyle = '';
     public string $titleStyle = '';
@@ -179,6 +183,10 @@ class Skin
         $bodyBgColor        = null;
         $panelBgColor       = null;
         $rawPanelBackground = null;
+        $panelStyle         = null;
+        $list1BgColor       = null;
+        $list2BgColor       = null;
+        $listStyle          = null;
         $buttonStyle        = null;
         $rawTitleStyle      = null;
         $stylesheet         = null;
@@ -252,6 +260,26 @@ class Skin
                     case 'PANELBACKGROUND':
                         $rawPanelBackground = $val;
                         break;
+                    case 'PANELSTYLE':
+                        if ($val !== '') {
+                            $panelStyle = $val;
+                        }
+                        break;
+                    case 'LIST1BGCOLOR':
+                        if ($val !== '') {
+                            $list1BgColor = $val;
+                        }
+                        break;
+                    case 'LIST2BGCOLOR':
+                        if ($val !== '') {
+                            $list2BgColor = $val;
+                        }
+                        break;
+                    case 'LISTSTYLE':
+                        if ($val !== '') {
+                            $listStyle = $val;
+                        }
+                        break;
                     case 'BUTTONSTYLE':
                         $buttonStyle = $val;
                         break;
@@ -294,6 +322,18 @@ class Skin
         }
         if ($rawPanelBackground !== null) {
             $skin->rawPanelBackground = $rawPanelBackground;
+        }
+        if ($panelStyle !== null) {
+            $skin->panelStyle = $panelStyle;
+        }
+        if ($list1BgColor !== null) {
+            $skin->list1BgColor = $list1BgColor;
+        }
+        if ($list2BgColor !== null) {
+            $skin->list2BgColor = $list2BgColor;
+        }
+        if ($listStyle !== null) {
+            $skin->listStyle = $listStyle;
         }
         if ($buttonStyle !== null) {
             $skin->buttonStyle = $buttonStyle;

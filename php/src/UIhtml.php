@@ -253,6 +253,17 @@ class UIhtml extends UI
               flex-direction: column;
               background: #000040;
             }
+            <?php
+              $rawPanelStyle = trim($skin->panelStyle ?? '');
+              if (preg_match('/\{([^}]*)\}/', $rawPanelStyle, $psm)) {
+                  $panelStyleDecls = rtrim(trim($psm[1]), ';');
+              } else {
+                  $panelStyleDecls = rtrim(trim($rawPanelStyle, " \t\n\r\0\x0B{}"), ';');
+              }
+              if ($panelStyleDecls === '') {
+                  $panelStyleDecls = 'font-size: 10pt;font-family: Tahoma;color:#600000';
+              }
+            ?>
             /* Cell B: 300 pixels wide, grey frame */
             #ctrls {
               width: 300px;
@@ -264,7 +275,7 @@ class UIhtml extends UI
 <?php if (!empty($skin->panelBackground)): ?>
               background-image: url('<?= htmlspecialchars($skin->panelBackground) ?>');
 <?php endif; ?>
-              color: #000000;
+              <?= $panelStyleDecls ?>;
               padding: 10px;
             }
             /* Cell C: uses all width for a single cell, grey frame */
@@ -431,12 +442,11 @@ class UIhtml extends UI
             #ctrls .dimx-btn {
               background: #ececec;
               border: 1px solid #777777;
-              color: #000000;
               padding: 4px 10px;
               border-radius: 2px;
               cursor: pointer;
-              font-size: 13px;
               box-shadow: 1px 1px 0 #fff inset, 1px 1px 0 #333;
+              <?= $panelStyleDecls ?>;
             }
             #ctrls .dimx-btn:hover { background: #f4f4f4; }
             #ctrls .dimx-btn:active {
@@ -507,6 +517,13 @@ class UIhtml extends UI
               border-color: #0284c7;
               filter: brightness(1.1) drop-shadow(0 0 2px #38bdf8);
             }
+            <?php if (!empty($skin->listStyle)): ?>
+            <?php
+              $trimmedListStyle = str_ireplace('.listing', '#chatBox', trim($skin->listStyle));
+              $cssListStyle = str_starts_with($trimmedListStyle, '{') ? $trimmedListStyle : '{' . $trimmedListStyle . '}';
+            ?>
+            #chatBox <?= $cssListStyle ?>
+            <?php endif; ?>
             .chat-line {
               margin: 0;
               padding: 3px 6px;
@@ -514,10 +531,10 @@ class UIhtml extends UI
               border-radius: 2px;
             }
             .chat-line:nth-child(odd) {
-              background-color: #101040;
+              background-color: <?= htmlspecialchars($skin->list1BgColor ?: '#101040') ?>;
             }
             .chat-line:nth-child(even) {
-              background-color: #313161;
+              background-color: <?= htmlspecialchars($skin->list2BgColor ?: '#313161') ?>;
             }
             .chat-pop-btn {
               color: #f87171;
@@ -1445,7 +1462,15 @@ class UIhtml extends UI
             <div class="dimx-row-bottom">
               <!-- CELL C: Messages -->
               <div id="msgs">
-                <div id="chatBox">
+                <?php
+                  $rawListStyle = trim($skin->listStyle ?? '');
+                  if (preg_match('/\{([^}]*)\}/', $rawListStyle, $lsm)) {
+                      $inlineListStyle = trim($lsm[1]);
+                  } else {
+                      $inlineListStyle = trim($rawListStyle, " \t\n\r\0\x0B{}");
+                  }
+                ?>
+                <div id="chatBox"<?= $inlineListStyle !== '' ? ' style="' . htmlspecialchars($inlineListStyle) . '"' : '' ?>>
                   <?php foreach (($context['chat'] ?? []) as $chatMsg): ?>
                     <div id="msg_<?= htmlspecialchars((string)($chatMsg['id'] ?? '')) ?>" class="chat-line">
                       <a href="javascript:void(0)" class="chat-pop-btn" onclick="popMsg('<?= htmlspecialchars((string)($chatMsg['id'] ?? '')) ?>')" title="Dismiss message">✕</a>

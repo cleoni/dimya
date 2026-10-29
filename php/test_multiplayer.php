@@ -4117,6 +4117,86 @@ if (shouldRun(44)) {
         "PlayerDefault #ctrls div has background-color:SILVER and no background-image"
     );
 
+    // 5. Verify #msgs alternating message line colors (LIST1BGCOLOR odd, LIST2BGCOLOR even)
+    assertTest(
+        $aquaSkin->list1BgColor === '#101040' && $aquaSkin->list2BgColor === '#313161',
+        "Aqua skin parsed LIST1BGCOLOR='#101040' and LIST2BGCOLOR='#313161'"
+    );
+    assertTest(
+        $forestSkin->list1BgColor === '#004000' && $forestSkin->list2BgColor === '#316131',
+        "Forest skin parsed LIST1BGCOLOR='#004000' and LIST2BGCOLOR='#316131'"
+    );
+    assertTest(
+        $defaultSkin->list1BgColor === '#101040' && $defaultSkin->list2BgColor === '#313161',
+        "Default skin has LIST1BGCOLOR='#101040' and LIST2BGCOLOR='#313161'"
+    );
+
+    assertTest(
+        str_contains($htmlForest, ".chat-line:nth-child(odd) {\r\n              background-color: #004000;") ||
+        str_contains($htmlForest, ".chat-line:nth-child(odd) {\n              background-color: #004000;"),
+        "PlayerForest #msgs odd message lines use Forest LIST1BGCOLOR (#004000)"
+    );
+    assertTest(
+        str_contains($htmlForest, ".chat-line:nth-child(even) {\r\n              background-color: #316131;") ||
+        str_contains($htmlForest, ".chat-line:nth-child(even) {\n              background-color: #316131;"),
+        "PlayerForest #msgs even message lines use Forest LIST2BGCOLOR (#316131)"
+    );
+
+    // 6. Verify LISTSTYLE on #chatBox inside #msgs
+    assertTest(
+        $aquaSkin->listStyle === '{font-size:8pt;font-family:Century Gothic;color:#DDDDDD}',
+        "Aqua skin parsed LISTSTYLE='{font-size:8pt;font-family:Century Gothic;color:#DDDDDD}' (got '{$aquaSkin->listStyle}')"
+    );
+    assertTest(
+        str_starts_with($forestSkin->listStyle, '{font-size:8pt;font-family:Courier New;color:#DDDDDD}'),
+        "Forest skin parsed LISTSTYLE starting with '{font-size:8pt;font-family:Courier New;color:#DDDDDD}' (got '{$forestSkin->listStyle}')"
+    );
+    assertTest(
+        $defaultSkin->listStyle === '{font-size: 8pt;font-family: Tahoma;color:#A0B0C0;}',
+        "Default skin has default LISTSTYLE='{font-size: 8pt;font-family: Tahoma;color:#A0B0C0;}'"
+    );
+    assertTest(
+        str_contains($htmlAqua, '#chatBox {font-size:8pt;font-family:Century Gothic;color:#DDDDDD}') &&
+        str_contains($htmlAqua, '<div id="chatBox" style="font-size:8pt;font-family:Century Gothic;color:#DDDDDD">'),
+        "PlayerAqua #chatBox inside #msgs is styled with Aqua LISTSTYLE"
+    );
+    assertTest(
+        str_contains($htmlForest, '#chatBox {font-size:8pt;font-family:Courier New;color:#DDDDDD}') &&
+        str_contains($htmlForest, '<div id="chatBox" style="font-size:8pt;font-family:Courier New;color:#DDDDDD">'),
+        "PlayerForest #chatBox inside #msgs is styled with Forest LISTSTYLE"
+    );
+    assertTest(
+        str_contains($htmlDefault, '#chatBox {font-size: 8pt;font-family: Tahoma;color:#A0B0C0;}') &&
+        str_contains($htmlDefault, '<div id="chatBox" style="font-size: 8pt;font-family: Tahoma;color:#A0B0C0;">'),
+        "PlayerDefault #chatBox inside #msgs is styled with Default LISTSTYLE"
+    );
+
+    // 7. Verify PANELSTYLE on #ctrls .dimx-btn
+    assertTest(
+        $aquaSkin->panelStyle === '{font-size:10pt;font-family:Tahoma;color:#000050}',
+        "Aqua skin parsed PANELSTYLE='{font-size:10pt;font-family:Tahoma;color:#000050}' (got '{$aquaSkin->panelStyle}')"
+    );
+    assertTest(
+        $forestSkin->panelStyle === '{font-size:10pt;font-family:Lucida Sans, Lucida Console;color:#FFFFFF};',
+        "Forest skin parsed PANELSTYLE='{font-size:10pt;font-family:Lucida Sans, Lucida Console;color:#FFFFFF};' (got '{$forestSkin->panelStyle}')"
+    );
+    assertTest(
+        $defaultSkin->panelStyle === '{font-size: 10pt;font-family: Tahoma;color:#600000;}',
+        "Default skin has default PANELSTYLE='{font-size: 10pt;font-family: Tahoma;color:#600000;}'"
+    );
+    assertTest(
+        str_contains($htmlAqua, 'font-size:10pt;font-family:Tahoma;color:#000050;'),
+        "PlayerAqua #ctrls .dimx-btn uses Aqua PANELSTYLE (font-size:10pt;font-family:Tahoma;color:#000050;)"
+    );
+    assertTest(
+        str_contains($htmlForest, 'font-size:10pt;font-family:Lucida Sans, Lucida Console;color:#FFFFFF;'),
+        "PlayerForest #ctrls .dimx-btn uses Forest PANELSTYLE (font-size:10pt;font-family:Lucida Sans, Lucida Console;color:#FFFFFF;)"
+    );
+    assertTest(
+        str_contains($htmlDefault, 'font-size: 10pt;font-family: Tahoma;color:#600000;'),
+        "PlayerDefault #ctrls .dimx-btn uses Default PANELSTYLE (font-size: 10pt;font-family: Tahoma;color:#600000;)"
+    );
+
     @$pm->resetWorld($sec44WorldId);
 }
 
