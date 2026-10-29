@@ -209,15 +209,28 @@ class UIhtml extends UI
           <title><?= htmlspecialchars($world->name) ?> — DimensioneX</title>
           <style>
             <?= $skin->getCss() ?>
+            <?php
+              $bodyBg = htmlspecialchars($skin->bodyBgColor ?: '#000040');
+              $rawBodyStyle = trim($skin->bodyStyle ?? '');
+              if (preg_match('/\{([^}]*)\}/', $rawBodyStyle, $bsm)) {
+                  $bodyStyleDecls = rtrim(trim($bsm[1]), ';');
+              } else {
+                  $bodyStyleDecls = rtrim(trim($rawBodyStyle, " \t\n\r\0\x0B{}"), ';');
+              }
+              if ($bodyStyleDecls === '') {
+                  $bodyStyleDecls = 'font-size: 10pt;font-family: Tahoma;color:#00FFFF;margin:0';
+              }
+            ?>
             *, *:before, *:after { box-sizing: border-box; }
             html, body {
               height: 100%;
               margin: 0;
               padding: 0;
               overflow: hidden;
-              background: #000040;
-              color: #e2e8f0;
-              font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              background: <?= $bodyBg ?>;
+            }
+            body, td {
+              <?= $bodyStyleDecls ?>;
             }
             .dimx-root {
               display: flex;
@@ -251,7 +264,7 @@ class UIhtml extends UI
               border-bottom: 2px solid #808080;
               display: flex;
               flex-direction: column;
-              background: #000040;
+              background: transparent;
             }
             <?php
               $rawPanelStyle = trim($skin->panelStyle ?? '');
@@ -283,14 +296,25 @@ class UIhtml extends UI
               width: 100%;
               height: 100%;
               overflow-y: auto;
-              background: #000030;
+              background: transparent;
               color: #e2e8f0;
               padding: 8px 12px;
               font-size: 13px;
               line-height: 1.5;
             }
+            <?php
+              $rawTitleStyle = trim($skin->titleStyle ?? '');
+              if (preg_match('/\{([^}]*)\}/', $rawTitleStyle, $tsm)) {
+                  $titleStyleDecls = rtrim(trim($tsm[1]), ';');
+              } else {
+                  $titleStyleDecls = rtrim(trim($rawTitleStyle, " \t\n\r\0\x0B{}"), ';');
+              }
+              if ($titleStyleDecls === '') {
+                  $titleStyleDecls = 'font-size: 10pt;font-family: Tahoma;color:#FFFF10;background-color:#000090';
+              }
+            ?>
             /* Title bar across top of Cell A */
-            .dimx-title-bar {
+            #dimx-title-bar, .dimx-title-bar {
               background: #000040;
               color: #ffff00;
               font-weight: bold;
@@ -301,8 +325,9 @@ class UIhtml extends UI
               justify-content: space-between;
               align-items: center;
               flex: 0 0 auto;
+              <?= $titleStyleDecls ?>;
             }
-            .dimx-title-bar a {
+            #dimx-title-bar a, .dimx-title-bar a {
               color: #94a3b8;
               font-size: 11px;
               text-decoration: none;
@@ -340,7 +365,7 @@ class UIhtml extends UI
               overflow-y: auto;
               padding: 8px;
               border-left: 1px solid #444466;
-              background: #000040;
+              background: transparent;
             }
             /* Subtle / hidden scrollbars while preserving y-scrollability */
             #scene, #display, #dashboard, #ctrls, #msgs {
@@ -375,8 +400,6 @@ class UIhtml extends UI
               font-size: 14px;
             }
             .dimx-console {
-              color: #38bdf8;
-              font-size: 13px;
               line-height: 1.5;
               margin-top: 4px;
             }
@@ -384,7 +407,6 @@ class UIhtml extends UI
               margin-bottom: 4px;
             }
             .dimx-room-desc {
-              color: #38bdf8;
             }
             .dimx-section-title {
               font-size: 12px;
@@ -496,6 +518,7 @@ class UIhtml extends UI
               padding: 0;
               text-align: center;
               vertical-align: middle;
+              background-color: <?= htmlspecialchars($skin->panelBgColor ?: 'SILVER') ?>;
             }
             .dimx-nav-btn {
               display: inline-flex;
@@ -713,7 +736,7 @@ class UIhtml extends UI
                 padding: 8px !important;
                 border-left: 1px solid #444466 !important;
                 border-top: none !important;
-                background: #000040 !important;
+                background: transparent !important;
               }
             }
 
@@ -756,7 +779,7 @@ class UIhtml extends UI
           </style>
           <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
         </head>
-        <body>
+        <body style="background: <?= $bodyBg ?>;">
 
           <div class="dimx-root <?= $isPortrait ? 'dimx-portrait' : '' ?>">
 
@@ -766,7 +789,7 @@ class UIhtml extends UI
               <!-- CELL A: Left cell, uses all available width -->
               <div id="scene">
                 <!-- Title bar: room name and player name -->
-                <div class="dimx-title-bar">
+                <div id="dimx-title-bar" class="dimx-title-bar" style="<?= htmlspecialchars($titleStyleDecls) ?>">
                   <span>📍 <b><?= htmlspecialchars($activeContainer->name ?? $currentRoom->name ?? 'Unknown') ?><?= (!$isInsideVehicle && $currentRoom && $currentRoom->hasSeveralFaces()) ? ' - ' . htmlspecialchars(\Dimx\Link::getExtendedDirectionName($player->facing ?? 'N')) . ' view' : '' ?></b> (👤 <b><?= htmlspecialchars($player->name) ?></b>)</span>
                   <?php if ($lockError): ?><span style="color:#f87171;font-size:11px">⚠ Lock busy</span><?php endif; ?>
                 </div>
@@ -1149,7 +1172,7 @@ class UIhtml extends UI
                           $otherLinks = array_values($otherLinks);
                       }
                     ?>
-                    <table id="navpad" border="0" cellpadding="2" cellspacing="0" bgcolor="<?= htmlspecialchars($skin->panelBgColor ?: 'SILVER') ?>" style="background-color:<?= htmlspecialchars($skin->panelBgColor ?: 'SILVER') ?>">
+                    <table id="navpad" border="0" cellpadding="2" cellspacing="0">
                       <tbody>
                         <!-- Row 1: Cells 1, 2, 3 -->
                         <tr>

@@ -37,7 +37,8 @@ class Skin
     public string $name = 'Default';
     public string $skinFolder = '';
     public bool $hasExplicitSkinFolder = false;
-    public string $bodyBgColor = '#1e293b';
+    public string $bodyBgColor = '#000040';
+    public string $bodyStyle = '{font-size: 10pt;font-family: Tahoma;color:#00FFFF;margin:0;}';
     public string $panelBgColor = 'SILVER';
     public string $panelBackground = '';
     public string $rawPanelBackground = '';
@@ -47,8 +48,8 @@ class Skin
     public string $listStyle = '{font-size: 8pt;font-family: Tahoma;color:#A0B0C0;}';
     public string $textColor = '#f8fafc';
     public string $buttonStyle = '';
-    public string $titleStyle = '';
-    public string $rawTitleStyle = '';
+    public string $titleStyle = '{font-size: 10pt;font-family: Tahoma;color:#FFFF10;background-color:#000090;}';
+    public string $rawTitleStyle = '{font-size: 10pt;font-family: Tahoma;color:#FFFF10;background-color:#000090;}';
     public string $stylesheet = '';
     public ?Image $picPlayer = null;
     public ?Image $picSpacer = null;
@@ -124,10 +125,15 @@ class Skin
         }
 
         if ($this->rawTitleStyle !== '') {
+            $interpolated = str_ireplace(
+                ['$SKINFOLDER/', '$IMAGESFOLDER/'],
+                $this->skinFolder,
+                $this->rawTitleStyle
+            );
             $this->titleStyle = str_ireplace(
                 ['$SKINFOLDER', '$IMAGESFOLDER'],
                 rtrim($this->skinFolder, '/'),
-                $this->rawTitleStyle
+                $interpolated
             );
         }
     }
@@ -181,6 +187,7 @@ class Skin
         $explicitSkinFolder = null;
         $customMedia        = [];
         $bodyBgColor        = null;
+        $bodyStyle          = null;
         $panelBgColor       = null;
         $rawPanelBackground = null;
         $panelStyle         = null;
@@ -252,6 +259,14 @@ class Skin
                             $bodyBgColor = $val;
                         }
                         break;
+                    case 'BODYBACKGROUND':
+                        // Deprecated: ignored if encountered in the skin loader
+                        break;
+                    case 'BODYSTYLE':
+                        if ($val !== '') {
+                            $bodyStyle = $val;
+                        }
+                        break;
                     case 'PANELBGCOLOR':
                         if ($val !== '') {
                             $panelBgColor = $val;
@@ -316,6 +331,9 @@ class Skin
         }
         if ($bodyBgColor !== null) {
             $skin->bodyBgColor = $bodyBgColor;
+        }
+        if ($bodyStyle !== null) {
+            $skin->bodyStyle = $bodyStyle;
         }
         if ($panelBgColor !== null) {
             $skin->panelBgColor = $panelBgColor;
@@ -411,13 +429,24 @@ class Skin
      */
     public function getCss(): string
     {
+        $rawBodyStyle = trim($this->bodyStyle);
+        if (preg_match('/\{([^}]*)\}/', $rawBodyStyle, $bsm)) {
+            $bodyStyleDecls = rtrim(trim($bsm[1]), ';');
+        } else {
+            $bodyStyleDecls = rtrim(trim($rawBodyStyle, " \t\n\r\0\x0B{}"), ';');
+        }
+        if ($bodyStyleDecls === '') {
+            $bodyStyleDecls = 'font-size: 10pt;font-family: Tahoma;color:#00FFFF;margin:0';
+        }
+
         return <<<CSS
 body {
     background-color: {$this->bodyBgColor};
-    color: {$this->textColor};
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0;
     padding: 0;
+}
+body, td {
+    {$bodyStyleDecls};
 }
 .dimx-panel {
     background-color: transparent;

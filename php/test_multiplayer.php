@@ -4197,6 +4197,86 @@ if (shouldRun(44)) {
         "PlayerDefault #ctrls .dimx-btn uses Default PANELSTYLE (font-size: 10pt;font-family: Tahoma;color:#600000;)"
     );
 
+    // 8. Verify TITLESTYLE with $SKINFOLDER interpolation on #dimx-title-bar
+    assertTest(
+        $aquaSkin->titleStyle === '{BACKGROUND: #0020A0 url(http://www.dimensionex.net/skins/aqua/gradblu.jpg); COLOR: #FFFFFF; FONT-SIZE: 10pt; FONT-FAMILY: Fixedsys; TEXT-DECORATION: none}',
+        "Aqua skin interpolated \$SKINFOLDER in TITLESTYLE ('{$aquaSkin->titleStyle}')"
+    );
+    assertTest(
+        $forestSkin->titleStyle === '{font-size:10pt;font-family:Lucida Sans;font-weight:bold;color:#FFFF20;background-color:#009000}',
+        "Forest skin parsed TITLESTYLE ('{$forestSkin->titleStyle}')"
+    );
+    assertTest(
+        str_contains($htmlAqua, 'id="dimx-title-bar"') &&
+        str_contains($htmlAqua, 'BACKGROUND: #0020A0 url(http://www.dimensionex.net/skins/aqua/gradblu.jpg); COLOR: #FFFFFF; FONT-SIZE: 10pt; FONT-FAMILY: Fixedsys; TEXT-DECORATION: none'),
+        "PlayerAqua #dimx-title-bar is styled with interpolated Aqua TITLESTYLE"
+    );
+    assertTest(
+        str_contains($htmlForest, 'id="dimx-title-bar"') &&
+        str_contains($htmlForest, 'font-size:10pt;font-family:Lucida Sans;font-weight:bold;color:#FFFF20;background-color:#009000'),
+        "PlayerForest #dimx-title-bar is styled with Forest TITLESTYLE"
+    );
+    assertTest(
+        str_contains($htmlDefault, 'id="dimx-title-bar"') &&
+        str_contains($htmlDefault, 'font-size: 10pt;font-family: Tahoma;color:#FFFF10;background-color:#000090'),
+        "PlayerDefault #dimx-title-bar is styled with Default TITLESTYLE"
+    );
+
+    // 9. Verify BODYBGCOLOR on UIhtml body background property (and BODYBACKGROUND ignored)
+    assertTest(
+        $aquaSkin->bodyBgColor === '#000030',
+        "Aqua skin parsed BODYBGCOLOR='#000030' (got '{$aquaSkin->bodyBgColor}')"
+    );
+    assertTest(
+        $forestSkin->bodyBgColor === '#206020',
+        "Forest skin parsed BODYBGCOLOR='#206020' (got '{$forestSkin->bodyBgColor}')"
+    );
+    assertTest(
+        $defaultSkin->bodyBgColor === '#000040',
+        "Default skin has default BODYBGCOLOR='#000040' (got '{$defaultSkin->bodyBgColor}')"
+    );
+    assertTest(
+        str_contains($htmlAqua, '<body style="background: #000030;">') && str_contains($htmlAqua, 'background: #000030;'),
+        "PlayerAqua UIhtml body background uses Aqua BODYBGCOLOR (#000030)"
+    );
+    assertTest(
+        str_contains($htmlForest, '<body style="background: #206020;">') && str_contains($htmlForest, 'background: #206020;'),
+        "PlayerForest UIhtml body background uses Forest BODYBGCOLOR (#206020)"
+    );
+    assertTest(
+        str_contains($htmlDefault, '<body style="background: #000040;">') && str_contains($htmlDefault, 'background: #000040;'),
+        "PlayerDefault UIhtml body background uses Default BODYBGCOLOR (#000040)"
+    );
+
+    // 10. Verify BODYSTYLE on body, td
+    assertTest(
+        $aquaSkin->bodyStyle === '{font-size:10pt;font-family:Century Gothic;color:#B0EAFF}',
+        "Aqua skin parsed BODYSTYLE='{font-size:10pt;font-family:Century Gothic;color:#B0EAFF}' (got '{$aquaSkin->bodyStyle}')"
+    );
+    assertTest(
+        $forestSkin->bodyStyle === '{font-size:10pt;font-family:Courier New;color:#00FFFF}',
+        "Forest skin parsed BODYSTYLE='{font-size:10pt;font-family:Courier New;color:#00FFFF}' (got '{$forestSkin->bodyStyle}')"
+    );
+    assertTest(
+        $defaultSkin->bodyStyle === '{font-size: 10pt;font-family: Tahoma;color:#00FFFF;margin:0;}',
+        "Default skin has default BODYSTYLE='{font-size: 10pt;font-family: Tahoma;color:#00FFFF;margin:0;}'"
+    );
+    assertTest(
+        str_contains($htmlAqua, "body, td {\r\n              font-size:10pt;font-family:Century Gothic;color:#B0EAFF;") ||
+        str_contains($htmlAqua, "body, td {\n              font-size:10pt;font-family:Century Gothic;color:#B0EAFF;"),
+        "PlayerAqua UIhtml body, td uses Aqua BODYSTYLE"
+    );
+    assertTest(
+        str_contains($htmlForest, "body, td {\r\n              font-size:10pt;font-family:Courier New;color:#00FFFF;") ||
+        str_contains($htmlForest, "body, td {\n              font-size:10pt;font-family:Courier New;color:#00FFFF;"),
+        "PlayerForest UIhtml body, td uses Forest BODYSTYLE"
+    );
+    assertTest(
+        str_contains($htmlDefault, "body, td {\r\n              font-size: 10pt;font-family: Tahoma;color:#00FFFF;margin:0;") ||
+        str_contains($htmlDefault, "body, td {\n              font-size: 10pt;font-family: Tahoma;color:#00FFFF;margin:0;"),
+        "PlayerDefault UIhtml body, td uses Default BODYSTYLE"
+    );
+
     @$pm->resetWorld($sec44WorldId);
 }
 

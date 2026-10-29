@@ -13,10 +13,11 @@ This document provides the definitive specification for user interface skins and
 | `SKIN <id>` / `END_SKIN` block, `ID` | Implemented - `SKIN <id>` and `ID <id>` set `Skin::$id` (fallback: descriptor filename stripped of `_net.dxs` / `.dxs`) |
 | `NAME`, `SKINFOLDER` / `IMAGESFOLDER` | Implemented - uses `SKINFOLDER` / `IMAGESFOLDER` if defined in `.dxs`; otherwise defaults to `<worldImagesParent>/skins/<skinId>/` |
 | `PICPLAYER`, `PICSPACER`, `PICFADER`, `ICOPLAYER`, `ICOCHARACTER`, `ICOITEM`, `ICOWAY*`, `ICOROT*`, `ICOREV` | Implemented (omitted directives fall back to hard-coded default filenames inside `Skin::$skinFolder`) |
-| `BODYBGCOLOR`, `PANELBGCOLOR`, `PANELBACKGROUND`, `PANELSTYLE`, `LIST1BGCOLOR`, `LIST2BGCOLOR`, `LISTSTYLE` | Implemented |
-| `TITLESTYLE`, `BUTTONSTYLE`, `STYLESHEET` | Partial - parsed into `Skin::$titleStyle`, `Skin::$buttonStyle`, `Skin::$stylesheet` |
-| `SNDNEWMSG`, `BODYBACKGROUND`, `BODYSTYLE`, `SYSMSGSTYLE`, `LINKSTYLE`, `ALINKSTYLE`, `ICONLABELSTYLE`, `CTRLBANNER` | Ignored (not parsed) |
-| `$SKINFOLDER` / `$IMAGESFOLDER` | Partial - substituted in `TITLESTYLE` |
+| `BODYBGCOLOR`, `BODYSTYLE`, `PANELBGCOLOR`, `PANELBACKGROUND`, `PANELSTYLE`, `TITLESTYLE`, `LIST1BGCOLOR`, `LIST2BGCOLOR`, `LISTSTYLE` | Implemented |
+| `BUTTONSTYLE`, `STYLESHEET` | Partial - parsed into `Skin::$buttonStyle`, `Skin::$stylesheet` |
+| `BODYBACKGROUND` | Deprecated - ignored if encountered by the skin loader |
+| `SNDNEWMSG`, `SYSMSGSTYLE`, `LINKSTYLE`, `ALINKSTYLE`, `ICONLABELSTYLE` | Ignored (not parsed) |
+| `$SKINFOLDER` / `$IMAGESFOLDER` | Implemented in `TITLESTYLE` |
 | `$ICON`, `$SKINICON` | Not implemented |
 | `_net` skins | Implemented (via `SKINFOLDER` in `.dxs` and/or direct `http(s)://` `.dxs` URL in `SKINS`) |
 | `.txt` descriptor fallback | Not implemented |
@@ -193,9 +194,9 @@ END_SKIN
 | **`ICOROTR`** | No | `right.gif` (`icorotr.gif` in DimY) | Icon/button to rotate view right in panoramic rooms. |
 | **`ICOREV`** | No | `reverse.gif` | Icon/button to turn around (180°) in panoramic rooms. |
 | **`SNDNEWMSG`** | No | `newmsg.wav` | Audio notification clip played when an incoming chat message arrives. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
-| **`BODYBGCOLOR`** | No | `#000040` | Background color for the browser viewport. |
-| **`BODYBACKGROUND`** | No | `""` *(none)* | Background image texture for the main browser window. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
-| **`BODYSTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#00FFFF;margin:0;}` | CSS inline style for main text elements. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
+| **`BODYBGCOLOR`** | No | `#000040` | Background color applied to the `UIhtml` `<body>` background property. |
+| **`BODYBACKGROUND`** | No | `""` *(none)* | **Deprecated.** Background image texture for the main browser window; ignored if encountered by the skin loader. |
+| **`BODYSTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#00FFFF;margin:0;}` | CSS style applied to all text inside `body` and `td` tags (`body, td`). |
 | **`SYSMSGSTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#FF1111;}` | CSS style for system notices and engine error messages. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
 | **`LINKSTYLE`** | No | `{font-family:Tahoma;color:#EE30EE;}` | CSS style for hypertext links (`<a>`). **[DimX only - not yet implemented in DimY: directive is not parsed]** |
 | **`ALINKSTYLE`** | No | `{font-family:Tahoma;color:#EE30EE;}` | CSS style for active / hovered hyperlinks. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
@@ -204,11 +205,10 @@ END_SKIN
 | **`PANELBACKGROUND`** | No | `""` *(none)* | Background wallpaper image for the command panel bar (`#ctrls`), resolved against `SKINFOLDER`. |
 | **`PANELSTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#600000;}` | CSS style in `{ }` applied to controls and buttons inside `#ctrls` (`#ctrls .dimx-btn`). |
 | **`BUTTONSTYLE`** | No | `""` | CSS style applied to buttons. Supports `$ICON` and `$SKINICON` substitutions. **[DimY: partial - parsed into `Skin::$buttonStyle` but not rendered; `$ICON`/`$SKINICON` not substituted]** |
-| **`TITLESTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#FFFF10;background-color:#000090;}` | CSS style for top title bar and header frames. Supports `$SKINFOLDER`. **[DimY: partial - parsed with `$SKINFOLDER`/`$IMAGESFOLDER` substitution into `Skin::$titleStyle`, but not rendered]** |
+| **`TITLESTYLE`** | No | `{font-size:10pt;font-family:Tahoma;color:#FFFF10;background-color:#000090;}` | CSS style for top title bar (`#dimx-title-bar`). Supports `$SKINFOLDER` / `$IMAGESFOLDER` interpolation. |
 | **`LIST1BGCOLOR`** | No | `#000000` (`#101040` in DimY) | Background color for odd-numbered rows in the chat / messages frame (`#msgs`). |
 | **`LIST2BGCOLOR`** | No | `#414141` (`#313161` in DimY) | Background color for even-numbered rows in the chat / messages frame (`#msgs`). |
 | **`LISTSTYLE`** | No | `{font-size:8pt;font-family:Tahoma;color:#A0B0C0;}` | Typography style between `{ }` applied to `#chatBox` inside `#msgs`. |
-| **`CTRLBANNER`** | No | `""` *(none)* | Header image tag or game logo rendered at the top of the command panel. **[DimX only - not yet implemented in DimY: directive is not parsed]** |
 | **`STYLESHEET`** | No | `""` *(none)* | Filename of an external CSS stylesheet residing inside the skin folder. **[DimY: partial - parsed into `Skin::$stylesheet`, not yet linked in HTML]** |
 
 ---
@@ -237,7 +237,8 @@ When a `STYLESHEET` is declared, the engine links `<skinFolder>/<stylesheet>` in
 
 | Selector | Type | Purpose |
 |---|:---:|---|
-| `#scene` | ID | Main game area container (title bar + `#display` and `#dashboard`). |
+| `#scene` | ID | Main game area container (title bar `#dimx-title-bar` + `#display` and `#dashboard`). |
+| `#dimx-title-bar` | ID | Top title bar inside `#scene` (styled by `TITLESTYLE`). |
 | `#display` | ID | Left sub-pane inside `#scene` (room visual canvas and `#consoleBox`). |
 | `#dashboard` | ID | Right sub-pane inside `#scene` (includes `#navpad`, room items, inventory, and stats). |
 | `#ctrls` | ID | Command controls panel container (action buttons and speech input). |
