@@ -11,10 +11,8 @@ Detailed documentation and diagrams have been generated and saved to the [`docs/
 - [**docs/SMALLBASIC.md**](docs/SMALLBASIC.md) — Definitive SmallBasic language reference (types, operators, statements, and complete catalog of all 55 built-in functions).
 - [**docs/COMMANDS.md**](docs/COMMANDS.md) — Complete game engine commands reference, built-in verbs, event models, and execution semantics.
 - [**docs/SKINS.md**](docs/SKINS.md) — Complete skins and `.dxs` specification, directive rules, media directories, and attribute reference.
-- [**docs/DIMX_CLASS_HIERARCHY.md**](docs/DIMX_CLASS_HIERARCHY.md) — Class hierarchy of the **original DimensioneX (Java)** project: mapping, Mermaid diagrams, subsystem breakdowns, and catalog of all 46 classes with line references.
 - [**docs/CLASS_HIERARCHY.md**](docs/CLASS_HIERARCHY.md) — Class hierarchy of **DimensioneY (this PHP implementation)**, same structure as the DimX one for comparison.
-- [**docs/uml_explorer.html**](docs/uml_explorer.html) — Standalone, interactive HTML UML explorer with dynamic search, subsystem filters, and class inspector.
-- [**docs/uml_specifications.puml**](docs/uml_specifications.puml) — Full PlantUML source code for rendering in PlantUML or IDE UML tools.
+- [**docs/DIMX_CLASS_HIERARCHY.md**](docs/DIMX_CLASS_HIERARCHY.md), [**docs/uml_explorer.html**](docs/uml_explorer.html), [**docs/uml_specifications.puml**](docs/uml_specifications.puml) - **Historical DimensioneX (Java) only** (not DimensioneY): original class hierarchy, interactive UML explorer and PlantUML source. They do not describe the PHP code.
 - [**docs/dimensionex-developers-reference-717.pdf**](docs/dimensionex-developers-reference-717.pdf) — DimensioneX Developer's Reference (v7.1.7).
 - [**docs/dimx-classes/**](docs/dimx-classes/) — Original DimensioneX source classes (Java), reference for engine behavior and class mapping.
 
@@ -31,3 +29,8 @@ Detailed documentation and diagrams have been generated and saved to the [`docs/
 - **Do NOT re-introduce intentionally dropped features**:
   - `Cluster` / clustering features.
   - `Dict` / `DictSorted` classes (replaced with PHP native arrays and built-in types).
+
+## DimX vs DimY Documentation Principle
+- Always keep clear in the docs what is **DimensioneY (implemented in PHP)** and what is **DimensioneX only** (original Java behaviour, target behaviour not implemented yet, or intentionally dropped). Never describe DimX-only features as if DimY supports them.
+- When documenting something valid only for DimensioneX, state it explicitly (e.g. "DimX only", "not yet implemented in DimY").
+- Historical DimX material lives under the README section "Historical DimensioneX Specifications"; DimY class docs are in `docs/CLASS_HIERARCHY.md`.

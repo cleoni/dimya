@@ -2,6 +2,30 @@
 
 > **Reference Source**: DimensioneX Developer's Reference v7.1.7 (Chapter 2: *DimensioneX DXW Reference*, pp. 37–70) and official reference implementations (`world1.dxw`, `world2.dxw`, `world3net.dxw`, `fourinline.dxw`).
 
+> [!NOTE]
+> **This document is the DimensioneX (DimX) language definition.** It describes the original DXW format. Items that [`DxwLoader`](../php/src/DxwLoader.php) (DimensioneY, PHP) does not fully implement are tagged inline with **[DimX only - not yet implemented in DimY]**, **[DimY: parsed but ignored]**, **[DimY: partial - ...]** or **[dropped in DimY]**. Untagged items are implemented in DimY. Statuses were verified against `php/src/DxwLoader.php`, `World.php`, `Room.php`, `Item.php`, `Link.php`, `Character.php`, `Panel.php`, `Ctrl.php`, `Image.php` and `UIhtml.php`.
+
+### DimY implementation status
+
+| Feature | DimY status |
+|---|---|
+| `WORLD`: `NAME`, `IMAGESFOLDER`, `IMAGESFOLDER_LOCAL/PUBLIC`, `VERSION`, `BGCOLOR` | Implemented (`IMAGESFOLDER_LOCAL/PUBLIC` only as fallback when `IMAGESFOLDER` is absent; no `serverType` switch) |
+| `WORLD`: `ENCODING`, `AUTHOR`, `AUTHOREMAIL`, `SITE`, `HELP`, `COUNTERHTML`, `SAVEGAME_PERSISTENCE`, `MUTING` | Not parsed (silently ignored) |
+| `WORLD`: `INTERPHONE` | Not parsed (the `World::$interphone` property exists but keeps its default `1`) |
+| `WORLD`: `CLUSTER` | Dropped in DimY |
+| `Include` directive (any section) | Not parsed (silently ignored) |
+| `GUI`: `SCENE SIZE`, `SCREEN SIZE`, `SKINS` | Implemented |
+| `GUI`: `SCENE LOOK`, `LOGOSRC`, `MAP`, `COMPASS`, `MSGLISTSIZE`, `SHOW PROPERTIES`, `HOOKS` | Parsed and stored as world properties, but not used by the UI/engine |
+| `GUI`: `PANEL`, `PANEL ... VERSION OF`, controls (`BUTTON`, `CR`, `MAP`, `TEXTBOX`, `LABEL`, `DROPDOWN`, `DELETE`, `CMD`) | Not parsed; only the built-in `default`/`chat` panels (`Panel::createDefaultPanel()`) exist |
+| `GUI`: `PAGE` templates and placeholders | Not parsed (`Page` class exists but is not loaded from DXW) |
+| `ROOMS`: `ROOM`, `DEFAULT`, `NAME`, `DESCRIPTION`, `ATTRLIST`, `PANEL`, `IMAGE` (+`SHOWAREA`) | Implemented (`PANEL` stored only as a property) |
+| `LINKS`: `LINK`, `MLINK`, `NAME`, `DESCRIPTION`, `ATTRLIST`, `ICON`, `SHOW`, `IMAGE` | Implemented (`IMAGE` has no orientation/`SHOWAREA`) |
+| `CHARACTERS`: global `ATTRLIST`, `CHARACTER`, `NAME`, `DESCRIPTION`, `POSITION`, `ATTRLIST`, `ACCEPTS`, `ICON`, `SHOW`, `IMAGE` | Implemented |
+| `CHARACTERS`: `CAPACITY`, `VOLUME` | Not parsed (class defaults 5/10 always used) |
+| `ITEMS`: `ITEM`, `VEHICLE` and all sub-directives | Implemented |
+| `SETS`: `ARRAY`, `SET` | Partial (native PHP arrays; `Dict`/`DictSorted` dropped) |
+| `SCRIPTS`: `EVENT`, `SUB`, `FUNCTION` | Implemented |
+
 ---
 
 ## Table of Contents
@@ -128,8 +152,8 @@ WORLD
     [ INTERPHONE          0 | 1 | 2 ]
     [ SAVEGAME_PERSISTENCE 0 | 1 | 2 ]
     [ MUTING              0 | 1 | 2 | 3 ]
-    [ CLUSTER             <cluster_id> ]
-    [ Include             "library.dxl" ]
+    [ CLUSTER             <cluster_id> ]   ' [dropped in DimY]
+    [ Include             "library.dxl" ]  ' [DimX only - not yet implemented in DimY]
     ...
 END_WORLD
 ```
@@ -140,19 +164,20 @@ END_WORLD
 |---|---|---|---|
 | `NAME` | String | *Required* | Title of the world and default identifier. |
 | `IMAGESFOLDER` | URL | (none) | Base URL for images and sounds. Must end with a trailing forward slash `/`. Never use Windows backslashes `\`. |
-| `IMAGESFOLDER_LOCAL` | URL | (none) | Asset path prioritized when running in local development mode (`serverType=local`). |
-| `IMAGESFOLDER_PUBLIC` | URL | (none) | Asset path prioritized when deployed to production (`serverType=public`). |
-| `ENCODING` | Keyword | `UTF-8` | Source file character encoding (`UTF-8` or `ANSI`). |
+| `IMAGESFOLDER_LOCAL` | URL | (none) | Asset path prioritized when running in local development mode (`serverType=local`). **[DimY: partial - no `serverType` switch; used only as fallback when `IMAGESFOLDER` is not set]** |
+| `IMAGESFOLDER_PUBLIC` | URL | (none) | Asset path prioritized when deployed to production (`serverType=public`). **[DimY: partial - no `serverType` switch; used only as fallback when `IMAGESFOLDER` is not set]** |
+| `ENCODING` | Keyword | `UTF-8` | Source file character encoding (`UTF-8` or `ANSI`). **[DimY: parsed but ignored - encoding is auto-detected: non-UTF-8 input is converted from ISO-8859-1/Windows-1252]** |
 | `VERSION` | String | `1.0` | World script version (independent of engine version). |
-| `AUTHOR` | String | `""` | Creator name or organization. |
-| `AUTHOREMAIL` | String | `""` | Contact email address. |
-| `SITE` | URL | `""` | Official website URL for the game world. |
-| `HELP` | URL | `""` | Link opened when a player clicks the "Help" command button. |
-| `COUNTERHTML` | HTML | `""` | Optional HTML snippet for visitor analytics or counter scripts. |
-| `INTERPHONE` | Integer | `1` | Chat broadcast range: <br>`0` = Same room only.<br>`1` = World-wide, but enclosed items/vehicles provide privacy.<br>`2` = Global world-wide broadcast. |
-| `SAVEGAME_PERSISTENCE` | Integer | `2` | Profile validity across restarts: <br>`0` = Reset on world restart.<br>`1` = Reset if `VERSION` changes.<br>`2` = Permanently preserved. |
-| `MUTING` | Integer | `2` | Chat moderation filter: <br>`0` = Off.<br>`1` = Censor stopwords in-place.<br>`2` = 1-minute mute on first infraction.<br>`3` = Cumulative penalty (+1 min per infraction). |
-| `CLUSTER` | ID | (none) | Multi-area cluster identifier for clustered worlds linked via `MoveOutside`. |
+| `AUTHOR` | String | `""` | Creator name or organization. **[DimX only - not yet implemented in DimY]** (not parsed) |
+| `AUTHOREMAIL` | String | `""` | Contact email address. **[DimX only - not yet implemented in DimY]** (not parsed) |
+| `SITE` | URL | `""` | Official website URL for the game world. **[DimX only - not yet implemented in DimY]** (not parsed) |
+| `HELP` | URL | `""` | Link opened when a player clicks the "Help" command button. **[DimX only - not yet implemented in DimY]** (not parsed) |
+| `COUNTERHTML` | HTML | `""` | Optional HTML snippet for visitor analytics or counter scripts. **[DimX only - not yet implemented in DimY]** (not parsed) |
+| `INTERPHONE` | Integer | `1` | Chat broadcast range: <br>`0` = Same room only.<br>`1` = World-wide, but enclosed items/vehicles provide privacy.<br>`2` = Global world-wide broadcast. **[DimY: parsed but ignored - the directive is not read by `DxwLoader`; `World::$interphone` stays at `1` unless set by script]** |
+| `SAVEGAME_PERSISTENCE` | Integer | `2` | Profile validity across restarts: <br>`0` = Reset on world restart.<br>`1` = Reset if `VERSION` changes.<br>`2` = Permanently preserved. **[DimX only - not yet implemented in DimY]** (not parsed) |
+| `MUTING` | Integer | `2` | Chat moderation filter: <br>`0` = Off.<br>`1` = Censor stopwords in-place.<br>`2` = 1-minute mute on first infraction.<br>`3` = Cumulative penalty (+1 min per infraction). **[DimX only - not yet implemented in DimY]** (not parsed) |
+| `CLUSTER` | ID | (none) | Multi-area cluster identifier for clustered worlds linked via `MoveOutside`. **[dropped in DimY]** (Cluster feature intentionally removed) |
+| `BGCOLOR` | Color | `#000040` | Scene background color for transparent scene images. *(DimY: parsed in the `WORLD` section.)* |
 
 ---
 
@@ -202,17 +227,19 @@ END_GUI
     $$\text{width} = 350 \times 1.6 = 560\text{px}$$
     $$\text{height} = 235 \times 1.6 = 376\text{px}$$
     (matching exactly the $560 \times 376$ display observed on original DimensioneX installations).
-* **`SCENE LOOK <mode>`**: 
+* **`SCENE LOOK <mode>`** **[DimY: parsed but ignored - stored as world property `sceneLook`, avatar is never drawn in the scene]**: 
   * `1STPERSON` (default): Standard view; avatar is not drawn inside the room scene.
   * `3RDPERSON`: Avatar is rendered inside the room scene.
-* **`LOGOSRC <filename | URL>`**: Title logo graphic displayed in the header frame.
-* **`MAP <filename | URL>`**: Default mini-map image (recommended size: `200x200`).
-* **`COMPASS <true | false>`**: If `true`, the navigation compass is permanently shown in the top bar; if `false`, only shown in rooms with multiple view angles.
-* **`MSGLISTSIZE <int>`**: Maximum number of speech/event messages retained in the active console box (default: `3`).
+* **`LOGOSRC <filename | URL>`**: Title logo graphic displayed in the header frame. **[DimY: parsed but ignored - stored as `logoSrc`, not rendered]**
+* **`MAP <filename | URL>`**: Default mini-map image (recommended size: `200x200`). **[DimY: parsed but ignored - stored as `map`, no mini-map is rendered]**
+* **`COMPASS <true | false>`**: If `true`, the navigation compass is permanently shown in the top bar; if `false`, only shown in rooms with multiple view angles. **[DimY: parsed but ignored - stored as `compass`; UIhtml always uses its own navpad logic]**
+* **`MSGLISTSIZE <int>`**: Maximum number of speech/event messages retained in the active console box (default: `3`). **[DimY: parsed but ignored - stored as `msgListSize`]**
 * **`SKINS <list>`**: Comma-separated list of available skin definition files (`.dxs`). The first is the default. Built-in skin is referenced as `default`.
-* **`SHOW PROPERTIES <list>`**: Explicit list of object properties exposed in the player UI stats panel. (See [Display Rules](#73-display-rules-capital-letter-rule)).
+* **`SHOW PROPERTIES <list>`**: Explicit list of object properties exposed in the player UI stats panel. (See [Display Rules](#73-display-rules-capital-letter-rule)). **[DimY: parsed but ignored - stored as `showproperties`, not consulted by UIhtml]**
 
 ### 4.2 External Hooks (HOOKS)
+
+> **[DimY: parsed but ignored]** `HOOKS` is stored as world property `hooks`, but no request handler dispatches external `cmd=` hooks to events.
 
 Enables external web applications or services to interact with the game server via HTTP GET/POST:
 
@@ -228,6 +255,8 @@ END_GUI
 ---
 
 ### 4.3 Panel Definitions (PANEL)
+
+> **[DimX only - not yet implemented in DimY]** `DxwLoader` does not parse `PANEL ... VERSION OF`, nor the control directives below (`BUTTON`, `CR`, `MAP`, `TEXTBOX`, `LABEL`, `DROPDOWN`, `DELETE`, `CMD`, `ICON`, `IMAGE` inside panels). DimY only provides built-in `default` and `chat` panels (`Panel::createDefaultPanel()` / `Panel`, `Ctrl` classes); the `connect`, `connecting` and `exiting` panels are not defined as `Panel` objects. Room/item `PANEL` references are stored but not defined by DXW.
 
 Panels define the command buttons, text boxes, and dropdown menus available to players:
 
@@ -332,6 +361,8 @@ CMD id
 
 ### 4.5 Page Templates (PAGE)
 
+> **[DimX only - not yet implemented in DimY]** `PAGE` directives and the placeholders below are not parsed; a `Page` class exists but is never populated from DXW files.
+
 Defines custom full-screen HTML layouts using template placeholders:
 ```text
 PAGE <viewId>, <template_path_or_url>
@@ -355,6 +386,8 @@ PAGE <viewId>, <template_path_or_url>
 The `ROOMS ... END_ROOMS` block defines the geographical spaces in the game world.
 
 ### 5.1 Room Definition & Attributes
+
+> **[DimY: partial]** Room `PANEL` is stored as property `panel` only. `mapx`/`mapy` exist on `Room`, but no mini-map is rendered (see `MAP` above).
 
 ```text
 ROOM <id> [DEFAULT]
@@ -577,6 +610,7 @@ LINK  <id> <from_room>-<to_room> [orientation]
     [IMAGE      <image_definition>]
 ```
 
+* **DimY note on `IMAGE`**: **[DimY: partial - link `IMAGE` ignores orientation and `SHOWAREA`; the image is stored as the `N` face only]**
 * **Orientation**: `N`, `S`, `E`, `W`, `U` (Up), `D` (Down).
 * **Name Wildcard (`*`)**: Using `*` automatically generates the direction name from the orientation (e.g. "North", "Down").
 * **Example**:
@@ -611,12 +645,14 @@ CHARACTER <id> [DEFAULT]
     [ATTRLIST   <attributes>]
     [ACCEPTS    <* | item_ids | type_ids>]
     [ICON       <icon_url>]
-    [CAPACITY   <int>]
-    [VOLUME     <int>]
+    [CAPACITY   <int>]      ' [DimY: parsed but ignored]
+    [VOLUME     <int>]      ' [DimY: parsed but ignored]
     [SHOW       <showMode [x,y]>]
     [IMAGE      [dimensions] <url>]
 ```
 
+* **`CAPACITY` / `VOLUME` (characters)**: **[DimY: parsed but ignored - `DxwLoader` does not read them inside `CHARACTER`; `Character` constructor defaults (capacity 5, volume 10) always apply]**
+* **Character `IMAGE`**: **[DimY: partial - only a single image (`N` face) with optional `WxH`; no orientation or `SHOWAREA`]**
 * **`ACCEPTS`**: Comma-separated list of accepted items or types. Wildcard `*` accepts anything. By default, NPCs accept no items from players.
 * **`DEFAULT`**: Marks this character as the system default announcer voice (`SYS`).
 
@@ -665,6 +701,8 @@ VEHICLE <id>
 ## 11. The SETS Section (ARRAY & SET)
 
 Initializes structured collections in `Dict` storage:
+
+> **[DimY: partial]** `Dict` / `DictSorted` are **dropped in DimY**; `ARRAY` and `SET` are loaded into native PHP arrays (`World::$sets` and a world property of the same name). Numeric values in `key=value` entries are converted to int/float. Entries without `=` get auto-numbered integer keys (not the `0001` string keys), and `SET` is **not** sorted alphabetically by key. `(empty)` placeholders are kept as literal strings.
 
 ```text
 SETS
@@ -719,6 +757,8 @@ END_SCRIPTS
 ---
 
 ## 13. File Inclusion Directive (Include)
+
+> **[DimX only - not yet implemented in DimY]** `DxwLoader` has no `Include` handling: the line is silently ignored and the library is not loaded.
 
 The `Include` directive imports modular library files (often with `.dxl` extension):
 

@@ -3,6 +3,34 @@
 > **Reference Source**: DimensioneX Developer's Reference (v7.1.7), Chapter 3 (pp. 71–100).  
 > This specification is the authoritative reference for all SmallBasic language constructs, instructions, functions, types, and event scripts in DimensioneY.
 
+> [!IMPORTANT]
+> **DimX vs DimY**: this document is the **DimensioneX (Java) SmallBasic language reference**. DimensioneY (PHP) implements only a **subset** of it. Items that DimY does not fully implement are tagged inline with **[DimX only - not yet implemented in DimY]**, **[DimY: partial - ...]** or **[Dropped in DimY]**. Untagged items are implemented in DimY (verified against `php/src/ActionsRunner.php`, `Event.php`, `World.php`, `DxwLoader.php`).
+>
+> The DimY interpreter ([ActionsRunner.php](../php/src/ActionsRunner.php)) is line-based: unknown statements are silently ignored (no error).
+
+### DimY implementation status
+
+| Area | Item | DimY status |
+|---|---|---|
+| Directive | `Include` | Not implemented (DimX only) |
+| Structure | `Sub` / `Function` | Partial: registered as events and callable via `Call`; no formal parameter binding, no value returned to expressions |
+| Structure | `input()` set | Partial: passed to the runner but not accessible from scripts |
+| Structure | `HOOKS` | Partial: stored as world property `hooks`; dispatch of external commands to scripts not implemented |
+| Types | Image / Set / Array objects in scripts | Not implemented (world `SET` declarations are loaded; only `RndSet` reads them) |
+| Operators | `^`, `Mod`, `&`, unary `-`, `><`, arithmetic precedence | Not implemented |
+| Operators | `+ - * /` | Partial: single binary split on first operator; no precedence/parentheses |
+| Operators | `AND`, `OR`, `Not` | Partial: `Not` only as prefix inside conditions; `AND`/`OR` split at first top-level keyword |
+| Variables | Script variables (global/local), `Dim` | Not implemented (only `object.property` assignment and reading) |
+| Flow control | `For ... Next`, `For Each ... Next` | Not implemented |
+| Flow control | `If / Else / End_If` | Implemented (nested; no `ElseIf`, as in DimX) |
+| Statements | `AttachEvent`, `Ban`, `Dim`, `Debug`, `DropItems`, `Kill`, `NewRoom`, `PlaySound`, `PlayBackground`, `Reset`, `RefreshView`, `SaveSetting`, `SendCmd`, `SetAdd`, `SetRemove`, `SendPage`, `Journal` | Not implemented (silently ignored) |
+| Statements | `MoveOutside` | Dropped in DimY (Cluster) |
+| Statements | `Call`, `Goal`, `Move`, `Print`, `PrintRight`, `Return`, `SetPanel` | Partial (see inline notes) |
+| Statements | `Speak`, `Display` | Implemented |
+| Functions | All 55 built-ins except `RndSet`, `RndInt` (2-arg form only), `NOT` (partial) | Not implemented (see per-function tags) |
+| Dropped | `Cluster`, `Dict` / `DictSorted` | Dropped in DimY (native PHP arrays are used instead) |
+| DimY extras | `Broadcast`, `Open`, `Close`, `Search`, `Give` statements | DimY-only, not part of the DimX reference below |
+
 ---
 
 ## Table of Contents
@@ -92,6 +120,8 @@ SmallBasic's syntax is very similar to Microsoft VBScript and Visual Basic, but 
 
 ## 3.3 Include
 
+> **[DimX only - not yet implemented in DimY]** `Include` directives are not processed by `DxwLoader`.
+
 The `Include` directive loads script code from an external file:
 
 ```basic
@@ -112,6 +142,8 @@ SmallBasic scripts are organized into three block types: **`Sub`**, **`Function`
 
 ### 3.4.1 Sub
 
+> **[DimY: partial - no formal parameter binding]** `Sub` blocks are registered as events and run via `Call`; `$OWNER`/`$AGENT`/`$TARGET` are passed.
+
 Defines a custom procedure that can be called from anywhere using the `Call` statement.
 
 ```basic
@@ -128,6 +160,8 @@ End_Sub
   ```
 
 ### 3.4.2 Function
+
+> **[DimY: partial]** `Function` blocks are registered like events; calling them inside expressions and receiving the `Return` value is **[DimX only - not yet implemented in DimY]**.
 
 Defines a custom procedure that calculates and returns a value using the `Return` statement.
 
@@ -171,6 +205,8 @@ End_EVENT
 - An input set named **`input()`** is automatically built by the system, containing parameters collected from player input or external queries.
 
 ### 3.4.4 Example & HOOKS
+
+> **[DimY: partial]** `HOOKS` is stored only as the world property `hooks`; mapping HTTP commands to script functions is not yet implemented in DimY. `getItemsIn`, `getCharactersIn`, `For Each` and `Dim` used below are also not implemented.
 
 DimensioneX supports `HOOKS` to accept external HTTP commands and trigger event handlers:
 
@@ -222,6 +258,8 @@ SmallBasic is dynamically typed. An expression can be treated as a number, strin
 
 ### 3.5.2 Complex Types
 
+> **[DimX only - not yet implemented in DimY]** Script-level Image/Set/Array objects (`NewImage`, `NewSet`, `NewArray`, `Split`) are not implemented; only world-level `SET` declarations exist (used by `RndSet`). `Dict`/`DictSorted` were **dropped in DimY** (native PHP arrays).
+
 - **Image**: An image object (created via `NewImage(src, width, height)` or defined in `.dxw`).
 - **Set**: Key-value dictionary / collection (created via `NewSet()`, `SET` declarations, or functions like `getItemsIn()`).
 - **Array**: Sequential indexed collection (created via `NewArray()`, `Split()`, or `ARRAY` declarations).
@@ -231,6 +269,8 @@ SmallBasic is dynamically typed. An expression can be treated as a number, strin
 ## 3.6 Operators
 
 ### 3.6.1 Arithmetical
+
+> **[DimY: partial - only `+ - * /`]** Single binary split, no precedence. `^`, `Mod` and unary `-` are **[DimX only - not yet implemented in DimY]**.
 
 Binary operators (in descending precedence):
 - `^` : Exponentiation (e.g. `2 ^ 3` = `8`).
@@ -242,10 +282,14 @@ Unary operators:
 
 ### 3.6.2 String
 
+> **[DimY: partial]** `+` concatenates when an operand is non-numeric. `&` is **[DimX only - not yet implemented in DimY]**.
+
 - `&` : Concatenates two operands as strings, regardless of their types (e.g. `"Score: " & 100` -> `"Score: 100"`).
 - `+` : When the first operand is a string, `+` performs string concatenation. If the first operand is numeric, `+` performs arithmetical addition.
 
 ### 3.6.3 Comparison
+
+> **[DimY: partial]** `<>`, `<`, `>`, `=`, `<=`, `>=` implemented (loose PHP comparison). `><` is **[DimX only - not yet implemented in DimY]**.
 
 Binary comparison operators returning boolean (`1` or `0`):
 - `<` : Less than
@@ -257,11 +301,15 @@ Binary comparison operators returning boolean (`1` or `0`):
 
 ### 3.6.4 Logical
 
+> **[DimY: partial]** `AND`/`OR` implemented (split at first top-level keyword); `Not` only as a prefix in conditions.
+
 - `AND` : Logical conjunction (`expr1 AND expr2`).
 - `OR` : Logical disjunction (`expr1 OR expr2`).
 - `Not( expr )` : Logical negation (implemented as a built-in function, requires parentheses).
 
 ### 3.6.5 Operator Precedence
+
+> **[DimY: partial]** Only `OR` < `AND` < comparison plus outer-parenthesis unwrapping in conditions; arithmetic precedence and `.` precedence are **[DimX only - not yet implemented in DimY]**.
 
 Precedence hierarchy from lowest (1) to highest (6):
 1. `AND`, `OR` (lowest)
@@ -292,6 +340,8 @@ a = (3 + 2) * 5  ' Evaluates to 25 (parentheses first)
 
 ### 3.7.2 Declaring Variables
 
+> **[DimX only - not yet implemented in DimY]** `Dim` and script variables (local/global) are not implemented; only `object.property` can be assigned/read.
+
 - Local variables inside a `Function`, `Sub`, or `EVENT` should be declared with **`Dim`**.
 - Local variable scope is restricted to the enclosing block, preventing naming conflicts and protecting recursive calls.
 - Syntax:
@@ -302,6 +352,8 @@ a = (3 + 2) * 5  ' Evaluates to 25 (parentheses first)
   ```
 
 ### 3.7.3 Special Variables
+
+> **[DimY: partial]** `$OWNER`, `$AGENT`, `$TARGET`, `$WORLD`, `True`, `False` implemented. Null-object rules #1/#2 below are **[DimX only - not yet implemented in DimY]** (unresolved objects are silently skipped).
 
 Special read-only variables automatically managed by the engine:
 
@@ -323,6 +375,8 @@ Special read-only variables automatically managed by the engine:
 ## 3.8 Constructs & Flow Control
 
 ### 3.8.1 Assignment
+
+> **[DimY: partial]** Only `object.property = expr` and `object.property("key") = expr` are supported; plain `variable = expr` is **[DimX only - not yet implemented in DimY]** (ignored).
 
 ```basic
 [object.]property = expression
@@ -352,6 +406,8 @@ End_If
 
 ### 3.8.3 For ... To ... Next
 
+> **[DimX only - not yet implemented in DimY]**
+
 Counter iteration loop:
 
 ```basic
@@ -370,6 +426,8 @@ Next
 *Note*: In DimensioneX 7.1.7, `For` loops cannot be nested directly inside each other within the same procedure. Use a helper `Sub` for nested loops.
 
 ### 3.8.4 For Each ... In ... Next
+
+> **[DimX only - not yet implemented in DimY]**
 
 Collection iteration loop over arrays or sets:
 
@@ -401,6 +459,8 @@ Instructions are presented here in numerical order (3.9.1 to 3.9.29):
 
 ### 3.9.1 AttachEvent
 
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+
 Attaches an event-management script dynamically to an object.
 
 ```basic
@@ -424,6 +484,8 @@ AttachEvent dest, "eventID", "attachedEventID"
 
 ### 3.9.2 Ban
 
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+
 Bans the specified player from the game.
 
 ```basic
@@ -436,6 +498,8 @@ Ban player
 ---
 
 ### 3.9.3 Call
+
+> **[DimY: partial]** `Call obj.event` / `Call name` fire the event or `Sub` (via `World::fireEvent`). Parameters are parsed but `Sub` formal parameters are not bound, so arguments are not visible to the callee.
 
 Calls a custom `Sub` or `EVENT`, implicitly passing the current `$OWNER`, `$AGENT`, and `$TARGET` context.
 
@@ -451,6 +515,8 @@ Call subroutineName( [parameter1, parameter2, ...] )
 ---
 
 ### 3.9.4 Dim
+
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
 
 Declares and creates one or more local variables in the local variable space of the current `Function`, `Sub`, or `EVENT`.
 
@@ -468,6 +534,8 @@ Dim var1, var2 = value, var3
 ---
 
 ### 3.9.5 Debug
+
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
 
 Sends a debug message to the engine log (typically `debug.log` in the system folder).
 
@@ -494,6 +562,8 @@ Display [dest,] message [, message2, ...]
 
 ### 3.9.7 DropItems
 
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+
 Forces the specified container object (typically a player or NPC) to drop all carried inventory items onto the floor of their current room.
 
 ```basic
@@ -506,6 +576,8 @@ DropItems [victim]
 ---
 
 ### 3.9.8 For
+
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
 
 Represents an iteration loop over a numeric range.
 
@@ -521,6 +593,8 @@ Next
 
 ### 3.9.9 For Each
 
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+
 Represents an iteration loop over elements of a set or array.
 
 ```basic
@@ -534,6 +608,8 @@ Next
 ---
 
 ### 3.9.10 Goal
+
+> **[DimY: partial]** Only broadcasts the message and adds 10 to the agent's score. `$WORLD.mode = 0`, Hall of Fame (.hof) recording and panel switching are **DimX only - not yet implemented in DimY**.
 
 Signals that the game objective has been achieved and the adventure is completed.
 
@@ -551,6 +627,8 @@ Goal [message]
 ---
 
 ### 3.9.11 Journal
+
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored. The cluster journal part is also **dropped in DimY** (Cluster removed).
 
 Appends an entry to the top of the game or cluster RSS journal file (retaining the 20 most recent entries).
 
@@ -572,6 +650,8 @@ Journal title, link, text, categories
 
 ### 3.9.12 Kill
 
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+
 Removes an object or NPC character from the current world.
 
 ```basic
@@ -584,6 +664,8 @@ Kill [victim]
 ---
 
 ### 3.9.13 Move
+
+> **[DimY: partial]** Both arguments are required (the one-argument form defaulting `what` to `$AGENT` is not implemented). Only `AdvObject` instances can be moved.
 
 Moves an object (character or item) to a new destination room or container.
 
@@ -604,6 +686,8 @@ Move [what,] where
 
 ### 3.9.14 MoveOutside
 
+> **[Dropped in DimY]** Depends on multi-world clusters, which were intentionally removed. Statement is silently ignored.
+
 Moves an object to another virtual world within the same multi-world cluster.
 
 ```basic
@@ -618,6 +702,8 @@ MoveOutside what, areaid
 
 ### 3.9.15 NewRoom
 
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+
 Dynamically instantiates a new room in the world.
 
 ```basic
@@ -630,6 +716,8 @@ NewRoom id
 ---
 
 ### 3.9.16 PlaySound
+
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
 
 Plays an audio sound clip once on the recipient's client.
 
@@ -645,6 +733,8 @@ PlaySound [dest,] soundFile
 
 ### 3.9.17 PlayBackground
 
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+
 Plays background music or an audio stream (optionally looping).
 
 ```basic
@@ -659,6 +749,8 @@ PlayBackground [dest,] soundFile [, loop]
 ---
 
 ### 3.9.18 Print
+
+> **[DimY: partial]** Implemented (`Display`/`Print`), but `NewImage()` image messages are not supported (`NewImage` is not implemented); messages are strings only. Expressions are limited (see operators).
 
 Outputs formatted messages or images directly to player consoles.
 
@@ -679,6 +771,8 @@ Print [dest,] message [, message2, ...]
 
 ### 3.9.19 PrintRight
 
+> **[DimY: partial]** Routed to `displayRight()` only when the destination object provides it; otherwise falls back to `display()`.
+
 Identical to `Print`, but routes message display into the right-side layout column (`#right_column`).
 
 ```basic
@@ -688,6 +782,8 @@ PrintRight [dest,] message [, message2, ...]
 ---
 
 ### 3.9.20 Reset
+
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
 
 Broadcasts a notification and restarts/resets the game engine world state, re-synchronizing connected players.
 
@@ -700,6 +796,8 @@ Reset
 ---
 
 ### 3.9.21 RefreshView
+
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
 
 Forces an immediate client-side UI view refresh.
 
@@ -714,6 +812,8 @@ RefreshView [dest]
 
 ### 3.9.22 Return
 
+> **[DimY: partial]** `Return [expr]` works in events (sets the event result). Returning values from user `Function`s into expressions is not supported (function calls in expressions are not implemented).
+
 Terminates execution of the current procedure or event script and returns a value.
 
 ```basic
@@ -727,6 +827,8 @@ Return [retvalue]
 ---
 
 ### 3.9.23 SaveSetting
+
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
 
 Persists a key-value setting into the global server profile database.
 
@@ -754,6 +856,8 @@ SaveSetting key, value
 
 ### 3.9.24 SendCmd
 
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+
 Dispatches a low-level engine control command to the player's client interface.
 
 ```basic
@@ -772,6 +876,8 @@ SendCmd [dest,] command
 
 ### 3.9.25 SetAdd
 
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+
 Appends or assigns a key-value entry to a `set` collection.
 
 ```basic
@@ -783,6 +889,8 @@ SetAdd set, key, value
 ---
 
 ### 3.9.26 SetPanel
+
+> **[DimY: partial]** Works for `$WORLD`, rooms/containers (`PeopleContainer`) and players; other destination types return false.
 
 Sets the active command control panel for a player, a room, or globally for `$WORLD`.
 
@@ -800,6 +908,8 @@ SetPanel [destination,] panelId
 ---
 
 ### 3.9.27 SetRemove
+
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
 
 Removes an element from the specified `set` or `array`.
 
@@ -875,6 +985,8 @@ Below is the complete catalog of all 55 built-in SmallBasic functions (3.10.1 to
 
 ### 3.10.1 Abs( n )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Returns the absolute value of numeric expression `n`.
 
 - **Syntax**: `result = Abs( n )`
@@ -884,6 +996,8 @@ Returns the absolute value of numeric expression `n`.
 ---
 
 ### 3.10.2 Asc( c )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Returns the ASCII code of character `c`. If a string is provided, evaluates the first character.
 
@@ -895,6 +1009,8 @@ Returns the ASCII code of character `c`. If a string is provided, evaluates the 
 
 ### 3.10.3 Chr( n )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Returns the character corresponding to ASCII code `n` ($0 \le n \le 255$).
 
 - **Syntax**: `char = Chr( n )`
@@ -905,6 +1021,8 @@ Returns the character corresponding to ASCII code `n` ($0 \le n \le 255$).
 
 ### 3.10.4 Copy( array_or_set )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Produces a deep, independent copy of an `ARRAY` or `SET` collection.
 
 - **Syntax**: `newCollection = Copy( array_or_set )`
@@ -913,6 +1031,8 @@ Produces a deep, independent copy of an `ARRAY` or `SET` collection.
 ---
 
 ### 3.10.5 Exists( objectID )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Checks if an adventure object with the specified identifier exists in the current world.
 
@@ -923,6 +1043,8 @@ Checks if an adventure object with the specified identifier exists in the curren
 
 ### 3.10.6 ExistScript( scriptID )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Checks if a custom `Sub`, `Function`, or `EVENT` exists with the given name.
 
 - **Syntax**: `result = ExistScript( scriptID )`
@@ -932,6 +1054,8 @@ Checks if a custom `Sub`, `Function`, or `EVENT` exists with the given name.
 ---
 
 ### 3.10.7 Format( number, strFormat )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Formats a number according to a format pattern string (following standard `String.format` / `printf` formatting).
 
@@ -944,6 +1068,8 @@ Formats a number according to a format pattern string (following standard `Strin
 ---
 
 ### 3.10.8 gameInfo( variable )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Returns runtime settings and paths of the game engine server.
 
@@ -961,6 +1087,8 @@ Returns runtime settings and paths of the game engine server.
 
 ### 3.10.9 getCharactersIn( object )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Returns a `SET` of all `CHARACTER` objects (NPCs and players) contained inside the specified container/room.
 
 - **Syntax**: `charSet = getCharactersIn( object )`
@@ -973,6 +1101,8 @@ Returns a `SET` of all `CHARACTER` objects (NPCs and players) contained inside t
 
 ### 3.10.10 getLinksFrom( rooms )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Returns a `SET` of all exit links originating from the specified room or collection of rooms.
 
 - **Syntax**: `linkSet = getLinksFrom( rooms )`
@@ -982,6 +1112,8 @@ Returns a `SET` of all exit links originating from the specified room or collect
 
 ### 3.10.11 getItemsIn( object )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Returns a `SET` of all `ITEM` objects directly contained in the specified container/room.
 
 - **Syntax**: `itemSet = getItemsIn( object )`
@@ -989,6 +1121,8 @@ Returns a `SET` of all `ITEM` objects directly contained in the specified contai
 ---
 
 ### 3.10.12 getObject( id )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Finds and returns a reference to the game object with identifier `id`. If `id` is already an object reference, returns it unchanged. Returns `NULL` if not found.
 
@@ -998,6 +1132,8 @@ Finds and returns a reference to the game object with identifier `id`. If `id` i
 
 ### 3.10.13 getObjectsSubtype( container, subtype )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Performs a partial match search on item types. Returns a `SET` of items inside `container` whose `TYPE` attribute contains the substring `subtype`.
 
 - **Syntax**: `itemSet = getObjectsSubtype( container, subtype )`
@@ -1006,6 +1142,8 @@ Performs a partial match search on item types. Returns a `SET` of items inside `
 
 ### 3.10.14 getObjectsType( container, type )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Searches for items inside `container` by primary type prefix. Returns a `SET` of matching items.
 
 - **Syntax**: `itemSet = getObjectsType( container, type )`
@@ -1013,6 +1151,8 @@ Searches for items inside `container` by primary type prefix. Returns a `SET` of
 ---
 
 ### 3.10.15 getPlayerProperties( user_name )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Retrieves the persisted account properties of the specified user from the database.
 
@@ -1023,6 +1163,8 @@ Retrieves the persisted account properties of the specified user from the databa
 
 ### 3.10.16 getPlayersIn( object )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Returns a `SET` of connected player characters inside the specified room or vehicle.
 
 - **Syntax**: `playerSet = getPlayersIn( object )`
@@ -1030,6 +1172,8 @@ Returns a `SET` of connected player characters inside the specified room or vehi
 ---
 
 ### 3.10.17 getRooms( [setExclusions] )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Returns a `SET` containing all `ROOM` objects in the virtual world, optionally omitting rooms specified in `setExclusions`.
 
@@ -1039,6 +1183,8 @@ Returns a `SET` containing all `ROOM` objects in the virtual world, optionally o
 
 ### 3.10.18 getRoomsFrom( room )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Returns a `SET` of all rooms reachable via exits directly accessible from `room`.
 
 - **Syntax**: `neighborRooms = getRoomsFrom( room )`
@@ -1046,6 +1192,8 @@ Returns a `SET` of all rooms reachable via exits directly accessible from `room`
 ---
 
 ### 3.10.19 getSetting( key [, default] )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Retrieves a persisted key-value setting previously stored by `SaveSetting`.
 
@@ -1055,6 +1203,8 @@ Retrieves a persisted key-value setting previously stored by `SaveSetting`.
 ---
 
 ### 3.10.20 getTime( format )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Returns the current server date/time formatted according to pattern `format`.
 
@@ -1068,6 +1218,8 @@ Returns the current server date/time formatted according to pattern `format`.
 
 ### 3.10.21 HttpFetch( url )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Fetches content from an external HTTP/HTTPS URL and returns the response body as a string.
 
 - **Syntax**: `responseStr = HttpFetch( url )`
@@ -1075,6 +1227,8 @@ Fetches content from an external HTTP/HTTPS URL and returns the response body as
 ---
 
 ### 3.10.22 InStr( haystack, needle [, startpos] )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Searches for substring `needle` within `haystack`. Case-insensitive.
 
@@ -1085,6 +1239,8 @@ Searches for substring `needle` within `haystack`. Case-insensitive.
 
 ### 3.10.23 InStrCount( haystack, needle )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Counts the total number of occurrences of `needle` within `haystack`. Case-insensitive.
 
 - **Syntax**: `count = InStrCount( haystack, needle )`
@@ -1093,6 +1249,8 @@ Counts the total number of occurrences of `needle` within `haystack`. Case-insen
 
 ### 3.10.24 Int( n )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Truncates number `n` to its integer part (does not round up).
 
 - **Syntax**: `i = Int( n )`
@@ -1100,6 +1258,8 @@ Truncates number `n` to its integer part (does not round up).
 ---
 
 ### 3.10.25 IsCharacter( object )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Tests whether the object argument is a character entity (NPC or player).
 
@@ -1110,6 +1270,8 @@ Tests whether the object argument is a character entity (NPC or player).
 
 ### 3.10.26 IsPlayer( object )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Tests whether the object argument is a connected human player.
 
 - **Syntax**: `b = IsPlayer( object )`
@@ -1118,6 +1280,8 @@ Tests whether the object argument is a connected human player.
 ---
 
 ### 3.10.27 IsRoom( object )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Tests whether the object argument is a `ROOM`.
 
@@ -1128,6 +1292,8 @@ Tests whether the object argument is a `ROOM`.
 
 ### 3.10.28 LCase( string )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Converts a string to lowercase.
 
 - **Syntax**: `lower = LCase( string )`
@@ -1135,6 +1301,8 @@ Converts a string to lowercase.
 ---
 
 ### 3.10.29 Left( string, nchars )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Returns the leftmost `nchars` characters of `string`.
 
@@ -1144,6 +1312,8 @@ Returns the leftmost `nchars` characters of `string`.
 
 ### 3.10.30 Len( string )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Returns the character length of `string`.
 
 - **Syntax**: `length = Len( string )`
@@ -1151,6 +1321,8 @@ Returns the character length of `string`.
 ---
 
 ### 3.10.31 Log( number )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Returns the natural logarithm (base $e$) of `number`.
 
@@ -1160,6 +1332,8 @@ Returns the natural logarithm (base $e$) of `number`.
 
 ### 3.10.32 MainType( object )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Returns the primary type prefix of an item's `TYPE` attribute (e.g. for `weapon.knife`, returns `"weapon"`).
 
 - **Syntax**: `t = MainType( object )`
@@ -1167,6 +1341,8 @@ Returns the primary type prefix of an item's `TYPE` attribute (e.g. for `weapon.
 ---
 
 ### 3.10.33 Mid( string, start [, nchars] )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Extracts a substring of `nchars` characters starting from 1-based position `start`.
 
@@ -1176,6 +1352,8 @@ Extracts a substring of `nchars` characters starting from 1-based position `star
 
 ### 3.10.34 NewArray( [string] )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Instantiates a sequential indexed `ARRAY` collection.
 
 - **Syntax**: `arr = NewArray( ["item1, item2, ..."] )`
@@ -1183,6 +1361,8 @@ Instantiates a sequential indexed `ARRAY` collection.
 ---
 
 ### 3.10.35 NewCharacter( room, name, description, image, attributes )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Dynamically creates an NPC character in the specified room.
 
@@ -1193,6 +1373,8 @@ Dynamically creates an NPC character in the specified room.
 
 ### 3.10.36 NewImage( url, width, height )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Instantiates an `Image` object with explicit dimensions.
 
 - **Syntax**: `img = NewImage( url, width, height )`
@@ -1200,6 +1382,8 @@ Instantiates an `Image` object with explicit dimensions.
 ---
 
 ### 3.10.37 NewLink( from, to, orientation, bidirectional, name, description, image, attributes )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Dynamically creates a navigational exit link between two rooms.
 
@@ -1210,6 +1394,8 @@ Dynamically creates a navigational exit link between two rooms.
 
 ### 3.10.38 NewSet( [string] )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Creates a key-sorted `SET` dictionary.
 
 - **Syntax**: `set = NewSet( ["key1=val1, key2=val2"] )`
@@ -1218,6 +1404,8 @@ Creates a key-sorted `SET` dictionary.
 ---
 
 ### 3.10.39 NewItem( container, name, descr, image, attributes )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Dynamically creates a new `ITEM` inside `container`.
 
@@ -1228,6 +1416,8 @@ Dynamically creates a new `ITEM` inside `container`.
 
 ### 3.10.40 NOT( expr )
 
+> **[DimY: partial]** Handled only as a prefix operator inside conditions (`Not expr` / `Not(expr)`), not as a general expression function.
+
 Logical negation of a boolean or numeric expression.
 
 - **Syntax**: `res = NOT( expr )`
@@ -1235,6 +1425,8 @@ Logical negation of a boolean or numeric expression.
 ---
 
 ### 3.10.41 PanelHtml( panel )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Renders the specified panel's controls as HTML markup (used for building context menus).
 
@@ -1244,6 +1436,8 @@ Renders the specified panel's controls as HTML markup (used for building context
 
 ### 3.10.42 Replace( haystack, needle, replacement )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Replaces all occurrences of `needle` with `replacement` in `haystack`. Case-sensitive.
 
 - **Syntax**: `res = Replace( haystack, needle, replacement )`
@@ -1251,6 +1445,8 @@ Replaces all occurrences of `needle` with `replacement` in `haystack`. Case-sens
 ---
 
 ### 3.10.43 Right( string, nchars )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Returns the rightmost `nchars` characters of `string`.
 
@@ -1260,6 +1456,8 @@ Returns the rightmost `nchars` characters of `string`.
 
 ### 3.10.44 RndInt( N )
 
+> **[DimY: partial]** Only the two-argument form `RndInt(min, max)` is implemented; the one-argument `RndInt(N)` form documented here is **not yet implemented in DimY**.
+
 Returns a pseudo-random integer between $1$ and $N$ inclusive ($N \ge 1$).
 
 - **Syntax**: `randVal = RndInt( N )`
@@ -1267,6 +1465,8 @@ Returns a pseudo-random integer between $1$ and $N$ inclusive ($N \ge 1$).
 ---
 
 ### 3.10.45 Rnd()
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Returns a pseudo-random floating-point number in the range $[0.0, 1.0)$.
 
@@ -1276,6 +1476,8 @@ Returns a pseudo-random floating-point number in the range $[0.0, 1.0)$.
 
 ### 3.10.46 RndSet( aSet )
 
+> **[DimY: partial]** Only a literal `RndSet(setName)` (world set / `$WORLD.setName`) is supported, not arbitrary set expressions.
+
 Selects and returns a random element from a `SET` or `ARRAY`.
 
 - **Syntax**: `elem = RndSet( aSet )`
@@ -1283,6 +1485,8 @@ Selects and returns a random element from a `SET` or `ARRAY`.
 ---
 
 ### 3.10.47 Round( number, decimals )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Rounds `number` to the specified number of decimal digits.
 
@@ -1293,6 +1497,8 @@ Rounds `number` to the specified number of decimal digits.
 
 ### 3.10.48 SetContainsKey( set, key )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Checks if `set` contains an entry with key `key`.
 
 - **Syntax**: `hasKey = SetContainsKey( set, key )`
@@ -1302,6 +1508,8 @@ Checks if `set` contains an entry with key `key`.
 
 ### 3.10.49 SetIndexOf( setarray, value )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Searches a set or array for `value` (case-insensitive) and returns its 1-based index, or `0` if not found.
 
 - **Syntax**: `idx = SetIndexOf( setarray, value )`
@@ -1309,6 +1517,8 @@ Searches a set or array for `value` (case-insensitive) and returns its 1-based i
 ---
 
 ### 3.10.50 SetKey( set, n )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Returns the key name at 1-based index position `n` within `set`.
 
@@ -1318,6 +1528,8 @@ Returns the key name at 1-based index position `n` within `set`.
 
 ### 3.10.51 SetKeys( set )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Returns an `ARRAY` containing all the key names in `set`.
 
 - **Syntax**: `keysArr = SetKeys( set )`
@@ -1326,6 +1538,8 @@ Returns an `ARRAY` containing all the key names in `set`.
 
 ### 3.10.52 SetLen( set )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Returns the total element count in `set` or `array`. Returns `-1` if the argument is not a collection.
 
 - **Syntax**: `count = SetLen( set )`
@@ -1333,6 +1547,8 @@ Returns the total element count in `set` or `array`. Returns `-1` if the argumen
 ---
 
 ### 3.10.53 Split( valuestring, separatorstring )
+
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Splits `valuestring` by delimiter `separatorstring` into an `ARRAY`.
 
@@ -1347,6 +1563,8 @@ Splits `valuestring` by delimiter `separatorstring` into an `ARRAY`.
 
 ### 3.10.54 Sqr( x )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Returns the square root of `x` ($\sqrt{x}$).
 
 - **Syntax**: `root = Sqr( x )`
@@ -1355,9 +1573,12 @@ Returns the square root of `x` ($\sqrt{x}$).
 
 ### 3.10.55 UCase( string )
 
+> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+
 Converts a string to uppercase.
 
 - **Syntax**: `upper = UCase( string )`
 - **Example**: `UCase("masterplan")` -> `"MASTERPLAN"`
 
 ---
+
