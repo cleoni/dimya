@@ -65,18 +65,6 @@ class GameEngine
             if (isset($this->config['tickLength']) && is_numeric($this->config['tickLength'])) {
                 $world->tickLength = max(1, (int)$this->config['tickLength']);
             }
-            if (!empty($world->imagesFolder)) {
-                $loader = new DxwLoader($this->baseUrl);
-                foreach ($world->skins as $sId => $skinObj) {
-                    $expectedFolder = $loader->resolveSkinFolderUrl($sId, $world->imagesFolder);
-                    if (empty($skinObj->skinFolder) || str_contains($skinObj->skinFolder, 'localhost')) {
-                        $skinObj->setSkinFolder($expectedFolder);
-                    }
-                }
-                if ($world->defaultSkin !== null && (empty($world->defaultSkin->skinFolder) || str_contains($world->defaultSkin->skinFolder, 'localhost'))) {
-                    $world->defaultSkin->setSkinFolder($loader->resolveSkinFolderUrl($world->defaultSkin->id ?? 'default', $world->imagesFolder));
-                }
-            }
             $this->pruneStalePlayers($world);
             return $world;
         }
@@ -183,7 +171,7 @@ class GameEngine
             // Player ID in game engine lives in memory and changes every time the user logs in
             $engineId = 'p_' . ($numericId ?? '0') . '_' . bin2hex(random_bytes(4));
             $player   = new Player($world, $playerName, $engineId, 'Adventurer');
-            $player->skin      = $world->defaultSkin ?? new Skin('default', 'Default');
+            $player->skin      = $world->defaultSkin ?? new Skin('default', 'Ocean');
             $player->numericId = $numericId;
             $player->isBot     = $isBot;
             $player->showmode  = AdvObject::SHOW_ONSCREEN;
@@ -244,11 +232,7 @@ class GameEngine
                 $player->isBot = true;
             }
             if ($player->skin === null) {
-                $player->skin = $world->defaultSkin ?? new Skin('default', 'Default');
-            } elseif ($player->skin->id === 'default' && $world->defaultSkin !== null && (empty($player->skin->skinFolder) || str_contains($player->skin->skinFolder, 'localhost'))) {
-                $player->skin->setSkinFolder($world->defaultSkin->skinFolder);
-            } elseif ($player->skin->id !== 'default' && (empty($player->skin->skinFolder) || str_contains($player->skin->skinFolder, 'localhost')) && !empty($world->imagesFolder)) {
-                $player->skin->setSkinFolder(\Dimx\DxwLoader::getParentFolder($world->imagesFolder) . 'skins/' . $player->skin->id . '/');
+                $player->skin = $world->defaultSkin ?? new Skin('default', 'Ocean');
             }
             if ($player->showmode === 0) {
                 $player->showmode = AdvObject::SHOW_ONSCREEN;

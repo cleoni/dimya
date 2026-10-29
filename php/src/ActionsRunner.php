@@ -678,21 +678,16 @@ class ActionsRunner
      */
     protected function actGoal(array $args): bool
     {
-        $actingAgent = ($this->agent instanceof ManageableObject)
-            ? $this->agent
-            : (($this->owner instanceof ManageableObject) ? $this->owner : null);
-
-        $agentName = ($actingAgent instanceof ManageableObject) ? $actingAgent->name : 'A player';
-        $numericId = ($actingAgent instanceof Player) ? $actingAgent->numericId : null;
-        if ($actingAgent instanceof Player) {
-            $actingAgent->score += 10;
+        $agentName = ($this->agent instanceof ManageableObject) ? $this->agent->name : 'A player';
+        if ($this->agent instanceof Player) {
+            $this->agent->score += 10;
         }
 
         $msg = !empty($args[0])
             ? (string)$this->evalValue((string)$args[0])
             : "<b>{$agentName}</b> has reached the goal!";
 
-        return $this->world->goal($agentName, $msg, $numericId);
+        return $this->world->broadcast($msg);
     }
 
     /**

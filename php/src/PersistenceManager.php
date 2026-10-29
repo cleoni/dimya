@@ -166,19 +166,6 @@ class PersistenceManager
                 INDEX idx_world_time (world_id, message_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
-            'create_hall_of_fame' => "CREATE TABLE IF NOT EXISTS dimx_hall_of_fame (
-                id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                world_id          VARCHAR(64)  NOT NULL,
-                player_name       VARCHAR(128) NOT NULL,
-                player_numeric_id INT UNSIGNED DEFAULT NULL,
-                world_title       VARCHAR(128) NOT NULL DEFAULT '',
-                world_version     VARCHAR(32)  NOT NULL DEFAULT '',
-                message           TEXT         NOT NULL,
-                created_at        TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_world (world_id),
-                INDEX idx_player (player_name)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
-
             // ---- ALTER: add missing columns (each in its own statement) ----
             'alter_worlds_src'      => "ALTER TABLE dimx_worlds ADD COLUMN IF NOT EXISTS world_src VARCHAR(512) DEFAULT NULL",
             'alter_worlds_json'     => "ALTER TABLE dimx_worlds MODIFY COLUMN state_json LONGTEXT",
@@ -1090,106 +1077,6 @@ class PersistenceManager
             }
         }
         return array_slice($result, -$limit);
-    }
-
-    // =========================================================================
-    // Hall of Fame (Goal completions)
-    // =========================================================================
-
-    /**
-     * Record a game completion / victory in the Hall of Fame.
-     */
-    public function recordHallOfFame(
-        string $worldId,
-        string $playerName,
-        string $message,
-        ?int $playerNumericId = null,
-        string $worldTitle = '',
-        string $worldVersion = ''
-    ): bool {
-        if ($this->isConnected()) {
-            try {
-                $stmt = $this->pdo->prepare("
-                    INSERT INTO dimx_hall_of_fame (world_id, player_name, player_numeric_id, world_title, world_version, message)
-                    VALUES (:wid, :pname, :pnum, :title, :ver, :msg)
-                ");
-                return $stmt->execute([
-                    ':wid'   => $worldId,
-                    ':pname' => $playerName,
-                    ':pnum'  => $playerNumericId,
-                    ':title' => $worldTitle,
-                    ':ver'   => $worldVersion,
-                    ':msg'   => $message,
-                ]);
-            } catch (PDOException $e) {
-                error_log("PersistenceManager::recordHallOfFame DB error: " . $e->getMessage());
-            }
-        }
-
-        // File-based fallback: php/data/hof_{worldId}.json
-        $file = "{$this->storageDir}/hof_{$worldId}.json";
-        $entries = [];
-        if (file_exists($file)) {
-            $data = @file_get_contents($file);
-            $entries = is_string($data) ? json_decode($data, true) ?? [] : [];
-        }
-        $entries[] = [
-            'id'                => count($entries) + 1,
-            'world_id'          => $worldId,
-            'player_name'       => $playerName,
-            'player_numeric_id' => $playerNumericId,
-            'world_title'       => $worldTitle,
-            'world_version'     => $worldVersion,
-            'message'           => $message,
-            'created_at'        => date('Y-m-d H:i:s'),
-        ];
-        return @file_put_contents($file, json_encode($entries, JSON_PRETTY_PRINT)) !== false;
-    }
-
-    /**
-     * Retrieve Hall of Fame records for a world (or all worlds if null).
-     * @return array<int, array<string, mixed>>
-     */
-    public function getHallOfFame(?string $worldId = null, int $limit = 50): array
-    {
-        if ($this->isConnected()) {
-            try {
-                if ($worldId !== null && $worldId !== '') {
-                    $stmt = $this->pdo->prepare("
-                        SELECT id, world_id, player_name, player_numeric_id, world_title, world_version, message, created_at
-                        FROM dimx_hall_of_fame
-                        WHERE world_id = :wid
-                        ORDER BY id DESC
-                        LIMIT :limit
-                    ");
-                    $stmt->bindValue(':wid', $worldId, PDO::PARAM_STR);
-                } else {
-                    $stmt = $this->pdo->prepare("
-                        SELECT id, world_id, player_name, player_numeric_id, world_title, world_version, message, created_at
-                        FROM dimx_hall_of_fame
-                        ORDER BY id DESC
-                        LIMIT :limit
-                    ");
-                }
-                $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-                $stmt->execute();
-                return $stmt->fetchAll(PDO::FETCH_ASSOC);
-            } catch (PDOException $e) {
-                error_log("PersistenceManager::getHallOfFame DB error: " . $e->getMessage());
-            }
-        }
-
-        // File-based fallback
-        $worldKey = ($worldId !== null && $worldId !== '') ? $worldId : 'main';
-        $file = "{$this->storageDir}/hof_{$worldKey}.json";
-        if (file_exists($file)) {
-            $data = @file_get_contents($file);
-            $entries = is_string($data) ? json_decode($data, true) ?? [] : [];
-            usort($entries, fn($a, $b) => ($b['id'] ?? 0) <=> ($a['id'] ?? 0));
-            return array_slice($entries, 0, $limit);
-        }
-
-        return [];
     }
 
     // =========================================================================

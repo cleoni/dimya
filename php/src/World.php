@@ -189,31 +189,6 @@ class World extends DimxObject
     }
 
     /**
-     * Complete the adventure / achieve the game goal.
-     * Sets $mode = 0, broadcasts the victory message, records to the Hall of Fame table,
-     * and persists world state.
-     */
-    public function goal(string $agentName, string $message, ?int $numericId = null): bool
-    {
-        $this->mode = 0;
-        $this->broadcast($message);
-
-        if ($this->persistence !== null) {
-            $this->persistence->recordHallOfFame(
-                $this->id,
-                $agentName,
-                $message,
-                $numericId,
-                (string)($this->title ?: $this->name),
-                (string)$this->version
-            );
-            $this->persistence->saveWorld($this);
-        }
-
-        return true;
-    }
-
-    /**
      * Prevent serializing runtime service instances (like PersistenceManager/PDO).
      */
     public function __sleep(): array

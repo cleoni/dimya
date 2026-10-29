@@ -169,9 +169,6 @@ class UIhtml extends UI
         $activeContainer = $isInsideVehicle ? $player->container : $currentRoom;
 
         $skin         = $player->skin ?? $world->skins['default'] ?? $world->defaultSkin ?? new Skin('default', 'Default');
-        if ($skin && (empty($skin->skinFolder) || str_contains($skin->skinFolder, 'localhost')) && !empty($world->imagesFolder)) {
-            $skin->setSkinFolder(\Dimx\DxwLoader::getParentFolder($world->imagesFolder) . 'skins/' . $skin->id . '/');
-        }
         $occupants    = $activeContainer ? array_values(array_filter($activeContainer->getOccupants(), fn($c) => !$c->isHidden())) : [];
         $roomItems    = $activeContainer ? array_values(array_filter($activeContainer->getItems(), fn($i) => !$i->isHidden()))     : [];
         $inventory    = array_values(array_filter($player->contents, fn($i) => !$i->isHidden()));
@@ -764,7 +761,7 @@ class UIhtml extends UI
                             }
                             $charImg = $char->images['N'] ?? $char->image ?? $char->skin?->picPlayer ?? $skin->picPlayer ?? $world->defaultSkin?->picPlayer ?? null;
                             if (!$charImg && !empty($world->imagesFolder)) {
-                              $charImg = new \Dimx\Image(\Dimx\DxwLoader::getParentFolder($world->imagesFolder) . 'skins/default/uomo.gif', 64, 100);
+                              $charImg = new \Dimx\Image(rtrim(str_replace('/pics/', '/skins/aqua/', $world->imagesFolder), '/') . '/avatar.gif', 64, 100);
                             }
                             // Check SHOW FOR restriction
                             if (!empty($char->showFor) && $sceneImg !== null) {
