@@ -59,7 +59,7 @@ error_log
 *.sql
 *.csv
 *.json.gz
-!schema.sql
+schema.sql
 
 # ==========================================
 # FILE DI SISTEMA / IDE

@@ -47,6 +47,7 @@
 *.tar.gz
 /docs/dimensionex-developers-reference-717.pdf
 /docs/PLAY-AS-BOT.md
+/tools/
 
 # ==========================================
 # DATABASE E DUMP DI DATI
@@ -58,6 +59,7 @@
 *.csv
 *.json.gz
 !schema.sql
+/php/data/
 
 # ==========================================
 # FILE DI SISTEMA / IDE
@@ -75,5 +77,4 @@ Thumbs.db
 .env
 .env.*
 config.php
-/php/data/
 !.env.example
