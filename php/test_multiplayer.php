@@ -884,6 +884,8 @@ assertTest(str_contains($statsHtml, '<b>Skill:</b> 5'), "UIhtml STATS box displa
 assertTest(str_contains($statsHtml, '<b>Score:</b> 50'), "UIhtml STATS box displays capitalized attribute 'Score: 50'");
 assertTest(!str_contains($statsHtml, '<b>open:</b>'), "UIhtml STATS box omits lowercase attribute 'open'");
 assertTest(!str_contains($statsHtml, '<b>locked:</b>'), "UIhtml STATS box omits lowercase attribute 'locked'");
+assertTest(!str_contains($statsHtml, 'id="btn_go"'), "UIhtml default panel DOES NOT render 'go' button inside #ctrls");
+assertTest(!str_contains($statsHtml, "sendCmd('go');"), "UIhtml #ctrls DOES NOT render an explicit Go button");
 }
 
 // -------------------------------------------------------------
@@ -2511,11 +2513,13 @@ DXW;
     $wPublic = $loaderPublic->parse($dxwDualFolder, 'dual_pub.dxw');
     assertTest($wPublic->imagesFolder === 'https://www.dimensionex.net/pics/', "DxwLoader with serverType='public' selects IMAGESFOLDER_PUBLIC ('{$wPublic->imagesFolder}')");
     assertTest(($wPublic->getRoom('r1')?->images['N']?->src ?? '') === 'https://www.dimensionex.net/pics/test.jpg', "Room image resolved against IMAGESFOLDER_PUBLIC when serverType='public'");
+    assertTest($wPublic->getProperty('imagesFolderPublic') === null && $wPublic->getProperty('imagesFolderLocal') === null, "World object does NOT store imagesFolderPublic or imagesFolderLocal properties");
 
     $loaderLocal = new \Dimx\DxwLoader('', 'local');
     $wLocal = $loaderLocal->parse($dxwDualFolder, 'dual_loc.dxw');
     assertTest($wLocal->imagesFolder === 'https://localhost:8080/dimx/pics/', "DxwLoader with serverType='local' selects IMAGESFOLDER_LOCAL ('{$wLocal->imagesFolder}')");
     assertTest(($wLocal->getRoom('r1')?->images['N']?->src ?? '') === 'https://localhost:8080/dimx/pics/test.jpg', "Room image resolved against IMAGESFOLDER_LOCAL when serverType='local'");
+    assertTest($wLocal->getProperty('imagesFolderPublic') === null && $wLocal->getProperty('imagesFolderLocal') === null, "World object (local) does NOT store imagesFolderPublic or imagesFolderLocal properties");
 
     // 2b. Test UIhtml refreshes #msgs every msgRefreshRate seconds (default 5s -> 5000ms, custom 8s -> 8000ms)
     $msgRateWorld = new \Dimx\World('msg_rate_world', 'Msg Rate World');

@@ -159,7 +159,6 @@ class DxwLoader
         $world = new World('world_' . md5($sourceName), 'DimensioneX World');
         $this->sourcePath = $sourceName;
         $imagesFolder = '';
-        $hasTypeSpecificImagesFolder = false;
         $currentSection = 'WORLD';
 
         $total = count($cleanLines);
@@ -263,26 +262,17 @@ class DxwLoader
                     if ($directive === 'NAME') {
                         $world->name = trim(substr($line, strlen($tokens[0])));
                     } elseif ($directive === 'IMAGESFOLDER') {
-                        $val = trim(substr($line, strlen($tokens[0])));
-                        if (!$hasTypeSpecificImagesFolder) {
-                            $imagesFolder = $val;
-                            $world->imagesFolder = $imagesFolder;
-                        }
+                        $imagesFolder = trim(substr($line, strlen($tokens[0])));
+                        $world->imagesFolder = $imagesFolder;
                     } elseif ($directive === 'IMAGESFOLDER_PUBLIC') {
-                        $val = trim(substr($line, strlen($tokens[0])));
-                        $world->setProperty('imagesFolderPublic', $val);
                         if ($activeServerType === 'public') {
-                            $imagesFolder = $val;
+                            $imagesFolder = trim(substr($line, strlen($tokens[0])));
                             $world->imagesFolder = $imagesFolder;
-                            $hasTypeSpecificImagesFolder = true;
                         }
                     } elseif ($directive === 'IMAGESFOLDER_LOCAL') {
-                        $val = trim(substr($line, strlen($tokens[0])));
-                        $world->setProperty('imagesFolderLocal', $val);
                         if ($activeServerType === 'local') {
-                            $imagesFolder = $val;
+                            $imagesFolder = trim(substr($line, strlen($tokens[0])));
                             $world->imagesFolder = $imagesFolder;
-                            $hasTypeSpecificImagesFolder = true;
                         }
                     } elseif ($directive === 'BGCOLOR') {
                         $world->bgcolor = trim(substr($line, strlen($tokens[0])));

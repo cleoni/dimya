@@ -44,9 +44,10 @@ class Panel
     {
         $html = "<div class=\"dimx-panel\" id=\"panel_" . htmlspecialchars($this->id, ENT_QUOTES) . "\">\n";
         foreach ($this->buttons as $ctrl) {
-            // In the HTML presentation layer, clicking an object/character triggers the click action directly;
-            // an explicit 'Click' button is redundant for human players.
-            if (strtolower($ctrl->id) === 'click') {
+            // In the HTML presentation layer, clicking an object/character triggers the 'click' action directly,
+            // and clicking a link icon or onscreen link triggers the 'go' action automatically;
+            // these commands are always active and should not be rendered as buttons inside #ctrls.
+            if (in_array(strtolower($ctrl->id), ['click', 'go'], true)) {
                 continue;
             }
             $html .= $ctrl->toHtml($skin);
@@ -62,15 +63,17 @@ class Panel
     {
         $panel = new self('default');
         $panel->addButton(new Ctrl('look', Ctrl::TYPE_BUTTON, 'Look', 'Look around or inspect object', 'onLook', null, 'O'));
-        $panel->addButton(new Ctrl('click', Ctrl::TYPE_BUTTON, 'Click', 'Inspect or interact with object', 'onLook', null, 'O'));
+        $panel->addButton(new Ctrl('click', Ctrl::TYPE_BUTTON, 'Click', 'Inspect or interact with object', 'onClick', null, 'O'));
         $panel->addButton(new Ctrl('go', Ctrl::TYPE_BUTTON, 'Go', 'Travel in a direction or passage', 'onGo', null, 'O'));
-        $panel->addButton(new Ctrl('use', Ctrl::TYPE_BUTTON, 'Use', 'Use an item or activate mechanism', 'onUse', null, 'O'));
+        $panel->addButton(new Ctrl('use', Ctrl::TYPE_BUTTON, 'Use', 'Use an item', 'onUse', null, 'O'));
         $panel->addButton(new Ctrl('use2', Ctrl::TYPE_BUTTON, 'Use with', 'Use an item with another object', 'onUseWith', null, 'OO'));
-        $panel->addButton(new Ctrl('pick', Ctrl::TYPE_BUTTON, 'PickUp', 'Pick up item from room', 'whenPicked', null, 'O'));
-        $panel->addButton(new Ctrl('drop', Ctrl::TYPE_BUTTON, 'Drop', 'Drop an item to the room', 'whenDropped', null, 'O'));
         $panel->addButton(new Ctrl('open', Ctrl::TYPE_BUTTON, 'Open', 'Open a container or door', 'onOpen', null, 'O'));
         $panel->addButton(new Ctrl('close', Ctrl::TYPE_BUTTON, 'Close', 'Close a container or door', 'onClose', null, 'O'));
+        $panel->addButton(new Ctrl('pick', Ctrl::TYPE_BUTTON, 'PickUp', 'Pick up item', 'whenPicked', null, 'O'));
+        $panel->addButton(new Ctrl('drop', Ctrl::TYPE_BUTTON, 'Drop', 'Drop an item', 'whenDropped', null, 'O'));
         $panel->addButton(new Ctrl('search', Ctrl::TYPE_BUTTON, 'Search', 'Search for hidden items', 'onSearch', null, ''));
+        $panel->addButton(new Ctrl('hide', Ctrl::TYPE_BUTTON, 'Hide', 'Hide an item', 'onHide', null, 'O'));
+        $panel->addButton(new Ctrl('put', Ctrl::TYPE_BUTTON, 'Put', 'Put an item into something', 'onPut', null, 'OO'));		
         $panel->addButton(new Ctrl('give', Ctrl::TYPE_BUTTON, 'Give', 'Give an item to another character', 'onReceiveItem', null, 'OO'));
         $panel->addButton(new Ctrl('enter', Ctrl::TYPE_BUTTON, 'Enter', 'Enter vehicle', 'onEnter', null, 'O'));
         $panel->addButton(new Ctrl('exit', Ctrl::TYPE_BUTTON, 'Exit', 'Exit vehicle', 'onExit', null, ''));

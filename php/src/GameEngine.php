@@ -70,6 +70,7 @@ class GameEngine
         $world = $this->pm->loadWorld($this->worldId);
         if ($world !== null) {
             $world->persistence = $this->pm;
+            unset($world->imagesFolderPublic, $world->imagesFolderLocal);
             if (isset($this->config['tickLength']) && is_numeric($this->config['tickLength'])) {
                 $world->tickLength = max(1, (int)$this->config['tickLength']);
             }
