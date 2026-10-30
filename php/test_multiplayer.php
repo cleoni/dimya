@@ -67,6 +67,7 @@ $sections = [
     43 => ['title' => 'Testing Default Item Icon (ICOITEM) & Fallbacks in UIhtml and Skin...', 'keywords' => ['icoitem', 'item icon', 'skin', 'default icon', 'uihtml', 'inventory', 'room items']],
     44 => ['title' => 'Testing SKINFOLDER Resolution, aqua_net.dxs URL Loading, Login Skin Dropdown & Per-Player Skin Navpad Icons...', 'keywords' => ['skinfolder', 'aqua_net', 'aqua', 'forest', 'default', 'dropdown', 'login', 'navpad', 'player skin']],
     45 => ['title' => 'Testing Sounds & Music Login Checkboxes, PlaySound Routing (Player, Room, $WORLD), Embedded Sound Player & Skin SNDNEWMSG...', 'keywords' => ['sounds', 'music', 'playsound', 'sndnewmsg', 'sndplayer', 'audio', 'skin', 'uihtml']],
+    46 => ['title' => 'Testing Say Command Target Handling (Speak to Person vs Speak Aloud with target=* in UIhtml & GameEngine)...', 'keywords' => ['say', 'target', 'speak', 'aloud', 'asterisk', 'txtbox', 'uihtml', 'character']],
 ];
 
 // CLI Options parsing
@@ -4733,6 +4734,164 @@ if (shouldRun(45)) {
     );
 
     @$pm->resetWorld($sec45WorldId);
+}
+
+// ============================================================================
+// Section 46: Testing Say Command Target Handling (Speak to Person vs Speak Aloud with target=*)
+// ============================================================================
+if (shouldRun(46)) {
+    echo "\n--- Section 46: Testing Say Command Target Handling (Speak to Person vs Speak Aloud with target=* in UIhtml & GameEngine) ---\n";
+
+    // 1. UI::parseInput() tests with target='*' and target='character_id' and txtBox quick chat
+    $origPost = $_POST;
+    $origGet = $_GET;
+
+    $_POST = ['cmd' => 'say', 'param' => 'Hello everyone!', 'target' => '*'];
+    $parsed1 = Dimx\UI::parseInput();
+    assertTest($parsed1['cmd'] === 'say', "UI::parseInput parses cmd='say'");
+    assertTest($parsed1['param'] === 'Hello everyone!', "UI::parseInput parses param='Hello everyone!'");
+    assertTest($parsed1['target'] === '*', "UI::parseInput parses target='*' (speak aloud)");
+
+    $_POST = ['cmd' => 'say', 'param' => 'Greetings friend', 'target' => 'surfer'];
+    $parsed2 = Dimx\UI::parseInput();
+    assertTest($parsed2['cmd'] === 'say', "UI::parseInput parses cmd='say' with target person");
+    assertTest($parsed2['param'] === 'Greetings friend', "UI::parseInput parses param='Greetings friend'");
+    assertTest($parsed2['target'] === 'surfer', "UI::parseInput parses target='surfer'");
+
+    $_POST = ['txtBox' => 'Quick chat aloud'];
+    $_GET = [];
+    $parsed3 = Dimx\UI::parseInput();
+    assertTest($parsed3['cmd'] === 'say', "UI::parseInput defaults empty cmd to 'say' when txtBox is set");
+    assertTest($parsed3['param'] === 'Quick chat aloud', "UI::parseInput reads param from txtBox");
+    assertTest($parsed3['target'] === '*', "UI::parseInput defaults target to '*' when quick chatting via txtBox");
+
+    $_POST = $origPost;
+    $_GET = $origGet;
+
+    // 2. Ctrl textbox rendering contains sendCmd('say', this.value, '*')
+    $txtCtrl = new Dimx\Ctrl('txtBox', Dimx\Ctrl::TYPE_TEXTBOX, '', 'Enter speech...');
+    $txtHtml = $txtCtrl->toHtml();
+    assertTest(
+        str_contains($txtHtml, "sendCmd('say', this.value, '*')"),
+        "Ctrl textbox onkeydown sends sendCmd('say', this.value, '*')"
+    );
+
+    // 3. UIhtml rendering contains Say command definitions and JS logic
+    $sec46WorldId = 'w_sec46_say_test';
+    @$pm->resetWorld($sec46WorldId);
+    $loader46 = new Dimx\DxwLoader('http://localhost');
+    $sec46World = $loader46->load($dxwFile, $sec46WorldId);
+    $engine46 = new Dimx\GameEngine($pm, $sec46WorldId, $dxwFile);
+
+    $pTester = new Dimx\Player($sec46World, 'TesterSay', 'p_testersay_1');
+    $pTester->numericId = 9901;
+    $targetRoom = $sec46World->getRoom('spiaggia2') ?? $sec46World->getRoom((string)$sec46World->defaultRoom) ?? reset($sec46World->rooms);
+    $pTester->move($targetRoom);
+    $sec46World->addPlayer($pTester);
+
+    $uiHtml46 = new Dimx\UIhtml($pTester, $engine46);
+    ob_start();
+    $uiHtml46->render([
+        'world'    => $sec46World,
+        'player'   => $pTester,
+        'room'     => $pTester->getRoom(),
+        'worldId'  => $sec46WorldId,
+        'messages' => [],
+        'chat'     => [],
+    ]);
+    $htmlOutput = ob_get_clean();
+
+    assertTest(
+        str_contains($htmlOutput, "'say': {") || str_contains($htmlOutput, "'say':{"),
+        "UIhtml contains 'say' command in COMMAND_DEFS"
+    );
+    assertTest(
+        str_contains($htmlOutput, "allowDouble: true") && str_contains($htmlOutput, "model: 'TO'"),
+        "UIhtml COMMAND_DEFS['say'] specifies allowDouble: true and model: 'TO'"
+    );
+    assertTest(
+        str_contains($htmlOutput, "submitCmd('say', text, '*')"),
+        "UIhtml handleCommand submits submitCmd('say', text, '*') on double-click Say"
+    );
+    assertTest(
+        str_contains($htmlOutput, "submitCmd('say', text, firstArg)"),
+        "UIhtml clickObject submits submitCmd('say', text, firstArg) when clicking a character"
+    );
+    assertTest(
+        str_contains($htmlOutput, "target = '*'"),
+        "UIhtml submitCmd defaults empty target for say to '*'"
+    );
+
+    // 4. GameEngine execution: target='*' speaks aloud to room occupants
+    $room = $pTester->getRoom();
+    $pListener = new Dimx\Player($sec46World, 'Listener', 'p_listener_2');
+    $pListener->numericId = 9902;
+    $pListener->move($room);
+    $sec46World->addPlayer($pListener);
+
+    $engine46->executeCommandAction($sec46World, $pTester, 'say', 'Hello to everyone in the room!', '*');
+    assertTest(
+        in_array("<b>TesterSay</b> says: Hello to everyone in the room!", $pListener->clientConsole, true),
+        "GameEngine: target='*' broadcasts 'says: <text>' to other player in the room"
+    );
+    assertTest(
+        in_array("<b>TesterSay</b> says: Hello to everyone in the room!", $pTester->clientConsole, true),
+        "GameEngine: target='*' displays 'says: <text>' to speaker in the room"
+    );
+
+    $chatHistory = $sec46World->chatQueue ?? [];
+    $lastChat = end($chatHistory);
+    assertTest(
+        $lastChat !== false && $lastChat['text'] === 'Hello to everyone in the room!' && $lastChat['recipient'] === null,
+        "GameEngine: target='*' posts chat message without specific recipient (public room broadcast)"
+    );
+
+    // 5. GameEngine execution: target='id of character' speaks directly to specific person
+    $surfer = $sec46World->getCharacter('surfer');
+    if ($surfer !== null) {
+        $surfer->move($room);
+    }
+    $pTester->clientConsole = [];
+    $pTester->messagesQueue = [];
+    $pListener->clientConsole = [];
+    $pListener->messagesQueue = [];
+
+    $engine46->executeCommandAction($sec46World, $pTester, 'say', 'Hello Surfer!', 'surfer');
+    assertTest(
+        in_array("You say to <b>" . ($surfer?->name ?? 'surfer') . "</b>: Hello Surfer!", $pTester->clientConsole, true),
+        "GameEngine: target='surfer' displays 'You say to <b>...</b>: <text>' to speaker"
+    );
+
+    // Listener in the same room should NOT receive "TesterSay says to you: ..."
+    assertTest(
+        !in_array("<b>TesterSay</b> says to you: Hello Surfer!", $pListener->clientConsole, true),
+        "GameEngine: direct speech to surfer is not whispered to other listeners"
+    );
+
+    $chatHistory2 = $sec46World->chatQueue ?? [];
+    $lastChat2 = end($chatHistory2);
+    assertTest(
+        $lastChat2 !== false && str_contains($lastChat2['text'], 'Hello Surfer!') && $lastChat2['recipient'] === ($surfer?->name ?? 'surfer'),
+        "GameEngine: target='surfer' posts chat message directed to target person"
+    );
+
+    // 6. GameEngine execution: target='p_listener_2' speaks directly to player Listener
+    $pTester->clientConsole = [];
+    $pTester->messagesQueue = [];
+    $pListener->clientConsole = [];
+    $pListener->messagesQueue = [];
+
+    $engine46->executeCommandAction($sec46World, $pTester, 'say', 'Psst, secret message', 'p_listener_2');
+    assertTest(
+        in_array("You say to <b>Listener</b>: Psst, secret message", $pTester->clientConsole, true),
+        "GameEngine: target player receives direct speech confirmation for speaker"
+    );
+    assertTest(
+        in_array("<b>TesterSay</b> says to you: Psst, secret message", $pListener->clientConsole, true),
+        "GameEngine: target player receives '<b>TesterSay</b> says to you: Psst, secret message'"
+    );
+
+    @$pm->resetWorld($sec46WorldId);
 }
 
 // Clean up test worlds

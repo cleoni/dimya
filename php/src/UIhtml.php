@@ -1666,7 +1666,13 @@ class UIhtml extends UI
               'logout': { noArgs: 0, model: '',  desc: 'Disconnect' },
               'exit':   { noArgs: 0, model: '',  desc: 'Exit' },
               'clear':  { noArgs: 0, model: '',  desc: 'Clear' },
-              'say':    { noArgs: 0, model: 'T', desc: 'Say' }
+              'say': {
+                noArgs: 1,
+                model: 'TO',
+                allowDouble: true,
+                desc: 'Say ... To ...',
+                prompt: '👉 Click a character to SPEAK TO (or click Say again to speak aloud)'
+              }
             };
 
             // Pending command state
@@ -1776,7 +1782,11 @@ class UIhtml extends UI
                 const firstArg    = pendingArgs[0];
                 const secondArg   = pendingArgs.length > 1 ? pendingArgs[1] : '';
                 clearPendingCmd();
-                if ((def.noArgs || 1) === 1) {
+                if (cmdToSubmit === 'say') {
+                  const tb = document.getElementById('txtBox');
+                  const text = (tb && tb.value) ? tb.value : '';
+                  submitCmd('say', text, firstArg);
+                } else if ((def.noArgs || 1) === 1) {
                   submitCmd(cmdToSubmit, firstArg, '');
                 } else {
                   submitCmd(cmdToSubmit, firstArg, secondArg);
@@ -1803,6 +1813,12 @@ class UIhtml extends UI
                   // Pick everything
                   submitCmd('pick', '', '*');
                   return;
+                } else if (cmd === 'say') {
+                  // Speak aloud
+                  const tb = document.getElementById('txtBox');
+                  const text = (tb && tb.value) ? tb.value : '';
+                  submitCmd('say', text, '*');
+                  return;
                 }
               }
 
@@ -1820,13 +1836,7 @@ class UIhtml extends UI
               // If command requires 0 arguments (instant execution)
               if (!def.noArgs || def.noArgs === 0) {
                 clearPendingCmd();
-                if (cmd === 'say') {
-                  const tb = document.getElementById('txtBox');
-                  const text = (tb && tb.value) ? tb.value : '';
-                  submitCmd('say', text);
-                } else {
-                  submitCmd(cmd);
-                }
+                submitCmd(cmd);
                 return;
               }
 
@@ -1930,7 +1940,11 @@ class UIhtml extends UI
                   const firstArg = pendingArgs[0];
                   const secondArg = pendingArgs.length > 1 ? pendingArgs[1] : '';
                   clearPendingCmd();
-                  if ((def.noArgs || 1) === 1) {
+                  if (cmdToSubmit === 'say') {
+                    const tb = document.getElementById('txtBox');
+                    const text = (tb && tb.value) ? tb.value : '';
+                    submitCmd('say', text, firstArg);
+                  } else if ((def.noArgs || 1) === 1) {
                     submitCmd(cmdToSubmit, firstArg, '');
                   } else {
                     submitCmd(cmdToSubmit, firstArg, secondArg);
@@ -1953,10 +1967,15 @@ class UIhtml extends UI
             }
 
             function submitCmd(cmd, param = '', target = '') {
-              if (cmd === 'say' && !param) {
-                const tb = document.getElementById('txtBox');
-                if (tb && tb.value) {
-                  param = tb.value;
+              if (cmd === 'say') {
+                if (!param) {
+                  const tb = document.getElementById('txtBox');
+                  if (tb && tb.value) {
+                    param = tb.value;
+                  }
+                }
+                if (!target) {
+                  target = '*';
                 }
               }
               document.getElementById('cmdInput').value   = cmd;

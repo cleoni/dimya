@@ -480,10 +480,9 @@ class GameEngine
     ): void {
         $panel = $player->getPanel() ?? $world->defaultPanel;
         $isCoreCommand = in_array($cmd, [
-            'look', 'click', 'go', 'pick', 'take', 'get', 'drop',
-            'give', 'use', 'use2', 'usewith', 'open', 'close', 'search', 'say', 'inv',
-            'inventory', 'help', 'save', 'enter', 'board', 'exit', 'leave', 'disembark',
-            'logout', 'rotl', 'rotr', 'rev', 'rotate'
+            'look', 'click', 'go', 'pick', 'drop',
+            'give', 'use', 'use2', 'usewith', 'open', 'close', 'search', 'say', 'help', 'save', 'enter', 'exit', 
+            'logout', 'rotl', 'rotr', 'rev'
         ], true);
 
         if ($panel !== null && ($isCoreCommand || isset($world->events["cmd_{$cmd}"])) && !$panel->isCommandAllowed($cmd)) {
@@ -562,8 +561,6 @@ class GameEngine
                 break;
 
             case 'pick':
-            case 'take':
-            case 'get':
                 $pickTarget = !empty($targetId) ? $targetId : $param;
                 if (!empty($pickTarget) && $currentRoom !== null) {
                     $item = $this->findAccessibleObject($player, $pickTarget);
@@ -657,7 +654,6 @@ class GameEngine
                 break;
 
             case 'use2':
-            case 'usewith':
                 $item1Id = '';
                 $item2Id = '';
 
@@ -758,11 +754,28 @@ class GameEngine
             case 'say':
                 if (!empty($param)) {
                     // Check if an explicit target was specified (say to someone)
-                    $targetObj = !empty($targetId)
-                        ? ($currentRoom?->getOccupants()[$targetId] ?? $world->getCharacter($targetId) ?? $currentRoom?->contents[$targetId] ?? null)
-                        : null;
+                    $isSpeakAloud = empty($targetId) || $targetId === '*';
+                    $targetObj = null;
 
-                    if ($targetObj instanceof Character) {
+                    if (!$isSpeakAloud) {
+                        $targetObj = $currentRoom?->getOccupants()[$targetId]
+                            ?? $world->getCharacter($targetId)
+                            ?? $world->getPlayer($targetId)
+                            ?? $currentRoom?->contents[$targetId]
+                            ?? null;
+
+                        if ($targetObj === null && $currentRoom !== null) {
+                            $targetLower = strtolower($targetId);
+                            foreach ($currentRoom->getOccupants() as $occ) {
+                                if (strtolower($occ->name) === $targetLower || strtolower($occ->id) === $targetLower) {
+                                    $targetObj = $occ;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!$isSpeakAloud && $targetObj instanceof Character) {
                         // Spoken directly to someone
                         $player->display("You say to <b>{$targetObj->name}</b>: " . htmlspecialchars($param));
                         if ($targetObj instanceof Player) {
@@ -771,7 +784,7 @@ class GameEngine
                         $world->postChatMessage($player->name, "@{$targetObj->name}: " . $param, $targetObj->name, $currentRoom?->id);
                         $world->fireEvent('onHear', $targetObj, $player, $param);
                     } else {
-                        // Broadcast aloud to all players in the room
+                        // Broadcast aloud to all players in the room (target is '*' or speaking aloud)
                         $world->postChatMessage($player->name, $param, null, $currentRoom?->id);
                         foreach ($world->players as $p) {
                             if ($p->getRoom() === $currentRoom) {
@@ -832,7 +845,6 @@ class GameEngine
                 break;
 
             case 'enter':
-            case 'board':
                 $enterTarget = !empty($targetId) ? $targetId : $param;
                 if (!empty($enterTarget)) {
                     $targetObj = $this->findAccessibleObject($player, $enterTarget);
@@ -847,8 +859,6 @@ class GameEngine
                 break;
 
             case 'exit':
-            case 'leave':
-            case 'disembark':
                 $player->actExit();
                 break;
 
@@ -881,11 +891,6 @@ class GameEngine
 
             case 'rev':
                 $player->rotate('b');
-                break;
-
-            case 'rotate':
-                $rotParam = !empty($param) ? $param : (!empty($targetId) ? $targetId : 'r');
-                $player->rotate($rotParam);
                 break;
 
             default:

@@ -111,34 +111,22 @@ class Panel
     public function getAvailableCommands(): array
     {
         $cmds = [];
+
         foreach ($this->buttons as $ctrl) {
             if ($ctrl->type === Ctrl::TYPE_BUTTON || $ctrl->type === Ctrl::TYPE_SUBMIT || $ctrl->type === Ctrl::TYPE_CMD) {
                 $cmdId = strtolower($ctrl->id);
                 if (!empty($cmdId)) {
                     $cmds[] = $cmdId;
-                    if ($cmdId === 'enter') {
-                        $cmds[] = 'board';
-                    }
-                    if ($cmdId === 'exit') {
-                        $cmds[] = 'leave';
-                        $cmds[] = 'disembark';
-                    }
-                    if ($cmdId === 'look') {
-                        $cmds[] = 'click';
-                    }
-                    if ($cmdId === 'use2') {
-                        $cmds[] = 'usewith';
-                    }
-                    if ($cmdId === 'click') {
-                        $cmds[] = 'look';
-                    }
+					/* Defines synonym command.
+					good idea but not required, so disabled *
                     if ($cmdId === 'pick') {
                         $cmds[] = 'take';
-                        $cmds[] = 'get';
                     }
+					*/					
                 }
             }
         }
+
         // Move / navigation / rotation commands are always valid in DimensioneX
         foreach (['go', 'rotl', 'rotr', 'rev'] as $navCmd) {
             if (!in_array($navCmd, $cmds, true)) {
