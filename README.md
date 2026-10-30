@@ -11,7 +11,10 @@ DimensioneY should be able to load old files designed to run on DimensioneX, and
 Comprehensive technical documentation and formal specifications reside in the [`docs/`](docs/) directory:
 
 - [**docs/DXW_SPECIFICATION.md**](docs/DXW_SPECIFICATION.md) — **Official DimensioneX World Definition (.DXW) Language Specification** derived from the Developer's Reference (pp. 37–70). Covers all sections (`WORLD`, `GUI`, `ROOMS`, `LINKS`, `CHARACTERS`, `ITEMS`, `SETS`, `SCRIPTS`), control panels, attribute semantics, physical simulation, image show modes, and EBNF grammar.
+- [**docs/SMALLBASIC.md**](docs/SMALLBASIC.md) — **Definitive SmallBasic Language Reference**. Covers types, operators, statements, event model (`$OWNER`, `$AGENT`, `$TARGET`, `$WORLD`), and the complete catalog of all 55 built-in functions.
 - [**docs/COMMANDS.md**](docs/COMMANDS.md) — **Game Engine Command Specification & API Reference**. Details all core commands (`click`, `go`, `rotate`, `look`, `use`, `use2`, `open`, `close`, `pick`, `drop`, `search`, `hide`, `put`, `give`, `enter`, `exit`, `say`, `save`, `login`, `logout`), event bindings, parameter handling, and custom panel buttons.
+- [**docs/SKINS.md**](docs/SKINS.md) — **Skins (`.dxs`) Specification**. Covers directive rules, media directories, and skin attribute reference.
+- [**docs/PLAY-AS-BOT.md**](docs/PLAY-AS-BOT.md) — **Bot & AI Player API Guide**. Instructions for connecting external scripts or AI agents to the multiplayer engine via the `UIbot` JSON interface.
 - [**docs/CLASS_HIERARCHY.md**](docs/CLASS_HIERARCHY.md) — Class hierarchy of **DimensioneY (this PHP implementation)**, same structure as the DimX one for comparison.
 - [**docs/dxw-examples/**](docs/dxw-examples/) — Reference `.dxw` world definition files:
   - `world1.dxw` — Minimal introductory world
