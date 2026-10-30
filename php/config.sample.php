@@ -40,6 +40,13 @@ return [
     'serverType' => 'public',
 
     // -------------------------------------------------------------------------
+    // Debug Output Destination ("none" or "file")
+    // -------------------------------------------------------------------------
+    // Sets destination for game engine debug logging ("none" by default, or "file").
+    // Maps to GameEngine::$debugTo.
+    'debugTo' => 'none',
+
+    // -------------------------------------------------------------------------
     // World Definition File (.dxw)
     // -------------------------------------------------------------------------
     // The single authoritative world definition file for this installation.

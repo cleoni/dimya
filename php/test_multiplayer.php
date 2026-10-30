@@ -68,6 +68,7 @@ $sections = [
     44 => ['title' => 'Testing SKINFOLDER Resolution, aqua_net.dxs URL Loading, Login Skin Dropdown & Per-Player Skin Navpad Icons...', 'keywords' => ['skinfolder', 'aqua_net', 'aqua', 'forest', 'default', 'dropdown', 'login', 'navpad', 'player skin']],
     45 => ['title' => 'Testing Sounds & Music Login Checkboxes, PlaySound Routing (Player, Room, $WORLD), Embedded Sound Player & Skin SNDNEWMSG...', 'keywords' => ['sounds', 'music', 'playsound', 'sndnewmsg', 'sndplayer', 'audio', 'skin', 'uihtml']],
     46 => ['title' => 'Testing Say Command Target Handling (Speak to Person vs Speak Aloud with target=* in UIhtml & GameEngine)...', 'keywords' => ['say', 'target', 'speak', 'aloud', 'asterisk', 'txtbox', 'uihtml', 'character']],
+    47 => ['title' => 'Testing SmallBasic Debug Instruction & GameEngine::log() Writing to debug.log...', 'keywords' => ['debug', 'log', 'debug.log', 'gameengine', 'actionsrunner', 'system folder', 'smallbasic']],
 ];
 
 // CLI Options parsing
@@ -2479,6 +2480,8 @@ if (shouldRun(31)) {
     assertTest($mainConfig['msgRefreshRate'] === 5, "config.php 'msgRefreshRate' defaults to 5: " . var_export($mainConfig['msgRefreshRate'], true));
     assertTest(isset($mainConfig['serverType']), "config.php defines 'serverType'");
     assertTest($mainConfig['serverType'] === 'public', "config.php 'serverType' defaults to 'public': " . var_export($mainConfig['serverType'], true));
+    assertTest(isset($mainConfig['debugTo']), "config.php defines 'debugTo'");
+    assertTest($mainConfig['debugTo'] === 'none', "config.php 'debugTo' defaults to 'none': " . var_export($mainConfig['debugTo'], true));
 
     // 2. Check config.sample.php setting
     $sampleConfigFile = __DIR__ . '/config.sample.php';
@@ -2490,13 +2493,17 @@ if (shouldRun(31)) {
     assertTest($sampleConfig['msgRefreshRate'] === 5, "config.sample.php 'msgRefreshRate' defaults to 5: " . var_export($sampleConfig['msgRefreshRate'], true));
     assertTest(isset($sampleConfig['serverType']), "config.sample.php defines 'serverType'");
     assertTest($sampleConfig['serverType'] === 'public', "config.sample.php 'serverType' defaults to 'public': " . var_export($sampleConfig['serverType'], true));
+    assertTest(isset($sampleConfig['debugTo']), "config.sample.php defines 'debugTo'");
+    assertTest($sampleConfig['debugTo'] === 'none', "config.sample.php 'debugTo' defaults to 'none': " . var_export($sampleConfig['debugTo'], true));
 
     // 2c. Test GameEngine::$serverType & DxwLoader IMAGESFOLDER_PUBLIC vs IMAGESFOLDER_LOCAL
     $engineDefaultType = new \Dimx\GameEngine($pm, 'servertype_default', null, '', []);
     assertTest($engineDefaultType->serverType === 'public', "GameEngine::\$serverType defaults to 'public'");
+    assertTest($engineDefaultType->debugTo === 'none', "GameEngine::\$debugTo defaults to 'none'");
 
-    $engineLocalType = new \Dimx\GameEngine($pm, 'servertype_local', null, '', ['serverType' => 'local']);
+    $engineLocalType = new \Dimx\GameEngine($pm, 'servertype_local', null, '', ['serverType' => 'local', 'debugTo' => 'file']);
     assertTest($engineLocalType->serverType === 'local', "GameEngine::\$serverType maps to 'local' when configured");
+    assertTest($engineLocalType->debugTo === 'file', "GameEngine::\$debugTo maps to 'file' when configured");
 
     $dxwDualFolder = <<<'DXW'
 WORLD
@@ -4978,6 +4985,75 @@ require '{$chatPhpScript}';
 
     @$pm->resetWorld($sec46W3Id);
     @$pm->resetWorld($sec46WorldId);
+}
+
+// -------------------------------------------------------------
+// Test 47: SmallBasic Debug Instruction & GameEngine::log()
+// -------------------------------------------------------------
+if (shouldRun(47)) {
+    echo "\n--- Section 47: Testing SmallBasic Debug Instruction & GameEngine::log() Writing to debug.log ---\n";
+
+    $sysFolder = Dimx\GameEngine::getSystemFolder();
+    assertTest(is_dir($sysFolder), "GameEngine::getSystemFolder() returns a valid directory ('{$sysFolder}')");
+    assertTest(file_exists($sysFolder . '/config.php') || file_exists($sysFolder . '/config.sample.php'), "GameEngine system folder contains config.php (or sample)");
+
+    $logFile = $sysFolder . '/debug.log';
+    $originalLog = file_exists($logFile) ? file_get_contents($logFile) : null;
+
+    // 1. Static call to GameEngine::log()
+    $uniqueMarker1 = "TEST_STATIC_LOG_" . uniqid();
+    Dimx\GameEngine::log($uniqueMarker1);
+    assertTest(file_exists($logFile), "GameEngine::log creates debug.log in system folder");
+    $content1 = (string)file_get_contents($logFile);
+    assertTest(str_contains($content1, $uniqueMarker1 . "\n"), "GameEngine::log appends marker with newline to debug.log");
+
+    // 2. Instance call to $engine->log()
+    $sec47WorldId = 'w_sec47_debug_' . rand(1000, 9999);
+    $eng47 = new Dimx\GameEngine($pm, $sec47WorldId, null, $baseUrl);
+    $uniqueMarker2 = "TEST_INSTANCE_LOG_" . uniqid();
+    $eng47->log($uniqueMarker2);
+    $content2 = (string)file_get_contents($logFile);
+    assertTest(str_contains($content2, $uniqueMarker2 . "\n"), "\$engine->log (instance call) appends marker to debug.log");
+
+    // 3. World loadOrSeedWorld sets $world->engine reference
+    $world47 = $eng47->loadOrSeedWorld();
+    assertTest($world47->engine === $eng47, "loadOrSeedWorld() sets \$world->engine to GameEngine instance");
+
+    // 4. SmallBasic Debug statement in ActionsRunner
+    $runner47 = new Dimx\ActionsRunner($world47);
+    $uniqueMarker3 = "TEST_SB_DEBUG_" . uniqid();
+    $res3 = $runner47->run("Debug \"{$uniqueMarker3}\"");
+    assertTest($res3 === true, "ActionsRunner executes Debug statement successfully");
+    $content3 = (string)file_get_contents($logFile);
+    assertTest(str_contains($content3, $uniqueMarker3 . "\n"), "Debug statement written to debug.log via engine log method");
+
+    // 5. SmallBasic Debug with expressions and special variables ($AGENT, $WORLD)
+    $pDebug = new Dimx\Player($world47, 'DebugHero', 'p_debug_hero');
+    $world47->addPlayer($pDebug);
+    $runner47Agent = new Dimx\ActionsRunner($world47, null, $pDebug);
+    $runner47Agent->run('Debug "Player name: " + $AGENT.name');
+    $content4 = (string)file_get_contents($logFile);
+    assertTest(str_contains($content4, "Player name: DebugHero\n"), "Debug evaluates expression with \$AGENT.name and writes to debug.log");
+
+    // 6. Debug with numeric value
+    $runner47Agent->run('Debug 12345');
+    $content5 = (string)file_get_contents($logFile);
+    assertTest(str_contains($content5, "12345\n"), "Debug logs numeric scalar to debug.log");
+
+    // 7. Debug with parentheses syntax
+    $uniqueMarker4 = "TEST_PAREN_DEBUG_" . uniqid();
+    $runner47Agent->run("Debug(\"{$uniqueMarker4}\")");
+    $content6 = (string)file_get_contents($logFile);
+    assertTest(str_contains($content6, $uniqueMarker4 . "\n"), "Debug(\"message\") syntax executed and logged correctly");
+
+    // Restore original debug.log content if previously existed, or remove test file
+    if ($originalLog !== null) {
+        file_put_contents($logFile, $originalLog);
+    } else {
+        @unlink($logFile);
+    }
+
+    @$pm->resetWorld($sec47WorldId);
 }
 
 // Clean up test worlds

@@ -61,6 +61,7 @@ class World extends DimxObject
     public ?Room $startRoom = null;
     public ?string $defaultRoom = null;
     public ?PersistenceManager $persistence = null;
+    public ?GameEngine $engine = null;
 
     /** @var array<string, array> Sets and arrays defined in SETS section */
     public array $sets = [];
@@ -214,7 +215,7 @@ class World extends DimxObject
     public function __sleep(): array
     {
         $vars = array_keys(get_object_vars($this));
-        return array_values(array_diff($vars, ['persistence']));
+        return array_values(array_diff($vars, ['persistence', 'engine']));
     }
 
     public function addRoom(Room $room): void

@@ -233,6 +233,19 @@ class ActionsRunner
         $parts = preg_split('/\s+/', $line, 2);
         $verb = strtoupper($parts[0] ?? '');
         $argString = $parts[1] ?? '';
+
+        // Also handle verb followed immediately by '(' e.g. "Debug("test")"
+        if (preg_match('/^([A-Za-z0-9_]+)\s*\((.*)\)$/s', $line, $vm) && !str_contains($vm[1], '.')) {
+            $verbCandidate = strtoupper($vm[1]);
+            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL'], true)) {
+                $verb = $verbCandidate;
+                $argString = $vm[2];
+            }
+        }
+
+        if (str_starts_with($argString, '(') && str_ends_with($argString, ')') && strlen($argString) >= 2) {
+            $argString = substr($argString, 1, -1);
+        }
         $args = $this->parseArguments($argString);
 
         return match ($verb) {
@@ -254,8 +267,39 @@ class ActionsRunner
             'CLOSE'      => $this->actClose($args),
             'SEARCH'     => $this->actSearch($args),
             'GIVE'       => $this->actGive($args),
+            'DEBUG'      => $this->actDebug($args),
             default      => true,
         };
+    }
+
+    /**
+     * Debug instruction (SmallBasic 3.9.5):
+     * Sends a debug message to the engine log (debug.log in the system folder).
+     */
+    protected function actDebug(array $args): bool
+    {
+        if (empty($args)) {
+            $message = '';
+        } else {
+            $parts = [];
+            foreach ($args as $arg) {
+                $val = (string)$this->evalValue((string)$arg);
+                if ((str_starts_with($val, '"') && str_ends_with($val, '"')) ||
+                    (str_starts_with($val, "'") && str_ends_with($val, "'"))) {
+                    $val = substr($val, 1, -1);
+                }
+                $parts[] = $val;
+            }
+            $message = implode(' ', $parts);
+        }
+
+        if (isset($this->world->engine) && $this->world->engine instanceof GameEngine) {
+            $this->world->engine->log($message);
+        } else {
+            GameEngine::log($message);
+        }
+
+        return true;
     }
 
     public function actOpen(array $args): bool

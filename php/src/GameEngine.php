@@ -22,6 +22,34 @@ class GameEngine
     public ?WorldLock $lock = null;
     public array $config = [];
     public string $serverType = 'public';
+    public string $debugTo = 'none';
+
+    /** Optional custom system folder override. Defaults to dirname(__DIR__) (where config.php resides). */
+    public static ?string $systemFolder = null;
+
+    /**
+     * Get the game engine system folder path (where config.php and debug.log reside).
+     */
+    public static function getSystemFolder(): string
+    {
+        return self::$systemFolder ?? dirname(__DIR__);
+    }
+
+    /**
+     * Log a message to debug.log in the game engine's system folder.
+     *
+     * @param mixed $message String expression or message to be logged.
+     */
+    public static function log(mixed $message): void
+    {
+        $logFile = self::getSystemFolder() . '/debug.log';
+        if (is_bool($message)) {
+            $entry = $message ? '1' : '0';
+        } else {
+            $entry = (string)$message;
+        }
+        @file_put_contents($logFile, $entry . "\n", FILE_APPEND | LOCK_EX);
+    }
 
     /** Inactivity timeout for automatically disconnecting idle players (seconds) */
     public int $playerTimeout = 1800; // 30 minutes
@@ -53,6 +81,13 @@ class GameEngine
             }
         }
 
+        if (isset($this->config['debugTo']) && is_string($this->config['debugTo'])) {
+            $dt = strtolower(trim($this->config['debugTo']));
+            if ($dt === 'none' || $dt === 'file') {
+                $this->debugTo = $dt;
+            }
+        }
+
         $this->pdo  = $pm->getPdo();
         $this->lock = ($this->pdo !== null) ? new WorldLock($this->pdo) : null;
 
@@ -70,6 +105,7 @@ class GameEngine
         $world = $this->pm->loadWorld($this->worldId);
         if ($world !== null) {
             $world->persistence = $this->pm;
+            $world->engine      = $this;
             unset($world->imagesFolderPublic, $world->imagesFolderLocal);
             if (isset($this->config['tickLength']) && is_numeric($this->config['tickLength'])) {
                 $world->tickLength = max(1, (int)$this->config['tickLength']);
@@ -121,6 +157,7 @@ class GameEngine
 
         $world->id          = $this->worldId;
         $world->persistence = $this->pm;
+        $world->engine      = $this;
 
         if (isset($this->config['tickLength']) && is_numeric($this->config['tickLength'])) {
             $world->tickLength = max(1, (int)$this->config['tickLength']);
@@ -398,6 +435,7 @@ class GameEngine
                 $consoleMessages = ["<span style='color:#f87171'>⚠ The game world is busy. Please try again in a moment.</span>"];
                 $world  = $this->pm->loadWorld($this->worldId) ?? new World($this->worldId, 'DimensioneX');
                 $world->persistence = $this->pm;
+                $world->engine      = $this;
                 $player = ($existingEngineId ? $world->getPlayer($existingEngineId) : null)
                     ?? $world->getPlayerByName($playerName)
                     ?? new Player($world, $playerName, $existingEngineId ?? ('p_' . ($numericId ?? '0') . '_' . bin2hex(random_bytes(4))));

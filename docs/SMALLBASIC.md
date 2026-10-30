@@ -535,9 +535,7 @@ Dim var1, var2 = value, var3
 
 ### 3.9.5 Debug
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
-
-Sends a debug message to the engine log (typically `debug.log` in the system folder).
+Sends a debug message to the engine log (`debug.log` in the game engine's system folder, where `config.php` is located) by calling the game engine's `log()` method.
 
 ```basic
 Debug message
