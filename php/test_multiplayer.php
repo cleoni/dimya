@@ -4747,12 +4747,14 @@ if (shouldRun(46)) {
     $origGet = $_GET;
 
     $_POST = ['cmd' => 'say', 'param' => 'Hello everyone!', 'target' => '*'];
+    $_GET = [];
     $parsed1 = Dimx\UI::parseInput();
     assertTest($parsed1['cmd'] === 'say', "UI::parseInput parses cmd='say'");
     assertTest($parsed1['param'] === 'Hello everyone!', "UI::parseInput parses param='Hello everyone!'");
     assertTest($parsed1['target'] === '*', "UI::parseInput parses target='*' (speak aloud)");
 
     $_POST = ['cmd' => 'say', 'param' => 'Greetings friend', 'target' => 'surfer'];
+    $_GET = [];
     $parsed2 = Dimx\UI::parseInput();
     assertTest($parsed2['cmd'] === 'say', "UI::parseInput parses cmd='say' with target person");
     assertTest($parsed2['param'] === 'Greetings friend', "UI::parseInput parses param='Greetings friend'");
@@ -4891,6 +4893,90 @@ if (shouldRun(46)) {
         "GameEngine: target player receives '<b>TesterSay</b> says to you: Psst, secret message'"
     );
 
+    // 7. Test in world3net: speaking aloud in the bar should NOT trigger barman.onHear event
+    $w3File = dirname(__DIR__) . '/docs/dxw-examples/world3net.dxw';
+    if (!file_exists($w3File)) {
+        $w3File = __DIR__ . '/world3net.dxw';
+    }
+    $sec46W3Id = 'w_sec46_w3_test';
+    @$pm->resetWorld($sec46W3Id);
+    $w3Loader = new Dimx\DxwLoader('http://localhost');
+    $w3net = $w3Loader->load($w3File);
+    $w3net->id = $sec46W3Id;
+    $engineW3 = new Dimx\GameEngine($pm, $sec46W3Id, $w3File);
+
+    $barRoom = $w3net->getRoom('bar');
+    $barman = $w3net->getCharacter('barman');
+    assertTest($barRoom instanceof Dimx\Room, "World3net: room 'bar' exists");
+    assertTest($barman instanceof Dimx\Character, "World3net: character 'barman' exists");
+    assertTest(!($barman instanceof Dimx\Player), "World3net: 'barman' is a computer controlled character (not Player)");
+
+    $pBarPlayer = new Dimx\Player($w3net, 'BarCustomer', 'p_bar_cust_1');
+    $pBarPlayer->numericId = 9903;
+    $pBarPlayer->move($barRoom);
+    $w3net->addPlayer($pBarPlayer);
+
+    // Speak aloud in the bar
+    $w3net->chatQueue = [];
+    $pBarPlayer->clientConsole = [];
+    $engineW3->executeCommandAction($w3net, $pBarPlayer, 'say', 'Can I get some service around here?', '*');
+
+    // Verify barman.onHear was NOT triggered by speak aloud
+    $barmanResponses = array_filter($w3net->chatQueue, fn($m) => ($m['sender'] ?? '') === 'the barman' || ($m['sender'] ?? '') === 'barman');
+    assertTest(
+        empty($barmanResponses),
+        "World3net: speaking aloud in the bar does NOT trigger barman.onHear"
+    );
+    assertTest(
+        in_array("<b>BarCustomer</b> says: Can I get some service around here?", $pBarPlayer->clientConsole, true),
+        "World3net: player speaking aloud displays phrase on player's console"
+    );
+
+    // Direct speech to barman DOES trigger barman.onHear
+    $w3net->chatQueue = [];
+    $pBarPlayer->clientConsole = [];
+    $engineW3->executeCommandAction($w3net, $pBarPlayer, 'say', 'A drink please', 'barman');
+
+    $barmanResponsesDirect = array_filter($w3net->chatQueue, fn($m) => ($m['sender'] ?? '') === 'the barman' || ($m['sender'] ?? '') === 'barman');
+    $firstBarmanMsg = reset($barmanResponsesDirect);
+    assertTest(
+        !empty($barmanResponsesDirect) && str_contains($firstBarmanMsg['text'] ?? '', "What did you say? What should I give you?"),
+        "World3net: direct speech to barman (say text barman) DOES trigger barman.onHear"
+    );
+
+    // 8. Testing chat.php async refresh endpoint for #msgs / #chatBox
+    // Save current world with BarCustomer having messages
+    $pm->saveWorld($w3net);
+
+    // Call chat.php for BarCustomer
+    $chatPhpScript = __DIR__ . '/chat.php';
+    $chatRunner = __DIR__ . '/temp_chat_runner.php';
+    file_put_contents($chatRunner, "<?php
+\$_SERVER['REQUEST_METHOD'] = 'GET';
+\$_GET = ['world_id' => '{$sec46W3Id}', 'player' => 'BarCustomer'];
+require '{$chatPhpScript}';
+");
+    $chatJson = shell_exec("php {$chatRunner}");
+    @unlink($chatRunner);
+
+    $chatData = json_decode((string)$chatJson, true);
+    assertTest(is_array($chatData) && !empty($chatData['ok']), "chat.php returns valid JSON with ok=true");
+    assertTest(isset($chatData['messages']) && is_array($chatData['messages']), "chat.php returns 'messages' array");
+    assertTest(
+        !empty($chatData['messages']) && end($chatData['messages'])['sender'] === 'the barman',
+        "chat.php retrieves barman response for BarCustomer"
+    );
+
+    assertTest(
+        str_contains($htmlOutput, 'pollChat()') && str_contains($htmlOutput, "url = 'chat.php?world_id='"),
+        "UIhtml script defines pollChat() querying chat.php"
+    );
+    assertTest(
+        str_contains($htmlOutput, "box.innerHTML = newHtml") || str_contains($htmlOutput, "box.innerHTML = rendered"),
+        "UIhtml pollChat updates chatBox innerHTML when messages change"
+    );
+
+    @$pm->resetWorld($sec46W3Id);
     @$pm->resetWorld($sec46WorldId);
 }
 

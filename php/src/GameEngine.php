@@ -791,10 +791,10 @@ class GameEngine
                                 $p->display("<b>{$player->name}</b> says: " . htmlspecialchars($param));
                             }
                         }
-                        // Fire onHear on other occupants in the same room
+                        // Fire onHear only on other Players in the same room (computer controlled characters excluded)
                         if ($currentRoom !== null) {
                             foreach ($currentRoom->getOccupants() as $occ) {
-                                if ($occ !== $player) {
+                                if ($occ !== $player && $occ instanceof Player) {
                                     $world->fireEvent('onHear', $occ, $player, $param);
                                 }
                             }

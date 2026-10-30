@@ -2227,27 +2227,32 @@ class UIhtml extends UI
             async function pollChat() {
               try {
                 const url = 'chat.php?world_id=' + encodeURIComponent(WORLD_ID)
-                          + '&player=' + encodeURIComponent(PLAYER_NAME)
-                          + '&after=' + lastMsgId;
-                const resp = await fetch(url);
+                          + '&player=' + encodeURIComponent(PLAYER_NAME);
+                const resp = await fetch(url, { credentials: 'same-origin' });
                 if (!resp.ok) return;
                 const data = await resp.json();
-                if (data.messages && data.messages.length > 0) {
+                if (data && Array.isArray(data.messages)) {
                   const box = document.getElementById('chatBox');
-                  for (const msg of data.messages) {
-                    box.appendChild(renderMessage(msg));
-                    if (msg.id && !isNaN(msg.id)) {
-                      lastMsgId = Math.max(lastMsgId, Number(msg.id));
+                  if (!box) return;
+
+                  let newHtml = '';
+                  for (let i = 0; i < data.messages.length; i++) {
+                    const msg = data.messages[i];
+                    newHtml += '<div id="msg_' + escHtml(msg.id) + '" class="chat-line">'
+                             + '<a href="javascript:void(0)" class="chat-pop-btn" onclick="popMsg(\'' + escHtml(msg.id) + '\')" title="Dismiss message">✕</a> '
+                             + '<span class="chat-line-sender">' + escHtml(msg.sender) + ':</span> '
+                             + escHtml(msg.text)
+                             + '</div>';
+                  }
+
+                  if (box.innerHTML.trim() !== newHtml.trim()) {
+                    const hadNew = data.messages.length > box.children.length;
+                    box.innerHTML = newHtml;
+                    const msgsBox = document.getElementById('msgs');
+                    if (msgsBox) msgsBox.scrollTop = msgsBox.scrollHeight;
+                    if (hadNew && SOUNDS_ENABLED && SND_NEW_MSG) {
+                      playOneShotSound(SND_NEW_MSG);
                     }
-                  }
-                  // Cap message box display to 10 most recent messages
-                  while (box.children.length > 10) {
-                    box.removeChild(box.firstChild);
-                  }
-                  const msgsBox = document.getElementById('msgs');
-                  if (msgsBox) msgsBox.scrollTop = msgsBox.scrollHeight;
-                  if (SOUNDS_ENABLED && SND_NEW_MSG) {
-                    playOneShotSound(SND_NEW_MSG);
                   }
                 }
               } catch (e) { /* network error — silent */ }

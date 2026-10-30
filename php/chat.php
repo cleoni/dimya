@@ -19,6 +19,10 @@ require_once __DIR__ . '/autoload.php';
 
 use Dimx\PersistenceManager;
 
+if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+}
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
@@ -26,20 +30,33 @@ $config   = file_exists(__DIR__ . '/config.php') ? require __DIR__ . '/config.ph
 $dbConfig = $config['db'] ?? [];
 $pm       = new PersistenceManager($dbConfig, __DIR__ . '/data');
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-$worldId = 'main'; // Single world per installation
+$worldId = trim((string)($_GET['world_id'] ?? $_POST['world_id'] ?? $_SESSION['dimx_world'] ?? $_SERVER['DIMX_WORLD_ID'] ?? ($config['world_id'] ?? 'main')));
 
 if ($method === 'GET') {
-    $afterId    = max(0, (int)($_GET['after'] ?? 0));
-    $playerName = trim((string)($_GET['player'] ?? $_GET['username'] ?? ''));
-    if ($afterId === 0) {
-        // Newly connected player: do not dump historical room messages from before spawn
-        echo json_encode(['messages' => []], JSON_UNESCAPED_UNICODE);
-        exit;
+    $playerName = trim((string)($_GET['player'] ?? $_GET['username'] ?? $_SESSION['dimx_player'] ?? ''));
+    $afterId    = isset($_GET['after']) ? (int)$_GET['after'] : null;
+
+    $messages = [];
+    $world = $pm->loadWorld($worldId);
+    if ($world !== null && $playerName !== '') {
+        $player = $world->getPlayerByName($playerName) ?? $world->getPlayer($playerName);
+        if ($player !== null) {
+            $messages = $player->getMessages();
+        }
     }
-    $messages   = $pm->getMessages($worldId, $afterId, 60, $playerName !== '' ? $playerName : null);
-    echo json_encode(['messages' => $messages], JSON_UNESCAPED_UNICODE);
+
+    // Fallback to persistence manager messages if no active world player messages
+    if (empty($messages)) {
+        $messages = $pm->getMessages($worldId, $afterId !== null && $afterId > 0 ? $afterId : 0, 10, $playerName !== '' ? $playerName : null);
+    } elseif ($afterId !== null && $afterId > 0) {
+        $messages = array_values(array_filter($messages, function ($m) use ($afterId) {
+            return isset($m['id']) && is_numeric($m['id']) && (int)$m['id'] > $afterId;
+        }));
+    }
+
+    echo json_encode(['messages' => $messages, 'ok' => true], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
