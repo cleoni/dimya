@@ -4999,52 +4999,67 @@ if (shouldRun(47)) {
 
     $logFile = $sysFolder . '/debug.log';
     $originalLog = file_exists($logFile) ? file_get_contents($logFile) : null;
+    if (file_exists($logFile)) {
+        @unlink($logFile);
+    }
 
-    // 1. Static call to GameEngine::log()
-    $uniqueMarker1 = "TEST_STATIC_LOG_" . uniqid();
-    Dimx\GameEngine::log($uniqueMarker1);
-    assertTest(file_exists($logFile), "GameEngine::log creates debug.log in system folder");
-    $content1 = (string)file_get_contents($logFile);
-    assertTest(str_contains($content1, $uniqueMarker1 . "\n"), "GameEngine::log appends marker with newline to debug.log");
-
-    // 2. Instance call to $engine->log()
     $sec47WorldId = 'w_sec47_debug_' . rand(1000, 9999);
     $eng47 = new Dimx\GameEngine($pm, $sec47WorldId, null, $baseUrl);
-    $uniqueMarker2 = "TEST_INSTANCE_LOG_" . uniqid();
-    $eng47->log($uniqueMarker2);
-    $content2 = (string)file_get_contents($logFile);
-    assertTest(str_contains($content2, $uniqueMarker2 . "\n"), "\$engine->log (instance call) appends marker to debug.log");
+    assertTest($eng47->debugTo === 'none', "GameEngine::\$debugTo defaults to 'none'");
 
-    // 3. World loadOrSeedWorld sets $world->engine reference
+    // 1. engine.log() does nothing when engine.debugTo !== 'file'
+    $ignoredMarker = "TEST_IGNORED_LOG_" . uniqid();
+    $eng47->log($ignoredMarker);
+    assertTest(!file_exists($logFile), "engine.log() does NOT create debug.log when debugTo is 'none'");
+
+    // 2. ActionsRunner Debug does nothing when engine.debugTo !== 'file'
     $world47 = $eng47->loadOrSeedWorld();
     assertTest($world47->engine === $eng47, "loadOrSeedWorld() sets \$world->engine to GameEngine instance");
-
-    // 4. SmallBasic Debug statement in ActionsRunner
     $runner47 = new Dimx\ActionsRunner($world47);
-    $uniqueMarker3 = "TEST_SB_DEBUG_" . uniqid();
-    $res3 = $runner47->run("Debug \"{$uniqueMarker3}\"");
-    assertTest($res3 === true, "ActionsRunner executes Debug statement successfully");
-    $content3 = (string)file_get_contents($logFile);
-    assertTest(str_contains($content3, $uniqueMarker3 . "\n"), "Debug statement written to debug.log via engine log method");
+    $runner47->run("Debug \"{$ignoredMarker}\"");
+    assertTest(!file_exists($logFile), "ActionsRunner Debug statement does NOT write to debug.log when debugTo is 'none'");
+
+    // 3. Enable debugTo = 'file' on engine
+    $eng47->debugTo = 'file';
+    $uniqueMarker1 = "TEST_INSTANCE_LOG_" . uniqid();
+    $eng47->log($uniqueMarker1);
+    assertTest(file_exists($logFile), "engine.log() creates debug.log when debugTo is 'file'");
+    $content1 = (string)file_get_contents($logFile);
+    assertTest(str_contains($content1, $uniqueMarker1 . "\n"), "engine.log() appends message to debug.log when debugTo is 'file'");
+
+    // 4. SmallBasic Debug statement in ActionsRunner when debugTo is 'file'
+    $uniqueMarker2 = "TEST_SB_DEBUG_" . uniqid();
+    $res2 = $runner47->run("Debug \"{$uniqueMarker2}\"");
+    assertTest($res2 === true, "ActionsRunner executes Debug statement successfully");
+    $content2 = (string)file_get_contents($logFile);
+    assertTest(str_contains($content2, $uniqueMarker2 . "\n"), "Debug statement written to debug.log via engine.log() when debugTo is 'file'");
 
     // 5. SmallBasic Debug with expressions and special variables ($AGENT, $WORLD)
     $pDebug = new Dimx\Player($world47, 'DebugHero', 'p_debug_hero');
     $world47->addPlayer($pDebug);
     $runner47Agent = new Dimx\ActionsRunner($world47, null, $pDebug);
     $runner47Agent->run('Debug "Player name: " + $AGENT.name');
-    $content4 = (string)file_get_contents($logFile);
-    assertTest(str_contains($content4, "Player name: DebugHero\n"), "Debug evaluates expression with \$AGENT.name and writes to debug.log");
+    $content3 = (string)file_get_contents($logFile);
+    assertTest(str_contains($content3, "Player name: DebugHero\n"), "Debug evaluates expression with \$AGENT.name and writes to debug.log");
 
     // 6. Debug with numeric value
     $runner47Agent->run('Debug 12345');
-    $content5 = (string)file_get_contents($logFile);
-    assertTest(str_contains($content5, "12345\n"), "Debug logs numeric scalar to debug.log");
+    $content4 = (string)file_get_contents($logFile);
+    assertTest(str_contains($content4, "12345\n"), "Debug logs numeric scalar to debug.log");
 
     // 7. Debug with parentheses syntax
-    $uniqueMarker4 = "TEST_PAREN_DEBUG_" . uniqid();
-    $runner47Agent->run("Debug(\"{$uniqueMarker4}\")");
-    $content6 = (string)file_get_contents($logFile);
-    assertTest(str_contains($content6, $uniqueMarker4 . "\n"), "Debug(\"message\") syntax executed and logged correctly");
+    $uniqueMarker3 = "TEST_PAREN_DEBUG_" . uniqid();
+    $runner47Agent->run("Debug(\"{$uniqueMarker3}\")");
+    $content5 = (string)file_get_contents($logFile);
+    assertTest(str_contains($content5, $uniqueMarker3 . "\n"), "Debug(\"message\") syntax executed and logged correctly");
+
+    // 8. Setting engine.debugTo back to 'none' suppresses further logging
+    $eng47->debugTo = 'none';
+    $suppressedMarker = "TEST_SUPPRESSED_" . uniqid();
+    $eng47->log($suppressedMarker);
+    $runner47Agent->run("Debug \"{$suppressedMarker}\"");
+    $contentFinal = (string)file_get_contents($logFile);
+    assertTest(!str_contains($contentFinal, $suppressedMarker), "Logging stops immediately when debugTo is changed back to 'none'");
 
     // Restore original debug.log content if previously existed, or remove test file
     if ($originalLog !== null) {

@@ -27,6 +27,9 @@ class GameEngine
     /** Optional custom system folder override. Defaults to dirname(__DIR__) (where config.php resides). */
     public static ?string $systemFolder = null;
 
+    /** Active engine instance for fallback context */
+    public static ?GameEngine $activeInstance = null;
+
     /**
      * Get the game engine system folder path (where config.php and debug.log reside).
      */
@@ -36,12 +39,16 @@ class GameEngine
     }
 
     /**
-     * Log a message to debug.log in the game engine's system folder.
+     * Log a message to debug.log in the game engine's system folder if debugTo is 'file'.
      *
      * @param mixed $message String expression or message to be logged.
      */
-    public static function log(mixed $message): void
+    public function log(mixed $message): void
     {
+        if (strtolower((string)$this->debugTo) !== 'file') {
+            return;
+        }
+
         $logFile = self::getSystemFolder() . '/debug.log';
         if (is_bool($message)) {
             $entry = $message ? '1' : '0';
@@ -66,6 +73,7 @@ class GameEngine
         $this->worldFile = $worldFile;
         $this->baseUrl   = $baseUrl;
         $this->config    = $config;
+        self::$activeInstance = $this;
 
         if (empty($this->config) && file_exists(__DIR__ . '/../config.php')) {
             $loadedConfig = @require __DIR__ . '/../config.php';

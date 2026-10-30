@@ -295,8 +295,8 @@ class ActionsRunner
 
         if (isset($this->world->engine) && $this->world->engine instanceof GameEngine) {
             $this->world->engine->log($message);
-        } else {
-            GameEngine::log($message);
+        } elseif (GameEngine::$activeInstance !== null) {
+            GameEngine::$activeInstance->log($message);
         }
 
         return true;
