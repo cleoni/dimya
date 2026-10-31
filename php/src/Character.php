@@ -77,6 +77,7 @@ class Character extends AdvObject
     {
         $room = $this->getRoom();
         if ($room === null) {
+            $this->world?->log("ERROR: container is NULL");
             return false;
         }
 
@@ -85,15 +86,24 @@ class Character extends AdvObject
             /** @var Vehicle $vehicle */
             $vehicle = $this->container;
             $link = $room->getWay($directionOrLinkId) ?? $room->getLinkByDirection($directionOrLinkId);
-            if ($link === null || !$link->isOpen()) {
+            if ($link === null) {
+                $this->world?->log("ERROR: LINK {$directionOrLinkId} does not exist - (Player used REFRESH?)");
+                return false;
+            }
+            if (!$link->isOpen()) {
                 return false;
             }
             $destRoom = $link->getTarget($room->id);
             if ($destRoom === null) {
+                $this->world?->log("ERROR: LINK {$directionOrLinkId} leads to NULL");
                 return false;
             }
             if ($this->world !== null) {
-                $this->world->fireEvent('onExit', $vehicle, $this, $destRoom);
+                $resExit = $this->world->fireEvent('onExit', $vehicle, $this, $destRoom);
+                if ($resExit === false || $resExit === 0 || $resExit === '0') {
+                    $this->world->log("Could not move {$this->getName()} away from {$room->id}: action cancelled.");
+                    return false;
+                }
             }
             $walkDir = $link->getDirection($room->id);
             $moved = $vehicle->move($destRoom);
@@ -113,18 +123,27 @@ class Character extends AdvObject
         }
 
         $link = $room->getWay($directionOrLinkId) ?? $room->getLinkByDirection($directionOrLinkId);
-        if ($link === null || !$link->isOpen()) {
+        if ($link === null) {
+            $this->world?->log("ERROR: LINK {$directionOrLinkId} does not exist - (Player used REFRESH?)");
+            return false;
+        }
+        if (!$link->isOpen()) {
             return false;
         }
 
         $destRoom = $link->getTarget($room->id);
         if ($destRoom === null) {
+            $this->world?->log("ERROR: LINK {$directionOrLinkId} leads to NULL");
             return false;
         }
 
         // Fire onExit and onEnter events if World is available
         if ($this->world !== null) {
-            $this->world->fireEvent('onExit', $this, $this, $destRoom);
+            $resExit = $this->world->fireEvent('onExit', $this, $this, $destRoom);
+            if ($resExit === false || $resExit === 0 || $resExit === '0') {
+                $this->world->log("Could not move {$this->getName()} away from {$room->id}: action cancelled.");
+                return false;
+            }
         }
 
         $walkDir = $link->getDirection($room->id);
@@ -272,6 +291,7 @@ class Character extends AdvObject
      */
     public function say(string $msg, ?DimxObject $target = null): void
     {
+        $this->world?->log("Speaking: {$msg} in room " . ($this->container?->id ?? ''));
         $room = $this->getRoom();
         if ($room !== null) {
             $formatted = "{$this->name}: {$msg}";
@@ -359,6 +379,7 @@ class Character extends AdvObject
     public function actUse(AdvObject $obj): bool
     {
         if (!$obj->isAccessibleFrom($this)) {
+            $this->world?->log("itemUse: The item does not exist: {$obj->id}");
             $this->display("I can only use reachable items.");
             return false;
         }
@@ -381,6 +402,7 @@ class Character extends AdvObject
     public function actUseWith(AdvObject $obj1, AdvObject $obj2): bool
     {
         if (!$obj1->isAccessibleFrom($this) || !$obj2->isAccessibleFrom($this)) {
+            $this->world?->log("One of the selected items ({$obj1->id},{$obj2->id}) does not exist");
             $this->display("I can only use reachable items.");
             return false;
         }
@@ -481,6 +503,11 @@ class Character extends AdvObject
     {
         if (is_string($target) && !empty($target)) {
             $obj = $this->world?->getObject($target) ?? $this->world?->contents[$target] ?? null;
+            if ($obj === null) {
+                $this->world?->log("The selected item does not exist: {$target}");
+                $this->display("The selected item does not exist.");
+                return false;
+            }
             return $this->actSearch($obj);
         }
         return $this->actSearch(is_object($target) ? $target : null);

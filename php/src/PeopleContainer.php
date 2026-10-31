@@ -37,7 +37,7 @@ class PeopleContainer extends AdvObject
     public function display(string $msg): bool
     {
         if ($this->world !== null) {
-            $this->world->logDebug("Displaying '{$msg}' in container {$this->id}");
+            $this->world->log("Displaying: {$msg} in room {$this->id}");
         }
 
         foreach ($this->contents as $obj) {
@@ -49,12 +49,29 @@ class PeopleContainer extends AdvObject
     }
 
     /**
+     * Broadcast speech to all players inside this container.
+     * Matches DimensioneX PeopleContainer.speak().
+     */
+    public function speak(string $msg, ?Character $from = null): bool
+    {
+        if ($msg !== '') {
+            $this->world?->log("Speaking: {$msg} in room {$this->id}");
+            foreach ($this->contents as $obj) {
+                if ($obj instanceof Character) {
+                    $obj->display($msg);
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
      * Broadcasts a one-shot sound FX to all players inside this container.
      */
     public function playSound(string $soundfile): bool
     {
         if ($this->world !== null) {
-            $this->world->logDebug("Playing sound '{$soundfile}' in container {$this->id}");
+            $this->world->log("Sounding: {$soundfile} in room {$this->id}");
         }
 
         foreach ($this->contents as $obj) {
@@ -81,12 +98,29 @@ class PeopleContainer extends AdvObject
         $this->setProperty('backgroundMusicLoop', $loop);
 
         if ($this->world !== null) {
-            $this->world->logDebug("Setting background sound '{$soundfile}' (loop=" . ($loop ? 'true' : 'false') . ") in container {$this->id}");
+            $this->world->log("Setting background sound: {$soundfile} in room {$this->id}");
         }
 
         foreach ($this->contents as $obj) {
             if ($obj instanceof Character) {
                 $obj->playBackground($soundfile, $loop);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Send command to all players inside this container.
+     * Matches DimensioneX PeopleContainer.sendCmd().
+     */
+    public function sendCmd(string $cmd): bool
+    {
+        if ($this->isaRoom() && $this->world !== null) {
+            $this->world->log("Sending: {$cmd} in {$this->id}");
+        }
+        foreach ($this->contents as $obj) {
+            if ($obj instanceof Player && method_exists($obj, 'sendCmd')) {
+                $obj->sendCmd($cmd);
             }
         }
         return true;
@@ -105,6 +139,9 @@ class PeopleContainer extends AdvObject
      */
     public function setPanel(string|Panel|null $panel): bool
     {
+        $panelId = is_string($panel) ? $panel : ($panel?->id ?? '');
+        $this->world?->log("Setting panel: {$panelId} in: {$this->id}");
+
         if (is_string($panel)) {
             $panel = $this->world?->getPanel($panel);
         }

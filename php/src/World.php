@@ -97,6 +97,8 @@ class World extends DimxObject
         $defaultSkin = new Skin('default', 'Default', '/skins/default/');
         $this->skins['default'] = $defaultSkin;
         $this->defaultSkin = $defaultSkin;
+
+        $this->log("World created with id=" . $this->id);
     }
 
     /**
@@ -131,6 +133,9 @@ class World extends DimxObject
 
     public function setPanel(string|Panel $panel): bool
     {
+        $panelId = is_string($panel) ? $panel : $panel->id;
+        $this->log("Setting panel: {$panelId} in whole world");
+
         if (is_string($panel)) {
             $p = $this->getPanel($panel);
             if ($p === null) {
@@ -145,6 +150,7 @@ class World extends DimxObject
 
     public function broadcast(string $msg): bool
     {
+        $this->log("Displaying: {$msg} in whole world");
         return $this->display($msg);
     }
 
@@ -394,7 +400,9 @@ class World extends DimxObject
         array $input = [],
         mixed $defaultResult = true
     ): mixed {
-        $this->logDebug("fireEvent: {$eventId} (owner=" . ($owner?->id ?? 'null') . ")");
+        $agentId = $agent instanceof DimxObject ? $agent->id : (is_scalar($agent) ? (string)$agent : 'null');
+        $targetId = $target instanceof DimxObject ? $target->id : (is_scalar($target) ? (string)$target : 'null');
+        $this->log("world.fireEvent: {$eventId}(\$OWNER=" . ($owner?->id ?? 'null') . ",\$AGENT={$agentId},\$TARGET={$targetId})");
 
         // 1. Try qualified event: owner.eventId (e.g., 'altar.onLook')
         if ($owner !== null) {
@@ -439,7 +447,9 @@ class World extends DimxObject
         }
 
         $this->lastTick = $now;
-        $this->logDebug("World clock tick at " . date('Y-m-d H:i:s'));
+        $nextTickStr = date('Y-m-d H:i:s', $now + $this->tickLength);
+        $this->log("*Tick* - next at {$nextTickStr}");
+        $this->log("Checking survival...");
 
         // Fire onTick
         $this->fireEvent('onTick', $this, null, null);
@@ -447,8 +457,9 @@ class World extends DimxObject
         // Fire Living for all characters
         foreach ($this->characters as $char) {
             $lives = $this->fireEvent('Living', $char, $char, null, [], true);
-            if ($lives === false || $lives === 0) {
-                $this->logDebug("Character {$char->id} died during Living check");
+            if ($lives === false || $lives === 0 || $lives === '0') {
+                $this->log("{$char->name} dies because EVENT Living returned false:");
+                $this->log("Character {$char->id} definitely dies.");
                 if ($char->container !== null) {
                     $char->container->removeObject($char);
                 }
@@ -463,6 +474,7 @@ class World extends DimxObject
      */
     public function display(string $msg): bool
     {
+        $this->log("Displaying: {$msg} in whole world");
         foreach ($this->players as $player) {
             $player->display($msg);
         }
@@ -474,7 +486,7 @@ class World extends DimxObject
      */
     public function playSound(string $soundfile): bool
     {
-        $this->logDebug("Playing sound '{$soundfile}' in world {$this->id}");
+        $this->log("Sounding: {$soundfile} in the whole world");
         foreach ($this->players as $player) {
             $player->playSound($soundfile);
         }
@@ -494,7 +506,7 @@ class World extends DimxObject
         $this->setProperty('backgroundMusic', $this->backgroundMusic);
         $this->setProperty('backgroundMusicLoop', $loop);
 
-        $this->logDebug("Playing background sound '{$soundfile}' (loop=" . ($loop ? 'true' : 'false') . ") in world {$this->id}");
+        $this->log("Playing background sound: {$soundfile} in the whole world");
         foreach ($this->players as $player) {
             $player->playBackground($soundfile, $loop);
         }
@@ -527,10 +539,21 @@ class World extends DimxObject
         return $soundfile;
     }
 
+    public function log(mixed $message): void
+    {
+        $line = "[" . date('H:i:s') . "] " . (is_scalar($message) ? (string)$message : json_encode($message));
+        $this->log[] = $line;
+
+        if ($this->engine instanceof GameEngine) {
+            $this->engine->log($message);
+        } elseif (GameEngine::$activeInstance !== null) {
+            GameEngine::$activeInstance->log($message);
+        }
+    }
+
     public function logDebug(string $msg): void
     {
-        $line = "[" . date('H:i:s') . "] {$msg}";
-        $this->log[] = $line;
+        $this->log($msg);
     }
 
     /**

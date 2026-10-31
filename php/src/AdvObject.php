@@ -403,12 +403,64 @@ class AdvObject extends DimxObject
     }
 
     /**
+     * Determine whether this object is near target object or link.
+     * Matches DimensioneX Java AdvObject.isNear().
+     */
+    public function isNear(string|AdvObject $targ): bool
+    {
+        $target = is_string($targ) ? ($this->world?->getObjectExt($targ) ?? $this->world?->contents[$targ] ?? null) : $targ;
+        if ($target === null) {
+            return false;
+        }
+
+        if ($target === $this) {
+            $this->world?->log("The two objects coincide then are near");
+            return true;
+        }
+
+        if ($this->container !== null && $this->container === $target->container) {
+            $this->world?->log("The two objects are located in the same room");
+            return true;
+        }
+
+        if ($target->container === $this) {
+            $this->world?->log("Object #1 contains object #2");
+            return true;
+        }
+
+        if ($this->isLink() && $this instanceof Link && !$target->isLink() && $target->container !== null) {
+            if ($this->startsFrom($target->container->id) || ($this->isBidirectional && $this->leadsTo($target->container->id))) {
+                $this->world?->log("The way is near the object");
+                return true;
+            }
+        } elseif (!$this->isLink() && $target->isLink() && $target instanceof Link && $this->container !== null) {
+            if ($target->startsFrom($this->container->id) || ($target->isBidirectional && $target->leadsTo($this->container->id))) {
+                $this->world?->log("The object is near the way");
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Move this object into target container, checking volume and capacity.
      */
     public function move(AdvObject $target): bool
     {
+        if ($this instanceof Room) {
+            $this->world?->log("ERROR: ROOM objects cannot be moved.");
+            return false;
+        }
+
         if ($this->container === $target) {
             return true;
+        }
+
+        if ($target->isOpenable() && !$target->isOpen()) {
+            $this->world?->log("itemPlace: Impossibile because object {$target->id} is not open or not suitable as a container");
+            $this->world?->log("Cannot move {$this->id}: destination closed");
+            return false;
         }
 
         // Check target container capacity
@@ -419,11 +471,14 @@ class AdvObject extends DimxObject
 
         if (($currentVolume + $this->volume) > $target->capacity && $target->capacity > 0) {
             // Target is full
+            $this->world?->log("AdvObject.objPlace: Not enough capacity in {$target->id}");
+            $this->world?->log("Not enough room in {$target->id}");
             return false;
         }
 
         // Remove from current container
         if ($this->container !== null) {
+            $this->world?->log("Removal of {$this->id} from its container: {$this->container->id}");
             $this->container->removeObject($this);
         }
 
@@ -440,6 +495,48 @@ class AdvObject extends DimxObject
             }
         }
         return true;
+    }
+
+    /**
+     * Internal destruction/cleanup matching original DimensioneX AdvObject.die().
+     *
+     * @param bool $removeFromContainer Remove from container
+     * @param int  $contentsPolicy 0=Drop to floor, 1=Recurse death, 2=Keep
+     */
+    public function die(bool $removeFromContainer = true, int $contentsPolicy = 0): void
+    {
+        $c = $this->container;
+        if ($removeFromContainer) {
+            $this->world?->log("Removal of {$this->id} from its container: " . ($c?->id ?? 'null'));
+            if ($c !== null) {
+                $c->removeObject($this);
+            }
+        }
+
+        if ($contentsPolicy === 1) {
+            $this->world?->log("Destroying all inner items of {$this->id}");
+            foreach ($this->contents as $item) {
+                if ($item instanceof AdvObject) {
+                    $item->die(false, 1);
+                }
+            }
+        } elseif ($contentsPolicy === 0 && !$this->isaRoom()) {
+            $this->world?->log("Dropping all inner items of {$this->id}");
+            foreach ($this->contents as $item) {
+                if ($item instanceof AdvObject) {
+                    $this->removeObject($item);
+                    if ($c !== null) {
+                        $c->addObject($item);
+                    }
+                }
+            }
+        }
+
+        if ($this->world !== null) {
+            unset($this->world->contents[$this->id]);
+            unset($this->world->items[$this->id]);
+            unset($this->world->characters[$this->id]);
+        }
     }
 
     /**
@@ -476,6 +573,7 @@ class AdvObject extends DimxObject
         if ($target instanceof AdvObject) {
             $this->move($target);
         } elseif (!empty($this->world->defaultRoom)) {
+            $this->world?->log("WARNING: Can't reposition '{$this->id}' in: {$this->defContainer} - Trying default place");
             $defRoom = $this->world->getRoom($this->world->defaultRoom);
             if ($defRoom instanceof AdvObject) {
                 $this->move($defRoom);

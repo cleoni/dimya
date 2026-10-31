@@ -38,6 +38,26 @@ class DimxObject extends ManageableObject
     }
 
     /**
+     * Log a debug message to GameEngine (debug.log) and World log.
+     */
+    public function log(mixed $message): void
+    {
+        if ($this->world !== null) {
+            $this->world->log($message);
+        } elseif (GameEngine::$activeInstance !== null) {
+            GameEngine::$activeInstance->log($message);
+        }
+    }
+
+    /**
+     * Debug alias matching DimensioneX AdvObject.debug().
+     */
+    public function debug(string $s): void
+    {
+        $this->log($s);
+    }
+
+    /**
      * Display a message to players in or connected to this entity.
      * Default returns false unless overridden by World, Room, or Player.
      */

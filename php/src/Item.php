@@ -89,6 +89,8 @@ class Item extends PeopleContainer
             return false;
         }
 
+        $w->log("Trying to restore item: {$this->id}");
+
         // Check if item is already in someone's inventory or locked container
         if ($this->container instanceof Player && $this->container !== $player) {
             // Already owned by someone else

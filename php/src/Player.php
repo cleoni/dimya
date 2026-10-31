@@ -180,6 +180,7 @@ class Player extends Character
         if ($soundfile === '') {
             return false;
         }
+        $this->world?->log("Sounding: {$soundfile} to {$this->id}");
         $this->sound = ($this->world !== null)
             ? $this->world->resolveSoundUrl($soundfile)
             : $soundfile;
@@ -251,6 +252,7 @@ class Player extends Character
      */
     public function display(string $msg): bool
     {
+        $this->world?->log("Displaying to {$this->id}: {$msg}");
         $this->clientConsole[] = $msg;
         return true;
     }
@@ -321,6 +323,7 @@ class Player extends Character
      */
     public function saveCookie(string $key, mixed $value): void
     {
+        $this->world?->log("Saving player's data...");
         $this->cookies[$key] = $value;
     }
 
@@ -344,6 +347,9 @@ class Player extends Character
      */
     public function setPanel(string|Panel|null $panel): bool
     {
+        $panelId = is_string($panel) ? $panel : ($panel?->id ?? 'default');
+        $this->world?->log("Setting panel: {$panelId} for player: {$this->id}");
+
         if (is_string($panel)) {
             $panel = $this->world?->getPanel($panel);
         }
