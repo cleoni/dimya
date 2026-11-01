@@ -935,12 +935,10 @@ class UIhtml extends UI
 
                               $screenX = 1 + $cartX;
                               $screenY = $roomH - $cartY - $baseH;
-                              $dispW = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseW);
-                              $dispH = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseH);
-                              $rawPosX = (int)round($factorx * $screenX);
-                              $rawPosY = (int)round($factorx * $screenY);
-                              $posX = max(0, min($rawPosX, max(0, $scaledRoomW - $dispW)));
-                              $posY = max(0, min($rawPosY, max(0, $scaledRoomH - $dispH)));
+                              $dispW = (int)round($factorx * $baseW);
+                              $dispH = (int)round($factorx * $baseH);
+                              $posX = (int)round($factorx * $screenX);
+                              $posY = (int)round($factorx * $screenY);
                               $stackpos = $isInsideVehicle
                                 ? 206 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (254 - 206))
                                 : 15 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (204 - 15));
@@ -1007,13 +1005,10 @@ class UIhtml extends UI
 
                               $screenX = 1 + $cartX;
                               $screenY = $roomH - $cartY - $baseH;
-
-                              $dispW = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseW);
-                              $dispH = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseH);
-                              $rawPosX = (int)round($factorx * $screenX);
-                              $rawPosY = (int)round($factorx * $screenY);
-                              $posX = max(0, min($rawPosX, max(0, $scaledRoomW - $dispW)));
-                              $posY = max(0, min($rawPosY, max(0, $scaledRoomH - $dispH)));
+                              $dispW = (int)round($factorx * $baseW);
+                              $dispH = (int)round($factorx * $baseH);
+                              $posX = (int)round($factorx * $screenX);
+                              $posY = (int)round($factorx * $screenY);
 
                               // DimX way layers 6..14 (base layer for room features / portals)
                               $stackpos = 6 + (int)round((($roomH - $cartY) / ($roomH ?: 1)) * (14 - 6));
@@ -1085,13 +1080,10 @@ class UIhtml extends UI
 
                               $screenX = 1 + $cartX;
                               $screenY = $roomH - $cartY - $baseH;
-
-                              $dispW = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseW);
-                              $dispH = $isIcon ? ($world->iconSize ?? 32) : (int)round($factorx * $baseH);
-                              $rawPosX = (int)round($factorx * $screenX);
-                              $rawPosY = (int)round($factorx * $screenY);
-                              $posX = max(0, min($rawPosX, max(0, $scaledRoomW - $dispW)));
-                              $posY = max(0, min($rawPosY, max(0, $scaledRoomH - $dispH)));
+                              $dispW = (int)round($factorx * $baseW);
+                              $dispH = (int)round($factorx * $baseH);
+                              $posX = (int)round($factorx * $screenX);
+                              $posY = (int)round($factorx * $screenY);
 
                               // Stacking depth order (layers 15..204)
                               $stackpos = $isInsideVehicle
