@@ -203,7 +203,7 @@ GUI
 END_GUI
 ```
 
-* **`SCENE SIZE <W>x<H>`**: Dimensions in pixels for the default room scene view (default: `350x235`). Used as fallback dimensions if a room's `IMAGE` declaration omits explicit dimensions.
+* **`SCENE SIZE <W>x<H>`**: Dimensions in pixels for the typical room image (default: `350x235`). SHOWAREA and ONSCREEN coordinates are based on this declared value.
 * **`SCREEN SIZE <W>x<H>`**: Target design screen resolution (default: `800x600`). Specifies the monitor resolution the world designer tested against.
 * **Responsive Web Browser UI (`UIhtml`)**:
   * The web interface is **fully responsive** and adapts automatically to any browser viewport, desktop screen, tablet, or smartphone.
@@ -445,7 +445,7 @@ SHOW <showMode> [showX,showY [FOR showForUrl]]
 | `ICON` | `2` | Interactive props | Rendered as a clickable icon placed directly on the scene image. |
 
 #### Coordinate System & Positioning (`showX, showY`):
-* **Cartesian Origin**: Coordinates `(0, 0)` represent the **lower-left** corner of the scene picture at the target design resolution (e.g. `800x600` design screen, `350x235` scene).
+* **Cartesian Origin**: Coordinates `(0, 0)` represent the **lower-left** corner of the scene picture.
 * **HTML Top-Down Transformation** (from Cartesian Y to screen pixels):
   $$\text{screenX} = 1 + \text{showX}$$
   $$\text{screenY} = \text{roomHeight} - \text{showY} - \text{objectHeight}$$

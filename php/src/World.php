@@ -26,7 +26,7 @@ class World extends DimxObject
     public int $screenheight = 600; // Target design screen display size (default 600)
     public int $sceneWidth = 350; // Default room scene width (default 350)
     public int $sceneHeight = 235; // Default room scene height (default 235)
-    public int $iconSize = 32; // Default on-screen icon size (default 32)
+    public int $iconSize = 16; // Default on-screen icon size (default 16)
     public string $imagesFolder = ''; // Remote or local base images folder
 
     /** @var array<string> Blacklisted client IPs */
@@ -222,6 +222,30 @@ class World extends DimxObject
     {
         $vars = array_keys(get_object_vars($this));
         return array_values(array_diff($vars, ['persistence', 'engine']));
+    }
+
+    public function __wakeup(): void
+    {
+        if (!is_array($this->players)) {
+            $this->players = [];
+        } else {
+            foreach ($this->players as $k => $p) {
+                if (!$p instanceof Player) {
+                    unset($this->players[$k]);
+                }
+            }
+        }
+    }
+
+    public function setProperty(string $name, mixed $value): mixed
+    {
+        $lower = strtolower($name);
+        // Protect core internal collections from being overwritten by SmallBasic script variables/arrays (e.g. ARRAY players)
+        if (in_array($lower, ['players', 'rooms', 'characters', 'items', 'links', 'contents', 'sets', 'events', 'skins'], true)) {
+            $this->properties[$name] = $value;
+            return $value;
+        }
+        return parent::setProperty($name, $value);
     }
 
     public function addRoom(Room $room): void

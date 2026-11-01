@@ -20,6 +20,26 @@ class UIhtml extends UI
     }
 
     /**
+     * Compute horizontal viewport scaling factor (factorx) for properly displaying
+     * the scene and onscreen objects.
+     */
+    public function getFactorX(?Player $player = null, ?World $world = null): float
+    {
+        $p = $player ?? $this->player;
+        $w = $world ?? $p?->world ?? ($this->engine ? $this->engine->loadOrSeedWorld() : null);
+        $worldWidth = ($w && $w->screenwidth > 0) ? $w->screenwidth : 800;
+        $width = ($p && $p->screenWidth > 0) ? $p->screenWidth : 800;
+
+        $effectiveWidth = $width;
+        if ($effectiveWidth > 1024 && $worldWidth <= 640) {
+            $effectiveWidth = 1024;
+        }
+
+        $factor = (float)($effectiveWidth / $worldWidth) * 1.3;
+        return min($factor, 2.08);
+    }
+
+    /**
      * Render the login form for human players.
      */
     public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null, ?string $selectedSkin = null, bool $sounds = false, bool $music = false): void
@@ -32,6 +52,15 @@ class UIhtml extends UI
         $skinsList = (!empty($world?->skins) && is_array($world->skins))
             ? $world->skins
             : ['default' => new Skin('default', 'Default')];
+
+        $screenSizeHelper = $this->engine?->config['screenSizeHelper'] ?? $this->engine?->config['screenSizeHelp'] ?? null;
+        if ($screenSizeHelper === null && file_exists(__DIR__ . '/../config.php')) {
+            $loadedCfg = @require __DIR__ . '/../config.php';
+            if (is_array($loadedCfg)) {
+                $screenSizeHelper = $loadedCfg['screenSizeHelper'] ?? $loadedCfg['screenSizeHelp'] ?? 0;
+            }
+        }
+        $screenSizeHelper = !empty($screenSizeHelper);
         ?>
         <!DOCTYPE html>
         <html lang="en">
@@ -95,8 +124,91 @@ class UIhtml extends UI
 
               <button type="submit">Play</button>
             </form>
+            <?php if (!empty($screenSizeHelper)): ?>
+              <div class="screen-size-helper" style="margin-top:20px;padding-top:16px;border-top:1px solid #334155;">
+                <label for="screenSizeHelper">Screen Size:</label>
+                <select id="screenSizeHelper" onchange="resizeScreen(this.value)" style="margin-bottom:0;">
+                  <option value="" selected>(default)</option>
+                  <option value="640x480">640x480</option>
+                  <option value="800x600">800x600</option>
+                  <option value="1024x768">1024x768</option>
+                  <option value="1280x768">1280x768</option>
+                </select>
+              </div>
+            <?php endif; ?>
             <script>
+              function resizeScreen(val) {
+                if (!val) return;
+                var parts = val.split('x');
+                var targetW = parseInt(parts[0], 10);
+                var targetH = parseInt(parts[1], 10);
+                if (!targetW || !targetH) return;
+
+                var cw = document.getElementById('clientWidth');
+                var ch = document.getElementById('clientHeight');
+                if (cw) cw.value = targetW;
+                if (ch) ch.value = targetH;
+
+                var diffW = window.outerWidth - window.innerWidth;
+                var diffH = window.outerHeight - window.innerHeight;
+                if (diffW <= 0 || diffW > 150) diffW = 16;
+                if (diffH <= 0 || diffH > 200) diffH = 39;
+
+                var outerW = targetW + diffW;
+                var outerH = targetH + diffH;
+
+                var initialInnerW = window.innerWidth;
+                var initialInnerH = window.innerHeight;
+
+                try {
+                  window.resizeTo(outerW, outerH);
+                  var deltaW = targetW - window.innerWidth;
+                  var deltaH = targetH - window.innerHeight;
+                  if (deltaW !== 0 || deltaH !== 0) {
+                    window.resizeBy(deltaW, deltaH);
+                  }
+                } catch (e) {}
+
+                // In modern browsers, scripts cannot resize tabs not opened by window.open().
+                // If the current window did not resize, open a dedicated popup window of that size.
+                setTimeout(function() {
+                  if (window.innerWidth === initialInnerW && window.innerHeight === initialInnerH) {
+                    var u = new URL(window.location.href);
+                    u.searchParams.set('screen', val);
+                    var popup = window.open(u.toString(), 'dimx_test_win', 'width=' + outerW + ',height=' + outerH + ',resizable=yes,scrollbars=yes');
+                    if (popup) {
+                      popup.focus();
+                    }
+                  }
+                }, 100);
+              }
               (function() {
+                var params = new URLSearchParams(window.location.search);
+                var screenParam = params.get('screen');
+                var sel = document.getElementById('screenSizeHelper');
+                if (screenParam && sel) {
+                  sel.value = screenParam;
+                }
+                var targetVal = (screenParam || (sel ? sel.value : ''));
+                if (targetVal) {
+                  var parts = targetVal.split('x');
+                  var tw = parseInt(parts[0], 10);
+                  var th = parseInt(parts[1], 10);
+                  if (tw > 0 && th > 0) {
+                    var adjW = tw - window.innerWidth;
+                    var adjH = th - window.innerHeight;
+                    if (adjW !== 0 || adjH !== 0) {
+                      try {
+                        window.resizeBy(adjW, adjH);
+                      } catch(e) {}
+                    }
+                    var cw = document.getElementById('clientWidth');
+                    var ch = document.getElementById('clientHeight');
+                    if (cw) cw.value = tw;
+                    if (ch) ch.value = th;
+                    return;
+                  }
+                }
                 var w = window.innerWidth || (window.screen ? window.screen.width : 0);
                 var h = window.innerHeight || (window.screen ? window.screen.height : 0);
                 if (w > 0) document.getElementById('clientWidth').value = w;
@@ -255,7 +367,7 @@ class UIhtml extends UI
         $isPortrait   = !empty($player->isPortrait) || ($player->screenWidth > 0 && $player->screenHeight > 0 && $player->screenWidth < $player->screenHeight);
 
         // Viewport resolution scaling factor (factorx = clientWidth / worldDesignWidth)
-        $factorx = method_exists($player, 'getFactorX') ? $player->getFactorX() : 2.08;
+        $factorx = $this->getFactorX($player, $world);
         $roomW   = (!empty($currentRoom?->images['N']?->width)) ? $currentRoom->images['N']->width : ($world->sceneWidth ?? 350);
         $roomH   = (!empty($currentRoom?->images['N']?->height)) ? $currentRoom->images['N']->height : ($world->sceneHeight ?? 235);
         $scaledRoomW = (int)round($factorx * $roomW);
@@ -411,13 +523,13 @@ class UIhtml extends UI
               min-height: 0;
               width: 100%;
             }
-            /* Subcell D: remaining width, room image and description below it */
+            /* #display: remaining width, room image and description below it */
             #display {
               flex: 1 1 auto;
               min-width: 0;
               height: 100%;
               overflow-y: auto;
-              padding: 8px;
+              padding: 0;
               display: flex;
               flex-direction: column;
             }
@@ -803,43 +915,6 @@ class UIhtml extends UI
                 background: transparent !important;
               }
             }
-
-            /* Narrow landscape screen fallback (< 800px width in landscape) */
-            @media (max-width: 800px) and (orientation: landscape) {
-              .dimx-root {
-                height: auto;
-                min-height: 100vh;
-                overflow-y: auto;
-              }
-              .dimx-row-top {
-                flex-direction: column;
-                height: auto;
-                min-height: 0;
-              }
-              #scene {
-                border-right: none;
-                height: auto;
-                overflow-y: visible;
-              }
-              #ctrls {
-                width: 100%;
-                flex: 0 0 auto;
-                height: auto;
-              }
-              .dimx-inner-row {
-                flex-direction: column;
-              }
-              #dashboard {
-                width: 100%;
-                flex: 0 0 auto;
-                border-left: none;
-                border-top: 1px solid #444466;
-              }
-              .dimx-row-bottom {
-                height: auto;
-                min-height: 120px;
-              }
-            }
           </style>
           <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
         </head>
@@ -914,8 +989,8 @@ class UIhtml extends UI
                             if ($charImg && !empty($charImg->src)):
                               $isIcon = ($char->showmode === \Dimx\AdvObject::SHOW_ICON);
                               $imgSrc = ($isIcon && !empty($char->icon)) ? $char->icon : $charImg->src;
-                              $baseW = $isIcon ? ($world->iconSize ?? 32) : (!empty($charImg->width) ? $charImg->width : ($world->iconSize ?? 32));
-                              $baseH = $isIcon ? ($world->iconSize ?? 32) : (!empty($charImg->height) ? $charImg->height : ($world->iconSize ?? 32));
+                              $baseW = $isIcon ? ($world->iconSize ?? 16) : (!empty($charImg->width) ? $charImg->width : ($world->iconSize ?? 16));
+                              $baseH = $isIcon ? ($world->iconSize ?? 16) : (!empty($charImg->height) ? $charImg->height : ($world->iconSize ?? 16));
 
                               // Cartesian coordinate conversion (0,0 is lower-left of room scene)
                               $xValid = ($char->showX >= 0 && $char->showX < $roomW);
@@ -981,11 +1056,11 @@ class UIhtml extends UI
                               : ($lnk->images['N']->src ?? $lnk->image->src ?? $lnk->icon ?? null);
                             if ($imgSrc):
                               $baseW = $isIcon
-                                ? ($world->iconSize ?? 32)
-                                : (!empty($lnk->images['N']->width) ? $lnk->images['N']->width : (!empty($lnk->image->width) ? $lnk->image->width : ($world->iconSize ?? 32)));
+                                ? ($world->iconSize ?? 16)
+                                : (!empty($lnk->images['N']->width) ? $lnk->images['N']->width : (!empty($lnk->image->width) ? $lnk->image->width : ($world->iconSize ?? 16)));
                               $baseH = $isIcon
-                                ? ($world->iconSize ?? 32)
-                                : (!empty($lnk->images['N']->height) ? $lnk->images['N']->height : (!empty($lnk->image->height) ? $lnk->image->height : ($world->iconSize ?? 32)));
+                                ? ($world->iconSize ?? 16)
+                                : (!empty($lnk->images['N']->height) ? $lnk->images['N']->height : (!empty($lnk->image->height) ? $lnk->image->height : ($world->iconSize ?? 16)));
 
                               // Cartesian coordinate conversion (0,0 is lower-left of room scene)
                               $xValid = ($lnk->showX >= 0 && $lnk->showX < $roomW);
@@ -1055,11 +1130,11 @@ class UIhtml extends UI
                               : ($itm->images['N']->src ?? $itm->icon ?? ($isIcon ? $skin->getItemIcon() : null));
                             if ($imgSrc):
                               $baseW = $isIcon
-                                ? ($world->iconSize ?? 32)
-                                : (!empty($itm->images['N']->width) ? $itm->images['N']->width : ($world->iconSize ?? 32));
+                                ? ($world->iconSize ?? 16)
+                                : (!empty($itm->images['N']->width) ? $itm->images['N']->width : ($world->iconSize ?? 16));
                               $baseH = $isIcon
-                                ? ($world->iconSize ?? 32)
-                                : (!empty($itm->images['N']->height) ? $itm->images['N']->height : ($world->iconSize ?? 32));
+                                ? ($world->iconSize ?? 16)
+                                : (!empty($itm->images['N']->height) ? $itm->images['N']->height : ($world->iconSize ?? 16));
 
                               // Cartesian coordinate conversion (0,0 is lower-left of room scene)
                               // If x or y is -1 (or outside bounds), fall back to SHOWAREA random position

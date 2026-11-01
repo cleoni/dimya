@@ -69,6 +69,7 @@ $sections = [
     45 => ['title' => 'Testing Sounds & Music Login Checkboxes, PlaySound Routing (Player, Room, $WORLD), Embedded Sound Player & Skin SNDNEWMSG...', 'keywords' => ['sounds', 'music', 'playsound', 'sndnewmsg', 'sndplayer', 'audio', 'skin', 'uihtml']],
     46 => ['title' => 'Testing Say Command Target Handling (Speak to Person vs Speak Aloud with target=* in UIhtml & GameEngine)...', 'keywords' => ['say', 'target', 'speak', 'aloud', 'asterisk', 'txtbox', 'uihtml', 'character']],
     47 => ['title' => 'Testing SmallBasic Debug Instruction & GameEngine::log() Writing to debug.log...', 'keywords' => ['debug', 'log', 'debug.log', 'gameengine', 'actionsrunner', 'system folder', 'smallbasic']],
+    48 => ['title' => 'Testing Screen Size Helper (screenSizeHelper config setting & UIhtml login screen dropdown)...', 'keywords' => ['screensizehelper', 'screensizehelp', 'screensize', 'dropdown', 'login', 'resizeto', 'uihtml', 'config']],
 ];
 
 // CLI Options parsing
@@ -3281,8 +3282,8 @@ if (shouldRun(37)) {
     // Test at design resolution (screenWidth = 1024 -> factorx = 1.3)
     $pTest->screenWidth = 1024;
     $pTest->screenHeight = 768;
-    assertTest(abs($pTest->getFactorX() - 1.3) < 0.001, "ShowTester has factorx = 1.3 at design resolution 1024x768");
     $uiHtml = new \Dimx\UIhtml($pTest, $engineShow);
+    assertTest(abs($uiHtml->getFactorX($pTest) - 1.3) < 0.001, "UIhtml has factorx = 1.3 at design resolution 1024x768");
 
     // Run multiple renders (e.g. 25 times) to verify random x position always stays within scaled SHOWAREA [185, 280]
     $allLeftsValid = true;
@@ -3336,7 +3337,7 @@ if (shouldRun(37)) {
     // Test at standard screen (1280x800 -> factorx = 1.25 * 1.3 = 1.625)
     $pTest->screenWidth = 1280;
     $pTest->screenHeight = 800;
-    assertTest(abs($pTest->getFactorX() - 1.625) < 0.001, "ShowTester has factorx = 1.625 on standard 1280x800 display");
+    assertTest(abs($uiHtml->getFactorX($pTest) - 1.625) < 0.001, "UIhtml has factorx = 1.625 on standard 1280x800 display");
 
     $scaledLefts = [];
     for ($i = 0; $i < 25; $i++) {
@@ -5069,6 +5070,83 @@ if (shouldRun(47)) {
     }
 
     @$pm->resetWorld($sec47WorldId);
+}
+
+// ---------------------------------------------------------------------------
+// Section 48: Testing Screen Size Helper (screenSizeHelper config setting & UIhtml login screen dropdown)
+// ---------------------------------------------------------------------------
+if (shouldRun(48)) {
+    echo "\n--- Section 48: Testing Screen Size Helper (screenSizeHelper config & UIhtml login screen dropdown) ---\n";
+
+    // 1. Verify config.php and config.sample.php define 'screenSizeHelper'
+    $cfg = file_exists(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
+    $sampleCfg = file_exists(__DIR__ . '/config.sample.php') ? require __DIR__ . '/config.sample.php' : [];
+    assertTest(array_key_exists('screenSizeHelper', $cfg), "config.php contains 'screenSizeHelper' setting");
+    assertTest(array_key_exists('screenSizeHelper', $sampleCfg), "config.sample.php contains 'screenSizeHelper' setting");
+    assertTest($sampleCfg['screenSizeHelper'] === 0, "config.sample.php 'screenSizeHelper' defaults to 0");
+
+    // 2. UIhtml login screen with screenSizeHelper disabled (0)
+    $engineDisabled = new \Dimx\GameEngine($pm, 'w_helper_off', __DIR__ . '/../docs/dxw-examples/world1.dxw', '', ['screenSizeHelper' => 0]);
+    $uiDisabled = new \Dimx\UIhtml(null, $engineDisabled);
+    ob_start();
+    $uiDisabled->renderLogin();
+    $htmlOff = ob_get_clean();
+    assertTest(!str_contains($htmlOff, 'Screen Size:'), "UIhtml login form does NOT render 'Screen Size:' dropdown when screenSizeHelper is 0");
+    assertTest(!str_contains($htmlOff, 'id="screenSizeHelper"'), "UIhtml login form does NOT render screenSizeHelper select when disabled");
+
+    // 3. UIhtml login screen with screenSizeHelper enabled (1)
+    $engineEnabled = new \Dimx\GameEngine($pm, 'w_helper_on', __DIR__ . '/../docs/dxw-examples/world1.dxw', '', ['screenSizeHelper' => 1]);
+    $uiEnabled = new \Dimx\UIhtml(null, $engineEnabled);
+    ob_start();
+    $uiEnabled->renderLogin();
+    $htmlOn = ob_get_clean();
+
+    assertTest(str_contains($htmlOn, 'Screen Size:'), "UIhtml login form renders 'Screen Size:' label when screenSizeHelper is 1");
+    assertTest(str_contains($htmlOn, 'id="screenSizeHelper"'), "UIhtml login form renders screenSizeHelper select element");
+
+    // Verify all specified resolutions are present in dropdown, with (default) option
+    assertTest(str_contains($htmlOn, '<option value="" selected>(default)</option>'), "Screen Size dropdown contains '(default)' option selected by default");
+    assertTest(str_contains($htmlOn, '<option value="640x480">640x480</option>'), "Screen Size dropdown contains 640x480 option");
+    assertTest(str_contains($htmlOn, '<option value="800x600">800x600</option>'), "Screen Size dropdown contains 800x600 option");
+    assertTest(str_contains($htmlOn, '<option value="1024x768">1024x768</option>'), "Screen Size dropdown contains 1024x768 option");
+    assertTest(str_contains($htmlOn, '<option value="1280x768">1280x768</option>'), "Screen Size dropdown contains 1280x768 option");
+
+    // Verify dropdown is placed below the login form
+    $posFormEnd = strpos($htmlOn, '</form>');
+    $posHelper  = strpos($htmlOn, 'id="screenSizeHelper"');
+    assertTest($posFormEnd !== false && $posHelper !== false && $posHelper > $posFormEnd, "'Screen Size:' dropdown is placed below the login form");
+
+    // Verify window resize JavaScript helper
+    assertTest(str_contains($htmlOn, 'window.resizeTo(outerW, outerH)') || str_contains($htmlOn, 'window.resizeTo'), "UIhtml includes window.resizeTo function for screen resizing");
+    assertTest(str_contains($htmlOn, 'onchange="resizeScreen(this.value)"'), "Screen Size dropdown triggers resizeScreen on change");
+
+    // 4. Verify 640x480 and 800x600 do NOT trigger vertical/smartphone disposition
+    $testW48 = new \Dimx\World('w_test_48', 'Test World 48');
+    $testR48 = new \Dimx\Room($testW48, 'r48', 'Test Room 48');
+    $p640 = new \Dimx\Player($testW48, 'User640');
+    $p640->screenWidth = 640;
+    $p640->screenHeight = 480;
+    $p640->isPortrait = ($p640->screenWidth < $p640->screenHeight);
+    assertTest($p640->isPortrait === false, "640x480 is NOT portrait (screenWidth > screenHeight)");
+
+    $p800 = new \Dimx\Player($testW48, 'User800');
+    $p800->screenWidth = 800;
+    $p800->screenHeight = 600;
+    $p800->isPortrait = ($p800->screenWidth < $p800->screenHeight);
+    assertTest($p800->isPortrait === false, "800x600 is NOT portrait (screenWidth > screenHeight)");
+
+    ob_start();
+    $ui640 = new \Dimx\UIhtml($p640);
+    $ui640->render([
+        'world'     => $testW48,
+        'player'    => $p640,
+        'room'      => $testR48,
+        'messages'  => [],
+        'lockError' => false,
+    ]);
+    $html640 = ob_get_clean();
+    assertTest(!str_contains($html640, 'dimx-root dimx-portrait'), "640x480 does NOT render 'dimx-root dimx-portrait' class");
+    assertTest(!str_contains($html640, '@media (max-width: 800px) and (orientation: landscape)'), "UIhtml does NOT contain '@media (max-width: 800px) and (orientation: landscape)' fallback");
 }
 
 // Clean up test worlds

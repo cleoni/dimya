@@ -186,7 +186,11 @@ class GameEngine
     protected function pruneStalePlayers(World $world): void
     {
         $now = time();
-        foreach ($world->players as $p) {
+        foreach ($world->players as $k => $p) {
+            if (!$p instanceof Player) {
+                unset($world->players[$k]);
+                continue;
+            }
             $last = (int)($p->getProperty('lastActive') ?? $now);
             if (($now - $last) > $this->playerTimeout) {
                 $world->removePlayer($p);

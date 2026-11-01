@@ -86,4 +86,12 @@ return [
     'testBots' => [
         'testbot',
     ],
+
+    // -------------------------------------------------------------------------
+    // Screen Size Helper (0 or 1)
+    // -------------------------------------------------------------------------
+    // When enabled (1), renders a "Screen Size:" dropdown helper on the login
+    // screen allowing developers to quickly resize the browser window during testing.
+    // Defaults to 0 (disabled).
+    'screenSizeHelper' => 0,
 ];
