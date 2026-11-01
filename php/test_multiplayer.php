@@ -3383,9 +3383,9 @@ if (shouldRun(37)) {
     assertTest(preg_match('/<img[^>]*data-obj-id="switch1"[^>]*style="([^"]*)"/i', $switchHtml, $sm) === 1, "switch1 is rendered onscreen in kitchen");
     if (preg_match('/<img[^>]*data-obj-id="switch1"[^>]*style="([^"]*)"/i', $switchHtml, $sm)) {
         $swStyle = $sm[1];
-        // screenX = 1 + 120 = 121px -> round(1.3 * 121) = 157px; screenY = 235 - 138 - 32 = 65px -> round(1.3 * 65) = 85px
+        // screenX = 1 + 120 = 121px -> round(1.3 * 121) = 157px; screenY = 235 - 138 - 16 = 81px -> round(1.3 * 81) = 105px
         assertTest(str_contains($swStyle, 'left:157px'), "switch1 explicit X at 1024x768 is respected (left:157px)");
-        assertTest(str_contains($swStyle, 'top:85px'), "switch1 explicit Y at 1024x768 is respected (top:85px)");
+        assertTest(str_contains($swStyle, 'top:105px'), "switch1 explicit Y at 1024x768 is respected (top:105px)");
     }
 }
 

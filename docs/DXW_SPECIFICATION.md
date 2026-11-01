@@ -461,7 +461,7 @@ SHOW <showMode> [showX,showY [FOR showForUrl]]
   $$\text{top} = \text{round}(\text{factorx} \times \text{screenY})$$
   $$\text{objectWidth} = \text{round}(\text{factorx} \times \text{designWidth})$$
   $$\text{objectHeight} = \text{round}(\text{factorx} \times \text{designHeight})$$
-  *(For `ICON` mode, `designWidth = designHeight = world.iconSize`, default 32px).*
+  *(For `ICON` mode, `designWidth = designHeight = world.iconSize`, default 16px).*
 
 #### Examples from DimensioneX KB Article #013:
 * **Example 1 — Corner Placement**:
@@ -489,13 +489,13 @@ ITEM switch
 ```
 1. **At Design Baseline (800x600 display, 350x235 room)**:
    * $\text{showX} = 62$, $\text{showY} = 68$.
-   * $\text{objectWidth} = 32$, $\text{objectHeight} = 32$ (from `ICON`).
+   * $\text{objectWidth} = 16$, $\text{objectHeight} = 16$ (from `ICON`).
    * $\text{screenX} = 1 + 62 = 63\text{px}$.
-   * $\text{screenY} = 235 - 68 - 32 = 135\text{px}$.
+   * $\text{screenY} = 235 - 68 - 16 = 151\text{px}$.
 2. **On Player's 1366x768 Display** (scaled to 1280x800 profile $\rightarrow \text{factorx} = 1.6$):
    * Room image: $350 \times 1.6 = \mathbf{560\text{px}}$ wide, $235 \times 1.6 = \mathbf{376\text{px}}$ high.
-   * Switch icon position: $\text{left} = \text{round}(1.6 \times 63) = \mathbf{101\text{px}}$, $\text{top} = \text{round}(1.6 \times 135) = \mathbf{216\text{px}}$.
-   * Switch icon dimensions: $32 \times 1.6 = \mathbf{51\text{px}} \times \mathbf{51\text{px}}$.
+   * Switch icon position: $\text{left} = \text{round}(1.6 \times 63) = \mathbf{101\text{px}}$, $\text{top} = \text{round}(1.6 \times 151) = \mathbf{242\text{px}}$.
+   * Switch icon dimensions: $16 \times 1.6 = \mathbf{26\text{px}} \times \mathbf{26\text{px}}$.
 
 #### Stacking Order (HTML z-index Layers):
 In `UIhtml`, scene graphics are stacked in layers from bottom to top:
