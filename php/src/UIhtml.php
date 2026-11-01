@@ -29,6 +29,9 @@ class UIhtml extends UI
         $w = $world ?? $p?->world ?? ($this->engine ? $this->engine->loadOrSeedWorld() : null);
         $worldWidth = ($w && $w->screenwidth > 0) ? $w->screenwidth : 800;
         $width = ($p && $p->screenWidth > 0) ? $p->screenWidth : 800;
+		
+		// Cap at 1024 (otherwise we loose space below the scene on PC screens)
+		if ($width > 1024) {$width = 1024;}
 
         return (float)($width / $worldWidth);
     }

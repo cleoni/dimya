@@ -1215,8 +1215,8 @@ assertTest(str_contains($bungalowHtml, "function handleCommand("), "UIhtml inclu
 assertTest(str_contains($bungalowHtml, "data-cmd=\"use\" data-model=\"O\""), "UIhtml Ctrls (#ctrls) USE button has data-cmd='use' and data-model='O'");
 assertTest(str_contains($bungalowHtml, "data-cmd=\"look\" data-model=\"O\""), "UIhtml Ctrls (#ctrls) LOOK button has data-cmd='look' and data-model='O'");
 assertTest(str_contains($bungalowHtml, 'data-obj-id="switch"') && str_contains($bungalowHtml, 'data-obj-type="i"'), "UIhtml renders switch as on-screen object with id='switch' and type='i'");
-assertTest(str_contains($bungalowHtml, "width:555px;height:376px") || str_contains($bungalowHtml, "width: 555px; height: 376px") || str_contains($bungalowHtml, 'width="555"'), "UIhtml scales bungalow room scene to 555x376 for 1280x800 desktop client (factorx=1.6)");
-assertTest(str_contains($bungalowHtml, "left:101px;top:242px;width:26px;height:26px;"), "UIhtml positions and renders switch on scene with scaled icon size at left:101px;top:242px;width:26px;height:26px;");
+assertTest(str_contains($bungalowHtml, "width:444px;height:301px") || str_contains($bungalowHtml, "width: 444px; height: 301px") || str_contains($bungalowHtml, 'width="444"'), "UIhtml scales bungalow room scene to 444x301 for 1280x800 desktop client capped at 1024px (factorx=1.28)");
+assertTest(str_contains($bungalowHtml, "left:81px;top:193px;width:20px;height:20px;"), "UIhtml positions and renders switch on scene with scaled icon size at left:81px;top:193px;width:20px;height:20px;");
 }
 
 // -------------------------------------------------------------
@@ -3333,10 +3333,12 @@ if (shouldRun(37)) {
     assertTest(max($leftsObserved) <= 236, "Tommy's maximum observed left (" . max($leftsObserved) . "px) is <= 236px");
     assertTest($allTopsValid, "Tommy's y coordinate correctly reflects baseline 55 at factorx = 1.0 (top: 80px)");
 
-    // Test at standard screen (1280x800 -> factorx = 1280 / 1024 = 1.25)
+    // Test desktop screen cap at 1024px:
+    // On 800-width design, 1280x800 display is capped to 1024 (factorx = 1024 / 800 = 1.28)
+    $w3Show->screenwidth = 800;
     $pTest->screenWidth = 1280;
     $pTest->screenHeight = 800;
-    assertTest(abs($uiHtml->getFactorX($pTest) - 1.25) < 0.001, "UIhtml has factorx = 1.25 on standard 1280x800 display");
+    assertTest(abs($uiHtml->getFactorX($pTest) - 1.28) < 0.001, "UIhtml caps 1280x800 desktop display to 1024 width (factorx = 1.28 on 800-wide world)");
 
     $scaledLefts = [];
     for ($i = 0; $i < 25; $i++) {
@@ -3356,8 +3358,9 @@ if (shouldRun(37)) {
             }
         }
     }
-    assertTest(min($scaledLefts) >= 233, "Tommy's minimum scaled left (" . min($scaledLefts) . "px) is >= 233px (round(1.25 * 186))");
-    assertTest(max($scaledLefts) <= 295, "Tommy's maximum scaled left (" . max($scaledLefts) . "px) is <= 295px (round(1.25 * 236))");
+    assertTest(min($scaledLefts) >= 238, "Tommy's minimum scaled left (" . min($scaledLefts) . "px) is >= 238px (round(1.28 * 186))");
+    assertTest(max($scaledLefts) <= 303, "Tommy's maximum scaled left (" . max($scaledLefts) . "px) is <= 303px (round(1.28 * 236))");
+    $w3Show->screenwidth = 1024; // restore design width
 
     // 4. Test explicit coordinates (e.g. switch1: SHOW ICON 120,138)
     $switch1 = $w3Show->getItem('switch1');

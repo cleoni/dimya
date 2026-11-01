@@ -217,16 +217,17 @@ END_GUI
       2. **Ctrls (`#ctrls`, Controls Frame)**: Positioned directly below Scene across full width, occupying **35%** of total viewport height (`35vh`).
       3. **Msgs (`#msgs`, Messages Frame)**: Bottom row across full width, occupying **15%** of total viewport height (`15vh`).
 * **Proportional Scene & Sprite Scaling (`factorx`)**:
-  * In the engine (`Client.java` / `UIhtml`), viewport scene elements and on-screen coordinates are proportionally scaled based on the ratio between the client's screen width and the world's design screen width:
-    $$\text{factorx} = \frac{\text{client.screenwidth}}{\text{world.screenwidth}}$$
+  * In the engine (`Client.java` / `UIhtml`), viewport scene elements and on-screen coordinates are proportionally scaled based on the ratio between the client's screen width and the world's design screen width.
+  * In DimensioneY (`UIhtml::getFactorX()`), client screen width is capped at **1024px** on desktop screens to preserve comfortable vertical reading space for the description and messages console (`#consoleBox`) below the scene:
+    $$\text{effectiveWidth} = \min(\text{client.screenwidth}, 1024)$$
+    $$\text{factorx} = \frac{\text{effectiveWidth}}{\text{world.screenwidth}}$$
   * Notice that only **width** is used to determine `factorx` for uniform aspect-ratio scaling.
-  * **Example (1366x768 Screen / 1280px Viewport)**:
-    When a player accesses the game on a standard 1366x768 desktop monitor, the client viewport width is 1280px (`client.screenwidth = 1280`).
-    $$\text{factorx} = \frac{1280}{800} = 1.6$$
-    For a default room scene with dimensions $350 \times 235$, the scene picture is dynamically scaled on the player's screen to:
-    $$\text{width} = 350 \times 1.6 = 560\text{px}$$
-    $$\text{height} = 235 \times 1.6 = 376\text{px}$$
-    (matching exactly the $560 \times 376$ display observed on original DimensioneX installations).
+  * **Example (1366x768 or 1280x800 Desktop Display)**:
+    When a player accesses the game on a standard 1280x800 or 1366x768 desktop monitor, the effective width is capped at 1024px:
+    $$\text{factorx} = \frac{1024}{800} = 1.28$$
+    For a default room scene with dimensions $350 \times 235$ (scaled via $(350-3) \times 1.28$ and $(235+1) \times 1.28 - 1$):
+    $$\text{width} = \text{int}(1.28 \times 347) = 444\text{px}$$
+    $$\text{height} = \text{int}(1.28 \times 236) - 1 = 301\text{px}$$
 * **`SCENE LOOK <mode>`** **[DimY: parsed but ignored - stored as world property `sceneLook`, avatar is never drawn in the scene]**: 
   * `1STPERSON` (default): Standard view; avatar is not drawn inside the room scene.
   * `3RDPERSON`: Avatar is rendered inside the room scene.
@@ -492,10 +493,10 @@ ITEM switch
    * $\text{objectWidth} = 16$, $\text{objectHeight} = 16$ (from `ICON`).
    * $\text{screenX} = 1 + 62 = 63\text{px}$.
    * $\text{screenY} = 235 - 68 - 16 = 151\text{px}$.
-2. **On Player's 1366x768 Display** (scaled to 1280x800 profile $\rightarrow \text{factorx} = 1.6$):
-   * Room image: $350 \times 1.6 = \mathbf{560\text{px}}$ wide, $235 \times 1.6 = \mathbf{376\text{px}}$ high.
-   * Switch icon position: $\text{left} = \text{round}(1.6 \times 63) = \mathbf{101\text{px}}$, $\text{top} = \text{round}(1.6 \times 151) = \mathbf{242\text{px}}$.
-   * Switch icon dimensions: $16 \times 1.6 = \mathbf{26\text{px}} \times \mathbf{26\text{px}}$.
+2. **On Player's 1280x800 Desktop Display** (capped at 1024px $\rightarrow \text{factorx} = 1024 / 800 = 1.28$):
+   * Room image: $(350 - 3) \times 1.28 = \mathbf{444\text{px}}$ wide, $(235 + 1) \times 1.28 - 1 = \mathbf{301\text{px}}$ high.
+   * Switch icon position: $\text{left} = \text{round}(1.28 \times 63) = \mathbf{81\text{px}}$, $\text{top} = \text{round}(1.28 \times 151) = \mathbf{193\text{px}}$.
+   * Switch icon dimensions: $\text{round}(1.28 \times 16) = \mathbf{20\text{px}} \times \mathbf{20\text{px}}$.
 
 #### Stacking Order (HTML z-index Layers):
 In `UIhtml`, scene graphics are stacked in layers from bottom to top:
