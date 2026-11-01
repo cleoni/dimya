@@ -46,15 +46,6 @@ class UIhtml extends UI
         $skinsList = (!empty($world?->skins) && is_array($world->skins))
             ? $world->skins
             : ['default' => new Skin('default', 'Default')];
-
-        $screenSizeHelper = $this->engine?->config['screenSizeHelper'] ?? $this->engine?->config['screenSizeHelp'] ?? null;
-        if ($screenSizeHelper === null && file_exists(__DIR__ . '/../config.php')) {
-            $loadedCfg = @require __DIR__ . '/../config.php';
-            if (is_array($loadedCfg)) {
-                $screenSizeHelper = $loadedCfg['screenSizeHelper'] ?? $loadedCfg['screenSizeHelp'] ?? 0;
-            }
-        }
-        $screenSizeHelper = !empty($screenSizeHelper);
         ?>
         <!DOCTYPE html>
         <html lang="en">
@@ -118,91 +109,8 @@ class UIhtml extends UI
 
               <button type="submit">Play</button>
             </form>
-            <?php if (!empty($screenSizeHelper)): ?>
-              <div class="screen-size-helper" style="margin-top:20px;padding-top:16px;border-top:1px solid #334155;">
-                <label for="screenSizeHelper">Screen Size:</label>
-                <select id="screenSizeHelper" onchange="resizeScreen(this.value)" style="margin-bottom:0;">
-                  <option value="" selected>(default)</option>
-                  <option value="640x480">640x480</option>
-                  <option value="800x600">800x600</option>
-                  <option value="1024x768">1024x768</option>
-                  <option value="1280x768">1280x768</option>
-                </select>
-              </div>
-            <?php endif; ?>
             <script>
-              function resizeScreen(val) {
-                if (!val) return;
-                var parts = val.split('x');
-                var targetW = parseInt(parts[0], 10);
-                var targetH = parseInt(parts[1], 10);
-                if (!targetW || !targetH) return;
-
-                var cw = document.getElementById('clientWidth');
-                var ch = document.getElementById('clientHeight');
-                if (cw) cw.value = targetW;
-                if (ch) ch.value = targetH;
-
-                var diffW = window.outerWidth - window.innerWidth;
-                var diffH = window.outerHeight - window.innerHeight;
-                if (diffW <= 0 || diffW > 150) diffW = 16;
-                if (diffH <= 0 || diffH > 200) diffH = 39;
-
-                var outerW = targetW + diffW;
-                var outerH = targetH + diffH;
-
-                var initialInnerW = window.innerWidth;
-                var initialInnerH = window.innerHeight;
-
-                try {
-                  window.resizeTo(outerW, outerH);
-                  var deltaW = targetW - window.innerWidth;
-                  var deltaH = targetH - window.innerHeight;
-                  if (deltaW !== 0 || deltaH !== 0) {
-                    window.resizeBy(deltaW, deltaH);
-                  }
-                } catch (e) {}
-
-                // In modern browsers, scripts cannot resize tabs not opened by window.open().
-                // If the current window did not resize, open a dedicated popup window of that size.
-                setTimeout(function() {
-                  if (window.innerWidth === initialInnerW && window.innerHeight === initialInnerH) {
-                    var u = new URL(window.location.href);
-                    u.searchParams.set('screen', val);
-                    var popup = window.open(u.toString(), 'dimx_test_win', 'width=' + outerW + ',height=' + outerH + ',resizable=yes,scrollbars=yes');
-                    if (popup) {
-                      popup.focus();
-                    }
-                  }
-                }, 100);
-              }
               (function() {
-                var params = new URLSearchParams(window.location.search);
-                var screenParam = params.get('screen');
-                var sel = document.getElementById('screenSizeHelper');
-                if (screenParam && sel) {
-                  sel.value = screenParam;
-                }
-                var targetVal = (screenParam || (sel ? sel.value : ''));
-                if (targetVal) {
-                  var parts = targetVal.split('x');
-                  var tw = parseInt(parts[0], 10);
-                  var th = parseInt(parts[1], 10);
-                  if (tw > 0 && th > 0) {
-                    var adjW = tw - window.innerWidth;
-                    var adjH = th - window.innerHeight;
-                    if (adjW !== 0 || adjH !== 0) {
-                      try {
-                        window.resizeBy(adjW, adjH);
-                      } catch(e) {}
-                    }
-                    var cw = document.getElementById('clientWidth');
-                    var ch = document.getElementById('clientHeight');
-                    if (cw) cw.value = tw;
-                    if (ch) ch.value = th;
-                    return;
-                  }
-                }
                 var w = window.innerWidth || (window.screen ? window.screen.width : 0);
                 var h = window.innerHeight || (window.screen ? window.screen.height : 0);
                 if (w > 0) document.getElementById('clientWidth').value = w;

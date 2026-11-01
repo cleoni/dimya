@@ -69,7 +69,7 @@ $sections = [
     45 => ['title' => 'Testing Sounds & Music Login Checkboxes, PlaySound Routing (Player, Room, $WORLD), Embedded Sound Player & Skin SNDNEWMSG...', 'keywords' => ['sounds', 'music', 'playsound', 'sndnewmsg', 'sndplayer', 'audio', 'skin', 'uihtml']],
     46 => ['title' => 'Testing Say Command Target Handling (Speak to Person vs Speak Aloud with target=* in UIhtml & GameEngine)...', 'keywords' => ['say', 'target', 'speak', 'aloud', 'asterisk', 'txtbox', 'uihtml', 'character']],
     47 => ['title' => 'Testing SmallBasic Debug Instruction & GameEngine::log() Writing to debug.log...', 'keywords' => ['debug', 'log', 'debug.log', 'gameengine', 'actionsrunner', 'system folder', 'smallbasic']],
-    48 => ['title' => 'Testing Screen Size Helper (screenSizeHelper config setting & UIhtml login screen dropdown)...', 'keywords' => ['screensizehelper', 'screensizehelp', 'screensize', 'dropdown', 'login', 'resizeto', 'uihtml', 'config']],
+    48 => ['title' => 'Testing Resolution Handling & Login Form Cleanliness (no screenSizeHelper, non-portrait 640x480/800x600)...', 'keywords' => ['screensize', 'landscape', 'resolution', 'portrait', 'uihtml', 'login']],
 ];
 
 // CLI Options parsing
@@ -5071,52 +5071,24 @@ if (shouldRun(47)) {
 }
 
 // ---------------------------------------------------------------------------
-// Section 48: Testing Screen Size Helper (screenSizeHelper config setting & UIhtml login screen dropdown)
+// Section 48: Testing Resolution Handling & Login Form Cleanliness
 // ---------------------------------------------------------------------------
 if (shouldRun(48)) {
-    echo "\n--- Section 48: Testing Screen Size Helper (screenSizeHelper config & UIhtml login screen dropdown) ---\n";
+    echo "\n--- Section 48: Testing Resolution Handling & Login Form Cleanliness ---\n";
 
-    // 1. Verify config.php and config.sample.php define 'screenSizeHelper'
-    $cfg = file_exists(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
+    // 1. Verify config.sample.php does NOT define deprecated 'screenSizeHelper'
     $sampleCfg = file_exists(__DIR__ . '/config.sample.php') ? require __DIR__ . '/config.sample.php' : [];
-    assertTest(array_key_exists('screenSizeHelper', $cfg), "config.php contains 'screenSizeHelper' setting");
-    assertTest(array_key_exists('screenSizeHelper', $sampleCfg), "config.sample.php contains 'screenSizeHelper' setting");
-    assertTest($sampleCfg['screenSizeHelper'] === 0, "config.sample.php 'screenSizeHelper' defaults to 0");
+    assertTest(!array_key_exists('screenSizeHelper', $sampleCfg), "config.sample.php does not contain deprecated 'screenSizeHelper'");
 
-    // 2. UIhtml login screen with screenSizeHelper disabled (0)
-    $engineDisabled = new \Dimx\GameEngine($pm, 'w_helper_off', __DIR__ . '/../docs/dxw-examples/world1.dxw', '', ['screenSizeHelper' => 0]);
-    $uiDisabled = new \Dimx\UIhtml(null, $engineDisabled);
+    // 2. UIhtml login screen does NOT render 'Screen Size:' or 'screenSizeHelper'
+    $engine = new \Dimx\GameEngine($pm, 'w_sec48', __DIR__ . '/../docs/dxw-examples/world1.dxw');
+    $ui = new \Dimx\UIhtml(null, $engine);
     ob_start();
-    $uiDisabled->renderLogin();
-    $htmlOff = ob_get_clean();
-    assertTest(!str_contains($htmlOff, 'Screen Size:'), "UIhtml login form does NOT render 'Screen Size:' dropdown when screenSizeHelper is 0");
-    assertTest(!str_contains($htmlOff, 'id="screenSizeHelper"'), "UIhtml login form does NOT render screenSizeHelper select when disabled");
-
-    // 3. UIhtml login screen with screenSizeHelper enabled (1)
-    $engineEnabled = new \Dimx\GameEngine($pm, 'w_helper_on', __DIR__ . '/../docs/dxw-examples/world1.dxw', '', ['screenSizeHelper' => 1]);
-    $uiEnabled = new \Dimx\UIhtml(null, $engineEnabled);
-    ob_start();
-    $uiEnabled->renderLogin();
-    $htmlOn = ob_get_clean();
-
-    assertTest(str_contains($htmlOn, 'Screen Size:'), "UIhtml login form renders 'Screen Size:' label when screenSizeHelper is 1");
-    assertTest(str_contains($htmlOn, 'id="screenSizeHelper"'), "UIhtml login form renders screenSizeHelper select element");
-
-    // Verify all specified resolutions are present in dropdown, with (default) option
-    assertTest(str_contains($htmlOn, '<option value="" selected>(default)</option>'), "Screen Size dropdown contains '(default)' option selected by default");
-    assertTest(str_contains($htmlOn, '<option value="640x480">640x480</option>'), "Screen Size dropdown contains 640x480 option");
-    assertTest(str_contains($htmlOn, '<option value="800x600">800x600</option>'), "Screen Size dropdown contains 800x600 option");
-    assertTest(str_contains($htmlOn, '<option value="1024x768">1024x768</option>'), "Screen Size dropdown contains 1024x768 option");
-    assertTest(str_contains($htmlOn, '<option value="1280x768">1280x768</option>'), "Screen Size dropdown contains 1280x768 option");
-
-    // Verify dropdown is placed below the login form
-    $posFormEnd = strpos($htmlOn, '</form>');
-    $posHelper  = strpos($htmlOn, 'id="screenSizeHelper"');
-    assertTest($posFormEnd !== false && $posHelper !== false && $posHelper > $posFormEnd, "'Screen Size:' dropdown is placed below the login form");
-
-    // Verify window resize JavaScript helper
-    assertTest(str_contains($htmlOn, 'window.resizeTo(outerW, outerH)') || str_contains($htmlOn, 'window.resizeTo'), "UIhtml includes window.resizeTo function for screen resizing");
-    assertTest(str_contains($htmlOn, 'onchange="resizeScreen(this.value)"'), "Screen Size dropdown triggers resizeScreen on change");
+    $ui->renderLogin();
+    $htmlLogin = ob_get_clean();
+    assertTest(!str_contains($htmlLogin, 'Screen Size:'), "UIhtml login form does NOT render 'Screen Size:' dropdown");
+    assertTest(!str_contains($htmlLogin, 'id="screenSizeHelper"'), "UIhtml login form does NOT render screenSizeHelper select");
+    assertTest(!str_contains($htmlLogin, 'resizeScreen'), "UIhtml login form does NOT contain resizeScreen function");
 
     // 4. Verify 640x480 and 800x600 do NOT trigger vertical/smartphone disposition
     $testW48 = new \Dimx\World('w_test_48', 'Test World 48');
