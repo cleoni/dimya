@@ -1,4 +1,4 @@
-# DimensioneY Multiplayer Game Engine written in PHP
+﻿# DimensioneY Multiplayer Game Engine written in PHP
 
 Multiplayer virtual world and interactive adventure game engine.
 
@@ -36,6 +36,21 @@ Detailed documentation and diagrams have been generated and saved to the [`docs/
 - **Do NOT re-introduce intentionally dropped features**:
   - `Cluster` / clustering features.
   - `Dict` / `DictSorted` classes (replaced with PHP native arrays and built-in types).
+  
+## Debugging Tools and Recommendations
+- In order to inspect the world's inner status it is useful to use the **Snapshot** feature of the maintenance console: HTTP post to `maint.php` while passing as HTTP parameters `action="snapshot"` and `adminPasswd` set to the current Admin password as defined in `config.php`.
+- In order to understand the EVENTS code chain it is useful to inspect the **`debug.log`** file that can be found in the game engine folder. If `debug.log` file is missing, then it must be enabled by setting `debugTo=file` in `config.php`.
+- A good way to explore a loaded world as a bot is using the **UIjson** interface that provides extra information normally not visible to players (hidden items, internal inspect attributes, etc.). Note that regular bots receive the fair-play **UIbot** view; to get diagnostic UIjson payloads, the bot's account name must be listed in the 'testBots' setting in `config.php`.
+- **Automated Test Suite (`test_multiplayer.php`)**: When developing or fixing features, run the regression test suite from the CLI. You can target specific areas without running all 47+ sections:
+  - Run filtered tests: `php test_multiplayer.php --filter=<keyword>` (e.g. `--filter=auth`, `--filter=Speak`, `--filter=open`).
+  - Run specific sections: `php test_multiplayer.php --section=14` or `--section=15-18`.
+  - List all test sections: `php test_multiplayer.php --list`.
+- **Standalone Bot Testing (`bot.php`)**: To test end-to-end HTTP bot gameplay and command interactions via cURL, use `php bot.php`. Request and response payloads are logged to `conversation.log`.
+- **Maintenance Actions (`maint.php`)**: Other useful maintenance actions via POST with `adminPasswd`:
+  - `action="reset_world"`: Invalidates active player sessions and forces re-seeding the world from the `.dxw` file.
+  - `action="clear_file_cache"`: Flushes cached world state files (`php/data/*.json`, `*.bin`, `*.jsonl`).
+  - `action="clear_chat"`: Clears chat history in DB or `chat_main.jsonl`.
+
 
 ## DimX vs DimY Documentation Principle
 - Always keep clear in the docs what is **DimensioneY (implemented in PHP)** and what is **DimensioneX only** (original Java behaviour, target behaviour not implemented yet, or intentionally dropped). Never describe DimX-only features as if DimY supports them.
