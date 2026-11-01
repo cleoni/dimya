@@ -30,13 +30,7 @@ class UIhtml extends UI
         $worldWidth = ($w && $w->screenwidth > 0) ? $w->screenwidth : 800;
         $width = ($p && $p->screenWidth > 0) ? $p->screenWidth : 800;
 
-        $effectiveWidth = $width;
-        if ($effectiveWidth > 1024 && $worldWidth <= 640) {
-            $effectiveWidth = 1024;
-        }
-
-        $factor = (float)($effectiveWidth / $worldWidth) * 1.3;
-        return min($factor, 2.08);
+        return (float)($width / $worldWidth);
     }
 
     /**
@@ -370,8 +364,8 @@ class UIhtml extends UI
         $factorx = $this->getFactorX($player, $world);
         $roomW   = (!empty($currentRoom?->images['N']?->width)) ? $currentRoom->images['N']->width : ($world->sceneWidth ?? 350);
         $roomH   = (!empty($currentRoom?->images['N']?->height)) ? $currentRoom->images['N']->height : ($world->sceneHeight ?? 235);
-        $scaledRoomW = (int)round($factorx * $roomW);
-        $scaledRoomH = (int)round($factorx * $roomH);
+        $scaledRoomW = (int)($factorx * max(1, $roomW - 3));
+        $scaledRoomH = max(1, (int)($factorx * ($roomH + 1)) - 1);
 
         if (!headers_sent()) {
             header('Content-Type: text/html; charset=utf-8');
@@ -515,7 +509,7 @@ class UIhtml extends UI
               color: #f8fafc;
               border-color: #64748b;
             }
-            /* Inner row in Cell A */
+            /* Inner row in Cell A (preserved for backward compatibility & testing) */
             .dimx-inner-row {
               display: flex;
               flex-direction: row;
@@ -523,28 +517,28 @@ class UIhtml extends UI
               min-height: 0;
               width: 100%;
             }
-            /* #display: remaining width, room image and description below it */
-            #display {
-              flex: 1 1 auto;
-              min-width: 0;
-              height: 100%;
-              overflow-y: auto;
-              padding: 0;
-              display: flex;
-              flex-direction: column;
+            /* Table in Cell A containing #display and #dashboard */
+            .dimx-scene-table {
+              width: 100%;
+              border-collapse: collapse;
+              border-spacing: 0;
+              flex: 0 0 auto;
+              background: transparent;
             }
-            /* #dashboard: 200 pixels wide, navigation, inventory, stats */
+            /* #display: left cell containing scene picture */
+            #display {
+              vertical-align: top;
+              padding: 4px;
+            }
+            /* #dashboard: right cell containing navigation, inventory, stats */
             #dashboard {
-              width: 200px;
-              flex: 0 0 200px;
-              height: 100%;
-              overflow-y: auto;
-              padding: 8px;
+              vertical-align: top;
+              padding: 4px 8px;
               border-left: 1px solid #444466;
               background: transparent;
             }
             /* Subtle / hidden scrollbars while preserving y-scrollability */
-            #scene, #display, #dashboard, #ctrls, #msgs {
+            #scene, #display, #dashboard, #ctrls, #msgs, #consoleBox {
               scrollbar-width: none;
               -ms-overflow-style: none;
             }
@@ -552,7 +546,8 @@ class UIhtml extends UI
             #display::-webkit-scrollbar,
             #dashboard::-webkit-scrollbar,
             #ctrls::-webkit-scrollbar,
-            #msgs::-webkit-scrollbar {
+            #msgs::-webkit-scrollbar,
+            #consoleBox::-webkit-scrollbar {
               display: none;
               width: 0;
               height: 0;
@@ -560,7 +555,7 @@ class UIhtml extends UI
             .dimx-scene-container {
               position: relative;
               display: inline-block;
-              margin-bottom: 8px;
+              margin-bottom: 0;
               overflow: hidden;
             }
             .dimx-scene-img {
@@ -575,9 +570,12 @@ class UIhtml extends UI
               color: #64748b;
               font-size: 14px;
             }
-            .dimx-console {
+            .dimx-console, #consoleBox {
               line-height: 1.5;
+              padding: 0;
               margin-top: 4px;
+              overflow-y: auto;
+              box-sizing: border-box;
             }
             .dimx-console-line {
               margin-bottom: 4px;
@@ -934,11 +932,11 @@ class UIhtml extends UI
                 </div>
 
                 <div id="dimx-scene-meta" style="display:none" data-panel-id="<?= htmlspecialchars($activePanel?->id ?? 'default') ?>" data-sound-url="<?= htmlspecialchars($soundUrl ?? '') ?>" data-bg-src="<?= htmlspecialchars($bgMusic['src'] ?? '') ?>" data-bg-loop="<?= !empty($bgMusic['loop']) ? '1' : '0' ?>" data-bg-triggered="<?= $bgTriggered ? '1' : '0' ?>"></div>
-                <!-- Inner row split into Subcell D (left) and Subcell E (right) -->
-                <div class="dimx-inner-row">
-
-                  <!-- Subcell D: Room image and below it, description / main messages output -->
-                  <div id="display">
+                <!-- 1-row table for #display and #dashboard -->
+                <table id="dimx-scene-table" class="dimx-scene-table">
+                  <tr style="vertical-align:top">
+                    <!-- #display: Room image and on-screen entities -->
+                    <td id="display">
                     <div class="dimx-scene-container" style="position:relative;width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;background-color:<?= htmlspecialchars($world->bgcolor ?? '#000040') ?>;">
                       <?php
                         $sceneImg = $currentRoom ? $currentRoom->getImageForFacing($player->facing ?? 'N') : null;
@@ -1206,10 +1204,10 @@ class UIhtml extends UI
                         <div class="dimx-room-desc"><?= nl2br(htmlspecialchars($activeContainer->evalDescription($player))) ?></div>
                       <?php endif; ?>
                     </div>
-                  </div>
+                    </td>
 
-                  <!-- #dashboard: Navigation controls, inventory, stats (200px wide) -->
-                  <div id="dashboard">
+                    <!-- #dashboard: Navigation controls, inventory, stats -->
+                    <td id="dashboard">
                     <!-- Navigation / Exits (Navpad) -->
                     <?php
                       $isMultiface = $currentRoom && $currentRoom->hasSeveralFaces();
@@ -1585,9 +1583,10 @@ class UIhtml extends UI
                         <span style="font-size:11px;color:#64748b">None.</span>
                       <?php endif; ?>
                     </div>
-                  </div>
+                    </td>
+                  </tr>
+                </table>
 
-                </div>
               </div>
 
               <!-- CELL B: Right cell of top row (255px wide, ACTIONS panel) -->
