@@ -453,10 +453,10 @@ class UIhtml extends UI
                   $panelStyleDecls = 'font-size: 10pt;font-family: Tahoma;color:#600000';
               }
             ?>
-            /* Cell B: 300 pixels wide, grey frame */
+            /* Cell B: 255 pixels wide, grey frame */
             #ctrls {
-              width: 300px;
-              flex: 0 0 300px;
+              width: 255px;
+              flex: 0 0 255px;
               height: 100%;
               overflow-y: auto;
               border-bottom: 2px solid #808080;
@@ -1590,7 +1590,7 @@ class UIhtml extends UI
                 </div>
               </div>
 
-              <!-- CELL B: Right cell of top row (300px wide, ACTIONS panel) -->
+              <!-- CELL B: Right cell of top row (255px wide, ACTIONS panel) -->
               <?php
                 $ctrlsStyle = 'background-color:' . htmlspecialchars($skin->panelBgColor ?: 'SILVER') . ';';
                 if (!empty($skin->panelBackground)) {
