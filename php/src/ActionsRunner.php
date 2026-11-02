@@ -16,6 +16,7 @@ class ActionsRunner
     protected mixed $agent = null;
     protected mixed $target = null;
     protected array $input = [];
+    public array $localVars = [];
 
     protected bool $hasReturned = false;
     protected mixed $returnValue = true;
@@ -35,6 +36,91 @@ class ActionsRunner
         $this->target = $target;
         $this->input = $input;
         $this->defaultResult = $defaultResult;
+    }
+
+    public function setLocalVar(string $name, mixed $val): void
+    {
+        $this->localVars[$name] = $val;
+    }
+
+    public function getLocalVar(string $name): mixed
+    {
+        return $this->localVars[$name] ?? null;
+    }
+
+    public function setVariable(string $name, mixed $val, bool $isDim = false): void
+    {
+        if ($isDim || array_key_exists($name, $this->localVars)) {
+            $this->localVars[$name] = $val;
+            return;
+        }
+
+        if ($this->world !== null) {
+            $this->world->setProperty($name, $val);
+            if (property_exists($this->world, $name)) {
+                $this->world->{$name} = $val;
+            }
+        }
+    }
+
+    public function getVariable(string $name): mixed
+    {
+        if (array_key_exists($name, $this->localVars)) {
+            return $this->localVars[$name];
+        }
+        if ($this->world !== null) {
+            if ($this->world->hasProperty($name)) {
+                return $this->world->getProperty($name);
+            }
+            if (isset($this->world->sets[$name])) {
+                return $this->world->sets[$name];
+            }
+            if (property_exists($this->world, $name)) {
+                return $this->world->{$name};
+            }
+        }
+        if ($this->owner instanceof DimxObject) {
+            if ($this->owner->hasProperty($name)) {
+                return $this->owner->getProperty($name);
+            }
+            if (property_exists($this->owner, $name)) {
+                return $this->owner->{$name};
+            }
+        }
+        return null;
+    }
+
+    public function setArrayElement(string $name, int $index, mixed $val): void
+    {
+        $idx0 = max(0, $index - 1);
+
+        if (array_key_exists($name, $this->localVars) && is_array($this->localVars[$name])) {
+            $this->localVars[$name][$idx0] = $val;
+            return;
+        }
+
+        if ($this->world !== null) {
+            $arr = $this->world->sets[$name] ?? $this->world->getProperty($name);
+            if (!is_array($arr)) {
+                $arr = [];
+            }
+            $arr[$idx0] = $val;
+            $this->world->sets[$name] = $arr;
+            $this->world->setProperty($name, $arr);
+            return;
+        }
+
+        $this->localVars[$name][$idx0] = $val;
+    }
+
+    public function getArrayElement(string $name, int $index): mixed
+    {
+        $idx0 = max(0, $index - 1);
+        $arr = $this->getVariable($name);
+        if (is_array($arr)) {
+            return $arr[$idx0] ?? $arr[$index] ?? null;
+        }
+        return null;
     }
 
     /**
@@ -150,6 +236,43 @@ class ActionsRunner
                 continue;
             }
 
+            // Check for For loop: For var = start To end [Step s]
+            if (preg_match('/^FOR\b\s+([A-Za-z0-9_]+)\s*=\s*(.+?)\s+TO\s+(.+?)(\s+STEP\s+(.+?))?$/i', $line, $fm)) {
+                $varName = $fm[1];
+                $startVal = (int)$this->evalValue($fm[2]);
+                $endVal = (int)$this->evalValue($fm[3]);
+                $step = isset($fm[5]) ? (int)$this->evalValue($fm[5]) : 1;
+
+                $loopLines = [];
+                $nesting = 1;
+                $i++;
+
+                while ($i < $count) {
+                    $sub = $lines[$i];
+                    if (preg_match('/^FOR\b/i', $sub)) {
+                        $nesting++;
+                    } elseif (preg_match('/^NEXT\b/i', $sub)) {
+                        $nesting--;
+                        if ($nesting === 0) {
+                            $i++;
+                            break;
+                        }
+                    }
+                    $loopLines[] = $sub;
+                    $i++;
+                }
+
+                $subScript = implode("\n", $loopLines);
+                for ($val = $startVal; ($step > 0 ? $val <= $endVal : $val >= $endVal); $val += $step) {
+                    $this->setVariable($varName, $val);
+                    $this->run($subScript);
+                    if ($this->hasReturned) {
+                        return $this->returnValue;
+                    }
+                }
+                continue;
+            }
+
             // Normal single statement execution
             $stmtRes = $this->executeStatement($line);
             if ($this->hasReturned) {
@@ -254,6 +377,30 @@ class ActionsRunner
             return true;
         }
 
+        // 1c. Array element assignment e.g. "score(i) = 0" or "players(i) = person"
+        if (preg_match('/^([A-Za-z0-9_]+)\s*\(\s*(.+?)\s*\)\s*=\s*(.*)$/', $line, $m) && !str_contains($m[1], '.')) {
+            $arrName = $m[1];
+            $idx = (int)$this->evalValue($m[2]);
+            $val = $this->evalValue($m[3]);
+            $this->setArrayElement($arrName, $idx, $val);
+            return true;
+        }
+
+        // 1d. Variable assignment with or without Dim e.g. "Dim slot = addPlayer($AGENT)" or "mode = 'pre'"
+        if (preg_match('/^(?:DIM\s+)?([A-Za-z0-9_]+)\s*=\s*(.*)$/i', $line, $m) && !str_contains($m[1], '.')) {
+            $varName = $m[1];
+            $val = $this->evalValue($m[2]);
+            $isDim = str_starts_with(strtoupper($line), 'DIM');
+            $this->setVariable($varName, $val, $isDim);
+            return true;
+        }
+
+        // 1e. Variable declaration without assignment: "Dim i"
+        if (preg_match('/^DIM\s+([A-Za-z0-9_]+)$/i', $line, $m)) {
+            $this->localVars[$m[1]] = null;
+            return true;
+        }
+
         // Tokenize by verb and argument list
         $parts = preg_split('/\s+/', $line, 2);
         $verb = strtoupper($parts[0] ?? '');
@@ -292,10 +439,20 @@ class ActionsRunner
             'OPEN'       => $this->actOpen($args),
             'CLOSE'      => $this->actClose($args),
             'SEARCH'     => $this->actSearch($args),
+            'REFRESHVIEW' => true,
+            'RESET'      => $this->actReset(),
             'GIVE'       => $this->actGive($args),
             'DEBUG'      => $this->actDebug($args),
             default      => true,
         };
+    }
+
+    protected function actReset(): bool
+    {
+        if ($this->world !== null) {
+            $this->world->reset = true;
+        }
+        return true;
     }
 
     /**
@@ -1110,6 +1267,31 @@ class ActionsRunner
             return null;
         }
 
+        if (array_key_exists($name, $this->localVars)) {
+            $lv = $this->localVars[$name];
+            if ($lv instanceof DimxObject) {
+                return $lv;
+            }
+            if (is_string($lv) && $lv !== '') {
+                $obj = $this->world->getObjectExt($lv);
+                if ($obj !== null) {
+                    return $obj;
+                }
+            }
+        }
+        if ($this->world !== null) {
+            $wv = $this->world->getProperty($name);
+            if ($wv instanceof DimxObject) {
+                return $wv;
+            }
+            if (is_string($wv) && $wv !== '') {
+                $obj = $this->world->getObjectExt($wv);
+                if ($obj !== null) {
+                    return $obj;
+                }
+            }
+        }
+
         return $this->world->getObjectExt($name);
     }
 
@@ -1251,6 +1433,85 @@ class ActionsRunner
         return $depth === 1;
     }
 
+    protected function splitTopLevelBinary(string $expr, array $operators): ?array
+    {
+        $len = strlen($expr);
+        $parenDepth = 0;
+        $inQuote = false;
+        $quoteChar = '';
+
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $expr[$i];
+
+            if ($inQuote) {
+                if ($ch === $quoteChar) {
+                    $inQuote = false;
+                }
+                continue;
+            }
+
+            if ($ch === '"' || $ch === "'") {
+                $inQuote = true;
+                $quoteChar = $ch;
+                continue;
+            }
+
+            if ($ch === '(') {
+                $parenDepth++;
+                continue;
+            }
+            if ($ch === ')') {
+                if ($parenDepth > 0) {
+                    $parenDepth--;
+                }
+                continue;
+            }
+
+            if ($parenDepth === 0) {
+                foreach ($operators as $op) {
+                    $opLen = strlen($op);
+                    if (substr($expr, $i, $opLen) === $op) {
+                        if (($op === '+' || $op === '-') && $i === 0) {
+                            continue;
+                        }
+                        return [
+                            substr($expr, 0, $i),
+                            $op,
+                            substr($expr, $i + $opLen),
+                        ];
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public static function isSingleQuotedString(string $val): bool
+    {
+        $len = strlen($val);
+        if ($len < 2) {
+            return false;
+        }
+        $quote = $val[0];
+        if ($quote !== '"' && $quote !== "'") {
+            return false;
+        }
+        if ($val[$len - 1] !== $quote) {
+            return false;
+        }
+        for ($i = 1; $i < $len - 1; $i++) {
+            if ($val[$i] === '\\') {
+                $i++;
+                continue;
+            }
+            if ($val[$i] === $quote) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * Evaluate expression or literal into a PHP scalar value.
      */
@@ -1258,11 +1519,12 @@ class ActionsRunner
     {
         $val = trim($val);
 
-        if (str_starts_with($val, '"') && str_ends_with($val, '"') && strlen($val) >= 2) {
-            return substr($val, 1, -1);
+        // Unwrap outer parentheses if fully enclosed: (expr)
+        while (str_starts_with($val, '(') && str_ends_with($val, ')') && self::isFullyEnclosedInParens($val)) {
+            $val = trim(substr($val, 1, -1));
         }
 
-        if (str_starts_with($val, "'") && str_ends_with($val, "'") && strlen($val) >= 2) {
+        if (self::isSingleQuotedString($val)) {
             return substr($val, 1, -1);
         }
 
@@ -1283,91 +1545,23 @@ class ActionsRunner
 
         // Special system variables: $WORLD, $OWNER, $AGENT, $TARGET
         if ($upper === '$WORLD') {
-            return $this->world->id;
+            return $this->world;
         }
         if ($upper === '$OWNER') {
-            if ($this->owner instanceof DimxObject) {
-                return $this->owner->id ?? $this->owner->name;
-            }
-            return (string)($this->owner ?? '');
+            return $this->owner;
         }
         if ($upper === '$AGENT') {
-            if ($this->agent instanceof DimxObject) {
-                return $this->agent->id ?? $this->agent->name;
-            }
-            return (string)($this->agent ?? '');
+            return $this->agent;
         }
         if ($upper === '$TARGET') {
-            if ($this->target instanceof DimxObject) {
-                return $this->target->id ?? $this->target->name;
-            }
-            return (string)($this->target ?? '');
+            return $this->target;
         }
 
-        // Function call: RndSet(set)
-        if (preg_match('/^rndSet\s*\(\s*(.+?)\s*\)$/i', $val, $rm)) {
-            $arg = trim($rm[1]);
-            if (str_starts_with($arg, '$WORLD.')) {
-                $setName = substr($arg, 7);
-            } else {
-                $setName = $arg;
-            }
-            $set = $this->world->sets[$setName] ?? $this->world->getProperty($setName) ?? null;
-            if (is_array($set) && !empty($set)) {
-                $keys = array_keys($set);
-                $randKey = $keys[array_rand($keys)];
-                return is_int($randKey) ? $set[$randKey] : $randKey;
-            }
-            return '';
-        }
-
-        // Function call: RndInt(min, max)
-        if (preg_match('/^rndInt\s*\(\s*(.+?)\s*,\s*(.+?)\s*\)$/i', $val, $im)) {
-            $min = (int)$this->evalValue($im[1]);
-            $max = (int)$this->evalValue($im[2]);
-            return rand($min, $max);
-        }
-
-        // Function call: NewImage(url, width, height)
-        if (preg_match('/^newimage\s*\((.*)\)$/is', $val, $nim)) {
-            $niArgs = $this->parseArguments($nim[1], false);
-            $rawUrl = $niArgs[0] ?? '';
-            $evalUrl = $this->evalValue($rawUrl);
-            $url = is_string($evalUrl) ? trim($evalUrl, "\"'") : (string)$evalUrl;
-
-            $width = isset($niArgs[1]) ? (int)$this->evalValue($niArgs[1]) : 0;
-            $height = isset($niArgs[2]) ? (int)$this->evalValue($niArgs[2]) : 0;
-
-            if ($this->world !== null && !empty($this->world->imagesFolder)
-                && !str_starts_with($url, 'http://')
-                && !str_starts_with($url, 'https://')
-                && !str_starts_with($url, '/')
-                && $url !== '') {
-                $url = rtrim($this->world->imagesFolder, '/') . '/' . ltrim($url, '/');
-            }
-
-            return new Image($url, $width, $height);
-        }
-
-        // Property access e.g. "$WORLD.mode", "$OWNER.Health", "box.open"
-        if (preg_match('/^(\$?[A-Za-z0-9_]+)\.([A-Za-z0-9_]+)$/', $val, $m)) {
-            $obj = $this->resolveObject($m[1]);
-            $prop = $m[2];
-            if ($obj !== null) {
-                $propVal = property_exists($obj, $prop) ? $obj->{$prop} : $obj->getProperty($prop);
-                if ($propVal instanceof DimxObject) {
-                    return $propVal->id;
-                }
-                return $propVal;
-            }
-            return null;
-        }
-
-        // Simple binary arithmetic: left [+-*/] right (e.g. "$OWNER.Health + 0.2" or string concat "Text " + var)
-        if (preg_match('/^(.+?)\s*([\+\-\*\/])\s*(.+)$/', $val, $am)) {
-            $left = $this->evalValue($am[1]);
-            $op = $am[2];
-            $right = $this->evalValue($am[3]);
+        // Top-level binary arithmetic & string concatenation outside quotes/parentheses
+        if ($bin = $this->splitTopLevelBinary($val, ['+', '-', '*', '/'])) {
+            $left = $this->evalValue($bin[0]);
+            $op = $bin[1];
+            $right = $this->evalValue($bin[2]);
             if (is_numeric($left) && is_numeric($right)) {
                 return match ($op) {
                     '+' => $left + $right,
@@ -1377,10 +1571,139 @@ class ActionsRunner
                     default => $val,
                 };
             } elseif ($op === '+') {
-                $leftStr = ($left instanceof Image) ? $left->toHtml() : (string)$left;
-                $rightStr = ($right instanceof Image) ? $right->toHtml() : (string)$right;
+                $leftStr = ($left instanceof Image) ? $left->toHtml() : ($left instanceof DimxObject ? ($left->name ?: $left->id) : (string)$left);
+                $rightStr = ($right instanceof Image) ? $right->toHtml() : ($right instanceof DimxObject ? ($right->name ?: $right->id) : (string)$right);
                 return $leftStr . $rightStr;
             }
+        }
+
+        // Function call or array indexing: func(...) or array(...)
+        if (preg_match('/^([A-Za-z0-9_]+)\s*\((.*)\)$/s', $val, $fm)) {
+            $fn = $fm[1];
+            $argStr = trim($fm[2]);
+
+            // Built-in SetLen
+            if (strcasecmp($fn, 'SetLen') === 0) {
+                $setName = trim($argStr);
+                $arr = $this->getVariable($setName);
+                return is_array($arr) ? count($arr) : 0;
+            }
+
+            // Built-in Exists
+            if (strcasecmp($fn, 'Exists') === 0) {
+                $targetObj = $this->evalValue($argStr);
+                if ($targetObj === null || $targetObj === '' || $targetObj === '(empty)') {
+                    return false;
+                }
+                if ($targetObj instanceof DimxObject) {
+                    return true;
+                }
+                if (is_string($targetObj)) {
+                    return ($this->world->getObjectExt($targetObj) !== null);
+                }
+                return false;
+            }
+
+            // Built-in RndInt
+            if (strcasecmp($fn, 'RndInt') === 0) {
+                $args = $this->parseArguments($argStr);
+                if (count($args) === 1) {
+                    $max = (int)$this->evalValue($args[0]);
+                    return rand(1, max(1, $max));
+                }
+                $min = (int)$this->evalValue($args[0] ?? 1);
+                $max = (int)$this->evalValue($args[1] ?? 1);
+                return rand($min, $max);
+            }
+
+            // Built-in RndSet
+            if (strcasecmp($fn, 'RndSet') === 0) {
+                $arg = trim($argStr);
+                if (str_starts_with($arg, '$WORLD.')) {
+                    $setName = substr($arg, 7);
+                } else {
+                    $setName = $arg;
+                }
+                $set = $this->world->sets[$setName] ?? $this->world->getProperty($setName) ?? null;
+                if (is_array($set) && !empty($set)) {
+                    $keys = array_keys($set);
+                    $randKey = $keys[array_rand($keys)];
+                    return is_int($randKey) ? $set[$randKey] : $randKey;
+                }
+                return '';
+            }
+
+            // Built-in NewImage
+            if (strcasecmp($fn, 'NewImage') === 0) {
+                $niArgs = $this->parseArguments($argStr, false);
+                $rawUrl = $niArgs[0] ?? '';
+                $evalUrl = $this->evalValue($rawUrl);
+                $url = is_string($evalUrl) ? trim($evalUrl, "\"'") : (string)$evalUrl;
+                $width = isset($niArgs[1]) ? (int)$this->evalValue($niArgs[1]) : 0;
+                $height = isset($niArgs[2]) ? (int)$this->evalValue($niArgs[2]) : 0;
+                if ($this->world !== null && !empty($this->world->imagesFolder)
+                    && !str_starts_with($url, 'http://') && !str_starts_with($url, 'https://') && !str_starts_with($url, '/') && $url !== '') {
+                    $url = rtrim($this->world->imagesFolder, '/') . '/' . ltrim($url, '/');
+                }
+                return new Image($url, $width, $height);
+            }
+
+            // Check if $fn is an array / set
+            $arr = $this->getVariable($fn);
+            if (is_array($arr)) {
+                $idx = (int)$this->evalValue($argStr);
+                return $this->getArrayElement($fn, $idx);
+            }
+
+            // Check if $fn is a custom script Function/Sub in world events
+            if ($this->world !== null) {
+                $ev = $this->world->getEvent($fn);
+                if ($ev !== null || isset($this->world->events[$fn])) {
+                    $rawArgs = ($argStr !== '') ? $this->parseArguments($argStr) : [];
+                    $evalArgs = [];
+                    foreach ($rawArgs as $a) {
+                        $evalArgs[] = $this->evalValue($a);
+                    }
+                    return $this->world->fireEvent($fn, $this->owner, $this->agent, $this->target, $evalArgs, null);
+                }
+                // Case-insensitive check on events
+                foreach ($this->world->events as $ek => $ev) {
+                    if (strcasecmp($ek, $fn) === 0) {
+                        $rawArgs = ($argStr !== '') ? $this->parseArguments($argStr) : [];
+                        $evalArgs = [];
+                        foreach ($rawArgs as $a) {
+                            $evalArgs[] = $this->evalValue($a);
+                        }
+                        return $this->world->fireEvent($ek, $this->owner, $this->agent, $this->target, $evalArgs, null);
+                    }
+                }
+            }
+        }
+
+        // Property access e.g. "$WORLD.mode", "$OWNER.Health", "box.open", "x.name", "players(nowplays).name"
+        if (preg_match('/^(\$?[A-Za-z0-9_]+(?:\([^\)]*\))?)\.([A-Za-z0-9_]+)$/', $val, $m)) {
+            $targetExpr = $m[1];
+            $prop = $m[2];
+            $obj = $this->resolveObject($targetExpr);
+            if ($obj === null) {
+                $evalTarget = $this->evalValue($targetExpr);
+                if ($evalTarget instanceof DimxObject) {
+                    $obj = $evalTarget;
+                } elseif (is_string($evalTarget) && $evalTarget !== '') {
+                    $obj = $this->world?->getObjectExt($evalTarget);
+                }
+            }
+            if ($obj !== null) {
+                $propVal = property_exists($obj, $prop) ? $obj->{$prop} : $obj->getProperty($prop);
+                return $propVal;
+            }
+            return null;
+        }
+
+        // Variable lookup in local variables or world properties
+        $varVal = $this->getVariable($val);
+        if ($varVal !== null) {
+            return $varVal;
         }
 
         return $val;

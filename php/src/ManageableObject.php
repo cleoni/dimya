@@ -91,6 +91,24 @@ class ManageableObject
         return null;
     }
 
+    public function hasProperty(string $name): bool
+    {
+        if (array_key_exists($name, $this->properties)) {
+            return true;
+        }
+        $metaMap = self::getClassPropertyMetaMap(static::class);
+        $lower = strtolower($name);
+        if (isset($metaMap[$lower])) {
+            return true;
+        }
+        foreach ($this->properties as $k => $v) {
+            if (strcasecmp((string)$k, $name) === 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * Set dynamic or declared property with type coercion for typed declared properties.
      */

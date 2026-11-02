@@ -893,7 +893,15 @@ class DxwLoader
 
                 case 'SCRIPTS':
                     if ($directive === 'EVENT' || $directive === 'SUB' || $directive === 'FUNCTION') {
+                        $rawSig = trim(substr($line, strlen($tokens[0])));
                         $eventQual = $tokens[1] ?? '';
+                        $formalParams = [];
+                        if (preg_match('/^([A-Za-z0-9_.]+)(?:\s*\((.*)\))?$/s', $rawSig, $sigMatch)) {
+                            $eventQual = trim($sigMatch[1]);
+                            if (isset($sigMatch[2]) && trim($sigMatch[2]) !== '') {
+                                $formalParams = array_values(array_filter(array_map('trim', explode(',', $sigMatch[2])), fn($p) => $p !== ''));
+                            }
+                        }
                         $eventType = $directive;
                         $actionLines = [];
                         $i++;
@@ -914,10 +922,21 @@ class DxwLoader
                         }
 
                         $actionText = implode("\n", $actionLines);
-                        $event = new Event($eventQual, $eventType);
+                        $event = new Event($eventQual, $eventType, null, $formalParams);
                         $event->actions = $actionText;
-                        $event->setHandler(function (?DimxObject $owner, mixed $agent, mixed $target, array $input = [], mixed $defaultResult = true) use ($actionText, $world) {
+                        $event->setHandler(function (?DimxObject $owner, mixed $agent, mixed $target, array $input = [], mixed $defaultResult = true) use ($actionText, $world, $formalParams) {
                             $runner = new ActionsRunner($world, $owner, $agent, $target, $input, $defaultResult);
+                            if (!empty($formalParams) && !empty($input)) {
+                                $idx = 0;
+                                foreach ($formalParams as $paramName) {
+                                    if (isset($input[$paramName])) {
+                                        $runner->setLocalVar($paramName, $input[$paramName]);
+                                    } elseif (array_key_exists($idx, $input)) {
+                                        $runner->setLocalVar($paramName, $input[$idx]);
+                                    }
+                                    $idx++;
+                                }
+                            }
                             return $runner->run($actionText);
                         });
                         $world->registerEvent($event);

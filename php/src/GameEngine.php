@@ -319,6 +319,7 @@ class GameEngine
 
             $world->addPlayer($player);
             $player->display("Welcome to <b>{$world->name}</b>, {$player->name}!");
+            $world->fireEvent('onNew', $world, $player, null);
         } else {
             if ($player->numericId === null && $numericId !== null) {
                 $player->numericId = $numericId;

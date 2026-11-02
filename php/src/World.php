@@ -18,8 +18,9 @@ class World extends DimxObject
     public int $interphone = 1; // 0=room only, 1=world with vehicle privacy, 2=global
     public int $tickLength = 30; // Seconds between clock ticks
     public int $lastTick = 0; // Timestamp of last executed clock tick
-    public int $mode = 0; // 0 = stopped / lobby / won (Goal), 1 = adventure running
+    public mixed $mode = 0; // 0 = stopped / lobby / won (Goal), 1 = adventure running, or string like "pre", "play"
     public int $savegamePersistence = 2; // 0=restart only, 1=version only, 2=permanent
+    public bool $reset = false;
 
     // Screen and viewport design dimensions
     public int $screenwidth = 800; // Target design screen display size (default 800)
@@ -401,6 +402,19 @@ class World extends DimxObject
     public function registerEvent(Event $event): void
     {
         $this->events[$event->id] = $event;
+    }
+
+    public function getEvent(string $id): ?Event
+    {
+        if (isset($this->events[$id])) {
+            return $this->events[$id];
+        }
+        foreach ($this->events as $k => $ev) {
+            if (strcasecmp($k, $id) === 0) {
+                return $ev;
+            }
+        }
+        return null;
     }
 
     /**
