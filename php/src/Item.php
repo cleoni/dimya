@@ -33,7 +33,7 @@ class Item extends PeopleContainer
             $world, $name, $id, $description, $icon, $attrList,
             $capacity, $volume, true, $defContainer
         );
-        $this->showmode = self::SHOW_ICON;
+        //$this->showmode = self::SHOW_ICON;
     }
 
     public function isanItem(): bool

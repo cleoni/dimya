@@ -258,7 +258,7 @@ SmallBasic is dynamically typed. An expression can be treated as a number, strin
 
 ### 3.5.2 Complex Types
 
-> **[DimX only - not yet implemented in DimY]** Script-level Image/Set/Array objects (`NewImage`, `NewSet`, `NewArray`, `Split`) are not implemented; only world-level `SET` declarations exist (used by `RndSet`). `Dict`/`DictSorted` were **dropped in DimY** (native PHP arrays).
+> **[DimY: partial]** `Image` objects (`NewImage`) are implemented. Collection objects (`NewSet`, `NewArray`, `Split`) are **[DimX only - not yet implemented in DimY]**; only world-level `SET` declarations exist (used by `RndSet`). `Dict`/`DictSorted` were **dropped in DimY** (native PHP arrays).
 
 - **Image**: An image object (created via `NewImage(src, width, height)` or defined in `.dxw`).
 - **Set**: Key-value dictionary / collection (created via `NewSet()`, `SET` declarations, or functions like `getItemsIn()`).
@@ -744,7 +744,7 @@ PlayBackground [dest,] soundFile [, loop]
 
 ### 3.9.18 Print
 
-> **[DimY: partial]** Implemented (`Display`/`Print`), but `NewImage()` image messages are not supported (`NewImage` is not implemented); messages are strings only. Expressions are limited (see operators).
+> **[DimY: partial]** Implemented (`Display`/`Print`). Both strings and `NewImage()` image objects are supported (images render to HTML `<img>` tags). Expressions are limited (see operators).
 
 Outputs formatted messages or images directly to player consoles.
 
@@ -1367,11 +1367,20 @@ Dynamically creates an NPC character in the specified room.
 
 ### 3.10.36 NewImage( url, width, height )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
-Instantiates an `Image` object with explicit dimensions.
+> **[DimY: implemented]** Instantiates an `Image` object with explicit dimensions. Relative URLs are automatically absolutized against the world's `IMAGESFOLDER`. When passed to `Display`, `Print`, or string concatenation, it renders an HTML `<img>` tag.
 
 - **Syntax**: `img = NewImage( url, width, height )`
+- **Parameters**:
+  - `url` *(Required)*: String path or URL to the image file. If relative, prepended with world `IMAGESFOLDER`.
+  - `width` *(Required)*: Target display width in pixels.
+  - `height` *(Required)*: Target display height in pixels.
+- **Returns**: An `Image` object instance.
+- **Example**:
+  ```basic
+  Print NewImage("hero.gif", 64, 100)
+  testroom.effect = NewImage("rain.gif", 350, 235)
+  pathgate.image("E") = NewImage("pathgateeo.jpg", 350, 235)
+  ```
 
 ---
 

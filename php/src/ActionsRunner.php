@@ -42,6 +42,9 @@ class ActionsRunner
      */
     public function run(string $script): mixed
     {
+        $this->hasReturned = false;
+        $this->returnValue = $this->defaultResult;
+
         $rawLines = preg_split('/\r\n|\r|\n/', $script);
         $lines = [];
         $accum = '';
@@ -184,16 +187,33 @@ class ActionsRunner
 
             $obj = $this->resolveObject($targetName);
             if ($obj !== null) {
-                $obj->setProperty($propName, $val);
-                if (property_exists($obj, $propName)) {
-                    if (is_bool($obj->{$propName})) {
-                        $obj->{$propName} = (bool)$val;
-                    } elseif (is_int($obj->{$propName})) {
-                        $obj->{$propName} = (int)$val;
-                    } elseif (is_float($obj->{$propName})) {
-                        $obj->{$propName} = (float)$val;
-                    } else {
-                        $obj->{$propName} = $val;
+                if ($propName === 'image' && property_exists($obj, 'images')) {
+                    if ($val instanceof Image) {
+                        $obj->images['N'] = $val;
+                    } elseif (is_string($val)) {
+                        $imgSrc = $val;
+                        if ($this->world !== null && !empty($this->world->imagesFolder) && !str_starts_with($imgSrc, 'http://') && !str_starts_with($imgSrc, 'https://') && !str_starts_with($imgSrc, '/')) {
+                            $imgSrc = rtrim($this->world->imagesFolder, '/') . '/' . ltrim($imgSrc, '/');
+                        }
+                        $imgW = $obj->images['N']->width ?? 350;
+                        $imgH = $obj->images['N']->height ?? 235;
+                        $obj->images['N'] = new Image($imgSrc, $imgW, $imgH);
+                    }
+                    if (property_exists($obj, 'image')) {
+                        $obj->image = $obj->images['N'] ?? $val;
+                    }
+                } else {
+                    $obj->setProperty($propName, $val);
+                    if (property_exists($obj, $propName)) {
+                        if (is_bool($obj->{$propName})) {
+                            $obj->{$propName} = (bool)$val;
+                        } elseif (is_int($obj->{$propName})) {
+                            $obj->{$propName} = (int)$val;
+                        } elseif (is_float($obj->{$propName})) {
+                            $obj->{$propName} = (float)$val;
+                        } else {
+                            $obj->{$propName} = $val;
+                        }
                     }
                 }
             }
@@ -211,14 +231,19 @@ class ActionsRunner
             $obj = $this->resolveObject($targetName);
             if ($obj !== null) {
                 if ($propName === 'image' && property_exists($obj, 'images')) {
-                    $imgSrc = (string)$val;
-                    if ($this->world !== null && !empty($this->world->imagesFolder) && !str_starts_with($imgSrc, 'http://') && !str_starts_with($imgSrc, 'https://') && !str_starts_with($imgSrc, '/')) {
-                        $imgSrc = rtrim($this->world->imagesFolder, '/') . '/' . ltrim($imgSrc, '/');
+                    if ($val instanceof Image) {
+                        $obj->images[$key] = $val;
+                        $obj->image = $val;
+                    } else {
+                        $imgSrc = (string)$val;
+                        if ($this->world !== null && !empty($this->world->imagesFolder) && !str_starts_with($imgSrc, 'http://') && !str_starts_with($imgSrc, 'https://') && !str_starts_with($imgSrc, '/')) {
+                            $imgSrc = rtrim($this->world->imagesFolder, '/') . '/' . ltrim($imgSrc, '/');
+                        }
+                        $imgW = $obj->images[$key]->width ?? 350;
+                        $imgH = $obj->images[$key]->height ?? 235;
+                        $obj->images[$key] = new Image($imgSrc, $imgW, $imgH);
+                        $obj->image = $obj->images[$key];
                     }
-                    $imgW = $obj->images[$key]->width ?? 350;
-                    $imgH = $obj->images[$key]->height ?? 235;
-                    $obj->images[$key] = new Image($imgSrc, $imgW, $imgH);
-                    $obj->image = $obj->images[$key];
                 } else {
                     $prop = $obj->getProperty($propName) ?? [];
                     if (!is_array($prop)) $prop = [];
@@ -500,8 +525,13 @@ class ActionsRunner
             $destination->setProperty($msgKey, $nextIdx);
         }
 
-        $chosen = (string)$this->evalValue((string)$messages[$nextIdx]);
-        $chosen = trim($chosen, "\"'");
+        $evalRes = $this->evalValue((string)$messages[$nextIdx]);
+        if ($evalRes instanceof Image) {
+            $chosen = $evalRes->toHtml();
+        } else {
+            $chosen = (string)$evalRes;
+            $chosen = trim($chosen, "\"'");
+        }
 
         // Special marker "*": signals speech finished
         if ($chosen === '*') {
@@ -635,10 +665,15 @@ class ActionsRunner
             $destination->setProperty($msgKey, $nextIdx);
         }
 
-        $chosen = (string)$this->evalValue((string)$messages[$nextIdx]);
-        if ((str_starts_with($chosen, '"') && str_ends_with($chosen, '"')) ||
-            (str_starts_with($chosen, "'") && str_ends_with($chosen, "'"))) {
-            $chosen = substr($chosen, 1, -1);
+        $evalRes = $this->evalValue((string)$messages[$nextIdx]);
+        if ($evalRes instanceof Image) {
+            $chosen = $evalRes->toHtml();
+        } else {
+            $chosen = (string)$evalRes;
+            if ((str_starts_with($chosen, '"') && str_ends_with($chosen, '"')) ||
+                (str_starts_with($chosen, "'") && str_ends_with($chosen, "'"))) {
+                $chosen = substr($chosen, 1, -1);
+            }
         }
 
         // Display to destination
@@ -942,7 +977,7 @@ class ActionsRunner
     /**
      * Parse comma-separated arguments preserving quoted strings.
      */
-    protected function parseArguments(string $str): array
+    protected function parseArguments(string $str, bool $stripQuotes = true): array
     {
         $str = trim($str);
         if ($str === '') {
@@ -952,6 +987,7 @@ class ActionsRunner
         $args = [];
         $current = '';
         $inQuotes = false;
+        $parenDepth = 0;
         $len = strlen($str);
 
         for ($i = 0; $i < $len; $i++) {
@@ -959,7 +995,15 @@ class ActionsRunner
             if ($char === '"') {
                 $inQuotes = !$inQuotes;
                 $current .= $char;
-            } elseif ($char === ',' && !$inQuotes) {
+            } elseif (!$inQuotes && $char === '(') {
+                $parenDepth++;
+                $current .= $char;
+            } elseif (!$inQuotes && $char === ')') {
+                if ($parenDepth > 0) {
+                    $parenDepth--;
+                }
+                $current .= $char;
+            } elseif ($char === ',' && !$inQuotes && $parenDepth === 0) {
                 $args[] = trim($current);
                 $current = '';
             } else {
@@ -968,6 +1012,10 @@ class ActionsRunner
         }
         if (trim($current) !== '') {
             $args[] = trim($current);
+        }
+
+        if (!$stripQuotes) {
+            return $args;
         }
 
         return array_map(function ($arg) {
@@ -1235,6 +1283,27 @@ class ActionsRunner
             return rand($min, $max);
         }
 
+        // Function call: NewImage(url, width, height)
+        if (preg_match('/^newimage\s*\((.*)\)$/is', $val, $nim)) {
+            $niArgs = $this->parseArguments($nim[1], false);
+            $rawUrl = $niArgs[0] ?? '';
+            $evalUrl = $this->evalValue($rawUrl);
+            $url = is_string($evalUrl) ? trim($evalUrl, "\"'") : (string)$evalUrl;
+
+            $width = isset($niArgs[1]) ? (int)$this->evalValue($niArgs[1]) : 0;
+            $height = isset($niArgs[2]) ? (int)$this->evalValue($niArgs[2]) : 0;
+
+            if ($this->world !== null && !empty($this->world->imagesFolder)
+                && !str_starts_with($url, 'http://')
+                && !str_starts_with($url, 'https://')
+                && !str_starts_with($url, '/')
+                && $url !== '') {
+                $url = rtrim($this->world->imagesFolder, '/') . '/' . ltrim($url, '/');
+            }
+
+            return new Image($url, $width, $height);
+        }
+
         // Property access e.g. "$WORLD.mode", "$OWNER.Health", "box.open"
         if (preg_match('/^(\$?[A-Za-z0-9_]+)\.([A-Za-z0-9_]+)$/', $val, $m)) {
             $obj = $this->resolveObject($m[1]);
@@ -1263,7 +1332,9 @@ class ActionsRunner
                     default => $val,
                 };
             } elseif ($op === '+') {
-                return (string)$left . (string)$right;
+                $leftStr = ($left instanceof Image) ? $left->toHtml() : (string)$left;
+                $rightStr = ($right instanceof Image) ? $right->toHtml() : (string)$right;
+                return $leftStr . $rightStr;
             }
         }
 

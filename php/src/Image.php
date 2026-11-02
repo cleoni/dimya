@@ -50,8 +50,43 @@ class Image extends ManageableObject
         return "IMAGE {$this->width}x{$this->height}{$sa} {$this->src}";
     }
 
+    public function html(?string $title = null, ?Player $player = null): string
+    {
+        return $this->toHtml($title, $player);
+    }
+
+    public function getProperty(string $name): mixed
+    {
+        $lower = strtolower($name);
+        if ($lower === 'url' || $lower === 'src') {
+            return $this->src;
+        }
+        if ($lower === 'width') {
+            return $this->width;
+        }
+        if ($lower === 'height') {
+            return $this->height;
+        }
+        return parent::getProperty($name);
+    }
+
+    public function __get(string $name): mixed
+    {
+        $lower = strtolower($name);
+        if ($lower === 'url' || $lower === 'src') {
+            return $this->src;
+        }
+        if ($lower === 'width') {
+            return $this->width;
+        }
+        if ($lower === 'height') {
+            return $this->height;
+        }
+        return parent::__get($name);
+    }
+
     public function __toString(): string
     {
-        return "Image(\"{$this->src}\", {$this->width}, {$this->height})";
+        return "NewImage(\"{$this->src}\", {$this->width}, {$this->height})";
     }
 }

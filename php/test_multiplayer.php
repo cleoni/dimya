@@ -70,6 +70,7 @@ $sections = [
     46 => ['title' => 'Testing Say Command Target Handling (Speak to Person vs Speak Aloud with target=* in UIhtml & GameEngine)...', 'keywords' => ['say', 'target', 'speak', 'aloud', 'asterisk', 'txtbox', 'uihtml', 'character']],
     47 => ['title' => 'Testing SmallBasic Debug Instruction & GameEngine::log() Writing to debug.log...', 'keywords' => ['debug', 'log', 'debug.log', 'gameengine', 'actionsrunner', 'system folder', 'smallbasic']],
     48 => ['title' => 'Testing Resolution Handling & Login Form Cleanliness (no screenSizeHelper, non-portrait 640x480/800x600)...', 'keywords' => ['screensize', 'landscape', 'resolution', 'portrait', 'uihtml', 'login']],
+    49 => ['title' => 'Testing NewImage Function, ImagesFolder Resolution & Image Display/Assignment in SmallBasic...', 'keywords' => ['newimage', 'image', 'smallbasic', 'actionsrunner', 'display', 'imagesfolder']],
 ];
 
 // CLI Options parsing
@@ -5120,6 +5121,82 @@ if (shouldRun(48)) {
     $html640 = ob_get_clean();
     assertTest(!str_contains($html640, 'dimx-root dimx-portrait'), "640x480 does NOT render 'dimx-root dimx-portrait' class");
     assertTest(!str_contains($html640, '@media (max-width: 800px) and (orientation: landscape)'), "UIhtml does NOT contain '@media (max-width: 800px) and (orientation: landscape)' fallback");
+}
+
+// ---------------------------------------------------------------------------
+// Section 49: Testing NewImage Function, ImagesFolder Resolution & Image Display/Assignment in SmallBasic
+// ---------------------------------------------------------------------------
+if (shouldRun(49)) {
+    echo "\n--- Section 49: Testing NewImage Function, ImagesFolder Resolution & Image Display/Assignment in SmallBasic ---\n";
+
+    // 1. Basic Image object properties and methods
+    $sec49Img = new \Dimx\Image('https://example.com/test.png', 64, 128);
+    assertTest($sec49Img instanceof \Dimx\Image, "Image is instance of Image");
+    assertTest($sec49Img->src === 'https://example.com/test.png', "Image src matches");
+    assertTest($sec49Img->url === 'https://example.com/test.png', "Image url property alias matches");
+    assertTest($sec49Img->width === 64, "Image width matches 64");
+    assertTest($sec49Img->height === 128, "Image height matches 128");
+    assertTest(str_contains($sec49Img->toHtml(), '<img src="https://example.com/test.png"'), "Image toHtml renders img tag");
+    assertTest(str_contains($sec49Img->html(), '<img src="https://example.com/test.png"'), "Image html() alias renders img tag");
+    assertTest((string)$sec49Img === 'NewImage("https://example.com/test.png", 64, 128)', "Image string representation is NewImage(...)");
+
+    // Setup isolated test world and runner
+    $sec49World = new \Dimx\World();
+    $sec49World->imagesFolder = 'https://www.dimensionex.net/pics/';
+
+    $sec49Room = new \Dimx\Room($sec49World, 'Test Room 49', 'testroom49', 'A test room for section 49');
+    $sec49World->rooms['testroom49'] = $sec49Room;
+
+    $sec49Player = new \Dimx\Player($sec49World, 'Tester49', 'tester49', 'A test player for section 49');
+    $sec49Player->room = $sec49Room;
+    $sec49World->characters['tester49'] = $sec49Player;
+
+    $sec49Runner = new \Dimx\ActionsRunner($sec49World, $sec49Player, $sec49Player, null);
+
+    // 2. Relative URL absolutization with imagesFolder
+    $imgRelative = $sec49Runner->run('return NewImage("cross.gif", 16, 16)');
+    assertTest($imgRelative instanceof \Dimx\Image, "evalValue returns Image instance for NewImage");
+    assertTest($imgRelative->src === 'https://www.dimensionex.net/pics/cross.gif', "Relative URL absolutized against imagesFolder");
+    assertTest($imgRelative->width === 16, "Width evaluated correctly (16)");
+    assertTest($imgRelative->height === 16, "Height evaluated correctly (16)");
+
+    // 3. Absolute URL remains unaltered
+    $imgAbsolute = $sec49Runner->run('return NewImage("https://cdn.example.com/icon.png", 32, 48)');
+    assertTest($imgAbsolute instanceof \Dimx\Image, "evalValue returns Image for absolute URL");
+    assertTest($imgAbsolute->src === 'https://cdn.example.com/icon.png', "Absolute URL remains unaltered");
+    assertTest($imgAbsolute->width === 32, "Absolute image width is 32");
+    assertTest($imgAbsolute->height === 48, "Absolute image height is 48");
+
+    // 4. Property assignment to typed Image property (Room effect)
+    $sec49Runner->run('testroom49.effect = NewImage("rain.gif", 100, 100)');
+    assertTest($sec49Room->effect instanceof \Dimx\Image, "Room effect assigned Image instance");
+    assertTest($sec49Room->effect->src === 'https://www.dimensionex.net/pics/rain.gif', "Room effect has correct URL");
+    assertTest($sec49Room->effect->width === 100, "Room effect has correct width");
+
+    // 5. Property assignment to directional images: testroom49.image("E") = NewImage(...)
+    $sec49Runner->run('testroom49.image("E") = NewImage("east_view.jpg", 800, 600)');
+    assertTest(isset($sec49Room->images['E']), "testroom49.images['E'] is set");
+    assertTest($sec49Room->images['E'] instanceof \Dimx\Image, "testroom49.images['E'] is Image instance");
+    assertTest($sec49Room->images['E']->src === 'https://www.dimensionex.net/pics/east_view.jpg', "Keyed directional image has correct URL");
+    assertTest($sec49Room->images['E']->width === 800, "Keyed directional image has width 800");
+    assertTest($sec49Room->images['E']->height === 600, "Keyed directional image has height 600");
+
+    // 6. Direct Display / Print with NewImage
+    $sec49Player->clientConsole = [];
+    $sec49Runner->run('Display NewImage("badge.png", 50, 50)');
+    $consoleOut = implode("\n", $sec49Player->clientConsole);
+    assertTest(str_contains($consoleOut, '<img src="https://www.dimensionex.net/pics/badge.png"'), "Display NewImage outputs <img> HTML tag to console");
+    assertTest(str_contains($consoleOut, 'width="50"') && str_contains($consoleOut, 'height="50"'), "Display NewImage HTML tag contains width and height");
+
+    // 7. Display with explicit destination: Display $AGENT, NewImage(...)
+    $sec49Player->clientConsole = [];
+    $sec49Runner->run('Display $AGENT, NewImage("star.png", 24, 24)');
+    $consoleOut2 = implode("\n", $sec49Player->clientConsole);
+    assertTest(str_contains($consoleOut2, '<img src="https://www.dimensionex.net/pics/star.png"'), "Display \$AGENT, NewImage(...) outputs to \$AGENT console");
+
+    // 8. String concatenation with NewImage
+    $concatResult = $sec49Runner->run('return "Item icon: " + NewImage("sword.png", 32, 32)');
+    assertTest(str_starts_with((string)$concatResult, 'Item icon: <img src="https://www.dimensionex.net/pics/sword.png"'), "String concat with NewImage renders HTML tag");
 }
 
 // Clean up test worlds
