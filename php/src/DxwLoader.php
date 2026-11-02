@@ -283,6 +283,109 @@ class DxwLoader
                     break;
 
                 case 'GUI':
+                    if ($directive === 'PANEL') {
+                        $panelId = $tokens[1] ?? 'default';
+                        $parentPanelId = null;
+                        if (isset($tokens[2], $tokens[3], $tokens[4]) && strtoupper($tokens[2]) === 'VERSION' && strtoupper($tokens[3]) === 'OF') {
+                            $parentPanelId = $tokens[4];
+                        }
+
+                        $panel = new Panel($panelId);
+
+                        // If parent panel is specified, inherit all controls from parent
+                        if ($parentPanelId !== null) {
+                            $parentPanel = $world->getPanel($parentPanelId);
+                            if ($parentPanel !== null) {
+                                foreach ($parentPanel->buttons as $btn) {
+                                    $panel->addButton(clone $btn);
+                                }
+                            }
+                        }
+
+                        $baseDefault = Panel::createDefaultPanel();
+
+                        $i++;
+                        while ($i < $total) {
+                            $subLine = $cleanLines[$i];
+                            $subTokens = preg_split('/\s+/', $subLine);
+                            $subDir = strtoupper($subTokens[0] ?? '');
+
+                            // Exit panel parsing on next PANEL, GUI end, or new section
+                            if (in_array($subDir, [
+                                'PANEL', 'END_GUI', 'SCREEN', 'SCENE', 'LOGOSRC', 'MAP', 'COMPASS',
+                                'MSGLISTSIZE', 'SKINS', 'SHOW', 'HOOKS', 'ROOMS', 'CHARACTERS',
+                                'ITEMS', 'LINKS', 'SETS', 'SCRIPTS', 'EVENTS', 'END_WORLD'
+                            ], true)) {
+                                break;
+                            }
+
+                            if ($subDir === 'BUTTON' || $subDir === 'CMD') {
+                                $isGhost = ($subDir === 'CMD');
+                                $rest = trim(substr($subLine, strlen($subTokens[0])));
+                                if (str_contains($rest, ',')) {
+                                    // Full definition: BUTTON id, name, description, event [, eventModel]
+                                    $parts = array_map('trim', str_getcsv($rest));
+                                    $btnId = $parts[0] ?? '';
+                                    $caption = $parts[1] ?? $btnId;
+                                    $tooltip = $parts[2] ?? $caption;
+                                    $event = $parts[3] ?? '';
+                                    $eventModel = $parts[4] ?? '';
+                                    $icon = null;
+
+                                    if (preg_match('/\bICON\s+(\S+)/i', $subLine, $icm)) {
+                                        $icon = $this->resolveImageUrl($icm[1], $imagesFolder);
+                                    }
+
+                                    $ctrlType = $isGhost ? Ctrl::TYPE_CMD : Ctrl::TYPE_BUTTON;
+                                    $panel->addButton(new Ctrl($btnId, $ctrlType, $caption, $tooltip, $event, $icon, $eventModel));
+                                } else {
+                                    // Short definition: id only - copy from parent or base default panel
+                                    $btnId = trim($subTokens[1] ?? '');
+                                    $srcBtn = ($parentPanelId !== null ? $world->getPanel($parentPanelId)?->getButton($btnId) : null)
+                                        ?? $world->getPanel('default')?->getButton($btnId)
+                                        ?? $baseDefault->getButton($btnId);
+
+                                    if ($srcBtn !== null) {
+                                        $cloned = clone $srcBtn;
+                                        if (preg_match('/\bICON\s+(\S+)/i', $subLine, $icm)) {
+                                            $cloned->icon = $this->resolveImageUrl($icm[1], $imagesFolder);
+                                        }
+                                        $panel->addButton($cloned);
+                                    } else {
+                                        $ctrlType = $isGhost ? Ctrl::TYPE_CMD : Ctrl::TYPE_BUTTON;
+                                        $panel->addButton(new Ctrl($btnId, $ctrlType, ucfirst($btnId)));
+                                    }
+                                }
+                            } elseif ($subDir === 'TEXTBOX') {
+                                $txtId = !empty($subTokens[1]) ? trim($subTokens[1]) : 'txtBox';
+                                $panel->addButton(new Ctrl($txtId, Ctrl::TYPE_TEXTBOX, '', 'Enter speech or action...'));
+                            } elseif ($subDir === 'CR') {
+                                $sepId = '_sep' . count($panel->buttons);
+                                $panel->addButton(new Ctrl($sepId, Ctrl::TYPE_CR));
+                            } elseif ($subDir === 'LABEL') {
+                                $labelId = '_lbl' . count($panel->buttons);
+                                $caption = trim(substr($subLine, strlen($subTokens[0])));
+                                $panel->addButton(new Ctrl($labelId, Ctrl::TYPE_LABEL, $caption));
+                            } elseif ($subDir === 'DELETE') {
+                                $delId = trim($subTokens[1] ?? '');
+                                if ($delId !== '') {
+                                    $panel->removeButton($delId);
+                                }
+                            } elseif ($subDir === 'MAP') {
+                                $mapId = '_map' . count($panel->buttons);
+                                $panel->addButton(new Ctrl($mapId, Ctrl::TYPE_MAP, 'MAP'));
+                            }
+
+                            $i++;
+                        }
+
+                        $world->addPanel($panel);
+                        if (strtolower($panel->id) === 'default') {
+                            $world->defaultPanel = $panel;
+                        }
+                        break;
+                    }
+
                     if ($directive === 'SCREEN') {
                         if (isset($tokens[1]) && strtoupper($tokens[1]) === 'SIZE' && isset($tokens[2])) {
                             if (preg_match('/^(\d+)x(\d+)$/i', $tokens[2], $dimM)) {

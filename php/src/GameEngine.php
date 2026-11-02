@@ -535,7 +535,9 @@ class GameEngine
             'logout', 'rotl', 'rotr', 'rev'
         ], true);
 
-        if ($panel !== null && ($isCoreCommand || isset($world->events["cmd_{$cmd}"])) && !$panel->isCommandAllowed($cmd)) {
+        $btn = $panel?->getButton($cmd);
+        $hasCustomEvent = ($btn !== null && !empty($btn->event)) || isset($world->events["cmd_{$cmd}"]);
+        if ($panel !== null && ($isCoreCommand || $hasCustomEvent || $btn !== null) && !$panel->isCommandAllowed($cmd)) {
             $player->display("Command '{$cmd}' is not allowed in current panel ({$panel->id}).");
             return;
         }
@@ -992,8 +994,15 @@ class GameEngine
                 break;
 
             default:
-                // Try dynamic custom command event e.g. 'cmd_<name>'
-                $handled = $world->fireEvent("cmd_{$cmd}", $player, $player, $targetId, ['param' => $param], false);
+                // Check if the current panel defines a custom button/command event
+                $btn = $panel?->getButton($cmd);
+                $handled = false;
+                if ($btn !== null && !empty($btn->event)) {
+                    $handled = (bool)$world->fireEvent($btn->event, $world, $player, $targetId, ['param' => $param], false);
+                }
+                if (!$handled) {
+                    $handled = (bool)$world->fireEvent("cmd_{$cmd}", $player, $player, $targetId, ['param' => $param], false);
+                }
                 if (!$handled) {
                     $player->display("Unknown command: {$cmd}");
                 }

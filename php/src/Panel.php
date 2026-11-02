@@ -30,11 +30,24 @@ class Panel
     public function removeButton(string $id): void
     {
         unset($this->buttons[$id]);
+        foreach ($this->buttons as $k => $btn) {
+            if (strcasecmp($k, $id) === 0) {
+                unset($this->buttons[$k]);
+            }
+        }
     }
 
     public function getButton(string $id): ?Ctrl
     {
-        return $this->buttons[$id] ?? null;
+        if (isset($this->buttons[$id])) {
+            return $this->buttons[$id];
+        }
+        foreach ($this->buttons as $k => $btn) {
+            if (strcasecmp($k, $id) === 0) {
+                return $btn;
+            }
+        }
+        return null;
     }
 
     /**
@@ -117,12 +130,9 @@ class Panel
                 $cmdId = strtolower($ctrl->id);
                 if (!empty($cmdId)) {
                     $cmds[] = $cmdId;
-					/* Defines synonym command.
-					good idea but not required, so disabled *
-                    if ($cmdId === 'pick') {
-                        $cmds[] = 'take';
+                    if ($cmdId === 'use2') {
+                        $cmds[] = 'usewith';
                     }
-					*/					
                 }
             }
         }

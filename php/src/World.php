@@ -136,15 +136,14 @@ class World extends DimxObject
         $panelId = is_string($panel) ? $panel : $panel->id;
         $this->log("Setting panel: {$panelId} in whole world");
 
-        if (is_string($panel)) {
-            $p = $this->getPanel($panel);
-            if ($p === null) {
-                return false;
-            }
-            $this->defaultPanel = $p;
-            return true;
+        $p = is_string($panel) ? $this->getPanel($panel) : $panel;
+        if ($p === null) {
+            return false;
         }
-        $this->defaultPanel = $panel;
+        $this->defaultPanel = $p;
+        foreach ($this->players as $player) {
+            $player->setPanel($p);
+        }
         return true;
     }
 
@@ -434,11 +433,21 @@ class World extends DimxObject
             if (isset($this->events[$qualifiedId])) {
                 return $this->events[$qualifiedId]->fire($owner, $agent, $target, $input, $defaultResult, $this);
             }
+            foreach ($this->events as $k => $ev) {
+                if (strcasecmp($k, $qualifiedId) === 0) {
+                    return $ev->fire($owner, $agent, $target, $input, $defaultResult, $this);
+                }
+            }
         }
 
         // 2. Try generic event: eventId (e.g., 'onLook')
         if (isset($this->events[$eventId])) {
             return $this->events[$eventId]->fire($owner, $agent, $target, $input, $defaultResult, $this);
+        }
+        foreach ($this->events as $k => $ev) {
+            if (strcasecmp($k, $eventId) === 0) {
+                return $ev->fire($owner, $agent, $target, $input, $defaultResult, $this);
+            }
         }
 
         return $defaultResult;
