@@ -230,6 +230,15 @@ class DxwLoader
 
             if ($directive === 'CHARACTERS') {
                 $currentSection = 'CHARACTERS';
+                if (isset($tokens[1]) && strtoupper($tokens[1]) === 'ATTRLIST') {
+                    $attrPos = strpos($line, $tokens[1]);
+                    $attrVal = trim(ltrim(substr($line, $attrPos + strlen($tokens[1])), "= \t"));
+                    if (!empty($world->charactersDefaultAttrlist)) {
+                        $world->charactersDefaultAttrlist .= ',' . $attrVal;
+                    } else {
+                        $world->charactersDefaultAttrlist = $attrVal;
+                    }
+                }
                 $i++;
                 continue;
             }
@@ -777,7 +786,12 @@ class DxwLoader
 
                 case 'CHARACTERS':
                     if ($directive === 'ATTRLIST') {
-                        $world->charactersDefaultAttrlist = trim(substr($line, strlen($tokens[0])));
+                        $attrVal = trim(ltrim(substr($line, strlen($tokens[0])), "= \t"));
+                        if (!empty($world->charactersDefaultAttrlist)) {
+                            $world->charactersDefaultAttrlist .= ',' . $attrVal;
+                        } else {
+                            $world->charactersDefaultAttrlist = $attrVal;
+                        }
                         $i++;
                         break;
                     }

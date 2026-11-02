@@ -88,11 +88,13 @@ class Player extends Character
         int $volume = 10,
         string $defContainer = ''
     ) {
+        if (empty($attrList) && $world !== null && !empty($world->charactersDefaultAttrlist)) {
+            $attrList = $world->charactersDefaultAttrlist;
+        }
         parent::__construct(
             $world, $name, $id, $description, $icon, $attrList,
             $capacity, $volume, $defContainer
         );
-        $this->showmode = self::SHOW_ONSCREEN;
         $this->accepts = '*';
     }
 

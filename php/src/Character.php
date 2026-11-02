@@ -29,11 +29,11 @@ class Character extends AdvObject
         int $volume = 10,
         string $defContainer = ''
     ) {
+        $this->showmode = self::SHOW_ONSCREEN;
         parent::__construct(
             $world, $name, $id, $description, $icon, $attrList,
             $capacity, $volume, true, $defContainer
         );
-        $this->showmode = self::SHOW_ONSCREEN;
     }
 
     public function isaCharacter(): bool

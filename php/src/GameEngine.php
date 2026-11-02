@@ -248,7 +248,7 @@ class GameEngine
         if ($player === null) {
             // Player ID in game engine lives in memory and changes every time the user logs in
             $engineId = 'p_' . ($numericId ?? '0') . '_' . bin2hex(random_bytes(4));
-            $player   = new Player($world, $playerName, $engineId, 'Adventurer');
+            $player   = new Player($world, $playerName, $engineId, 'Adventurer', null, $world->charactersDefaultAttrlist ?? '');
             $player->skin      = $chosenSkin ?? $world->defaultSkin ?? new Skin('default', 'Default');
             $player->numericId = $numericId;
             $player->isBot     = $isBot;
@@ -258,7 +258,6 @@ class GameEngine
             if ($music !== null) {
                 $player->setMusic($music);
             }
-            $player->showmode  = AdvObject::SHOW_ONSCREEN;
             if ($player->skin?->picPlayer) {
                 $player->images['N'] = clone $player->skin->picPlayer;
             }
@@ -286,8 +285,7 @@ class GameEngine
                 }
             }
 
-            // Ensure showmode and avatar images remain properly configured after profile load
-            $player->showmode = AdvObject::SHOW_ONSCREEN;
+            // Ensure avatar images remain properly configured after profile load
             if (empty($player->images['N']) && $player->skin?->picPlayer) {
                 $player->images['N'] = clone $player->skin->picPlayer;
             }
@@ -337,9 +335,6 @@ class GameEngine
                 $player->setSkin($chosenSkin);
             } elseif ($player->skin === null) {
                 $player->skin = $world->defaultSkin ?? new Skin('default', 'Default');
-            }
-            if ($player->showmode === 0) {
-                $player->showmode = AdvObject::SHOW_ONSCREEN;
             }
             if (empty($player->images['N']) && $player->skin?->picPlayer) {
                 $player->images['N'] = clone $player->skin->picPlayer;
