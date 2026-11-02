@@ -668,4 +668,13 @@ class AdvObject extends DimxObject
     {
         return false;
     }
+
+    /**
+     * Dispatch client command (DimX DimxObject.sendCmd).
+     * Overridden by World, PeopleContainer/Room, and Player.
+     */
+    public function sendCmd(string $cmd): bool
+    {
+        return false;
+    }
 }

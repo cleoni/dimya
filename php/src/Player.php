@@ -74,6 +74,9 @@ class Player extends Character
     /** @var array<array{id: string, sender: string, text: string, time: string}> Incoming messages queue (max 10, oldest first) */
     public array $messagesQueue = [];
 
+    /** @var string[] Pending client commands queue (e.g. "refresh!scene", "refresh!ctrls") */
+    public array $pendingCommands = [];
+
     public function __construct(
         ?World $world = null,
         string $name = '',
@@ -248,6 +251,48 @@ class Player extends Character
         $has = $this->newMessages;
         $this->newMessages = false;
         return $has;
+    }
+
+    /**
+     * Send client command to this player.
+     * Matches DimensioneX Player.sendCmd().
+     */
+    public function sendCmd(string $cmd): bool
+    {
+        $cmd = trim($cmd);
+        if ($cmd === '') {
+            return false;
+        }
+        $this->world?->log("Sending: {$cmd} to player {$this->id}");
+        if (!in_array($cmd, $this->pendingCommands, true)) {
+            $this->pendingCommands[] = $cmd;
+        }
+        if ($this->world !== null && $this->world->persistence !== null) {
+            $this->world->persistence->queueCommand($this->world->id, $this->name, $cmd);
+        }
+        return true;
+    }
+
+    /**
+     * Read and clear pending commands formatted for clientExecute, e.g. "refresh!scene;".
+     */
+    public function drainCommands(): string
+    {
+        if (empty($this->pendingCommands)) {
+            return '';
+        }
+        $cmds = implode(';', array_unique($this->pendingCommands)) . ';';
+        $this->pendingCommands = [];
+        return $cmds;
+    }
+
+    /**
+     * Get array of pending commands.
+     * @return string[]
+     */
+    public function getPendingCommands(): array
+    {
+        return $this->pendingCommands;
     }
 
     /**

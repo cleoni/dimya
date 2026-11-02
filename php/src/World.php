@@ -571,6 +571,21 @@ class World extends DimxObject
     }
 
     /**
+     * Broadcast a client command to all connected players in the world.
+     * Matches DimensioneX World.sendCmd().
+     */
+    public function sendCmd(string $cmd): bool
+    {
+        $this->log("Sending: {$cmd} to the whole world");
+        foreach ($this->players as $player) {
+            if ($player instanceof Player) {
+                $player->sendCmd($cmd);
+            }
+        }
+        return true;
+    }
+
+    /**
      * Sets the background music property on the world and broadcasts it to all connected players.
      */
     public function playBackground(string $soundfile, bool $loop = false): bool

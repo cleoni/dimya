@@ -406,6 +406,7 @@ class GameEngine
         $consoleMessages = [];
         $pendingSound    = null;
         $pendingBgMusic  = null;
+        $pendingCommands = '';
         $hasNewMsgs      = false;
         $lockError       = false;
         $loggedOut       = in_array($cmd, ['logout'], true);
@@ -428,6 +429,13 @@ class GameEngine
                 $pendingSound   = $player->drainSound();
                 $pendingBgMusic = $player->drainBackgroundSound();
                 $hasNewMsgs     = $player->drainNewMessages();
+                $rawCommands    = $player->drainCommands();
+                $this->pm->drainCommands($this->worldId, $player->name);
+                $cmdList = array_filter(explode(';', $rawCommands), function ($c) {
+                    $t = strtolower(trim($c));
+                    return $t !== '' && $t !== 'refresh!scene' && $t !== 'refresh #scene';
+                });
+                $cmdsToDeliver  = !empty($cmdList) ? implode(';', $cmdList) . ';' : '';
 
                 // Save mutated world state back to persistence
                 $this->pm->saveWorld($world);
@@ -439,6 +447,7 @@ class GameEngine
                     'sound'            => $pendingSound,
                     'background_music' => $pendingBgMusic,
                     'new_messages'     => $hasNewMsgs,
+                    'commands'         => $cmdsToDeliver,
                     'logged_out'       => $loggedOut,
                 ];
             });
@@ -470,6 +479,7 @@ class GameEngine
                 $pendingSound    = $result['sound'] ?? null;
                 $pendingBgMusic  = $result['background_music'] ?? null;
                 $hasNewMsgs      = (bool)($result['new_messages'] ?? false);
+                $pendingCommands = (string)($result['commands'] ?? '');
                 $loggedOut       = $result['logged_out'] ?? $loggedOut;
             }
         } else {
@@ -484,6 +494,13 @@ class GameEngine
             $pendingSound    = $player->drainSound();
             $pendingBgMusic  = $player->drainBackgroundSound();
             $hasNewMsgs      = $player->drainNewMessages();
+            $rawCommands     = $player->drainCommands();
+            $this->pm->drainCommands($this->worldId, $player->name);
+            $cmdList = array_filter(explode(';', $rawCommands), function ($c) {
+                $t = strtolower(trim($c));
+                return $t !== '' && $t !== 'refresh!scene' && $t !== 'refresh #scene';
+            });
+            $pendingCommands = !empty($cmdList) ? implode(';', $cmdList) . ';' : '';
             $this->pm->saveWorld($world);
         }
 
@@ -508,6 +525,7 @@ class GameEngine
             'sound'            => $pendingSound,
             'background_music' => $pendingBgMusic,
             'new_messages'     => $hasNewMsgs,
+            'commands'         => $pendingCommands,
             'lockError'        => $lockError,
             'cmd'              => $cmd,
             'param'            => $param,

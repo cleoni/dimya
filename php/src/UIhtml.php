@@ -228,6 +228,7 @@ class UIhtml extends UI
         $activePanel  = $player->getPanel() ?? $world->defaultPanel;
 
         // One-shot Sound FX resolution (only for players who enabled Sounds at login)
+        $commands      = (string)($context['commands'] ?? '');
         $soundsEnabled = !empty($player->sounds) || !empty($player->audioSupport);
         $pendingSound  = $context['sound'] ?? $player->drainSound();
         $hasNewMsgs    = !empty($context['new_messages']) || $player->drainNewMessages();
@@ -842,7 +843,7 @@ class UIhtml extends UI
                   <?php if ($lockError): ?><span style="color:#f87171;font-size:11px">⚠ Lock busy</span><?php endif; ?>
                 </div>
 
-                <div id="dimx-scene-meta" style="display:none" data-panel-id="<?= htmlspecialchars($activePanel?->id ?? 'default') ?>" data-sound-url="<?= htmlspecialchars($soundUrl ?? '') ?>" data-bg-src="<?= htmlspecialchars($bgMusic['src'] ?? '') ?>" data-bg-loop="<?= !empty($bgMusic['loop']) ? '1' : '0' ?>" data-bg-triggered="<?= $bgTriggered ? '1' : '0' ?>"></div>
+                <div id="dimx-scene-meta" style="display:none" data-panel-id="<?= htmlspecialchars($activePanel?->id ?? 'default') ?>" data-sound-url="<?= htmlspecialchars($soundUrl ?? '') ?>" data-bg-src="<?= htmlspecialchars($bgMusic['src'] ?? '') ?>" data-bg-loop="<?= !empty($bgMusic['loop']) ? '1' : '0' ?>" data-bg-triggered="<?= $bgTriggered ? '1' : '0' ?>" data-commands="<?= htmlspecialchars($commands, ENT_QUOTES, 'UTF-8') ?>"></div>
                 <!-- 1-row table for #display and #dashboard -->
                 <table id="dimx-scene-table" class="dimx-scene-table">
                   <tr style="vertical-align:top">
@@ -2182,6 +2183,7 @@ class UIhtml extends UI
                 const bgSrc       = meta.getAttribute('data-bg-src') || '';
                 const bgLoop      = meta.getAttribute('data-bg-loop') === '1';
                 const bgTriggered = meta.getAttribute('data-bg-triggered') === '1';
+                const cmds        = meta.getAttribute('data-commands') || '';
 
                 if (soundUrl) {
                   playOneShotSound(soundUrl);
@@ -2189,18 +2191,24 @@ class UIhtml extends UI
                 if (bgSrc) {
                   playBackgroundMusic(bgSrc, bgLoop, bgTriggered);
                 }
+                if (cmds) {
+                  clientExecute(cmds);
+                }
               }
             }
 
             // Global window exports
-            window.identifyObject  = identifyObject;
-            window.clickObject     = clickObject;
-            window.handleCommand   = handleCommand;
-            window.sendCmd         = sendCmd;
-            window.submitCmd       = submitCmd;
+            window.identifyObject   = identifyObject;
+            window.clickObject      = clickObject;
+            window.handleCommand    = handleCommand;
+            window.sendCmd          = sendCmd;
+            window.submitCmd        = submitCmd;
             window.clearPendingCmd  = clearPendingCmd;
             window.refreshAreas     = refreshAreas;
             window.handleFormSubmit = handleFormSubmit;
+            window.clientExecuteCmd = clientExecuteCmd;
+            window.clientExecute    = clientExecute;
+            window.refreshScene     = refreshScene;
 
             // Auto-scroll console
             const cBox = document.getElementById('consoleBox');
@@ -2296,6 +2304,54 @@ class UIhtml extends UI
               return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             }
 
+            function refreshScene() {
+              if (typeof window.fetch !== 'function' || typeof window.DOMParser !== 'function') {
+                return;
+              }
+              fetch('multiplayer.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'cmd=look',
+                credentials: 'same-origin'
+              })
+              .then(function(res) { return res.text(); })
+              .then(function(html) {
+                refreshAreas(html);
+              })
+              .catch(function() {});
+            }
+
+            function clientExecuteCmd(what) {
+              what = (what || '').trim();
+              if (what === 'refresh!scene' || what === 'refresh #scene' || what === 'refresh!all' || what === 'refresh #all') {
+                refreshScene();
+              } else if (what === 'refresh!ctrls' || what === 'refresh #ctrls') {
+                refreshScene();
+              } else if (what === 'silence') {
+                const $bg = $('#bgplayer');
+                const player = $bg.length ? $bg[0] : document.getElementById('bgplayer');
+                if (player) {
+                  player.pause();
+                  player.currentTime = 0;
+                }
+              } else if (what.startsWith('play!')) {
+                playOneShotSound(what.substring(5));
+              } else if (what.startsWith('playLooping!')) {
+                playBackgroundMusic(what.substring(12), true);
+              }
+            }
+
+            function clientExecute(commands) {
+              if (!commands) return;
+              const list = commands.split(';');
+              for (let i = 0; i < list.length; i++) {
+                const cmd = list[i].trim();
+                if (cmd) {
+                  clientExecuteCmd(cmd);
+                }
+              }
+            }
+
             async function pollChat() {
               try {
                 const url = 'chat.php?world_id=' + encodeURIComponent(WORLD_ID)
@@ -2303,6 +2359,9 @@ class UIhtml extends UI
                 const resp = await fetch(url, { credentials: 'same-origin' });
                 if (!resp.ok) return;
                 const data = await resp.json();
+                if (data && data.commands) {
+                  clientExecute(data.commands);
+                }
                 if (data && Array.isArray(data.messages)) {
                   const box = document.getElementById('chatBox');
                   if (!box) return;
@@ -2332,6 +2391,9 @@ class UIhtml extends UI
 
             // Initial load + recurring poll every <?= $msgRefreshRate ?> seconds (msgRefreshRate)
             pollChat();
+            <?php if (!empty($commands)): ?>
+            clientExecute(<?= json_encode($commands) ?>);
+            <?php endif; ?>
             setInterval(pollChat, <?= $msgRefreshRate * 1000 ?>);
 
             // Responsive orientation adjustment on resize / rotate

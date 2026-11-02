@@ -56,7 +56,13 @@ if ($method === 'GET') {
         }));
     }
 
-    echo json_encode(['messages' => $messages, 'ok' => true], JSON_UNESCAPED_UNICODE);
+    $commands = $playerName !== '' ? $pm->drainCommands($worldId, $playerName) : '';
+
+    $response = ['messages' => $messages, 'ok' => true];
+    if ($commands !== '') {
+        $response['commands'] = $commands;
+    }
+    echo json_encode($response, JSON_UNESCAPED_UNICODE);
     exit;
 }
 

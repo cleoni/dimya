@@ -118,9 +118,21 @@ class PeopleContainer extends AdvObject
         if ($this->isaRoom() && $this->world !== null) {
             $this->world->log("Sending: {$cmd} in {$this->id}");
         }
+        $notified = [];
         foreach ($this->contents as $obj) {
-            if ($obj instanceof Player && method_exists($obj, 'sendCmd')) {
+            if ($obj instanceof Player) {
                 $obj->sendCmd($cmd);
+                $notified[$obj->name] = true;
+            }
+        }
+        if ($this->world !== null && is_array($this->world->players)) {
+            foreach ($this->world->players as $p) {
+                if ($p instanceof Player && !isset($notified[$p->name])) {
+                    if ($p->container === $this || ($p->getRoom() && $p->getRoom()->id === $this->id)) {
+                        $p->sendCmd($cmd);
+                        $notified[$p->name] = true;
+                    }
+                }
             }
         }
         return true;

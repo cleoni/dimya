@@ -166,6 +166,15 @@ class PersistenceManager
                 INDEX idx_world_time (world_id, message_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
+            'create_commands' => "CREATE TABLE IF NOT EXISTS dimx_commands (
+                command_id     BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                world_id       VARCHAR(64)  NOT NULL,
+                player_name    VARCHAR(128) NOT NULL,
+                command_text   VARCHAR(255) NOT NULL,
+                created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_world_player (world_id, player_name)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
             // ---- ALTER: add missing columns (each in its own statement) ----
             'alter_worlds_src'      => "ALTER TABLE dimx_worlds ADD COLUMN IF NOT EXISTS world_src VARCHAR(512) DEFAULT NULL",
             'alter_worlds_json'     => "ALTER TABLE dimx_worlds MODIFY COLUMN state_json LONGTEXT",
@@ -340,6 +349,16 @@ class PersistenceManager
             foreach ($playerFiles as $pf) {
                 @unlink($pf);
             }
+        }
+        if ($this->isConnected()) {
+            try {
+                $stmt = $this->pdo->prepare("DELETE FROM dimx_commands WHERE world_id = :wid");
+                $stmt->execute([':wid' => $worldId]);
+            } catch (PDOException $e) {}
+        }
+        $cmdFiles = glob("{$this->storageDir}/cmd_{$worldId}_*.txt") ?: [];
+        foreach ($cmdFiles as $cf) {
+            @unlink($cf);
         }
         return true;
     }
@@ -1077,6 +1096,97 @@ class PersistenceManager
             }
         }
         return array_slice($result, -$limit);
+    }
+
+    /**
+     * Queue a client command for a player (e.g. "refresh!scene", "refresh!ctrls").
+     */
+    public function queueCommand(string $worldId, string $playerName, string $command): bool
+    {
+        $command = trim($command);
+        if ($command === '') {
+            return false;
+        }
+
+        if ($this->isConnected()) {
+            try {
+                $stmt = $this->pdo->prepare("
+                    INSERT INTO dimx_commands (world_id, player_name, command_text)
+                    VALUES (:wid, :pname, :cmd)
+                ");
+                return $stmt->execute([
+                    ':wid'   => $worldId,
+                    ':pname' => $playerName,
+                    ':cmd'   => $command,
+                ]);
+            } catch (\PDOException $e) {
+                error_log("PersistenceManager::queueCommand error: " . $e->getMessage());
+            }
+        }
+
+        // File-based fallback
+        $safeName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $playerName);
+        $file = "{$this->storageDir}/cmd_{$worldId}_{$safeName}.txt";
+        return file_put_contents($file, $command . "\n", FILE_APPEND | LOCK_EX) !== false;
+    }
+
+    /**
+     * Read and clear all pending client commands for a player.
+     * Formats commands separated by semicolons for clientExecute, e.g. "refresh!scene;".
+     */
+    public function drainCommands(string $worldId, string $playerName): string
+    {
+        $commands = [];
+
+        if ($this->isConnected()) {
+            try {
+                $stmt = $this->pdo->prepare("
+                    SELECT command_id, command_text
+                    FROM dimx_commands
+                    WHERE world_id = :wid AND player_name = :pname
+                    ORDER BY command_id ASC
+                ");
+                $stmt->execute([':wid' => $worldId, ':pname' => $playerName]);
+                $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                if (!empty($rows)) {
+                    $ids = array_column($rows, 'command_id');
+                    $delStmt = $this->pdo->prepare("
+                        DELETE FROM dimx_commands
+                        WHERE command_id IN (" . implode(',', array_map('intval', $ids)) . ")
+                    ");
+                    $delStmt->execute();
+                    foreach ($rows as $r) {
+                        $c = trim((string)($r['command_text'] ?? ''));
+                        if ($c !== '' && !in_array($c, $commands, true)) {
+                            $commands[] = $c;
+                        }
+                    }
+                }
+            } catch (\PDOException $e) {
+                error_log("PersistenceManager::drainCommands error: " . $e->getMessage());
+            }
+        }
+
+        // File-based fallback
+        $safeName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $playerName);
+        $file = "{$this->storageDir}/cmd_{$worldId}_{$safeName}.txt";
+        if (file_exists($file)) {
+            $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            @unlink($file);
+            if ($lines !== false) {
+                foreach ($lines as $line) {
+                    $c = trim($line);
+                    if ($c !== '' && !in_array($c, $commands, true)) {
+                        $commands[] = $c;
+                    }
+                }
+            }
+        }
+
+        if (empty($commands)) {
+            return '';
+        }
+        return implode(';', $commands) . ';';
     }
 
     // =========================================================================

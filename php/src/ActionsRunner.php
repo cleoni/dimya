@@ -439,7 +439,8 @@ class ActionsRunner
             'OPEN'       => $this->actOpen($args),
             'CLOSE'      => $this->actClose($args),
             'SEARCH'     => $this->actSearch($args),
-            'REFRESHVIEW' => true,
+            'REFRESHVIEW'         => $this->actRefreshView($args),
+            'SENDCMD'             => $this->actSendCmd($args),
             'RESET'      => $this->actReset(),
             'GIVE'       => $this->actGive($args),
             'DEBUG'      => $this->actDebug($args),
@@ -451,6 +452,44 @@ class ActionsRunner
     {
         if ($this->world !== null) {
             $this->world->reset = true;
+        }
+        return true;
+    }
+
+    /**
+     * RefreshView [dest] (SmallBasic 3.9.21)
+     * Forces an immediate client-side UI view refresh (dispatches "refresh!scene" to target).
+     */
+    protected function actRefreshView(array $args): bool
+    {
+        $dest = !empty($args) ? $this->resolveObject((string)$args[0]) : null;
+        $target = $dest ?? ($this->agent instanceof DimxObject ? $this->agent : null) ?? $this->world;
+        if ($target !== null && method_exists($target, 'sendCmd')) {
+            return $target->sendCmd('refresh!scene');
+        }
+        return true;
+    }
+
+    /**
+     * SendCmd [dest,] command (SmallBasic 3.9.24)
+     * Dispatches a client command to the player's client interface.
+     */
+    protected function actSendCmd(array $args): bool
+    {
+        if (empty($args)) {
+            return false;
+        }
+        if (count($args) === 1) {
+            $target = ($this->agent instanceof DimxObject ? $this->agent : null) ?? $this->world;
+            $cmd = (string)$this->evalValue((string)$args[0]);
+        } else {
+            $dest = $this->resolveObject((string)$args[0]);
+            $target = $dest ?? ($this->agent instanceof DimxObject ? $this->agent : null) ?? $this->world;
+            $cmd = (string)$this->evalValue((string)$args[1]);
+        }
+        $cmd = trim($cmd, "\"' \t");
+        if ($target !== null && method_exists($target, 'sendCmd')) {
+            return $target->sendCmd($cmd);
         }
         return true;
     }
