@@ -5298,6 +5298,26 @@ if (shouldRun(50)) {
     $viewDrop = ob_get_clean();
     assertTest(strpos($viewDrop, 'class="fader_box"') === false, "Scene after drop has no fader overlay");
 
+    // 8. On-screen character zoom: ensure character is NOT rendered twice (excluded from scene under fader)
+    $charTommy = new \Dimx\Character($sec50World, 'Tommy', 'tommy', 'A friendly companion');
+    $charTommy->images['N'] = new \Dimx\Image('http://localhost/dimx/pics/tommy.gif', 80, 120);
+    $charTommy->showmode = \Dimx\AdvObject::SHOW_ONSCREEN;
+    $charTommy->move($zoomRoom);
+    $sec50World->addCharacter($charTommy);
+    $pm->saveWorld($sec50World);
+
+    $resLookTommy = $sec50Engine->processCommand('ZoomTester', 'look', 'tommy', '');
+    $pTommy = $resLookTommy['player'];
+    assertTest($pTommy->focus !== null && $pTommy->focus->id === 'tommy', "Looking at on-screen character 'tommy' sets player focus");
+
+    ob_start();
+    $htmlClick->render($resLookTommy);
+    $viewTommy = ob_get_clean();
+    assertTest(strpos($viewTommy, 'class="fader_box"') !== false, "Looking at on-screen character renders fader overlay");
+    $tommyImgCount = substr_count($viewTommy, 'data-obj-id="tommy"');
+    assertTest($tommyImgCount === 1, "Focused on-screen character is rendered exactly once on scene (at z-index 256, not duplicated below fader)");
+    assertTest(preg_match('/<img[^>]*data-obj-id="tommy"[^>]*style="[^"]*z-index:\s*256/i', $viewTommy) === 1, "Focused character rendered at z-index 256 over fader");
+
     @$pm->resetWorld($sec50WorldId);
 }
 

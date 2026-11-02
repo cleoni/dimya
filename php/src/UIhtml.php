@@ -856,6 +856,23 @@ class UIhtml extends UI
                         $saBaseline = ($sceneImg && $sceneImg->showareaY >= 0)
                           ? $sceneImg->showareaY
                           : (($sceneImg && $sceneImg->baseline >= 0) ? $sceneImg->baseline : (int)round(0.10 * $roomH));
+
+                        $focusObj = $player->focus ?? null;
+                        $focusHasZoom = false;
+                        $focusImg = null;
+                        $isZoomImg = false;
+                        if ($focusObj !== null && $focusObj !== $activeContainer && $focusObj->isAccessibleFrom($player)) {
+                          if ($focusObj instanceof \Dimx\Item && !empty($focusObj->zoomImage?->src)) {
+                            $focusImg = $focusObj->zoomImage;
+                            $isZoomImg = true;
+                            $focusHasZoom = true;
+                          } else {
+                            $focusImg = $focusObj->getNearestImage($player->facing ?? 'N');
+                            if ($focusImg !== null && !empty($focusImg->src)) {
+                              $focusHasZoom = true;
+                            }
+                          }
+                        }
                       ?>
                       <?php if (!empty($sceneImg)): ?>
                         <img src="<?= htmlspecialchars($sceneImg->src) ?>"
@@ -872,7 +889,7 @@ class UIhtml extends UI
 
                       <!-- Characters on scene -->
                       <?php foreach ($occupants as $char): ?>
-                        <?php if ($char !== $player && !$char->isHidden()): ?>
+                        <?php if ($char !== $player && !$char->isHidden() && (!$focusHasZoom || $char !== $focusObj)): ?>
                           <?php
                             if ($char->showmode === \Dimx\AdvObject::SHOW_OFFSCREEN) {
                               continue;
@@ -950,7 +967,7 @@ class UIhtml extends UI
                       <!-- Links on scene (positioned) -->
                       <?php foreach ($links as $lnk): ?>
                         <?php
-                          if ($lnk->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && !$lnk->isHidden()):
+                          if ($lnk->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && !$lnk->isHidden() && (!$focusHasZoom || $lnk !== $focusObj)):
                             // Check SHOW FOR restriction
                             if (!empty($lnk->showFor) && $sceneImg !== null) {
                               $sceneUrl = $sceneImg->src;
@@ -1015,7 +1032,7 @@ class UIhtml extends UI
                       <!-- Items on scene (positioned) -->
                       <?php foreach ($roomItems as $itm): ?>
                         <?php
-                          if ($itm !== $player->container && $itm->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && !$itm->isHidden()):
+                          if ($itm !== $player->container && $itm->showmode !== \Dimx\AdvObject::SHOW_OFFSCREEN && !$itm->isHidden() && (!$focusHasZoom || $itm !== $focusObj)):
                             // Check SHOW FOR restriction
                             if (!empty($itm->showFor) && $sceneImg !== null) {
                               $sceneUrl = $sceneImg->src;
@@ -1106,20 +1123,9 @@ class UIhtml extends UI
 
                       <!-- Fader overlay (Layer 255) and Focused Object Zoom (Layer 256) -->
                       <?php
-                        $focusObj = $player->focus ?? null;
-                        if ($focusObj !== null && $focusObj !== $activeContainer && $focusObj->isAccessibleFrom($player)):
-                          $isZoomImg = false;
-                          $focusImg = null;
-                          if ($focusObj instanceof \Dimx\Item && !empty($focusObj->zoomImage?->src)) {
-                            $focusImg = $focusObj->zoomImage;
-                            $isZoomImg = true;
-                          } else {
-                            $focusImg = $focusObj->getNearestImage($player->facing ?? 'N');
-                          }
-
-                          if ($focusImg !== null && !empty($focusImg->src)):
-                            $faderSrc = $skin?->picFader?->src ?? '';
-                            $dismissId = htmlspecialchars($activeContainer->id ?? $currentRoom->id ?? '');
+                        if ($focusHasZoom && $focusObj !== null && $focusImg !== null && !empty($focusImg->src)):
+                          $faderSrc = $skin?->picFader?->src ?? '';
+                          $dismissId = htmlspecialchars($activeContainer->id ?? $currentRoom->id ?? '');
                       ?>
                         <!-- Fader overlay mask (Layer 255) -->
                         <div class="fader_box"
@@ -1182,7 +1188,7 @@ class UIhtml extends UI
                              data-obj-name="<?= htmlspecialchars($focusObj->name) ?>"
                              style="position:absolute;left:<?= $focusPosX ?>px;top:<?= $focusPosY ?>px;width:<?= $focusDispW ?>px;height:<?= $focusDispH ?>px;cursor:pointer;z-index:256;"
                              onclick="clickObject(this)" />
-                      <?php endif; endif; ?>
+                      <?php endif; ?>
                     </div>
 
                     <!-- Description / main messages output -->
