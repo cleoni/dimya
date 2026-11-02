@@ -23,10 +23,10 @@
 | Variables | Script variables (global/local), `Dim` | Not implemented (only `object.property` assignment and reading) |
 | Flow control | `For ... Next`, `For Each ... Next` | Not implemented |
 | Flow control | `If / Else / End_If` | Implemented (nested; no `ElseIf`, as in DimX) |
-| Statements | `AttachEvent`, `Ban`, `Dim`, `Debug`, `DropItems`, `Kill`, `NewRoom`, `Reset`, `RefreshView`, `SaveSetting`, `SendCmd`, `SetAdd`, `SetRemove`, `SendPage`, `Journal` | Not implemented (silently ignored) |
+| Statements | `AttachEvent`, `Ban`, `Dim`, `Kill`, `NewRoom`, `Reset`, `RefreshView`, `SaveSetting`, `SendCmd`, `SetAdd`, `SetRemove`, `SendPage`, `Journal` | Not implemented (silently ignored) |
 | Statements | `MoveOutside` | Dropped in DimY (Cluster) |
 | Statements | `Call`, `Goal`, `Move`, `Print`, `PrintRight`, `Return`, `SetPanel` | Partial (see inline notes) |
-| Statements | `Speak`, `Display`, `PlaySound`, `BroadcastSound`, `PlayBackground`, `BroadcastBackground` | Implemented |
+| Statements | `Speak`, `Display`, `PlaySound`, `BroadcastSound`, `PlayBackground`, `BroadcastBackground`, `Debug`, `DropItems` | Implemented |
 | Functions | All 55 built-ins except `RndSet`, `RndInt` (2-arg form only), `NOT` (partial) | Not implemented (see per-function tags) |
 | Dropped | `Cluster`, `Dict` / `DictSorted` | Dropped in DimY (native PHP arrays are used instead) |
 | DimY extras | `Broadcast`, `Open`, `Close`, `Search`, `Give` statements | DimY-only, not part of the DimX reference below |
@@ -560,7 +560,7 @@ Display [dest,] message [, message2, ...]
 
 ### 3.9.7 DropItems
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+> **[DimY: implemented]** Forces the specified character or container object (typically a player or NPC) to drop all carried inventory items onto the floor of their enclosing container/room. Matches DimensioneX Java `ActionsRunner.actDropItems()`.
 
 Forces the specified container object (typically a player or NPC) to drop all carried inventory items onto the floor of their current room.
 
@@ -569,7 +569,7 @@ DropItems [victim]
 ```
 
 - **Parameters**:
-  - `victim` *(Optional)*: ID of the character/container object. If omitted, defaults to `$AGENT`. If the target is a player, a notification is displayed on their console.
+  - `victim` *(Optional)*: ID or reference of the character/container object. If omitted, defaults to `$AGENT`. When items are dropped from a character or player, the notification `"Everything I was carrying just slipped from my hands!"` is displayed on their console.
 
 ---
 

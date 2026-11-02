@@ -262,7 +262,7 @@ class ActionsRunner
         // Also handle verb followed immediately by '(' e.g. "Debug("test")"
         if (preg_match('/^([A-Za-z0-9_]+)\s*\((.*)\)$/s', $line, $vm) && !str_contains($vm[1], '.')) {
             $verbCandidate = strtoupper($vm[1]);
-            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL'], true)) {
+            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS'], true)) {
                 $verb = $verbCandidate;
                 $argString = $vm[2];
             }
@@ -286,6 +286,7 @@ class ActionsRunner
             'PLAYBACKGROUND'      => $this->actPlayBackground($args),
             'BROADCASTBACKGROUND' => $this->actBroadcastBackground($args),
             'MOVE'                => $this->actMove($args),
+            'DROPITEMS'           => $this->actDropItems($args),
             'GOAL'       => $this->actGoal($args),
             'RETURN'     => $this->actReturn($args),
             'OPEN'       => $this->actOpen($args),
@@ -955,6 +956,50 @@ class ActionsRunner
         }
 
         return false;
+    }
+
+    /**
+     * DropItems [victim]
+     * Drops all items carried by the target object into its enclosing container/room.
+     * Matches DimensioneX ActionsRunner.actDropItems() & SmallBasic §3.9.7.
+     */
+    protected function actDropItems(array $args): bool
+    {
+        $targetName = !empty($args[0]) ? (string)$args[0] : '';
+        $obj = null;
+        if ($targetName !== '') {
+            $obj = $this->resolveObject($targetName);
+        }
+        if ($obj === null) {
+            $obj = ($this->agent instanceof AdvObject)
+                ? $this->agent
+                : (($this->owner instanceof AdvObject) ? $this->owner : null);
+        }
+
+        if ($obj === null) {
+            $this->world?->log("DropItems: cannot resolve target: >{$targetName}<");
+            return false;
+        }
+
+        $dest = $obj->container ?? ($obj instanceof Character ? $obj->getRoom() : null);
+        if (!($dest instanceof AdvObject)) {
+            $this->world?->log("DropItems: target {$obj->id} has no container to drop items into");
+            return false;
+        }
+
+        $contents = array_values($obj->contents);
+        if (!empty($contents)) {
+            foreach ($contents as $what) {
+                if ($what instanceof AdvObject) {
+                    $what->move($dest, false);
+                }
+            }
+            if ($obj instanceof Character) {
+                $obj->display("Everything I was carrying just slipped from my hands!");
+            }
+        }
+
+        return true;
     }
 
     /**

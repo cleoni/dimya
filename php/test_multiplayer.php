@@ -72,6 +72,7 @@ $sections = [
     48 => ['title' => 'Testing Resolution Handling & Login Form Cleanliness (no screenSizeHelper, non-portrait 640x480/800x600)...', 'keywords' => ['screensize', 'landscape', 'resolution', 'portrait', 'uihtml', 'login']],
     49 => ['title' => 'Testing NewImage Function, ImagesFolder Resolution & Image Display/Assignment in SmallBasic...', 'keywords' => ['newimage', 'image', 'smallbasic', 'actionsrunner', 'display', 'imagesfolder']],
     50 => ['title' => 'Testing Item Default SHOW_OFFSCREEN (0), Zoom on Click/Look & Fader Backdrop Overlay...', 'keywords' => ['zoom', 'fader', 'showmode', 'offscreen', 'focus', 'click', 'look', 'screwdriver', 'fader_box']],
+    51 => ['title' => 'Testing SmallBasic DropItems Instruction & Notification (Player, NPC, Container)...', 'keywords' => ['dropitems', 'actionsrunner', 'inventory', 'drop', 'slipped']],
 ];
 
 // CLI Options parsing
@@ -5334,6 +5335,85 @@ if (shouldRun(50)) {
     assertTest(preg_match('/<img[^>]*data-obj-id="tommy"[^>]*style="[^"]*z-index:\s*256/i', $viewTommy) === 1, "Focused character rendered at z-index 256 over fader");
 
     @$pm->resetWorld($sec50WorldId);
+}
+
+// ----------------------------------------------------------------------------
+// Section 51: Testing SmallBasic DropItems Instruction & Notification
+// ----------------------------------------------------------------------------
+if (shouldRun(51)) {
+    echo "\n51. " . $sections[51]['title'] . "\n";
+    $executedSections[] = 51;
+
+    $sec51World = new \Dimx\World();
+    $sec51Room = new \Dimx\Room($sec51World, 'Vault Room', 'vault', 'A secure vault room.');
+    $sec51World->addRoom($sec51Room);
+
+    $sec51Player = new \Dimx\Player($sec51World, 'DropTester', 'droptester', 'A test player');
+    $sec51Player->move($sec51Room, false);
+    $sec51World->characters['droptester'] = $sec51Player;
+
+    $item1 = new \Dimx\Item($sec51World, 'Coin', 'coin', 'A gold coin');
+    $item2 = new \Dimx\Item($sec51World, 'Torch', 'torch', 'A wooden torch');
+    $sec51World->addItem($item1);
+    $sec51World->addItem($item2);
+
+    $item1->move($sec51Player, false);
+    $item2->move($sec51Player, false);
+    assertTest(count($sec51Player->contents) === 2, "Player is carrying 2 items initially");
+    assertTest(count($sec51Room->getItems()) === 0, "Room has 0 items initially");
+
+    $runner51 = new \Dimx\ActionsRunner($sec51World, $sec51Player, $sec51Player, null);
+
+    // 1. DropItems with explicit $AGENT
+    $sec51Player->clientConsole = [];
+    $resDrop = $runner51->run('DropItems $AGENT');
+    assertTest($resDrop === true, "DropItems \$AGENT returns true");
+    assertTest(count($sec51Player->contents) === 0, "Player has 0 items after DropItems");
+    assertTest(count($sec51Room->getItems()) === 2, "Room contains 2 dropped items");
+    assertTest(isset($sec51Room->contents['coin']), "Coin is now in room contents");
+    assertTest(isset($sec51Room->contents['torch']), "Torch is now in room contents");
+    $consoleText = implode(' ', $sec51Player->clientConsole);
+    assertTest(str_contains($consoleText, "Everything I was carrying just slipped from my hands!"), "Player received slipped message: '{$consoleText}'");
+
+    // 2. DropItems with no items: does not display message
+    $sec51Player->clientConsole = [];
+    $runner51->run('DropItems $AGENT');
+    assertTest(empty($sec51Player->clientConsole), "DropItems on empty inventory does NOT display message");
+
+    // 3. DropItems with no arguments defaults to $AGENT
+    $item1->move($sec51Player, false);
+    assertTest(count($sec51Player->contents) === 1, "Player carries coin again");
+    $sec51Player->clientConsole = [];
+    $runner51->run('DropItems');
+    assertTest(count($sec51Player->contents) === 0, "DropItems with no argument dropped player items");
+    assertTest(str_contains(implode(' ', $sec51Player->clientConsole), "Everything I was carrying just slipped from my hands!"), "Player received notification on DropItems without args");
+
+    // 4. DropItems on NPC character ($TARGET)
+    $npcGuard = new \Dimx\Character($sec51World, 'Guard', 'guard', 'A castle guard');
+    $npcGuard->container = $sec51Room;
+    $sec51World->characters['guard'] = $npcGuard;
+    $shield = new \Dimx\Item($sec51World, 'Shield', 'shield', 'A wooden shield');
+    $sec51World->addItem($shield);
+    $shield->move($npcGuard, false);
+    assertTest(count($npcGuard->contents) === 1, "Guard carries shield initially");
+
+    $runnerWithTarget = new \Dimx\ActionsRunner($sec51World, $sec51Player, $sec51Player, $npcGuard);
+    $runnerWithTarget->run('DropItems $TARGET');
+    assertTest(count($npcGuard->contents) === 0, "Guard has 0 items after DropItems \$TARGET");
+    assertTest(isset($sec51Room->contents['shield']), "Shield is now on room floor");
+
+    // 5. DropItems on Item container (box)
+    $box = new \Dimx\Item($sec51World, 'Chest', 'chest', 'A wooden chest');
+    $sec51World->addItem($box);
+    $box->move($sec51Room, false);
+    $gem = new \Dimx\Item($sec51World, 'Ruby', 'ruby', 'A red ruby');
+    $sec51World->addItem($gem);
+    $gem->move($box, false);
+    assertTest(count($box->contents) === 1, "Chest contains ruby initially");
+
+    $runner51->run('DropItems chest');
+    assertTest(count($box->contents) === 0, "Chest is empty after DropItems chest");
+    assertTest(isset($sec51Room->contents['ruby']), "Ruby is now in vault room floor");
 }
 
 // Clean up test worlds
