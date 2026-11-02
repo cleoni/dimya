@@ -441,7 +441,7 @@ SHOW <showMode> [showX,showY [FOR showForUrl]]
 
 | Mode | Numeric Code | Typical For | Description |
 |---|---|---|---|
-| `OFFSCREEN` | `0` | `ITEM` (default) | Represented as an icon in the sidebar / items list. |
+| `OFFSCREEN` | `0` | `ITEM` (default) | Represented as an icon in the sidebar / items list outside the scene picture. If an `IMAGE` (or `ZOOMIMAGE`) is specified, clicking or looking at the item zooms it onto the refreshed scene over the semi-transparent fader overlay (`picFader`). |
 | `ONSCREEN` | `1` | `CHARACTER` (default) | Rendered as a full sprite directly over the room scene image. |
 | `ICON` | `2` | Interactive props | Rendered as a clickable icon placed directly on the scene image. |
 
@@ -680,9 +680,11 @@ ITEM <id>
     [ZOOMIMAGE   [dimensions] <url>]
 ```
 
+* **Default Show Mode (`SHOW OFFSCREEN`)**: When `SHOW` is omitted, items default to `OFFSCREEN` (`showmode = 0`, as specified in DimensioneX Developer's Reference §2.9.1). They appear as icons in the `#dashboard` items panel or player inventory rather than on the room scene picture.
+* **Zoom on Click / Look**: If an item defines an `IMAGE` (or `ZOOMIMAGE`), clicking or looking at the item zooms it onto the room scene picture. The refreshed scene renders the semi-transparent fader overlay mask (Layer 255 `.fader_box` using skin `picFader`) with the item's on-screen image rendered on top (Layer 256). Clicking anywhere on the fader returns focus to the room and dismisses the zoom overlay.
 * **Nested Containment**: `POSITION` can point to another `ITEM` (e.g. `apple` inside `box`), a `ROOM`, or a `CHARACTER` (inventory).
 * **`INNER IMAGE`**: Visual interior displayed when an entity is inside this container.
-* **`ZOOMIMAGE`**: High-detail close-up shown when inspected with `look`.
+* **`ZOOMIMAGE`**: High-detail close-up shown when inspected with `look` or clicked; automatically centered horizontally and vertically in the scene picture.
 
 ### 10.2 Vehicles & Passenger Transport
 

@@ -183,6 +183,34 @@ class AdvObject extends DimxObject
     }
 
     /**
+     * DimensioneX compatibility alias for getImageForFacing.
+     */
+    public function getNearestImage(string $face): ?Image
+    {
+        return $this->getImageForFacing($face);
+    }
+
+    /**
+     * Return DimensioneX type prefix identifier ('i'=item, 'c'=character, 'w'=way/link, 'r'=room, 'o'=object).
+     */
+    public function getTypePrefix(): string
+    {
+        if ($this->isanItem()) {
+            return 'i';
+        }
+        if ($this->isaCharacter()) {
+            return 'c';
+        }
+        if ($this->isLink()) {
+            return 'w';
+        }
+        if ($this->isaRoom()) {
+            return 'r';
+        }
+        return 'o';
+    }
+
+    /**
      * Check if this object can be opened and closed (has 'open' declared or dynamic property, or has 'locked').
      */
     public function isOpenable(): bool

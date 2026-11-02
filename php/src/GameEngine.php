@@ -541,6 +541,7 @@ class GameEngine
         }
 
         $currentRoom = $player->getRoom();
+        $player->focus = null;
 
         switch ($cmd) {
             case 'look':
@@ -550,11 +551,18 @@ class GameEngine
                     $targetObj = $this->findAccessibleObject($player, $lookTarget);
 
                     if ($targetObj instanceof AdvObject) {
+                        $player->focus = $targetObj;
                         $desc = $targetObj->evalDescription($player);
-                        $msg = !empty($desc) ? $desc : "<b>{$targetObj->name}</b>";
-                        $player->display($msg);
+                        if ($targetObj->isaRoom()) {
+                            if (!empty($desc)) {
+                                $player->display($desc);
+                            }
+                        } else {
+                            $msg = !empty($desc) ? $desc : "<b>{$targetObj->name}</b>";
+                            $player->display($msg);
+                        }
 
-                        if ($targetObj->isOpen() && !$targetObj->isVehicle()) {
+                        if ($targetObj->isanItem() && !$targetObj->isaRoom() && $targetObj->isOpen() && !$targetObj->isVehicle()) {
                             $contents = $targetObj->getContents(true);
                             if (!empty($contents)) {
                                 $itemLinks = [];
@@ -578,8 +586,12 @@ class GameEngine
                     $activeCont = ($player->container instanceof AdvObject && $player->container->isVehicle())
                         ? $player->container
                         : $currentRoom;
+                    $player->focus = $activeCont;
                     if ($activeCont !== null) {
-                        $player->display("<b>{$activeCont->name}</b>: {$activeCont->evalDescription($player)}");
+                        $desc = $activeCont->evalDescription($player);
+                        if (!empty($desc)) {
+                            $player->display($desc);
+                        }
                         $world->fireEvent('onLook', $activeCont, $player, null);
                     } else {
                         $player->display("You are in the void.");
@@ -656,7 +668,11 @@ class GameEngine
                 if (!empty($openTarget)) {
                     $targetObj = $this->findAccessibleObject($player, $openTarget);
                     if ($targetObj instanceof AdvObject) {
-                        $this->actOpen($targetObj, $player);
+                        if ($this->actOpen($targetObj, $player)) {
+                            if (!$targetObj->isLink() && $targetObj->showmode !== AdvObject::SHOW_OFFSCREEN) {
+                                $player->focus = $targetObj;
+                            }
+                        }
                     } else {
                         $player->display("You do not see that here.");
                     }

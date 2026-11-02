@@ -47,6 +47,9 @@ class Player extends Character
     /** @var bool Whether a new incoming chat message arrived since last render */
     public bool $newMessages = false;
 
+    /** @var AdvObject|null Currently focused/inspected object for zoom overlay on next render */
+    public ?AdvObject $focus = null;
+
     /** @var int Client viewport screen width in pixels (default 1280) */
     public int $screenWidth = 1280;
 
@@ -127,12 +130,12 @@ class Player extends Character
     }
 
     /**
-     * Prevent serializing the runtime UI instance into DB or persistent storage.
+     * Prevent serializing runtime UI and transient focus instances into DB or persistent storage.
      */
     public function __sleep(): array
     {
         $vars = array_keys(get_object_vars($this));
-        return array_values(array_diff($vars, ['ui']));
+        return array_values(array_diff($vars, ['ui', 'focus']));
     }
 
     /**

@@ -1103,6 +1103,86 @@ class UIhtml extends UI
                                style="width:<?= $innerW ?>px;height:<?= $innerH ?>px;border:0;display:block;" />
                         </div>
                       <?php endif; ?>
+
+                      <!-- Fader overlay (Layer 255) and Focused Object Zoom (Layer 256) -->
+                      <?php
+                        $focusObj = $player->focus ?? null;
+                        if ($focusObj !== null && $focusObj !== $activeContainer && $focusObj->isAccessibleFrom($player)):
+                          $isZoomImg = false;
+                          $focusImg = null;
+                          if ($focusObj instanceof \Dimx\Item && !empty($focusObj->zoomImage?->src)) {
+                            $focusImg = $focusObj->zoomImage;
+                            $isZoomImg = true;
+                          } else {
+                            $focusImg = $focusObj->getNearestImage($player->facing ?? 'N');
+                          }
+
+                          if ($focusImg !== null && !empty($focusImg->src)):
+                            $faderSrc = $skin?->picFader?->src ?? '';
+                            $dismissId = htmlspecialchars($activeContainer->id ?? $currentRoom->id ?? '');
+                      ?>
+                        <!-- Fader overlay mask (Layer 255) -->
+                        <div class="fader_box"
+                             style="position:absolute;left:0;top:0;width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;z-index:255;cursor:pointer;"
+                             onclick="sendCmd('click','','<?= $dismissId ?>');if(window.event){window.event.stopPropagation();}"
+                             title="Click to dismiss">
+                          <?php if (!empty($faderSrc)): ?>
+                            <img src="<?= htmlspecialchars($faderSrc) ?>"
+                                 alt="Dismiss"
+                                 style="width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;display:block;opacity:0.75;" />
+                          <?php else: ?>
+                            <div style="width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;background-color:rgba(255,255,255,0.65);"></div>
+                          <?php endif; ?>
+                        </div>
+
+                        <!-- Focused Object Zoom (Layer 256) -->
+                        <?php
+                          $focusBaseW = !empty($focusImg->width) ? $focusImg->width : ($world->iconSize ?? 16);
+                          $focusBaseH = !empty($focusImg->height) ? $focusImg->height : ($world->iconSize ?? 16);
+
+                          if ($isZoomImg) {
+                            $focusCartX = (int)round(($roomW - $focusBaseW) / 2);
+                            $focusCartY = (int)round(($roomH - $focusBaseH) / 2);
+                          } else {
+                            $xValid = ($focusObj->showX >= 0 && $focusObj->showX < $roomW);
+                            if ($xValid) {
+                              $focusCartX = $focusObj->showX;
+                            } else {
+                              $range = ($saX2 - $saX1) - $focusBaseW;
+                              $focusCartX = ($range > 0) ? ($saX1 + (abs(crc32($focusObj->id)) % $range)) : $saX1;
+                            }
+
+                            $yValid = ($focusObj->showY >= 0 && $focusObj->showY < $roomH);
+                            if ($yValid) {
+                              $focusCartY = $focusObj->showY;
+                            } else {
+                              $focusCartY = ($focusObj->showmode === \Dimx\AdvObject::SHOW_ICON)
+                                ? (int)round($saBaseline / 2)
+                                : $saBaseline;
+                            }
+                          }
+
+                          $focusScreenX = 1 + $focusCartX;
+                          $focusScreenY = $roomH - $focusCartY - $focusBaseH;
+                          $focusDispW   = (int)round($factorx * $focusBaseW);
+                          $focusDispH   = (int)round($factorx * $focusBaseH);
+                          $focusPosX    = (int)round($factorx * $focusScreenX);
+                          $focusPosY    = (int)round($factorx * $focusScreenY);
+
+                          // Clamp to keep within visible scene boundaries
+                          $focusPosX = max(0, min($focusPosX, $scaledRoomW - $focusDispW));
+                          $focusPosY = max(0, min($focusPosY, $scaledRoomH - $focusDispH));
+                        ?>
+                        <img src="<?= htmlspecialchars($focusImg->src) ?>"
+                             alt="<?= htmlspecialchars($focusObj->name) ?>"
+                             title="<?= htmlspecialchars($focusObj->name) ?>"
+                             class="dimx-onscreen-obj"
+                             data-obj-id="<?= htmlspecialchars($focusObj->id) ?>"
+                             data-obj-type="<?= htmlspecialchars($focusObj->getTypePrefix()) ?>"
+                             data-obj-name="<?= htmlspecialchars($focusObj->name) ?>"
+                             style="position:absolute;left:<?= $focusPosX ?>px;top:<?= $focusPosY ?>px;width:<?= $focusDispW ?>px;height:<?= $focusDispH ?>px;cursor:pointer;z-index:256;"
+                             onclick="clickObject(this)" />
+                      <?php endif; endif; ?>
                     </div>
 
                     <!-- Description / main messages output -->

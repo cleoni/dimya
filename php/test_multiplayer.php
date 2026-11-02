@@ -71,6 +71,7 @@ $sections = [
     47 => ['title' => 'Testing SmallBasic Debug Instruction & GameEngine::log() Writing to debug.log...', 'keywords' => ['debug', 'log', 'debug.log', 'gameengine', 'actionsrunner', 'system folder', 'smallbasic']],
     48 => ['title' => 'Testing Resolution Handling & Login Form Cleanliness (no screenSizeHelper, non-portrait 640x480/800x600)...', 'keywords' => ['screensize', 'landscape', 'resolution', 'portrait', 'uihtml', 'login']],
     49 => ['title' => 'Testing NewImage Function, ImagesFolder Resolution & Image Display/Assignment in SmallBasic...', 'keywords' => ['newimage', 'image', 'smallbasic', 'actionsrunner', 'display', 'imagesfolder']],
+    50 => ['title' => 'Testing Item Default SHOW_OFFSCREEN (0), Zoom on Click/Look & Fader Backdrop Overlay...', 'keywords' => ['zoom', 'fader', 'showmode', 'offscreen', 'focus', 'click', 'look', 'screwdriver', 'fader_box']],
 ];
 
 // CLI Options parsing
@@ -5197,6 +5198,107 @@ if (shouldRun(49)) {
     // 8. String concatenation with NewImage
     $concatResult = $sec49Runner->run('return "Item icon: " + NewImage("sword.png", 32, 32)');
     assertTest(str_starts_with((string)$concatResult, 'Item icon: <img src="https://www.dimensionex.net/pics/sword.png"'), "String concat with NewImage renders HTML tag");
+}
+
+// ----------------------------------------------------------------------------
+// 50. Testing Item Default SHOW_OFFSCREEN (0), Zoom on Click/Look & Fader Backdrop Overlay
+// ----------------------------------------------------------------------------
+if (shouldRun(50)) {
+    echo "\n50. " . $sections[50]['title'] . "\n";
+    $executedSections[] = 50;
+
+    $sec50WorldId = 'test_zoom_' . bin2hex(random_bytes(4));
+    $sec50Engine = new \Dimx\GameEngine($pm, $sec50WorldId, null, $baseUrl);
+    $sec50World = $sec50Engine->loadOrSeedWorld();
+
+    // 1. Verify Item class default showmode is SHOW_OFFSCREEN (0)
+    $testItem = new \Dimx\Item($sec50World, 'TestScrewdriver', 'test_screwd', 'A handy screwdriver');
+    assertTest($testItem->showmode === \Dimx\AdvObject::SHOW_OFFSCREEN, "Item instance defaults to showmode SHOW_OFFSCREEN (0)");
+    assertTest($testItem->getProperty('showmode') === 0, "Item getProperty('showmode') returns 0");
+
+    // Configure test room and items
+    $zoomRoom = new \Dimx\Room($sec50World, 'Workshop', 'workshop', 'A messy workshop.');
+    $sec50World->addRoom($zoomRoom);
+
+    $zoomScrewd = new \Dimx\Item($sec50World, 'a screwdriver', 'screwd', 'A flathead screwdriver');
+    $zoomScrewd->images['N'] = new \Dimx\Image('http://localhost/dimx/pics/cacciavite.gif', 113, 30);
+    $zoomScrewd->pickable = true;
+    $zoomScrewd->move($zoomRoom);
+
+    $playerZ = $sec50Engine->ensurePlayer($sec50World, 'ZoomTester');
+    $playerZ->move($zoomRoom);
+    $pm->saveWorld($sec50World);
+
+    // 2. Initial room render: offscreen item is NOT drawn on scene, but listed in dashboard items
+    $resInit = $sec50Engine->processCommand('ZoomTester', 'look', '', '');
+    $htmlInit = new \Dimx\UIhtml();
+    $htmlInit->setEngine($sec50Engine);
+    $htmlInit->setPlayer($playerZ);
+    ob_start();
+    $htmlInit->render($resInit);
+    $viewInit = ob_get_clean();
+
+    assertTest(strpos($viewInit, 'class="fader_box"') === false, "Initial scene has no fader overlay");
+    assertTest(preg_match('/<img[^>]*data-obj-id="screwd"[^>]*style="[^"]*z-index:\s*256/i', $viewInit) === 0, "Initial scene does not render offscreen screwdriver on scene image");
+    assertTest(strpos($viewInit, 'data-obj-id="screwd"') !== false, "Initial scene lists offscreen screwdriver in items list");
+
+    // 3. Click offscreen screwdriver -> player focus is set to screwd
+    $resClick = $sec50Engine->processCommand('ZoomTester', 'click', '', 'screwd');
+    $pClicked = $resClick['player'];
+    assertTest($pClicked->focus !== null && $pClicked->focus->id === 'screwd', "Click on 'screwd' sets player focus to screwd item");
+
+    // 4. Render refreshed scene: fader overlay (layer 255) and zoomed image (layer 256)
+    $htmlClick = new \Dimx\UIhtml();
+    $htmlClick->setEngine($sec50Engine);
+    $htmlClick->setPlayer($pClicked);
+    ob_start();
+    $htmlClick->render($resClick);
+    $viewClick = ob_get_clean();
+
+    assertTest(strpos($viewClick, 'class="fader_box"') !== false, "Refreshed scene renders fader overlay (.fader_box) at z-index 255");
+    assertTest(strpos($viewClick, 'fadewhite.gif') !== false, "Fader overlay utilizes skin picFader image (fadewhite.gif)");
+    assertTest(strpos($viewClick, "sendCmd('click','','workshop')") !== false, "Fader overlay click handler returns focus to room container (workshop)");
+    assertTest(preg_match('/<img[^>]*data-obj-id="screwd"[^>]*style="[^"]*z-index:\s*256/i', $viewClick) === 1, "Refreshed scene renders zoomed screwdriver at z-index 256 on top of fader");
+    assertTest(strpos($viewClick, 'cacciavite.gif') !== false, "Zoomed item uses object image (cacciavite.gif)");
+
+    // 5. Dismiss zoom by clicking the fader overlay (click on container workshop)
+    $resDismiss = $sec50Engine->processCommand('ZoomTester', 'click', '', 'workshop');
+    $pDismiss = $resDismiss['player'];
+    assertTest($pDismiss->focus !== null && $pDismiss->focus->id === 'workshop', "Click on room container updates focus to container");
+    assertTest(!str_contains(implode(' ', $resDismiss['messages']), "Containing:"), "Clicking room container does NOT output 'Containing:' contents list");
+
+    ob_start();
+    $htmlClick->render($resDismiss);
+    $viewDismiss = ob_get_clean();
+    assertTest(strpos($viewDismiss, 'class="fader_box"') === false, "Clicking fader dismisses fader overlay");
+    assertTest(preg_match('/<img[^>]*data-obj-id="screwd"[^>]*style="[^"]*z-index:\s*256/i', $viewDismiss) === 0, "Dismissed view removes zoomed screwdriver from scene");
+
+    // 6. Inspecting inventory item also zooms it with fader
+    $resPick = $sec50Engine->processCommand('ZoomTester', 'pick', 'screwd', '');
+    $pPicked = $resPick['player'];
+    assertTest(isset($pPicked->contents['screwd']), "Player picked up screwdriver into inventory");
+
+    $resInvClick = $sec50Engine->processCommand('ZoomTester', 'click', '', 'screwd');
+    $pInv = $resInvClick['player'];
+    assertTest($pInv->focus !== null && $pInv->focus->id === 'screwd', "Click on carried item sets player focus to item");
+
+    ob_start();
+    $htmlClick->render($resInvClick);
+    $viewInvClick = ob_get_clean();
+    assertTest(strpos($viewInvClick, 'class="fader_box"') !== false, "Clicking carried inventory item renders fader overlay");
+    assertTest(preg_match('/<img[^>]*data-obj-id="screwd"[^>]*style="[^"]*z-index:\s*256/i', $viewInvClick) === 1, "Clicking carried inventory item renders zoomed image over fader");
+
+    // 7. Dropping item resets focus and dismisses fader
+    $resDrop = $sec50Engine->processCommand('ZoomTester', 'drop', 'screwd', '');
+    $pDrop = $resDrop['player'];
+    assertTest($pDrop->focus === null, "Dropping item clears player focus");
+
+    ob_start();
+    $htmlClick->render($resDrop);
+    $viewDrop = ob_get_clean();
+    assertTest(strpos($viewDrop, 'class="fader_box"') === false, "Scene after drop has no fader overlay");
+
+    @$pm->resetWorld($sec50WorldId);
 }
 
 // Clean up test worlds
