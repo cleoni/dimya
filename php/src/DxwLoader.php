@@ -659,7 +659,7 @@ class DxwLoader
                             $item->defContainer = $position;
                             $target = $world->getRoom($position) ?? $world->contents[$position] ?? null;
                             if ($target instanceof AdvObject) {
-                                $item->move($target);
+                                $item->move($target, false);
                             }
                         }
                     } else {

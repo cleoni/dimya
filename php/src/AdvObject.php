@@ -474,7 +474,7 @@ class AdvObject extends DimxObject
     /**
      * Move this object into target container, checking volume and capacity.
      */
-    public function move(AdvObject $target): bool
+    public function move(AdvObject $target, bool $checkOpen = false): bool
     {
         if ($this instanceof Room) {
             $this->world?->log("ERROR: ROOM objects cannot be moved.");
@@ -485,7 +485,7 @@ class AdvObject extends DimxObject
             return true;
         }
 
-        if ($target->isOpenable() && !$target->isOpen()) {
+        if ($checkOpen && $target->isOpenable() && !$target->isOpen()) {
             $this->world?->log("itemPlace: Impossibile because object {$target->id} is not open or not suitable as a container");
             $this->world?->log("Cannot move {$this->id}: destination closed");
             return false;
@@ -599,12 +599,14 @@ class AdvObject extends DimxObject
             ?? null;
 
         if ($target instanceof AdvObject) {
-            $this->move($target);
-        } elseif (!empty($this->world->defaultRoom)) {
+            $this->move($target, false);
+        }
+
+        if ($this->container === null && !empty($this->world->defaultRoom)) {
             $this->world?->log("WARNING: Can't reposition '{$this->id}' in: {$this->defContainer} - Trying default place");
             $defRoom = $this->world->getRoom($this->world->defaultRoom);
             if ($defRoom instanceof AdvObject) {
-                $this->move($defRoom);
+                $this->move($defRoom, false);
             }
         }
     }

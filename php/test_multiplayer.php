@@ -1876,6 +1876,21 @@ if (shouldRun(23)) {
 
     $chosenRoomWithWorld = $evalMethod->invoke($runner, 'RndSet($WORLD.setBeach)');
     assertTest(in_array($chosenRoomWithWorld, $w3->sets['setBeach'], true), "ActionsRunner evalValue RndSet(\$WORLD.setBeach) returns an element from setBeach ('{$chosenRoomWithWorld}')");
+
+    // Verify key5 and setValigie initial placement in closed containers
+    $key5 = $w3->getItem('key5');
+    assertTest($key5 instanceof \Dimx\Item, "Item key5 exists in loaded world");
+    assertTest($key5->defContainer === 'rndSet(setValigie)', "key5 defContainer is 'rndSet(setValigie)'");
+    assertTest($key5->container !== null, "key5 is positioned in a container (not NULL, got: " . ($key5->container?->id ?? 'null') . ")");
+    assertTest(in_array($key5->container?->id, $w3->sets['setValigie'], true), "key5 container is an element of setValigie ('" . ($key5->container?->id ?? 'null') . "')");
+
+    // Verify Move instruction bypasses closed container checks
+    $valigia = $w3->getItem('valigia');
+    assertTest($valigia instanceof \Dimx\Item, "Item valigia exists in loaded world");
+    assertTest(!$valigia->isOpen(), "valigia is initially closed (open=0)");
+    $moveRes = $runner->run('Move key5, valigia');
+    assertTest($moveRes === true, "Move instruction into closed container returns true");
+    assertTest($key5->container === $valigia, "key5 container is now valigia after Move instruction bypassed closed container check");
 }
 
 // -------------------------------------------------------------

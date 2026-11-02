@@ -946,7 +946,7 @@ class ActionsRunner
         $whereObj = $this->resolveObject((string)$args[1]);
 
         if ($whatObj instanceof AdvObject && $whereObj instanceof AdvObject) {
-            $moved = $whatObj->move($whereObj);
+            $moved = $whatObj->move($whereObj, false);
             if ($moved && $this->world !== null && ($whatObj instanceof Character || $whatObj->isVehicle())) {
                 $this->world->fireEvent('onEnter', $whatObj, $this->agent ?? $whatObj, $whereObj);
                 $this->world->fireEvent('onReceive', $whereObj, $this->agent ?? $whatObj, $whatObj);
