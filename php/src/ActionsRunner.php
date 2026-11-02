@@ -870,7 +870,10 @@ class ActionsRunner
         if (preg_match('/^([A-Za-z0-9_.]+)\s*(?:\((.*)\))?$/', $raw, $m)) {
             $subName = trim($m[1]);
             if (isset($m[2]) && trim($m[2]) !== '') {
-                $callArgs = $this->parseArguments($m[2]);
+                $rawArgs = $this->parseArguments($m[2]);
+                foreach ($rawArgs as $a) {
+                    $callArgs[] = $this->evalValue($a);
+                }
             }
         }
 
@@ -1701,6 +1704,9 @@ class ActionsRunner
         }
 
         // Variable lookup in local variables or world properties
+        if (array_key_exists($val, $this->localVars)) {
+            return $this->localVars[$val];
+        }
         $varVal = $this->getVariable($val);
         if ($varVal !== null) {
             return $varVal;

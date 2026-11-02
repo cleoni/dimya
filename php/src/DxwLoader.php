@@ -89,7 +89,9 @@ class DxwLoader
 
         $lines = preg_split('/\r\n|\r|\n/', $rawContent);
         $cleanLines = [];
+        $cleanLineNumbers = [];
         $accum = '';
+        $accumStartLine = 1;
         $inQuote = false;
         $inScripts = false;
 
@@ -135,6 +137,7 @@ class DxwLoader
 
             if ($accum === '') {
                 $accum = $lineContent;
+                $accumStartLine = $li + 1;
             } else {
                 $accum .= "\n" . $lineContent;
             }
@@ -144,6 +147,7 @@ class DxwLoader
                 $trimmedAccum = trim($accum);
                 if ($trimmedAccum !== '') {
                     $cleanLines[] = $trimmedAccum;
+                    $cleanLineNumbers[] = $accumStartLine;
                 }
                 $accum = '';
             }
@@ -153,6 +157,7 @@ class DxwLoader
             $trimmedAccum = trim($accum);
             if ($trimmedAccum !== '') {
                 $cleanLines[] = $trimmedAccum;
+                $cleanLineNumbers[] = $accumStartLine;
             }
         }
 
@@ -904,6 +909,7 @@ class DxwLoader
                         }
                         $eventType = $directive;
                         $actionLines = [];
+                        $actionStartIndex = $i + 1;
                         $i++;
                         while ($i < $total) {
                             $subLine = $cleanLines[$i];
@@ -922,23 +928,10 @@ class DxwLoader
                         }
 
                         $actionText = implode("\n", $actionLines);
-                        $event = new Event($eventQual, $eventType, null, $formalParams);
+                        $actionsStartLine = $cleanLineNumbers[$actionStartIndex] ?? (($cleanLineNumbers[$actionStartIndex - 1] ?? 0) + 1);
+                        $fileShort = basename($sourceName);
+                        $event = new Event($eventQual, $eventType, null, $formalParams, $sourceName, $fileShort, $actionsStartLine);
                         $event->actions = $actionText;
-                        $event->setHandler(function (?DimxObject $owner, mixed $agent, mixed $target, array $input = [], mixed $defaultResult = true) use ($actionText, $world, $formalParams) {
-                            $runner = new ActionsRunner($world, $owner, $agent, $target, $input, $defaultResult);
-                            if (!empty($formalParams) && !empty($input)) {
-                                $idx = 0;
-                                foreach ($formalParams as $paramName) {
-                                    if (isset($input[$paramName])) {
-                                        $runner->setLocalVar($paramName, $input[$paramName]);
-                                    } elseif (array_key_exists($idx, $input)) {
-                                        $runner->setLocalVar($paramName, $input[$idx]);
-                                    }
-                                    $idx++;
-                                }
-                            }
-                            return $runner->run($actionText);
-                        });
                         $world->registerEvent($event);
                     } else {
                         $i++;

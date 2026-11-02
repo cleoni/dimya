@@ -21,6 +21,7 @@ class World extends DimxObject
     public mixed $mode = 0; // 0 = stopped / lobby / won (Goal), 1 = adventure running, or string like "pre", "play"
     public int $savegamePersistence = 2; // 0=restart only, 1=version only, 2=permanent
     public bool $reset = false;
+    public mixed $logger = null;
 
     // Screen and viewport design dimensions
     public int $screenwidth = 800; // Target design screen display size (default 800)
@@ -82,10 +83,38 @@ class World extends DimxObject
         return $this->sets[$name] ?? $this->getProperty($name) ?? null;
     }
 
+    public function initLogger(): void
+    {
+        $this->logger = new class($this) {
+            private World $world;
+            public function __construct(World $world)
+            {
+                $this->world = $world;
+            }
+            public function debug(mixed $msg): void
+            {
+                $this->world->log($msg);
+            }
+            public function info(mixed $msg): void
+            {
+                $this->world->log($msg);
+            }
+            public function warn(mixed $msg): void
+            {
+                $this->world->log($msg);
+            }
+            public function error(mixed $msg): void
+            {
+                $this->world->log($msg);
+            }
+        };
+    }
+
     public function __construct(string $id = 'world', string $name = 'DimensioneX World')
     {
         parent::__construct($id, $name, null);
         $this->world = $this;
+        $this->initLogger();
         $this->instanceId = uniqid('dimx_inst_', true);
 
         // Build prebuilt DimensioneY panels (default and chat)
@@ -221,11 +250,12 @@ class World extends DimxObject
     public function __sleep(): array
     {
         $vars = array_keys(get_object_vars($this));
-        return array_values(array_diff($vars, ['persistence', 'engine']));
+        return array_values(array_diff($vars, ['persistence', 'engine', 'logger']));
     }
 
     public function __wakeup(): void
     {
+        $this->initLogger();
         if (!is_array($this->players)) {
             $this->players = [];
         } else {

@@ -17,17 +17,30 @@ class Event extends ManageableObject
     public ?string $attachedEventsId = null;
     public array $formalParams = [];
     public ?string $actions = null;
+    public string $fileName = '';
+    public string $fileShort = '';
+    public int $actionsStartLine = 0;
 
     /** @var callable|null PHP closure or callable executing the event */
     protected $handler = null;
 
-    public function __construct(string $id, string $type = 'EVENT', ?callable $handler = null, array $formalParams = [])
-    {
+    public function __construct(
+        string $id,
+        string $type = 'EVENT',
+        ?callable $handler = null,
+        array $formalParams = [],
+        string $fileName = '',
+        string $fileShort = '',
+        int $actionsStartLine = 0
+    ) {
         parent::__construct();
         $this->id = $id;
         $this->type = strtoupper($type);
         $this->handler = $handler;
         $this->formalParams = $formalParams;
+        $this->fileName = $fileName;
+        $this->fileShort = $fileShort;
+        $this->actionsStartLine = $actionsStartLine;
     }
 
     public function setHandler(callable $handler): void
@@ -40,11 +53,59 @@ class Event extends ManageableObject
      */
     public function __sleep(): array
     {
-        $props = ['id', 'type', 'attachedEventsId', 'formalParams', 'actions', 'properties'];
+        $props = ['id', 'type', 'attachedEventsId', 'formalParams', 'actions', 'fileName', 'fileShort', 'actionsStartLine', 'properties'];
         if ($this->handler !== null && !($this->handler instanceof \Closure)) {
             $props[] = 'handler';
         }
         return $props;
+    }
+
+    /**
+     * Format a varspace array into DimensioneX format: {key1=val1, key2=val2}
+     */
+    public static function formatVarspace(array $varspace, ?World $world = null): string
+    {
+        $parts = [];
+        foreach ($varspace as $k => $v) {
+            $parts[] = $k . '=' . self::formatVarspaceValue($v, $world);
+        }
+        return '{' . implode(', ', $parts) . '}';
+    }
+
+    /**
+     * Format a single variable value into DimensioneX Token representation.
+     */
+    public static function formatVarspaceValue(mixed $v, ?World $world = null): string
+    {
+        if ($v instanceof DimxObject) {
+            $namePart = $v->name !== '' ? " ({$v->name})" : '';
+            return "(O|{$v->id}{$namePart}|0.0)";
+        }
+        if (is_string($v) && $world !== null) {
+            $resolved = $world->getObjectExt($v);
+            if ($resolved instanceof DimxObject) {
+                $namePart = $resolved->name !== '' ? " ({$resolved->name})" : '';
+                return "(O|{$resolved->id}{$namePart}|0.0)";
+            }
+        }
+        if (is_array($v)) {
+            $inner = [];
+            foreach ($v as $ik => $iv) {
+                if (is_int($ik)) {
+                    $inner[] = self::formatVarspaceValue($iv, $world);
+                } else {
+                    $inner[] = $ik . '=' . self::formatVarspaceValue($iv, $world);
+                }
+            }
+            return '{' . implode(', ', $inner) . '}';
+        }
+        if (is_bool($v)) {
+            return $v ? 'true' : 'false';
+        }
+        if ($v === null) {
+            return 'null';
+        }
+        return (string)$v;
     }
 
     /**
@@ -71,20 +132,54 @@ class Event extends ManageableObject
                 ? $owner->world
                 : $worldFallback);
 
+        // Separate positional arguments from associative input dictionary
+        $cleanInput = [];
+        $posArgs = [];
+        foreach ($input as $k => $v) {
+            if (is_int($k)) {
+                $posArgs[$k] = $v;
+            } else {
+                $cleanInput[$k] = $v;
+            }
+        }
+
+        // Build varspace (local variables for formal parameters + input)
+        $varspace = ['input' => $cleanInput];
+        if (!empty($this->formalParams)) {
+            $idx = 0;
+            foreach ($this->formalParams as $paramName) {
+                if (array_key_exists($paramName, $cleanInput)) {
+                    $varspace[$paramName] = $cleanInput[$paramName];
+                } elseif (array_key_exists($idx, $posArgs)) {
+                    $varspace[$paramName] = $posArgs[$idx];
+                } elseif (array_key_exists($idx, $input)) {
+                    $varspace[$paramName] = $input[$idx];
+                } else {
+                    $varspace[$paramName] = null;
+                }
+                $idx++;
+            }
+        }
+
+        // Trace event/function execution using standard DimensioneX format:
+        // "Calling FUNCTION addPlayer(person) - demoturnbased.dxw(117) with varspace: {input={}, person=(O|_p0 (Cris)|0.0)}"
         if ($world instanceof World) {
-            $world->log("{$this->type} {$this->id}");
+            $varspaceStr = self::formatVarspace($varspace, $world);
+            $world->logger?->debug("Calling " . (string)$this . " with varspace: " . $varspaceStr);
         }
 
         if ($this->handler !== null) {
             return ($this->handler)($owner, $agent, $target, $input, $defaultResult);
         }
+
         if (!empty($this->actions)) {
-            if ($world instanceof World) {
-                $world->log("EVENT {$this->id} executing");
-                $runner = new ActionsRunner($world, $owner, $agent, $target, $input, $defaultResult);
-                return $runner->run($this->actions);
+            $runner = new ActionsRunner($world, $owner, $agent, $target, $input, $defaultResult);
+            foreach ($varspace as $k => $v) {
+                $runner->setLocalVar($k, $v);
             }
+            return $runner->run($this->actions);
         }
+
         return $defaultResult;
     }
 
@@ -93,6 +188,9 @@ class Event extends ManageableObject
         $ret = $this->type . ' ' . $this->id;
         if (!empty($this->formalParams)) {
             $ret .= '(' . implode(',', $this->formalParams) . ')';
+        }
+        if ($this->fileShort !== '' && $this->actionsStartLine > 0) {
+            $ret .= ' - ' . $this->fileShort . '(' . $this->actionsStartLine . ')';
         }
         return $ret;
     }
