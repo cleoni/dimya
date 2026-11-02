@@ -1180,9 +1180,9 @@ class ActionsRunner
     }
 
     /**
-     * Parse comma-separated arguments preserving quoted strings.
+     * Parse comma-separated arguments preserving quoted strings and parentheses.
      */
-    protected function parseArguments(string $str, bool $stripQuotes = true): array
+    protected function parseArguments(string $str, bool $stripQuotes = false): array
     {
         $str = trim($str);
         if ($str === '') {
@@ -1192,23 +1192,30 @@ class ActionsRunner
         $args = [];
         $current = '';
         $inQuotes = false;
+        $quoteChar = '';
         $parenDepth = 0;
         $len = strlen($str);
 
         for ($i = 0; $i < $len; $i++) {
             $char = $str[$i];
-            if ($char === '"') {
-                $inQuotes = !$inQuotes;
+            if ($inQuotes) {
+                if ($char === $quoteChar) {
+                    $inQuotes = false;
+                }
                 $current .= $char;
-            } elseif (!$inQuotes && $char === '(') {
+            } elseif ($char === '"' || $char === "'") {
+                $inQuotes = true;
+                $quoteChar = $char;
+                $current .= $char;
+            } elseif ($char === '(') {
                 $parenDepth++;
                 $current .= $char;
-            } elseif (!$inQuotes && $char === ')') {
+            } elseif ($char === ')') {
                 if ($parenDepth > 0) {
                     $parenDepth--;
                 }
                 $current .= $char;
-            } elseif ($char === ',' && !$inQuotes && $parenDepth === 0) {
+            } elseif ($char === ',' && $parenDepth === 0) {
                 $args[] = trim($current);
                 $current = '';
             } else {
@@ -1224,7 +1231,7 @@ class ActionsRunner
         }
 
         return array_map(function ($arg) {
-            if (str_starts_with($arg, '"') && str_ends_with($arg, '"') && strlen($arg) >= 2) {
+            if (self::isSingleQuotedString($arg)) {
                 return substr($arg, 1, -1);
             }
             return $arg;

@@ -1198,7 +1198,7 @@ class UIhtml extends UI
                           <div class="dimx-console-line"><?= nl2br($line) ?></div>
                         <?php endforeach; ?>
                       <?php elseif ($activeContainer && !empty($activeContainer->evalDescription($player))): ?>
-                        <div class="dimx-room-desc"><?= nl2br(htmlspecialchars($activeContainer->evalDescription($player))) ?></div>
+                        <div class="dimx-room-desc"><?= nl2br($activeContainer->evalDescription($player)) ?></div>
                       <?php endif; ?>
                     </div>
                     </td>
