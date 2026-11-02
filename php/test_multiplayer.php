@@ -73,6 +73,7 @@ $sections = [
     49 => ['title' => 'Testing NewImage Function, ImagesFolder Resolution & Image Display/Assignment in SmallBasic...', 'keywords' => ['newimage', 'image', 'smallbasic', 'actionsrunner', 'display', 'imagesfolder']],
     50 => ['title' => 'Testing Item Default SHOW_OFFSCREEN (0), Zoom on Click/Look & Fader Backdrop Overlay...', 'keywords' => ['zoom', 'fader', 'showmode', 'offscreen', 'focus', 'click', 'look', 'screwdriver', 'fader_box']],
     51 => ['title' => 'Testing SmallBasic DropItems Instruction & Notification (Player, NPC, Container)...', 'keywords' => ['dropitems', 'actionsrunner', 'inventory', 'drop', 'slipped']],
+    52 => ['title' => 'Testing Put / Insert Command (2-Object OO Model, Capacity, Closed Checks, Events & UIhtml Definitions)...', 'keywords' => ['put', 'insert', 'actput', 'itemput', 'container', 'capacity', 'closed', 'uihtml', 'command_defs']],
 ];
 
 // CLI Options parsing
@@ -5414,6 +5415,166 @@ if (shouldRun(51)) {
     $runner51->run('DropItems chest');
     assertTest(count($box->contents) === 0, "Chest is empty after DropItems chest");
     assertTest(isset($sec51Room->contents['ruby']), "Ruby is now in vault room floor");
+}
+
+// =========================================================================
+// SECTION 52: Testing Put / Insert Command
+// =========================================================================
+if (shouldRun(52)) {
+    echo "\n52. " . $sections[52]['title'] . "\n";
+    $executedSections[] = 52;
+
+    // 1. Check UIhtml JavaScript definitions
+    $uiSource = file_get_contents(__DIR__ . '/src/UIhtml.php');
+    assertTest(strpos($uiSource, "'put':") !== false, "UIhtml COMMAND_DEFS contains 'put'");
+    assertTest(preg_match("/'put':\s*\{\s*noArgs:\s*2,\s*model:\s*'OO'/s", $uiSource) === 1, "UIhtml 'put' defined with noArgs: 2 and model: 'OO'");
+    assertTest(strpos($uiSource, "pendingCmd === 'put'") !== false, "UIhtml updatePrompt handles pendingCmd === 'put'");
+
+    // 2. Setup isolated test world and engine
+    $sec52World = new \Dimx\World('w_sec52', 'Section 52 Test');
+    $engine52 = new \Dimx\GameEngine(new \Dimx\PersistenceManager([], sys_get_temp_dir()), 'w_sec52', null, '', []);
+    $sec52Room = new \Dimx\Room($sec52World, 'VaultRoom', 'vaultRoom', 'A testing vault');
+    $sec52World->addRoom($sec52Room);
+
+    $sec52Player = new \Dimx\Player($sec52World, 'Alice', 'p_sec52');
+    $sec52Player->capacity = 100;
+    $sec52World->addPlayer($sec52Player);
+    $sec52Player->container = $sec52Room;
+
+    // 3. Put carried item into carried container (bag)
+    $key = new \Dimx\Item($sec52World, 'Silver Key', 'silverKey', 'A shiny key');
+    $key->volume = 1;
+    $key->pickable = true;
+    $sec52World->addItem($key);
+    $key->move($sec52Player, false);
+
+    $bag = new \Dimx\Item($sec52World, 'Leather Bag', 'bag', 'A spacious bag');
+    $bag->capacity = 10;
+    $bag->pickable = true;
+    $sec52World->addItem($bag);
+    $bag->move($sec52Player, false);
+
+    assertTest(isset($sec52Player->contents['silverKey']), "Player carries key initially");
+    assertTest(isset($sec52Player->contents['bag']), "Player carries bag initially");
+
+    $sec52Player->drainConsole();
+    $engine52->executeCommandAction($sec52World, $sec52Player, 'put', 'silverKey', 'bag');
+    $msgs = $sec52Player->drainConsole();
+    assertTest(!isset($sec52Player->contents['silverKey']), "Key is no longer directly in player contents");
+    assertTest(isset($bag->contents['silverKey']), "Key is now inside bag contents");
+    assertTest(count($msgs) > 0 && strpos($msgs[0], "You put the <b>Silver Key</b> into the <b>Leather Bag</b>.") !== false, "Output confirmed putting key into bag (got: '" . ($msgs[0] ?? '') . "')");
+
+    // 4. Put room item into carried container
+    $coin = new \Dimx\Item($sec52World, 'Gold Coin', 'goldCoin', 'A shiny gold coin');
+    $coin->volume = 1;
+    $coin->pickable = true;
+    $sec52World->addItem($coin);
+    $coin->move($sec52Room, false);
+    assertTest(isset($sec52Room->contents['goldCoin']), "Coin is in room initially");
+
+    $engine52->executeCommandAction($sec52World, $sec52Player, 'put', 'goldCoin', 'bag');
+    assertTest(!isset($sec52Room->contents['goldCoin']), "Coin is no longer in room floor");
+    assertTest(isset($bag->contents['goldCoin']), "Coin is now inside carried bag");
+
+    // 5. Put carried item into open room container (chest)
+    $gem = new \Dimx\Item($sec52World, 'Emerald', 'emerald', 'A green gem');
+    $gem->volume = 2;
+    $gem->pickable = true;
+    $sec52World->addItem($gem);
+    $gem->move($sec52Player, false);
+
+    $chest = new \Dimx\Item($sec52World, 'Oak Chest', 'chest', 'A sturdy chest');
+    $chest->openable = true;
+    $chest->open = true;
+    $chest->capacity = 20;
+    $chest->pickable = true;
+    $sec52World->addItem($chest);
+    $chest->move($sec52Room, false);
+
+    $engine52->executeCommandAction($sec52World, $sec52Player, 'put', 'emerald', 'chest');
+    assertTest(!isset($sec52Player->contents['emerald']), "Emerald no longer carried by player");
+    assertTest(isset($chest->contents['emerald']), "Emerald is now inside room chest");
+
+    // 6. Rejection when destination container is closed
+    $chest->open = false;
+    $scroll = new \Dimx\Item($sec52World, 'Old Scroll', 'scroll', 'A parchment scroll');
+    $scroll->volume = 1;
+    $scroll->pickable = true;
+    $sec52World->addItem($scroll);
+    $scroll->move($sec52Player, false);
+
+    $sec52Player->drainConsole();
+    $engine52->executeCommandAction($sec52World, $sec52Player, 'put', 'scroll', 'chest');
+    $msgs = $sec52Player->drainConsole();
+    assertTest(isset($sec52Player->contents['scroll']), "Scroll remains in player inventory when chest is closed");
+    assertTest(!isset($chest->contents['scroll']), "Scroll was not moved into closed chest");
+    assertTest(count($msgs) > 0 && strpos($msgs[0], "It's closed.") !== false, "Output says 'It's closed.' (got: '" . ($msgs[0] ?? '') . "')");
+
+    // 7. Rejection when capacity is exceeded
+    $pouch = new \Dimx\Item($sec52World, 'Tiny Pouch', 'pouch', 'A small pouch');
+    $pouch->capacity = 2;
+    $pouch->pickable = true;
+    $sec52World->addItem($pouch);
+    $pouch->move($sec52Player, false);
+
+    $boulder = new \Dimx\Item($sec52World, 'Heavy Boulder', 'boulder', 'A huge rock');
+    $boulder->volume = 5;
+    $boulder->pickable = true;
+    $sec52World->addItem($boulder);
+    $boulder->move($sec52Player, false);
+
+    $sec52Player->drainConsole();
+    $engine52->executeCommandAction($sec52World, $sec52Player, 'put', 'boulder', 'pouch');
+    $msgs = $sec52Player->drainConsole();
+    assertTest(isset($sec52Player->contents['boulder']), "Boulder remains in player inventory when capacity exceeded");
+    assertTest(!isset($pouch->contents['boulder']), "Boulder not placed into pouch");
+    assertTest(count($msgs) > 0 && strpos($msgs[0], "There's not enough room.") !== false, "Output says 'There's not enough room.' (got: '" . ($msgs[0] ?? '') . "')");
+
+    // 8. Rejection when putting object into itself
+    $sec52Player->drainConsole();
+    $engine52->executeCommandAction($sec52World, $sec52Player, 'put', 'bag', 'bag');
+    $msgs = $sec52Player->drainConsole();
+    assertTest(count($msgs) > 0 && strpos($msgs[0], "Cannot put object into itself!") !== false, "Putting object into itself rejected with message");
+
+    // 9. Rejection when object does not exist
+    $sec52Player->drainConsole();
+    $engine52->executeCommandAction($sec52World, $sec52Player, 'put', 'nonExistentItem', 'bag');
+    $msgs = $sec52Player->drainConsole();
+    assertTest(count($msgs) > 0 && strpos($msgs[0], "does not exist anymore") !== false, "Non-existent item rejected");
+
+    // 10. Text syntax parsing: 'put scroll into pouch' via $param
+    $sec52Player->drainConsole();
+    $engine52->executeCommandAction($sec52World, $sec52Player, 'put', 'scroll into pouch', '');
+    assertTest(isset($pouch->contents['scroll']), "Text syntax 'put scroll into pouch' successfully moved scroll into pouch");
+
+    // 11. Event triggering & cancellation via onReceiveItem
+    $magicBox = new \Dimx\Item($sec52World, 'Magic Box', 'magicBox', 'A cursed container');
+    $magicBox->capacity = 10;
+    $magicBox->pickable = true;
+    $sec52World->addItem($magicBox);
+    $magicBox->move($sec52Player, false);
+
+    $dagger = new \Dimx\Item($sec52World, 'Dagger', 'dagger', 'A sharp dagger');
+    $dagger->volume = 1;
+    $dagger->pickable = true;
+    $sec52World->addItem($dagger);
+    $dagger->move($sec52Player, false);
+
+    // Cancel put via onReceiveItem
+    $sec52World->events['magicBox.onReceiveItem'] = new \Dimx\Event('magicBox.onReceiveItem', 'EVENT', function ($owner, $agent, $target) {
+        return 0;
+    });
+    $sec52Player->drainConsole();
+    $engine52->executeCommandAction($sec52World, $sec52Player, 'put', 'dagger', 'magicBox');
+    assertTest(isset($sec52Player->contents['dagger']), "Dagger restored to player when onReceiveItem returns 0 (cancelled)");
+    assertTest(!isset($magicBox->contents['dagger']), "Magic box does not contain dagger");
+
+    // Allow put when event returns 1
+    $sec52World->events['magicBox.onReceiveItem'] = new \Dimx\Event('magicBox.onReceiveItem', 'EVENT', function ($owner, $agent, $target) {
+        return 1;
+    });
+    $engine52->executeCommandAction($sec52World, $sec52Player, 'put', 'dagger', 'magicBox');
+    assertTest(isset($magicBox->contents['dagger']), "Dagger moved into magicBox when onReceiveItem returns 1");
 }
 
 // Clean up test worlds

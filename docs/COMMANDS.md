@@ -9,7 +9,7 @@ This document defines the authoritative command catalog and execution model for 
 
 | Item | Status | Detail |
 | :--- | :--- | :--- |
-| `put` / `insert` command, `whenPut` | **DimX only - not yet implemented in DimY** | No `put` case in `GameEngine`; not in the panels |
+| `put` / `insert` command | **Supported** | Implemented via `Character::actPut`, `GameEngine::executeCommandAction`, `UIhtml` `COMMAND_DEFS` ('OO' model) |
 | `hide` command, `onHide` | **DimX only - not yet implemented in DimY** | No `hide` case |
 | `onClick` event | **DimX only - not yet implemented in DimY** | `click` is an alias of `look`; no `onClick` fired, no `go` default for Links |
 | `onRotate` event | **DimX only - not yet implemented in DimY** | `rotate`/`rotl`/`rotr`/`rev` work, but no event fires |
@@ -77,7 +77,7 @@ Every command cycle follows this processing pipeline:
 | **`drop`** | `target` | - | Drops carried item into current room | `whenDropped` |
 | **`search`** | - | - | Reveals hidden objects in container (`visible = 1`) | `onSearch` |
 | **`hide`** **[DimX only - not yet implemented in DimY]** | `target` | - | Conceals an object (`visible = 0`) | `onHide` |
-| **`put`** **[DimX only - not yet implemented in DimY]** | `item`, `dest` | `insert` | Puts an item into a destination container | `whenPut` |
+| **`put`** | `item`, `dest` | `insert` | Puts an item into a destination container | `onLooseItem`, `onEnter`, `onReceiveItem` |
 | **`give`** | `item`, `character`| - | Offers an item to an NPC or another player | `whenGiven`, `whenReceived` |
 | **`enter`** | `vehicle` | `board` | Enters a vehicle item | `onEnterVehicle` |
 | **`exit`** | - | `leave`, `disembark` | Disembarks vehicle into the surrounding room | `onExitVehicle` |
@@ -152,10 +152,18 @@ Every command cycle follows this processing pipeline:
 * **`search`**: Reveals all hidden items and links in the current room by setting `hidden = 0` / `visible = 1`. Fires `onSearch`.
 * **`hide`**: Conceals target object in room or inventory by setting `hidden = 1` / `visible = 0`. Fires `onHide`.
 
-### 10. `put (object), (destination)` **[DimX only - not yet implemented in DimY]**
-* **Intent**: Placing an item into a container or shelf.
-* **Checks**: Destination must be a container, not full, and accessible to player.
-* **Events**: Fires `whenPut`.
+### 10. `put (object), (destination)`
+* **Intent**: Placing an item into a container item (e.g. `put key into bag`).
+* **Control Panel & UI**: Included as standard button **Put** (model `OO`) on the default `PANEL`. In `UIhtml`, clicking Put prompts the player to select the item to put, then the destination container.
+* **Checks**:
+  * Both objects must be accessible to the player.
+  * Cannot put an object into itself.
+  * Both must be items (`Item`).
+  * Item must be pickable.
+  * If source container is closed or another character, action is rejected.
+  * Destination container must be open and have sufficient capacity (`getFreeSpace() >= item->volume`).
+* **Events**: Fires `onLooseItem` (on origin container), `whenDropped` (if origin is character) or `onExit` (on item), `onEnter` (on item), and `onReceiveItem` (on destination container). Cancellable if an event script returns `0`/`false`.
+* **Output**: Displays confirmation message `"You put the <b>{item->name}</b> into the <b>{destination->name}</b>."` (or appropriate rejection message: `"It's closed."`, `"There's not enough room."`, etc.).
 
 ### 11. `give (object), (character)`
 * **Intent**: Handing an item to an NPC or another player in the room.

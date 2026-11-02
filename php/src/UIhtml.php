@@ -1710,6 +1710,13 @@ class UIhtml extends UI
                 prompt: '👉 Click an object or door to CLOSE'
               },
               'search': { noArgs: 0, model: '',  desc: 'Search' },
+              'put': {
+                noArgs: 2,
+                model: 'OO',
+                allowDouble: false,
+                desc: 'Put ... In ...',
+                prompt: '👉 Click an item to PUT, then click a container to put it IN'
+              },
               'give': {
                 noArgs: 2,
                 model: 'OO',
@@ -1942,6 +1949,8 @@ class UIhtml extends UI
                   msg = '👉 Use ' + pendingNames[0] + ' WITH ... (click target object)';
                 } else if (pendingCmd === 'give') {
                   msg = '👉 Give ' + pendingNames[0] + ' TO ... (click recipient character)';
+                } else if (pendingCmd === 'put') {
+                  msg = '👉 Put ' + pendingNames[0] + ' IN ... (click target container)';
                 } else {
                   msg = pendingCmd.toUpperCase() + ' ' + pendingNames.join(', ') + '...';
                 }

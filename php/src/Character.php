@@ -584,6 +584,109 @@ class Character extends AdvObject
     }
 
     /**
+     * Put an item into a container item.
+     */
+    public function actPut(AdvObject $what, AdvObject $where): bool
+    {
+        if ($what === $where) {
+            $this->display("Cannot put object into itself!");
+            return false;
+        }
+
+        if (!$what->isAccessibleFrom($this) || !$where->isAccessibleFrom($this)) {
+            $this->display("I can't, they both should be accessible.");
+            return false;
+        }
+
+        if (!$what->isanItem() || !$where->isanItem()) {
+            $this->display("I can just put items into other items.");
+            return false;
+        }
+
+        if (!$what->isPickable()) {
+            $this->display("Could not move it.");
+            return false;
+        }
+
+        // Check source container (if not self, verify open and not stealing from another actor)
+        $origCont = $what->container;
+        if ($origCont instanceof AdvObject && $origCont !== $this) {
+            if ($origCont->isOpenable() && !$origCont->isOpen()) {
+                $this->display("It's closed.");
+                return false;
+            }
+            if ($origCont instanceof Character) {
+                $this->display("Could not take with me {$what->name}.");
+                return false;
+            }
+        }
+
+        // Destination container checks
+        if ($where->isOpenable() && !$where->isOpen()) {
+            $this->display("It's closed.");
+            return false;
+        }
+
+        if ($where->capacity > 0 && ($where->getFreeSpace() < $what->volume)) {
+            $this->display("There's not enough room.");
+            return false;
+        }
+
+        // Move the item into destination container
+        if (!$what->move($where, true)) {
+            $this->display("I cannot put {$what->name} into {$where->name}.");
+            return false;
+        }
+
+        // Trigger events and allow cancellation
+        if ($this->world !== null) {
+            $res = true;
+            if ($origCont !== null) {
+                $r = $this->world->fireEvent('onLooseItem', $origCont, $this, $what);
+                if ($r === false || $r === 0 || $r === '0') {
+                    $res = false;
+                }
+            }
+            if ($res) {
+                if ($origCont instanceof Character) {
+                    $this->world->fireEvent('whenDropped', $what, $this, $where);
+                } else {
+                    $this->world->fireEvent('onExit', $what, $this, $where);
+                }
+                $this->world->fireEvent('onEnter', $what, $this, $where);
+                $r = $this->world->fireEvent('onReceiveItem', $where, $this, $what);
+                if ($r === false || $r === 0 || $r === '0') {
+                    $res = false;
+                }
+            }
+            if (!$res) {
+                if ($origCont !== null) {
+                    $what->move($origCont, false);
+                }
+                $this->display("I cannot put {$what->name} into {$where->name}.");
+                return false;
+            }
+        }
+
+        $this->display("You put the <b>{$what->name}</b> into the <b>{$where->name}</b>.");
+        return true;
+    }
+
+    /**
+     * Alias matching DimensioneX Java Character.itemPut(fullId, inWhatId).
+     */
+    public function itemPut(string|AdvObject $what, string|AdvObject $where): bool
+    {
+        $whatObj = is_string($what) ? ($this->world?->getObject($what) ?? $this->world?->contents[$what] ?? null) : $what;
+        $whereObj = is_string($where) ? ($this->world?->getObject($where) ?? $this->world?->contents[$where] ?? null) : $where;
+        if (!($whatObj instanceof AdvObject) || !($whereObj instanceof AdvObject)) {
+            $this->display("The selected item does not exist anymore.");
+            return false;
+        }
+        return $this->actPut($whatObj, $whereObj);
+    }
+
+    /**
      * Enter a vehicle.
      */
     public function actEnter(AdvObject $target): bool

@@ -531,7 +531,7 @@ class GameEngine
         $panel = $player->getPanel() ?? $world->defaultPanel;
         $isCoreCommand = in_array($cmd, [
             'look', 'click', 'go', 'pick', 'drop',
-            'give', 'use', 'use2', 'usewith', 'open', 'close', 'search', 'say', 'help', 'save', 'enter', 'exit', 
+            'give', 'put', 'insert', 'use', 'use2', 'usewith', 'open', 'close', 'search', 'say', 'help', 'save', 'enter', 'exit', 
             'logout', 'rotl', 'rotr', 'rev'
         ], true);
 
@@ -817,6 +817,38 @@ class GameEngine
                 $this->actGive($obj1, $obj2, $player);
                 break;
 
+            case 'put':
+            case 'insert':
+                $itemTarget = '';
+                $containerTarget = '';
+
+                if (!empty($targetId) && !empty($param)) {
+                    $itemTarget = $param;
+                    $containerTarget = $targetId;
+                } else {
+                    $raw = !empty($param) ? $param : $targetId;
+                    $raw = preg_replace('/\b(in|into)\b/i', ' ', $raw);
+                    $tokens = preg_split('/[,\s]+/', trim($raw));
+                    $itemTarget = $tokens[0] ?? '';
+                    $containerTarget = $tokens[1] ?? '';
+                }
+
+                if (empty($itemTarget) || empty($containerTarget)) {
+                    $player->display("Specify an item to put and a container.");
+                    break;
+                }
+
+                $obj1 = $this->findAccessibleObject($player, $itemTarget);
+                $obj2 = $this->findAccessibleObject($player, $containerTarget);
+
+                if ($obj1 === null || $obj2 === null) {
+                    $player->display("One of the selected items does not exist anymore.");
+                    break;
+                }
+
+                $this->actPut($obj1, $obj2, $player);
+                break;
+
             case 'say':
                 if (!empty($param)) {
                     // Check if an explicit target was specified (say to someone)
@@ -1028,6 +1060,19 @@ class GameEngine
                 return $cont->contents[$targetId];
             }
         }
+        $targetLower = strtolower(trim($targetId));
+        foreach ($player->contents as $id => $it) {
+            if ($it instanceof AdvObject && (strtolower((string)$id) === $targetLower || strtolower($it->name ?? '') === $targetLower)) {
+                return $it;
+            }
+        }
+        if ($currentRoom !== null) {
+            foreach ($currentRoom->contents as $id => $it) {
+                if ($it instanceof AdvObject && (strtolower((string)$id) === $targetLower || strtolower($it->name ?? '') === $targetLower)) {
+                    return $it;
+                }
+            }
+        }
         // 4. Directional way or link in the room
         if ($currentRoom !== null) {
             $way = $currentRoom->getWay($targetId);
@@ -1126,5 +1171,13 @@ class GameEngine
     public function actGive(Item $item, Character $recipient, Player $player): bool
     {
         return $player->actGive($item, $recipient);
+    }
+
+    /**
+     * Put an item into a container for the given player.
+     */
+    public function actPut(AdvObject $what, AdvObject $where, Player $player): bool
+    {
+        return $player->actPut($what, $where);
     }
 }
