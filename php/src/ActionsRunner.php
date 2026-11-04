@@ -90,6 +90,18 @@ class ActionsRunner
         return null;
     }
 
+    /**
+     * Log a debug/diagnostic message to game engine log (debug.log) and World log.
+     */
+    public function log(mixed $message): void
+    {
+        if ($this->world !== null) {
+            $this->world->log($message);
+        } elseif (GameEngine::$activeInstance !== null) {
+            GameEngine::$activeInstance->log($message);
+        }
+    }
+
     public function setArrayElement(string $name, int $index, mixed $val): void
     {
         $idx0 = max(0, $index - 1);
@@ -236,6 +248,51 @@ class ActionsRunner
                 continue;
             }
 
+            // Check for For Each loop: For Each var In collection ... Next
+            if (preg_match('/^FOR\s+EACH\b\s+([A-Za-z0-9_]+)\s+IN\s+(.+)$/i', $line, $fem)) {
+                $varName = $fem[1];
+                $collExpr = trim($fem[2]);
+                $collection = $this->evalValue($collExpr);
+                if (!is_array($collection)) {
+                    $collection = $this->getVariable($collExpr);
+                }
+                if (!is_array($collection)) {
+                    $collection = [];
+                }
+
+                $loopLines = [];
+                $nesting = 1;
+                $i++;
+
+                while ($i < $count) {
+                    $sub = $lines[$i];
+                    if (preg_match('/^FOR\b/i', $sub)) {
+                        $nesting++;
+                    } elseif (preg_match('/^NEXT\b/i', $sub)) {
+                        $nesting--;
+                        if ($nesting === 0) {
+                            $i++;
+                            break;
+                        }
+                    }
+                    $loopLines[] = $sub;
+                    $i++;
+                }
+
+                $subScript = implode("\n", $loopLines);
+                $elemIdx = 0;
+                foreach ($collection as $item) {
+                    $this->log("Looping. Set element # " . $elemIdx);
+                    $this->setVariable($varName, $item);
+                    $this->run($subScript);
+                    if ($this->hasReturned) {
+                        return $this->returnValue;
+                    }
+                    $elemIdx++;
+                }
+                continue;
+            }
+
             // Check for For loop: For var = start To end [Step s]
             if (preg_match('/^FOR\b\s+([A-Za-z0-9_]+)\s*=\s*(.+?)\s+TO\s+(.+?)(\s+STEP\s+(.+?))?$/i', $line, $fm)) {
                 $varName = $fm[1];
@@ -264,6 +321,7 @@ class ActionsRunner
 
                 $subScript = implode("\n", $loopLines);
                 for ($val = $startVal; ($step > 0 ? $val <= $endVal : $val >= $endVal); $val += $step) {
+                    $this->log("Looping. Index= " . $val);
                     $this->setVariable($varName, $val);
                     $this->run($subScript);
                     if ($this->hasReturned) {
@@ -516,11 +574,7 @@ class ActionsRunner
             $message = implode(' ', $parts);
         }
 
-        if (isset($this->world->engine) && $this->world->engine instanceof GameEngine) {
-            $this->world->engine->log($message);
-        } elseif (GameEngine::$activeInstance !== null) {
-            GameEngine::$activeInstance->log($message);
-        }
+        $this->log($message);
 
         return true;
     }
@@ -962,6 +1016,9 @@ class ActionsRunner
                 $chosen = substr($chosen, 1, -1);
             }
         }
+		
+        $destId = ($destination instanceof DimxObject) ? $destination->id : (($this->agent instanceof Character) ? $this->agent->id : 'unknown');
+        $this->log("Displaying to {$destId}: {$chosen}");
 
         // Display to destination
         if ($destination instanceof DimxObject) {
@@ -1719,11 +1776,28 @@ class ActionsRunner
             $fn = $fm[1];
             $argStr = trim($fm[2]);
 
-            // Built-in SetLen
+            // Built-in SetLen( collection )
             if (strcasecmp($fn, 'SetLen') === 0) {
-                $setName = trim($argStr);
-                $arr = $this->getVariable($setName);
-                return is_array($arr) ? count($arr) : 0;
+                $argVal = $this->evalValue($argStr);
+                if (is_array($argVal)) {
+                    return count($argVal);
+                }
+                $arr = $this->getVariable($argStr);
+                if (is_array($arr)) {
+                    return count($arr);
+                }
+                return -1;
+            }
+
+            // Built-in Split( valuestring, separatorstring )
+            if (strcasecmp($fn, 'Split') === 0) {
+                $args = $this->parseArguments($argStr);
+                $str = (string)$this->evalValue($args[0] ?? '');
+                $sep = isset($args[1]) ? (string)$this->evalValue($args[1]) : ',';
+                if ($sep === '') {
+                    return [$str];
+                }
+                return explode($sep, $str);
             }
 
             // Built-in Exists

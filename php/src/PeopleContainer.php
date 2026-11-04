@@ -56,6 +56,10 @@ class PeopleContainer extends AdvObject
     {
         if ($msg !== '') {
             $this->world?->log("Speaking: {$msg} in room {$this->id}");
+            if ($this->world !== null) {
+                $sender = ($from instanceof ManageableObject && !empty($from->name)) ? $from->name : 'a voice...';
+                $this->world->postChatMessage($sender, $msg, null, $this->id);
+            }
             foreach ($this->contents as $obj) {
                 if ($obj instanceof Character) {
                     $obj->display($msg);

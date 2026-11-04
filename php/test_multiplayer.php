@@ -54,6 +54,7 @@ $sections = [
     51 => ['title' => 'Testing SmallBasic DropItems Instruction & Notification (Player, NPC, Container)...', 'keywords' => ['dropitems', 'actionsrunner', 'inventory', 'drop', 'slipped']],
     52 => ['title' => 'Testing Put / Insert Command (2-Object OO Model, Capacity, Closed Checks, Events & UIhtml Definitions)...', 'keywords' => ['put', 'insert', 'actput', 'itemput', 'container', 'capacity', 'closed', 'uihtml', 'command_defs']],
     53 => ['title' => 'Testing SmallBasic NewItem Function / Instruction & Snapshot Property Recursion Protection...', 'keywords' => ['newitem', 'htmladminsnapshot', 'snapshot', 'recursion', 'actionsrunner', 'smallbasic']],
+    54 => ['title' => 'Testing SmallBasic SetLen() Function, For .. To ... Next & For Each Constructs with debug.log...', 'keywords' => ['setlen', 'for', 'to', 'next', 'foreach', 'for each', 'loop', 'fourinline', 'smallbasic']],
 ];
 
 // CLI Options parsing
@@ -2177,6 +2178,37 @@ if (shouldRun(50)) {
     assertTest($tommyImgCount === 1, "Focused on-screen character is rendered exactly once on scene (at z-index 256, not duplicated below fader)");
     assertTest(preg_match('/<img[^>]*data-obj-id="tommy"[^>]*style="[^"]*z-index:\s*256/i', $viewTommy) === 1, "Focused character rendered at z-index 256 over fader");
 
+    // 9. On-screen objects and player/character exclusion from #dashboard Items list
+    $zoomRoom->images['N'] = new \Dimx\Image('http://localhost/dimx/pics/workshop.jpg', 320, 200);
+    $onscreenItem = new \Dimx\Item($sec50World, 'Anvil', 'anvil', 'A heavy iron anvil');
+    $onscreenItem->showmode = \Dimx\AdvObject::SHOW_ONSCREEN;
+    $onscreenItem->move($zoomRoom);
+    $sec50World->addItem($onscreenItem);
+    $pm->saveWorld($sec50World);
+
+    $resRoomView = $sec50Engine->processCommand('ZoomTester', 'look', '', 'workshop');
+    ob_start();
+    $htmlClick->render($resRoomView);
+    $viewDash = ob_get_clean();
+
+    // Extract #dashboard contents
+    $dashContent = '';
+    if (preg_match('/<td id="dashboard">([\s\S]*?)<\/td>\s*<\/tr>\s*<\/table>/i', $viewDash, $mDash)) {
+        $dashContent = $mDash[1];
+    }
+
+    // Extract Items list within dashboard
+    $itemsSection = '';
+    if (preg_match('/<div class="dimx-section-title" style="color:#38bdf8">Items<\/div>([\s\S]*?)<div class="dimx-section-title"/i', $dashContent, $mItems)) {
+        $itemsSection = $mItems[1];
+    }
+
+    assertTest(strpos($itemsSection, 'data-obj-id="screwd"') !== false, "Off-screen item (screwdriver, showmode=0) appears in #dashboard Items list");
+    assertTest(strpos($itemsSection, 'data-obj-id="anvil"') === false, "On-screen item (anvil, showmode=1) does NOT appear in #dashboard Items list");
+    assertTest(strpos($itemsSection, 'data-obj-id="tommy"') === false, "On-screen character (tommy, showmode=1) does NOT appear in #dashboard Items list");
+    assertTest(strpos($itemsSection, 'ZoomTester') === false, "Player does NOT appear in #dashboard Items list");
+    assertTest(strpos($dashContent, 'data-obj-id="tommy"') === false, "On-screen character (tommy, showmode=1) does NOT appear in #dashboard People list");
+
     @$pm->resetWorld($sec50WorldId);
 }
 
@@ -2478,6 +2510,119 @@ if (shouldRun(53)) {
     $snapshotHtml = $sec53World->htmlAdminSnapshot();
     assertTest(is_string($snapshotHtml) && strlen($snapshotHtml) > 0, "htmlAdminSnapshot() succeeds without TypeError on circular object properties");
     assertTest(str_contains($snapshotHtml, 'Explorer'), "htmlAdminSnapshot() formats object in array using its string representation");
+}
+
+// -------------------------------------------------------------
+// Test 54: SmallBasic SetLen() Function, For .. To ... Next & For Each Constructs with debug.log
+// -------------------------------------------------------------
+if (shouldRun(54)) {
+    echo "\n--- Section 54: Testing SmallBasic SetLen() Function, For .. To ... Next & For Each Constructs with debug.log ---\n";
+
+    $sec54WorldId = 'w_sec54_' . rand(1000, 9999);
+    $eng54 = new \Dimx\GameEngine($pm, $sec54WorldId, null, $baseUrl, ['debugTo' => 'file']);
+    $sec54World = new \Dimx\World($sec54WorldId, 'Section 54 World');
+    $sec54World->engine = $eng54;
+
+    $sysFolder = \Dimx\GameEngine::getSystemFolder();
+    $logFile = $sysFolder . '/debug.log';
+    if (file_exists($logFile)) {
+        @unlink($logFile);
+    }
+
+    $sec54World->sets['players'] = ['(empty)', '(empty)'];
+    $sec54World->setProperty('players', ['(empty)', '(empty)']);
+
+    $runner54 = new \Dimx\ActionsRunner($sec54World);
+
+    // 1. SetLen on existing array
+    $len1 = $runner54->run('return SetLen(players)');
+    assertTest($len1 === 2, "SetLen(players) returns count of elements in array: expected 2, got " . var_export($len1, true));
+
+    // 2. SetLen on non-collection returns -1 (SmallBasic spec)
+    $lenNon = $runner54->run('return SetLen("not_a_collection")');
+    assertTest($lenNon === -1, "SetLen on non-collection returns -1 (got " . var_export($lenNon, true) . ")");
+
+    $lenNum = $runner54->run('return SetLen(123)');
+    assertTest($lenNum === -1, "SetLen on numeric scalar returns -1 (got " . var_export($lenNum, true) . ")");
+
+    // 3. SetLen on Split expression
+    $lenSplit = $runner54->run('return SetLen(Split("alpha,beta,gamma,delta", ","))');
+    assertTest($lenSplit === 4, "SetLen(Split(...)) evaluates expression and returns element count: expected 4, got " . var_export($lenSplit, true));
+
+    // 4. For .. To ... Next basic iteration & variable assignment
+    $scriptFor = <<<'SB'
+Dim sum = 0
+For i = 1 To 5
+    sum = sum + i
+Next
+Return sum
+SB;
+    $sumRes = $runner54->run($scriptFor);
+    assertTest($sumRes === 15, "For 1 To 5 sums values to 15 (got " . var_export($sumRes, true) . ")");
+
+    // 5. For .. To ... Next with Step
+    $scriptStep = <<<'SB'
+Dim total = 0
+For k = 1 To 9 Step 2
+    total = total + k
+Next
+Return total
+SB;
+    $stepRes = $runner54->run($scriptStep);
+    assertTest($stepRes === 25, "For 1 To 9 Step 2 calculates 1+3+5+7+9 = 25 (got " . var_export($stepRes, true) . ")");
+
+    // 6. For loop early return via Return statement
+    $scriptEarly = <<<'SB'
+For i = 1 To 10
+    If i = 3
+        Return i * 10
+    End_If
+Next
+Return 0
+SB;
+    $earlyRes = $runner54->run($scriptEarly);
+    assertTest($earlyRes === 30, "For loop exits immediately on Return statement (got " . var_export($earlyRes, true) . ")");
+
+    // 7. For Each ... In ... Next construct
+    $scriptForEach = <<<'SB'
+Dim fruits = Split("apple/orange/pear", "/")
+Dim collected = ""
+For Each f In fruits
+    collected = collected + f + " "
+Next
+Return collected
+SB;
+    $eachRes = $runner54->run($scriptForEach);
+    assertTest(trim((string)$eachRes) === "apple orange pear", "For Each iterates collection elements (got " . var_export($eachRes, true) . ")");
+
+    // 8. Verify logging to debug.log matches DimensioneX Java logger.debug()
+    $logContent = file_exists($logFile) ? (string)file_get_contents($logFile) : '';
+    assertTest(str_contains($logContent, "Looping. Index= 1\n"), "debug.log contains 'Looping. Index= 1' from For loop");
+    assertTest(str_contains($logContent, "Looping. Index= 5\n"), "debug.log contains 'Looping. Index= 5' from For loop");
+    assertTest(str_contains($logContent, "Looping. Set element # 0\n"), "debug.log contains 'Looping. Set element # 0' from For Each loop");
+    assertTest(str_contains($logContent, "Looping. Set element # 2\n"), "debug.log contains 'Looping. Set element # 2' from For Each loop");
+
+    // 9. Integration test on fourinline.dxw line 146
+    $loaderFour = new \Dimx\DxwLoader();
+    $fourWorld = $loaderFour->load(__DIR__ . '/../docs/dxw-examples/fourinline.dxw');
+    $fourWorld->engine = $eng54;
+
+    // Initialize world
+    $fourWorld->fireEvent('onStart', $fourWorld);
+    $initialSit = (string)$fourWorld->fireEvent('getSituation', $fourWorld);
+    assertTest(str_contains($initialSit, 'target is: 2'), "fourinline getSituation contains target players: 2");
+    assertTest(str_contains($initialSit, '<LI>player#1 (empty)'), "fourinline line 146 For loop generates player#1 (empty)");
+    assertTest(str_contains($initialSit, '<LI>player#2 (empty)'), "fourinline line 146 For loop generates player#2 (empty)");
+
+    // Add first player
+    $pTest1 = new \Dimx\Player($fourWorld, 'Champion', 'p_champ');
+    $fourWorld->addPlayer($pTest1);
+    $fourWorld->fireEvent('onNew', $fourWorld, $pTest1);
+    $sitWithP1 = (string)$fourWorld->fireEvent('getSituation', $fourWorld);
+    assertTest(str_contains($sitWithP1, 'Champion'), "fourinline getSituation includes player 1 name 'Champion'");
+    assertTest(str_contains($sitWithP1, 'Waiting for 1 more player'), "fourinline getSituation calculates (target_players - nplayers) = 1");
+
+    @$pm->resetWorld($sec54WorldId);
 }
 
 // Clean up test worlds

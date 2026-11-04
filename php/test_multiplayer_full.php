@@ -4876,6 +4876,26 @@ if (shouldRun(46)) {
         "GameEngine: target='*' posts chat message without specific recipient (public room broadcast)"
     );
 
+    // Verify speaking player does NOT deliver room broadcast message to himself in messagesQueue (#msgs)
+    $testerMsgs = $pTester->getMessages();
+    $listenerMsgs = $pListener->getMessages();
+    $testerHasSpokenMsg = false;
+    foreach ($testerMsgs as $m) {
+        if ($m['text'] === 'Hello to everyone in the room!') {
+            $testerHasSpokenMsg = true;
+            break;
+        }
+    }
+    $listenerHasSpokenMsg = false;
+    foreach ($listenerMsgs as $m) {
+        if ($m['text'] === 'Hello to everyone in the room!') {
+            $listenerHasSpokenMsg = true;
+            break;
+        }
+    }
+    assertTest(!$testerHasSpokenMsg, "Room Speak: speaking player does NOT deliver room broadcast message to himself in messagesQueue (#msgs)");
+    assertTest($listenerHasSpokenMsg, "Room Speak: other player in room receives room broadcast message in messagesQueue (#msgs)");
+
     // 5. GameEngine execution: target='id of character' speaks directly to specific person
     $surfer = $sec46World->getCharacter('surfer');
     if ($surfer !== null) {

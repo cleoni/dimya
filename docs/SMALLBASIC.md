@@ -406,8 +406,6 @@ End_If
 
 ### 3.8.3 For ... To ... Next
 
-> **[DimX only - not yet implemented in DimY]**
-
 Counter iteration loop:
 
 ```basic
@@ -423,11 +421,9 @@ For i = 1 To 5
 Next
 ```
 
-*Note*: In DimensioneX 7.1.7, `For` loops cannot be nested directly inside each other within the same procedure. Use a helper `Sub` for nested loops.
+*Note*: Iteration executes from `startVal` to `endVal` (with optional `Step` increment). When server logging is enabled (`debugTo="file"`), each iteration logs `Looping. Index= <i>` to `debug.log`.
 
 ### 3.8.4 For Each ... In ... Next
-
-> **[DimX only - not yet implemented in DimY]**
 
 Collection iteration loop over arrays or sets:
 
@@ -575,8 +571,6 @@ DropItems [victim]
 
 ### 3.9.8 For
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
-
 Represents an iteration loop over a numeric range.
 
 ```basic
@@ -590,8 +584,6 @@ Next
 ---
 
 ### 3.9.9 For Each
-
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
 
 Represents an iteration loop over elements of a set or array.
 
@@ -1541,8 +1533,6 @@ Returns an `ARRAY` containing all the key names in `set`.
 
 ### 3.10.52 SetLen( set )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
 Returns the total element count in `set` or `array`. Returns `-1` if the argument is not a collection.
 
 - **Syntax**: `count = SetLen( set )`
@@ -1550,8 +1540,6 @@ Returns the total element count in `set` or `array`. Returns `-1` if the argumen
 ---
 
 ### 3.10.53 Split( valuestring, separatorstring )
-
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
 
 Splits `valuestring` by delimiter `separatorstring` into an `ARRAY`.
 

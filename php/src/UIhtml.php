@@ -1500,11 +1500,17 @@ class UIhtml extends UI
                       </div>
                     <?php endif; ?>
 
-                    <!-- Items in room -->
-                    <?php if (!empty($roomItems)): ?>
+                    <!-- Items in room (offscreen items) -->
+                    <?php
+                      $offscreenItems = array_filter($roomItems, fn($itm) =>
+                        !($itm instanceof \Dimx\Character) &&
+                        ($itm->showmode === \Dimx\AdvObject::SHOW_OFFSCREEN || $sceneImg === null)
+                      );
+                    ?>
+                    <?php if (!empty($offscreenItems)): ?>
                       <div class="dimx-section-title" style="color:#38bdf8">Items</div>
                       <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
-                        <?php foreach ($roomItems as $itm): ?>
+                        <?php foreach ($offscreenItems as $itm): ?>
                           <?php
                             $itemIcon = !empty($itm->icon) ? $itm->icon : $skin->getItemIcon();
                           ?>

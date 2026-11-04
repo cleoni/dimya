@@ -226,14 +226,19 @@ class World extends DimxObject
             if ($room instanceof Room) {
                 foreach ($room->getOccupants() as $occ) {
                     if ($occ instanceof Player) {
-                        $occ->deliverMessage($sender, $text, $msgId, $msgTime, null);
+                        // When a Speak operation is performed on a Room, speaking player should not deliver a message to himself
+                        if (strcasecmp($occ->name, $sender) !== 0 && strcasecmp($occ->id, $sender) !== 0) {
+                            $occ->deliverMessage($sender, $text, $msgId, $msgTime, null);
+                        }
                     }
                 }
             }
         } else {
             foreach ($this->players as $p) {
                 if ($p instanceof Player) {
-                    $p->deliverMessage($sender, $text, $msgId, $msgTime, null);
+                    if (strcasecmp($p->name, $sender) !== 0 && strcasecmp($p->id, $sender) !== 0) {
+                        $p->deliverMessage($sender, $text, $msgId, $msgTime, null);
+                    }
                 }
             }
         }

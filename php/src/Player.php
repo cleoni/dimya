@@ -315,6 +315,14 @@ class Player extends Character
      */
     public function deliverMessage(string $sender, string $text, ?string $id = null, ?string $time = null, ?string $recipient = null): array
     {
+        // When speaking to a room or world broadcast, a player does not deliver the message to himself
+        if ($recipient === null && (
+            ($this->name !== '' && strcasecmp($this->name, $sender) === 0) ||
+            ($this->id !== '' && strcasecmp($this->id, $sender) === 0)
+        )) {
+            return [];
+        }
+
         $msg = [
             'id'        => $id ?? ('m_' . bin2hex(random_bytes(4))),
             'sender'    => $sender,
