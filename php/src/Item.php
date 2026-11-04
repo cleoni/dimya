@@ -139,7 +139,7 @@ class Item extends PeopleContainer
         $sb .= "<li>properties:\n<ul>\n";
         foreach ($this->getProperties() as $k => $v) {
             if (str_starts_with((string)$k, '__')) continue;
-            $valStr = is_bool($v) ? ($v ? 'true' : 'false') : (is_array($v) ? json_encode($v) : (string)$v);
+            $valStr = self::formatSnapshotValue($v);
             $sb .= "<li><b>" . htmlspecialchars((string)$k, ENT_QUOTES, 'UTF-8') . "</b>=" . htmlspecialchars($valStr, ENT_QUOTES, 'UTF-8') . "</li>\n";
         }
         $sb .= "<li><b>capacity</b>=" . $this->capacity . "</li>\n";

@@ -166,6 +166,49 @@ class DimxObject extends ManageableObject
         return implode(", ", $names);
     }
 
+    /**
+     * Format a property value safely for HTML admin snapshot display.
+     */
+    public static function formatSnapshotValue(mixed $v): string
+    {
+        if ($v === null) {
+            return 'null';
+        }
+        if (is_bool($v)) {
+            return $v ? 'true' : 'false';
+        }
+        if (is_array($v)) {
+            $normalized = self::normalizeForSnapshot($v);
+            $enc = json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            if ($enc !== false) {
+                return $enc;
+            }
+            return '[' . implode(', ', array_map(fn($item) => is_scalar($item) ? (string)$item : (is_object($item) ? (string)$item : gettype($item)), $normalized)) . ']';
+        }
+        if (is_object($v)) {
+            return (string)$v;
+        }
+        return (string)$v;
+    }
+
+    private static function normalizeForSnapshot(mixed $val, int $depth = 0): mixed
+    {
+        if ($depth > 5) {
+            return is_object($val) ? (string)$val : '...';
+        }
+        if (is_array($val)) {
+            $res = [];
+            foreach ($val as $k => $item) {
+                $res[$k] = self::normalizeForSnapshot($item, $depth + 1);
+            }
+            return $res;
+        }
+        if (is_object($val)) {
+            return (string)$val;
+        }
+        return $val;
+    }
+
     public function __toString(): string
     {
         return $this->id . ' (' . $this->name . ')';

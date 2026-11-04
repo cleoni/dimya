@@ -53,6 +53,7 @@ $sections = [
     50 => ['title' => 'Testing Item Default SHOW_OFFSCREEN (0), Zoom on Click/Look & Fader Backdrop Overlay...', 'keywords' => ['zoom', 'fader', 'showmode', 'offscreen', 'focus', 'click', 'look', 'screwdriver', 'fader_box']],
     51 => ['title' => 'Testing SmallBasic DropItems Instruction & Notification (Player, NPC, Container)...', 'keywords' => ['dropitems', 'actionsrunner', 'inventory', 'drop', 'slipped']],
     52 => ['title' => 'Testing Put / Insert Command (2-Object OO Model, Capacity, Closed Checks, Events & UIhtml Definitions)...', 'keywords' => ['put', 'insert', 'actput', 'itemput', 'container', 'capacity', 'closed', 'uihtml', 'command_defs']],
+    53 => ['title' => 'Testing SmallBasic NewItem Function / Instruction & Snapshot Property Recursion Protection...', 'keywords' => ['newitem', 'htmladminsnapshot', 'snapshot', 'recursion', 'actionsrunner', 'smallbasic']],
 ];
 
 // CLI Options parsing
@@ -2416,6 +2417,67 @@ if (shouldRun(52)) {
     });
     $engine52->executeCommandAction($sec52World, $sec52Player, 'put', 'dagger', 'magicBox');
     assertTest(isset($magicBox->contents['dagger']), "Dagger moved into magicBox when onReceiveItem returns 1");
+}
+
+// Section 53: Testing SmallBasic NewItem Function / Instruction & Snapshot Property Recursion Protection
+if (shouldRun(53)) {
+    echo "\n53. " . $sections[53]['title'] . "\n";
+    $executedSections[] = 53;
+
+    $sec53World = new \Dimx\World('w_sec53', 'Section 53 Test World');
+    $sec53World->imagesFolder = 'https://example.com/images/';
+    $vault = new \Dimx\Room($sec53World, 'Secure Vault', 'vault', 'A high-security underground vault.');
+    $sec53World->addRoom($vault);
+
+    $sec53Runner = new \Dimx\ActionsRunner($sec53World, null, null, null);
+
+    // 1. NewItem as SmallBasic function returning item ID
+    $newId = $sec53Runner->run('return NewItem(vault, "Gold Ingot", "A heavy solid gold ingot.", NewImage("gold.png", 32, 32), "type=treasure.gold,pickable=1,showmode=1,showx=120,showy=80")');
+    assertTest(is_string($newId) && str_starts_with($newId, '_obj'), "NewItem function returns dynamic object ID string (got: " . var_export($newId, true) . ")");
+    assertTest(isset($sec53World->items[$newId]), "Created item registered in world items collection");
+    assertTest(isset($vault->contents[$newId]), "Created item placed in target container (vault)");
+
+    $goldItem = $sec53World->items[$newId];
+    assertTest($goldItem->name === 'Gold Ingot', "Created item has correct name");
+    assertTest($goldItem->description === 'A heavy solid gold ingot.', "Created item has correct description");
+    assertTest($goldItem->pickable === true, "Created item has pickable attribute set");
+    assertTest($goldItem->showmode === 1, "Created item has showmode attribute set");
+    assertTest($goldItem->showX === 120, "Created item has showX coordinate set");
+    assertTest($goldItem->showY === 80, "Created item has showY coordinate set");
+    assertTest($goldItem->images['N'] instanceof \Dimx\Image, "Created item has image set on facing 'N'");
+    assertTest($goldItem->images['N']->width === 32 && $goldItem->images['N']->height === 32, "Created item image has correct dimensions");
+
+    // 2. NewItem as SmallBasic statement / instruction
+    $sec53Runner->run('NewItem vault, "Silver Goblet", "A polished goblet.", null, "type=treasure.goblet,pickable=1"');
+    $goblet = null;
+    foreach ($vault->getItems() as $itm) {
+        if ($itm->name === 'Silver Goblet') {
+            $goblet = $itm;
+            break;
+        }
+    }
+    assertTest($goblet instanceof \Dimx\Item, "NewItem statement creates item inside target container");
+    assertTest($goblet !== null && $goblet->pickable === true, "NewItem statement parses attributes properly");
+
+    // 3. Overflow capacity handling (places in container's container when container full)
+    $pouch = new \Dimx\Item($sec53World, 'Tiny Pouch', 'pouch', 'A very small pouch.', null, 'capacity=2', 2, 1);
+    $sec53World->addItem($pouch);
+    $pouch->move($vault, false);
+
+    // Create item volume=5 into pouch (capacity 2): should escalate to vault
+    $bigRockId = $sec53Runner->run('return NewItem(pouch, "Big Rock", "Too big for pouch.", null, "volume=5")');
+    $bigRock = $sec53World->items[$bigRockId] ?? null;
+    assertTest($bigRock instanceof \Dimx\Item, "NewItem creates item when container overflows");
+    assertTest($bigRock !== null && $bigRock->container === $vault, "Overflowing item placed into container's container (vault)");
+
+    // 4. Snapshot property recursion protection (when an array property contains object references with circular links)
+    $player53 = new \Dimx\Player($sec53World, 'Explorer', 'p_53');
+    $sec53World->addPlayer($player53);
+    $sec53World->setProperty('players_list', [$player53, '(empty)']);
+
+    $snapshotHtml = $sec53World->htmlAdminSnapshot();
+    assertTest(is_string($snapshotHtml) && strlen($snapshotHtml) > 0, "htmlAdminSnapshot() succeeds without TypeError on circular object properties");
+    assertTest(str_contains($snapshotHtml, 'Explorer'), "htmlAdminSnapshot() formats object in array using its string representation");
 }
 
 // Clean up test worlds

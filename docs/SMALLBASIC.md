@@ -1408,11 +1408,11 @@ Creates a key-sorted `SET` dictionary.
 
 ### 3.10.39 NewItem( container, name, descr, image, attributes )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
 Dynamically creates a new `ITEM` inside `container`.
 
 - **Syntax**: `item = NewItem( container, name, descr, image, attributes )`
+- **Instruction Syntax**: `NewItem container, name, descr, image, attributes`
+- **Return Value**: Returns the newly generated item ID (e.g. `_obj0`).
 - **Note**: Creation does not trigger movement events (`whenPicked`, `onReceiveItem`) to avoid recursion. Use `Move` afterwards if events are desired.
 
 ---

@@ -22,6 +22,7 @@ class World extends DimxObject
     public int $savegamePersistence = 2; // 0=restart only, 1=version only, 2=permanent
     public bool $reset = false;
     public mixed $logger = null;
+    public int $dynObjCount = 0; // Counter for dynamically generated object IDs (_obj0, _obj1...)
 
     // Screen and viewport design dimensions
     public int $screenwidth = 800; // Target design screen display size (default 800)
@@ -384,9 +385,23 @@ class World extends DimxObject
         return $p;
     }
 
-    public function addItem(Item $item): void
+    /**
+     * Generate a unique sequential dynamic object ID (_obj0, _obj1, ...).
+     */
+    public function getNextId(): string
+    {
+        do {
+            $id = "_obj" . ($this->dynObjCount++);
+        } while (isset($this->contents[$id]) || isset($this->items[$id]) || isset($this->characters[$id]) || isset($this->rooms[$id]));
+        return $id;
+    }
+
+    public function addItem(Item $item, bool $defineId = false): void
     {
         $item->world = $this;
+        if ($defineId || $item->id === '' || $item->id === '(new)') {
+            $item->id = $this->getNextId();
+        }
         $this->items[$item->id] = $item;
         $this->contents[$item->id] = $item;
     }
@@ -756,13 +771,7 @@ class World extends DimxObject
         $sb .= "<p><a name=\"properties\" id=\"properties\"></a></p>\n<h1>World properties</h1>\n<ul>\n";
         foreach ($this->getProperties() as $k => $v) {
             if (str_starts_with((string)$k, '__')) continue;
-            if (is_bool($v)) {
-                $valStr = $v ? 'true' : 'false';
-            } elseif (is_array($v)) {
-                $valStr = json_encode($v, JSON_UNESCAPED_SLASHES);
-            } else {
-                $valStr = (string)$v;
-            }
+            $valStr = self::formatSnapshotValue($v);
             $sb .= "<li><b>" . htmlspecialchars((string)$k, ENT_QUOTES, 'UTF-8') . "</b>=" . htmlspecialchars($valStr, ENT_QUOTES, 'UTF-8') . "</li>\n";
         }
         $sb .= "</ul>\n<p><a href=\"#top\">Summary</a></p>\n";

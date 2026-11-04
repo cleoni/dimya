@@ -435,12 +435,13 @@ class ActionsRunner
             'MOVE'                => $this->actMove($args),
             'DROPITEMS'           => $this->actDropItems($args),
             'GOAL'       => $this->actGoal($args),
-            'RETURN'     => $this->actReturn($args),
+            'RETURN'     => $this->actReturn($args, $argString),
             'OPEN'       => $this->actOpen($args),
             'CLOSE'      => $this->actClose($args),
             'SEARCH'     => $this->actSearch($args),
             'REFRESHVIEW'         => $this->actRefreshView($args),
             'SENDCMD'             => $this->actSendCmd($args),
+            'NEWITEM'             => $this->actNewItem($args),
             'RESET'      => $this->actReset(),
             'GIVE'       => $this->actGive($args),
             'DEBUG'      => $this->actDebug($args),
@@ -524,6 +525,94 @@ class ActionsRunner
         return true;
     }
 
+    /**
+     * NewItem instruction (SmallBasic 3.10.39):
+     * Dynamically creates a new item inside container.
+     */
+    protected function actNewItem(array $args): bool
+    {
+        $this->createNewItem(
+            $args[0] ?? '',
+            $args[1] ?? '',
+            $args[2] ?? '',
+            $args[3] ?? '',
+            $args[4] ?? ''
+        );
+        return true;
+    }
+
+    /**
+     * Create a new dynamic item in a container.
+     * NewItem( container, name, descr, image, attributes ) (SmallBasic 3.10.39)
+     */
+    public function createNewItem(
+        mixed $rawContainer,
+        mixed $rawName,
+        mixed $rawDescr,
+        mixed $rawImage,
+        mixed $rawAttrs
+    ): ?string {
+        $evalContainer = is_string($rawContainer) ? $this->evalValue($rawContainer) : $rawContainer;
+        $opos = null;
+        if ($evalContainer instanceof AdvObject) {
+            $opos = $evalContainer;
+        } elseif (is_string($evalContainer) && $evalContainer !== '') {
+            $opos = $this->resolveObject($evalContainer) ?? $this->world?->getObjectExt($evalContainer);
+        }
+
+        $evalName = is_string($rawName) ? $this->evalValue($rawName) : $rawName;
+        $name = is_string($evalName) ? trim($evalName, "\"'") : (string)$evalName;
+
+        $evalDescr = ($rawDescr === null || strcasecmp(trim((string)$rawDescr), 'null') === 0)
+            ? ''
+            : (is_string($rawDescr) ? $this->evalValue($rawDescr) : $rawDescr);
+        $descr = ($evalDescr !== null && strcasecmp((string)$evalDescr, 'null') !== 0) ? (is_string($evalDescr) ? trim($evalDescr, "\"'") : (string)$evalDescr) : '';
+
+        $evalImg = ($rawImage === null || strcasecmp(trim((string)$rawImage), 'null') === 0)
+            ? null
+            : (is_string($rawImage) ? $this->evalValue($rawImage) : $rawImage);
+        $image = null;
+        if ($evalImg instanceof Image) {
+            $image = $evalImg;
+        } elseif (is_string($evalImg) && $evalImg !== '' && strcasecmp($evalImg, 'null') !== 0) {
+            $imgSrc = trim($evalImg, "\"'");
+            if ($this->world !== null && !empty($this->world->imagesFolder)
+                && !str_starts_with($imgSrc, 'http://') && !str_starts_with($imgSrc, 'https://') && !str_starts_with($imgSrc, '/')) {
+                $imgSrc = rtrim($this->world->imagesFolder, '/') . '/' . ltrim($imgSrc, '/');
+            }
+            $image = new Image($imgSrc, 0, 0);
+        }
+
+        $evalAttrs = ($rawAttrs === null || strcasecmp(trim((string)$rawAttrs), 'null') === 0)
+            ? ''
+            : (is_string($rawAttrs) ? $this->evalValue($rawAttrs) : $rawAttrs);
+        if (is_string($evalAttrs)) {
+            $evalAttrs = trim($evalAttrs, "\"'");
+        }
+
+        $posId = $opos?->id ?? (is_string($evalContainer) ? $evalContainer : '');
+        $id = $this->world?->getNextId() ?? ('_obj' . uniqid());
+
+        $item = new Item($this->world, $name, $id, $descr, null, $evalAttrs, 5, 1, $posId);
+        if ($image !== null) {
+            $item->setImage('N', $image);
+            $item->image = $image;
+        }
+
+        if ($this->world !== null) {
+            $this->world->addItem($item);
+        }
+
+        if ($opos !== null) {
+            while ($opos->container !== null && $opos->getFreeSpace() < $item->volume) {
+                $opos = $opos->container;
+            }
+            $opos->addObject($item);
+        }
+
+        return $item->id;
+    }
+
     public function actOpen(array $args): bool
     {
         if (empty($args)) {
@@ -588,9 +677,10 @@ class ActionsRunner
         return false;
     }
 
-    protected function actReturn(array $args): mixed
+    protected function actReturn(array $args, string $argString = ''): mixed
     {
-        $val = !empty($args) ? $this->evalCondition(implode(' ', $args)) : true;
+        $raw = trim($argString) !== '' ? trim($argString) : implode(' ', $args);
+        $val = ($raw !== '') ? $this->evalCondition($raw) : true;
         $this->hasReturned = true;
         $this->returnValue = $val;
         return $val;
@@ -1374,29 +1464,27 @@ class ActionsRunner
 
         // Check operators: <>, <=, >=, =, <, >
         $operators = ['<>', '<=', '>=', '=', '<', '>'];
-        foreach ($operators as $op) {
-            if (str_contains($expr, $op)) {
-                $parts = explode($op, $expr, 2);
-                $left  = $this->evalValue(trim($parts[0]));
-                $right = $this->evalValue(trim($parts[1]));
+        if ($parts = $this->splitTopLevelBinary($expr, $operators)) {
+            $left  = $this->evalValue(trim($parts[0]));
+            $op    = $parts[1];
+            $right = $this->evalValue(trim($parts[2]));
 
-                if ($left instanceof DimxObject) {
-                    $left = $left->id;
-                }
-                if ($right instanceof DimxObject) {
-                    $right = $right->id;
-                }
-
-                return match ($op) {
-                    '<>' => ($left != $right),
-                    '='  => ($left == $right),
-                    '<=' => ($left <= $right),
-                    '>=' => ($left >= $right),
-                    '<'  => ($left < $right),
-                    '>'  => ($left > $right),
-                    default => false,
-                };
+            if ($left instanceof DimxObject) {
+                $left = $left->id;
             }
+            if ($right instanceof DimxObject) {
+                $right = $right->id;
+            }
+
+            return match ($op) {
+                '<>' => ($left != $right),
+                '='  => ($left == $right),
+                '<=' => ($left <= $right),
+                '>=' => ($left >= $right),
+                '<'  => ($left < $right),
+                '>'  => ($left > $right),
+                default => false,
+            };
         }
 
         return $this->evalValue($expr);
@@ -1695,6 +1783,18 @@ class ActionsRunner
                     $url = rtrim($this->world->imagesFolder, '/') . '/' . ltrim($url, '/');
                 }
                 return new Image($url, $width, $height);
+            }
+
+            // Built-in NewItem( container, name, descr, image, attributes )
+            if (strcasecmp($fn, 'NewItem') === 0) {
+                $niArgs = $this->parseArguments($argStr, false);
+                return $this->createNewItem(
+                    $niArgs[0] ?? '',
+                    $niArgs[1] ?? '',
+                    $niArgs[2] ?? '',
+                    $niArgs[3] ?? '',
+                    $niArgs[4] ?? ''
+                );
             }
 
             // Check if $fn is an array / set
