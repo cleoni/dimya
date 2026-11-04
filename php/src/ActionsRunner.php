@@ -22,13 +22,23 @@ class ActionsRunner
     protected mixed $returnValue = true;
     protected mixed $defaultResult = true;
 
+    public string $fileShort = '';
+    public int $startLine = 0;
+    public int $currLine = 0;
+    public string $fileName = '';
+    public int $stackLevel = 0;
+
     public function __construct(
         World $world,
         ?DimxObject $owner = null,
         mixed $agent = null,
         mixed $target = null,
         array $input = [],
-        mixed $defaultResult = true
+        mixed $defaultResult = true,
+        string $fileShort = '',
+        int $startLine = 0,
+        string $fileName = '',
+        int $stackLevel = 0
     ) {
         $this->world = $world;
         $this->owner = $owner;
@@ -36,6 +46,11 @@ class ActionsRunner
         $this->target = $target;
         $this->input = $input;
         $this->defaultResult = $defaultResult;
+        $this->fileShort = $fileShort;
+        $this->startLine = $startLine;
+        $this->currLine = $startLine;
+        $this->fileName = $fileName;
+        $this->stackLevel = $stackLevel;
     }
 
     public function setLocalVar(string $name, mixed $val): void
@@ -161,17 +176,65 @@ class ActionsRunner
         $this->hasReturned = false;
         $this->returnValue = $this->defaultResult;
 
+        if ($this->stackLevel > 0) {
+            $this->incIndent();
+        }
+        if ($this->fileShort !== '' && $this->currLine > 0) {
+            $this->log("{$this->fileShort}({$this->currLine}): running");
+        }
+
+        try {
+            $lines = $this->parseScriptToLines($script);
+            return $this->executeLinesList($lines);
+        } finally {
+            if ($this->stackLevel > 0) {
+                $this->decIndent();
+            }
+        }
+    }
+
+    /**
+     * Run a pre-parsed list of line items (text + line number) within this runner instance.
+     */
+    public function runParsedLines(array $lines): mixed
+    {
+        $this->hasReturned = false;
+        $this->returnValue = $this->defaultResult;
+
+        $this->incIndent();
+        if ($this->fileShort !== '' && $this->currLine > 0) {
+            $this->log("{$this->fileShort}({$this->currLine}): running");
+        }
+
+        try {
+            return $this->executeLinesList($lines);
+        } finally {
+            $this->decIndent();
+        }
+    }
+
+    /**
+     * Parse raw script into array of line items with accurate source line numbers.
+     *
+     * @return array<int, array{text: string, line: int}>
+     */
+    protected function parseScriptToLines(string $script): array
+    {
         $rawLines = preg_split('/\r\n|\r|\n/', $script);
         $lines = [];
         $accum = '';
         $inQuote = false;
+        $accumStartLine = 0;
 
-        foreach ($rawLines as $raw) {
+        foreach ($rawLines as $rawIdx => $raw) {
+            $rawLineNum = ($this->startLine > 0 ? $this->startLine : 1) + $rawIdx;
+
             if (!$inQuote) {
                 $trimmed = trim($raw);
                 if ($trimmed === '' || str_starts_with($trimmed, "'")) {
                     continue;
                 }
+                $accumStartLine = $rawLineNum;
             }
 
             $len = strlen($raw);
@@ -197,7 +260,10 @@ class ActionsRunner
             if (!$inQuote) {
                 $trimmedAccum = trim($accum);
                 if ($trimmedAccum !== '') {
-                    $lines[] = $trimmedAccum;
+                    $lines[] = [
+                        'text' => $trimmedAccum,
+                        'line' => $accumStartLine,
+                    ];
                 }
                 $accum = '';
             }
@@ -205,36 +271,73 @@ class ActionsRunner
         if ($accum !== '') {
             $trimmedAccum = trim($accum);
             if ($trimmedAccum !== '') {
-                $lines[] = $trimmedAccum;
+                $lines[] = [
+                    'text' => $trimmedAccum,
+                    'line' => $accumStartLine,
+                ];
             }
         }
 
+        return $lines;
+    }
+
+    /**
+     * Execute a sequence of pre-parsed line items.
+     *
+     * @param array<int, array{text: string, line: int}> $lines
+     */
+    protected function executeLinesList(array $lines): mixed
+    {
         $count = count($lines);
         $i = 0;
         $result = $this->defaultResult;
 
         while ($i < $count && !$this->hasReturned) {
-            $line = $lines[$i];
+            $lineItem = $lines[$i];
+            $line = $lineItem['text'];
+            $this->currLine = $lineItem['line'];
 
             // Check for If block
             if (preg_match('/^IF\b\s*(.*)$/i', $line, $m)) {
                 $condExpr = trim($m[1]);
-                $condVal = $this->evalCondition($condExpr);
+                $condClean = preg_replace('/\s+THEN$/i', '', $condExpr);
+
+                // Java: world.logger.debug("IF " + lookupElement(setTabSpace).strVal() + "...");
+                $firstWord = '';
+                if (preg_match('/^([^\s.]+)/', $condClean, $cm)) {
+                    $firstWord = $cm[1];
+                } else {
+                    $firstWord = $condClean;
+                }
+                $this->log("IF {$firstWord}...");
+
+                $condVal = $this->evalCondition($condClean);
+                // Java: world.logger.debug(expr.boolVal() ? "TRUE" : "FALSE");
+                if ($condVal) {
+                    $this->log("TRUE");
+                } else {
+                    $this->log("FALSE");
+                }
 
                 // Collect block up to End_If
                 $thenLines = [];
                 $elseLines = [];
                 $inElse = false;
                 $nesting = 1;
+                $endIfLine = $this->currLine;
                 $i++;
 
                 while ($i < $count) {
-                    $sub = $lines[$i];
+                    $subItem = $lines[$i];
+                    $sub = $subItem['text'];
+                    $subLine = $subItem['line'];
+
                     if (preg_match('/^IF\b/i', $sub)) {
                         $nesting++;
                     } elseif (preg_match('/^(END_IF|END\s+IF|ENDIF)\b/i', $sub)) {
                         $nesting--;
                         if ($nesting === 0) {
+                            $endIfLine = $subLine;
                             $i++;
                             break;
                         }
@@ -245,24 +348,45 @@ class ActionsRunner
                     }
 
                     if ($inElse) {
-                        $elseLines[] = $sub;
+                        $elseLines[] = $subItem;
                     } else {
-                        $thenLines[] = $sub;
+                        $thenLines[] = $subItem;
                     }
                     $i++;
                 }
 
                 $execLines = $condVal ? $thenLines : $elseLines;
                 if (!empty($execLines)) {
-                    $subScript = implode("\n", $execLines);
-                    $subRes = $this->run($subScript);
-                    if ($this->hasReturned) {
+                    $blockStartLine = $execLines[0]['line'];
+                    $subRunner = new ActionsRunner(
+                        $this->world,
+                        $this->owner,
+                        $this->agent,
+                        $this->target,
+                        $this->input,
+                        $this->defaultResult,
+                        $this->fileShort,
+                        $blockStartLine,
+                        $this->fileName,
+                        $this->stackLevel + 1
+                    );
+                    $subRunner->localVars =& $this->localVars;
+                    $subRes = $subRunner->runParsedLines($execLines);
+                    if ($subRunner->hasReturned) {
+                        $this->hasReturned = true;
+                        $this->returnValue = $subRunner->returnValue;
                         return $this->returnValue;
                     }
                     if ($subRes !== false && $subRes !== null && $subRes !== 0 && $subRes !== '0') {
                         $result = true;
                     }
                 }
+
+                // Java: if (world.logger.on) world.logger.debug(fileShort + "(" + currLine + "): " + actionverb.toUpperCase() + " executed");
+                if ($this->fileShort !== '' && $endIfLine > 0) {
+                    $this->log("{$this->fileShort}({$endIfLine}): IF executed");
+                }
+                $this->currLine = $endIfLine;
                 continue;
             }
 
@@ -280,34 +404,41 @@ class ActionsRunner
 
                 $loopLines = [];
                 $nesting = 1;
+                $nextEndLine = $this->currLine;
                 $i++;
 
                 while ($i < $count) {
-                    $sub = $lines[$i];
+                    $subItem = $lines[$i];
+                    $sub = $subItem['text'];
+                    $subLine = $subItem['line'];
                     if (preg_match('/^FOR\b/i', $sub)) {
                         $nesting++;
                     } elseif (preg_match('/^NEXT\b/i', $sub)) {
                         $nesting--;
                         if ($nesting === 0) {
+                            $nextEndLine = $subLine;
                             $i++;
                             break;
                         }
                     }
-                    $loopLines[] = $sub;
+                    $loopLines[] = $subItem;
                     $i++;
                 }
 
-                $subScript = implode("\n", $loopLines);
                 $elemIdx = 0;
                 foreach ($collection as $item) {
                     $this->log("Looping. Set element # " . $elemIdx);
                     $this->setVariable($varName, $item);
-                    $this->run($subScript);
+                    $this->executeLinesList($loopLines);
                     if ($this->hasReturned) {
                         return $this->returnValue;
                     }
                     $elemIdx++;
                 }
+                if ($this->fileShort !== '' && $nextEndLine > 0) {
+                    $this->log("{$this->fileShort}({$nextEndLine}): FOR executed");
+                }
+                $this->currLine = $nextEndLine;
                 continue;
             }
 
@@ -320,32 +451,39 @@ class ActionsRunner
 
                 $loopLines = [];
                 $nesting = 1;
+                $nextEndLine = $this->currLine;
                 $i++;
 
                 while ($i < $count) {
-                    $sub = $lines[$i];
+                    $subItem = $lines[$i];
+                    $sub = $subItem['text'];
+                    $subLine = $subItem['line'];
                     if (preg_match('/^FOR\b/i', $sub)) {
                         $nesting++;
                     } elseif (preg_match('/^NEXT\b/i', $sub)) {
                         $nesting--;
                         if ($nesting === 0) {
+                            $nextEndLine = $subLine;
                             $i++;
                             break;
                         }
                     }
-                    $loopLines[] = $sub;
+                    $loopLines[] = $subItem;
                     $i++;
                 }
 
-                $subScript = implode("\n", $loopLines);
                 for ($val = $startVal; ($step > 0 ? $val <= $endVal : $val >= $endVal); $val += $step) {
                     $this->log("Looping. Index= " . $val);
                     $this->setVariable($varName, $val);
-                    $this->run($subScript);
+                    $this->executeLinesList($loopLines);
                     if ($this->hasReturned) {
                         return $this->returnValue;
                     }
                 }
+                if ($this->fileShort !== '' && $nextEndLine > 0) {
+                    $this->log("{$this->fileShort}({$nextEndLine}): FOR executed");
+                }
+                $this->currLine = $nextEndLine;
                 continue;
             }
 

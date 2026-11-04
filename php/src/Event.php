@@ -166,8 +166,13 @@ class Event extends ManageableObject
 
         // Trace event/function execution using standard DimensioneX format:
         // "Calling FUNCTION addPlayer(person) - demoturnbased.dxw(117) with varspace: {input={}, person=(O|_p0 (Cris)|0.0)}"
+        // Or for events: "EVENT onLook executing"
         $varspaceStr = self::formatVarspace($varspace, $world);
-        $callMessage = "Calling " . (string)$this . " with varspace: " . $varspaceStr;
+        if ($this->type === 'EVENT' || str_starts_with($this->id, 'on')) {
+            $callMessage = "EVENT {$this->id} executing";
+        } else {
+            $callMessage = "Calling " . (string)$this . " with varspace: " . $varspaceStr;
+        }
         if ($world instanceof World) {
             $world->log($callMessage);
         } elseif (GameEngine::$activeInstance !== null) {
@@ -185,7 +190,18 @@ class Event extends ManageableObject
             if ($this->handler !== null) {
                 $res = ($this->handler)($owner, $agent, $target, $input, $defaultResult);
             } elseif (!empty($this->actions)) {
-                $runner = new ActionsRunner($world, $owner, $agent, $target, $input, $defaultResult);
+                $runner = new ActionsRunner(
+                    $world,
+                    $owner,
+                    $agent,
+                    $target,
+                    $input,
+                    $defaultResult,
+                    $this->fileShort,
+                    $this->actionsStartLine,
+                    $this->fileName,
+                    0
+                );
                 foreach ($varspace as $k => $v) {
                     $runner->setLocalVar($k, $v);
                 }

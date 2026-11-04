@@ -56,6 +56,7 @@ $sections = [
     53 => ['title' => 'Testing SmallBasic NewItem Function / Instruction & Snapshot Property Recursion Protection...', 'keywords' => ['newitem', 'htmladminsnapshot', 'snapshot', 'recursion', 'actionsrunner', 'smallbasic']],
     54 => ['title' => 'Testing SmallBasic SetLen() Function, For .. To ... Next & For Each Constructs with debug.log...', 'keywords' => ['setlen', 'for', 'to', 'next', 'foreach', 'for each', 'loop', 'fourinline', 'smallbasic']],
     55 => ['title' => 'Testing Function & Sub Logging (Calling FUNCTION/SUB with varspace) & Indentation (incIndent/decIndent)...', 'keywords' => ['calling function', 'calling', 'indent', 'incindent', 'decindent', 'indentlevel', 'varspace', 'nested']],
+    56 => ['title' => 'Testing If..Else Construct Logging (IF ..., TRUE/FALSE, nested running & IF executed)...', 'keywords' => ['if', 'else', 'endif', 'executed', 'running', 'true', 'false', 'fourinline', 'onlook']],
 ];
 
 // CLI Options parsing
@@ -2730,6 +2731,64 @@ SB;
         "debug.log contains root-level 'Returning: 11'");
 
     @$pm->resetWorld($sec55WorldId);
+}
+
+// --------------------------------------------------------------------------
+// 56. If..Else Construct Logging (IF ..., TRUE/FALSE, nested running & IF executed)
+// --------------------------------------------------------------------------
+if (shouldRun(56)) {
+    echo "\n--- Section 56: Testing If..Else Construct Logging (IF ..., TRUE/FALSE, nested running & IF executed) ---\n";
+
+    $logFile = \Dimx\GameEngine::getSystemFolder() . DIRECTORY_SEPARATOR . 'debug.log';
+    if (file_exists($logFile)) {
+        file_put_contents($logFile, '');
+    }
+
+    $sec56WorldId = 'w_sec56_' . mt_rand(1000, 9999);
+    $eng56 = new \Dimx\GameEngine($pm, $sec56WorldId);
+    $fourDFile = __DIR__ . '/../docs/dxw-examples/fourinline.dxw';
+    $loaderFour = new \Dimx\DxwLoader();
+    $fourWorld = $loaderFour->load($fourDFile, $sec56WorldId);
+    $fourWorld->engine = $eng56;
+
+    // Start world and setup 2 players in play mode
+    $fourWorld->fireEvent('onStart', $fourWorld);
+    $p1 = new \Dimx\Player($fourWorld, 'Cris', 'p1_test');
+    $p2 = new \Dimx\Player($fourWorld, 'ciccio', 'p2_test');
+    $fourWorld->addPlayer($p1);
+    $fourWorld->addPlayer($p2);
+    $fourWorld->fireEvent('onNew', $fourWorld, $p1);
+    $fourWorld->fireEvent('onNew', $fourWorld, $p2);
+
+    // Call play() to set mode="play"
+    $fourWorld->fireEvent('play', $fourWorld);
+
+    // Clear log before onLook
+    if (file_exists($logFile)) {
+        file_put_contents($logFile, '');
+    }
+
+    // Now trigger onLook for player 1 on a cell
+    $cell = $fourWorld->getItem('_obj16') ?? $fourWorld->getItem('_obj0');
+    if ($cell !== null) {
+        $fourWorld->fireEvent('onLook', $cell, $p1);
+    }
+
+    $log56 = file_exists($logFile) ? file_get_contents($logFile) : '';
+
+    assertTest(str_contains($log56, "EVENT onLook executing\n"), "debug.log contains root 'EVENT onLook executing'");
+    assertTest(str_contains($log56, "\tfourinline.dxw(268): running\n"), "debug.log contains '\\tfourinline.dxw(268): running'");
+    assertTest(str_contains($log56, "\tIF mode...\n"), "debug.log contains '\\tIF mode...'");
+    assertTest(str_contains($log56, "\tFALSE\n"), "debug.log contains '\\tFALSE'");
+    assertTest(str_contains($log56, "\tfourinline.dxw(271): IF executed\n"), "debug.log contains '\\tfourinline.dxw(271): IF executed'");
+    assertTest(str_contains($log56, "\tIF \$AGENT...\n"), "debug.log contains '\\tIF \$AGENT...'");
+    assertTest(str_contains($log56, "\tTRUE\n"), "debug.log contains '\\tTRUE'");
+    assertTest(str_contains($log56, "\t\tfourinline.dxw(273): running\n"), "debug.log contains '\\t\\tfourinline.dxw(273): running'");
+    assertTest(str_contains($log56, "\t\tIF \$OWNER...\n"), "debug.log contains '\\t\\tIF \$OWNER...'");
+    assertTest(str_contains($log56, "\t\tTRUE\n"), "debug.log contains '\\t\\tTRUE'");
+    assertTest(str_contains($log56, "\t\t\tfourinline.dxw(274): running\n"), "debug.log contains '\\t\\t\\tfourinline.dxw(274): running'");
+
+    @$pm->resetWorld($sec56WorldId);
 }
 
 // Clean up test worlds
