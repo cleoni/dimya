@@ -102,6 +102,24 @@ class ActionsRunner
         }
     }
 
+    public function incIndent(): void
+    {
+        if ($this->world !== null) {
+            $this->world->incIndent();
+        } elseif (GameEngine::$activeInstance !== null) {
+            GameEngine::$activeInstance->incIndent();
+        }
+    }
+
+    public function decIndent(): void
+    {
+        if ($this->world !== null) {
+            $this->world->decIndent();
+        } elseif (GameEngine::$activeInstance !== null) {
+            GameEngine::$activeInstance->decIndent();
+        }
+    }
+
     public function setArrayElement(string $name, int $index, mixed $val): void
     {
         $idx0 = max(0, $index - 1);
@@ -849,11 +867,18 @@ class ActionsRunner
         // Validate speaker: only a Character (or Player) can speak!
         // Inanimate objects (Item, Room, etc.) cannot speak; fallback to world default character ("a voice...")
         if (!($speakerObj instanceof Character)) {
+            $speakerId = ($speakerObj instanceof DimxObject) ? $speakerObj->id : (($p0 !== null) ? (string)$p0 : 'null');
+            $this->log("Warning: invalid speaker: {$speakerId}");
             $speakerObj = $this->world->getDefaultCharacter();
         }
         $speaker = ($speakerObj instanceof ManageableObject && !empty($speakerObj->name))
             ? $speakerObj->name
             : 'a voice...';
+
+        if ($destination === null) {
+            $this->log("WARNING: NULL destination");
+            return true;
+        }
 
         // Sequential message selection across dialogue interactions (stored on destination target)
         $msgKey = '__act_speak_' . md5(implode('||', $messages));
@@ -866,6 +891,12 @@ class ActionsRunner
             $destination->setProperty($msgKey, $nextIdx);
         }
 
+        $paramIdx = 2 + $nextIdx;
+        if (!isset($messages[$nextIdx])) {
+            $this->log("actSpeak: par{$paramIdx} is a null message - won't speak");
+            return true;
+        }
+
         $evalRes = $this->evalValue((string)$messages[$nextIdx]);
         if ($evalRes instanceof Image) {
             $chosen = $evalRes->toHtml();
@@ -873,6 +904,9 @@ class ActionsRunner
             $chosen = (string)$evalRes;
             $chosen = trim($chosen, "\"'");
         }
+
+        $destStr = ($destination instanceof DimxObject) ? (string)$destination : (($this->agent instanceof Character) ? (string)$this->agent : 'world');
+        $this->log("Speaking parameter #{$paramIdx} to {$destStr}: {$chosen}");
 
         // Special marker "*": signals speech finished
         if ($chosen === '*') {

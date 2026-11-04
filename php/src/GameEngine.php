@@ -38,6 +38,27 @@ class GameEngine
         return self::$systemFolder ?? dirname(__DIR__);
     }
 
+    /** Current debug log indentation level (0 = root level, incremented per nested call) */
+    public int $indentLevel = 0;
+
+    /**
+     * Increment debug log indentation by 1 level.
+     */
+    public function incIndent(): void
+    {
+        $this->indentLevel++;
+    }
+
+    /**
+     * Decrement debug log indentation by 1 level (lower bound is 0).
+     */
+    public function decIndent(): void
+    {
+        if ($this->indentLevel > 0) {
+            $this->indentLevel--;
+        }
+    }
+
     /**
      * Log a message to debug.log in the game engine's system folder if debugTo is 'file'.
      *
@@ -55,6 +76,16 @@ class GameEngine
         } else {
             $entry = (string)$message;
         }
+
+        $indent = ($this->indentLevel > 0) ? str_repeat("\t", $this->indentLevel) : '';
+        if ($indent !== '' && str_contains($entry, "\n")) {
+            $lines = explode("\n", $entry);
+            $indentedLines = array_map(fn($l) => ($l !== '') ? $indent . $l : $l, $lines);
+            $entry = implode("\n", $indentedLines);
+        } else {
+            $entry = $indent . $entry;
+        }
+
         @file_put_contents($logFile, $entry . "\n", FILE_APPEND | LOCK_EX);
     }
 

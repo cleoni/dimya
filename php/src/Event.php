@@ -131,6 +131,9 @@ class Event extends ManageableObject
             : (($owner instanceof DimxObject && $owner->world instanceof World)
                 ? $owner->world
                 : $worldFallback);
+        if ($world === null && GameEngine::$activeInstance !== null) {
+            $world = GameEngine::$activeInstance->world;
+        }
 
         // Separate positional arguments from associative input dictionary
         $cleanInput = [];
@@ -163,24 +166,49 @@ class Event extends ManageableObject
 
         // Trace event/function execution using standard DimensioneX format:
         // "Calling FUNCTION addPlayer(person) - demoturnbased.dxw(117) with varspace: {input={}, person=(O|_p0 (Cris)|0.0)}"
+        $varspaceStr = self::formatVarspace($varspace, $world);
+        $callMessage = "Calling " . (string)$this . " with varspace: " . $varspaceStr;
         if ($world instanceof World) {
-            $varspaceStr = self::formatVarspace($varspace, $world);
-            $world->logger?->debug("Calling " . (string)$this . " with varspace: " . $varspaceStr);
+            $world->log($callMessage);
+        } elseif (GameEngine::$activeInstance !== null) {
+            GameEngine::$activeInstance->log($callMessage);
         }
 
-        if ($this->handler !== null) {
-            return ($this->handler)($owner, $agent, $target, $input, $defaultResult);
+        if ($world instanceof World) {
+            $world->incIndent();
+        } elseif (GameEngine::$activeInstance !== null) {
+            GameEngine::$activeInstance->incIndent();
         }
 
-        if (!empty($this->actions)) {
-            $runner = new ActionsRunner($world, $owner, $agent, $target, $input, $defaultResult);
-            foreach ($varspace as $k => $v) {
-                $runner->setLocalVar($k, $v);
+        $res = null;
+        try {
+            if ($this->handler !== null) {
+                $res = ($this->handler)($owner, $agent, $target, $input, $defaultResult);
+            } elseif (!empty($this->actions)) {
+                $runner = new ActionsRunner($world, $owner, $agent, $target, $input, $defaultResult);
+                foreach ($varspace as $k => $v) {
+                    $runner->setLocalVar($k, $v);
+                }
+                $res = $runner->run($this->actions);
+            } else {
+                $res = $defaultResult;
             }
-            return $runner->run($this->actions);
+            return $res;
+        } finally {
+            if ($world instanceof World) {
+                $world->decIndent();
+            } elseif (GameEngine::$activeInstance !== null) {
+                GameEngine::$activeInstance->decIndent();
+            }
+            $returnVal = $res ?? $defaultResult;
+            $returnStr = self::formatVarspaceValue($returnVal, $world);
+            $retMessage = "Returning: " . $returnStr;
+            if ($world instanceof World) {
+                $world->log($retMessage);
+            } elseif (GameEngine::$activeInstance !== null) {
+                GameEngine::$activeInstance->log($retMessage);
+            }
         }
-
-        return $defaultResult;
     }
 
     public function __toString(): string

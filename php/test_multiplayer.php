@@ -55,6 +55,7 @@ $sections = [
     52 => ['title' => 'Testing Put / Insert Command (2-Object OO Model, Capacity, Closed Checks, Events & UIhtml Definitions)...', 'keywords' => ['put', 'insert', 'actput', 'itemput', 'container', 'capacity', 'closed', 'uihtml', 'command_defs']],
     53 => ['title' => 'Testing SmallBasic NewItem Function / Instruction & Snapshot Property Recursion Protection...', 'keywords' => ['newitem', 'htmladminsnapshot', 'snapshot', 'recursion', 'actionsrunner', 'smallbasic']],
     54 => ['title' => 'Testing SmallBasic SetLen() Function, For .. To ... Next & For Each Constructs with debug.log...', 'keywords' => ['setlen', 'for', 'to', 'next', 'foreach', 'for each', 'loop', 'fourinline', 'smallbasic']],
+    55 => ['title' => 'Testing Function & Sub Logging (Calling FUNCTION/SUB with varspace) & Indentation (incIndent/decIndent)...', 'keywords' => ['calling function', 'calling', 'indent', 'incindent', 'decindent', 'indentlevel', 'varspace', 'nested']],
 ];
 
 // CLI Options parsing
@@ -1515,6 +1516,24 @@ assertTest(
     ($surferChat3['text'] ?? '') === 'Hey, why the hell you are staring at me?',
     "Third interaction wraps around to first phrase: '{$surferChat3['text']}'"
 );
+
+// Verify debug.log output for Speak instructions (mimicking Java ActionsRunner)
+$debugLogPath = dirname(__FILE__) . '/debug.log';
+if (file_exists($debugLogPath)) {
+    $debugContent = file_get_contents($debugLogPath);
+    assertTest(
+        str_contains($debugContent, 'Warning: invalid speaker: switch'),
+        "debug.log contains 'Warning: invalid speaker: switch'"
+    );
+    assertTest(
+        str_contains($debugContent, 'Speaking parameter #2 to') && str_contains($debugContent, 'USE this switch to start a new game!'),
+        "debug.log contains 'Speaking parameter #2 to ...: USE this switch to start a new game!'"
+    );
+    assertTest(
+        str_contains($debugContent, 'Speaking parameter #3 to') && str_contains($debugContent, 'Please look elsewhere!'),
+        "debug.log contains sequential 'Speaking parameter #3 to ...: Please look elsewhere!'"
+    );
+}
 }
 
 // --------------------------------------------------------------------------
@@ -2623,6 +2642,94 @@ SB;
     assertTest(str_contains($sitWithP1, 'Waiting for 1 more player'), "fourinline getSituation calculates (target_players - nplayers) = 1");
 
     @$pm->resetWorld($sec54WorldId);
+}
+
+// -------------------------------------------------------------
+// Test 55: Function & Sub Logging & Indentation (incIndent/decIndent)
+// -------------------------------------------------------------
+if (shouldRun(55)) {
+    echo "\n--- Section 55: Testing Function & Sub Logging (Calling FUNCTION/SUB with varspace) & Indentation (incIndent/decIndent) ---\n";
+    $executedSections[] = 55;
+
+    $sec55WorldId = 'w_sec55_' . rand(1000, 9999);
+    $eng55 = new \Dimx\GameEngine($pm, $sec55WorldId, null, $baseUrl, ['debugTo' => 'file']);
+    $sec55World = new \Dimx\World($sec55WorldId, 'Section 55 World');
+    $sec55World->engine = $eng55;
+
+    $sysFolder = \Dimx\GameEngine::getSystemFolder();
+    $logFile = $sysFolder . '/debug.log';
+    if (file_exists($logFile)) {
+        @unlink($logFile);
+    }
+
+    // 1. Test incIndent() and decIndent() on GameEngine directly
+    assertTest($eng55->indentLevel === 0, "GameEngine indentLevel starts at 0 (got {$eng55->indentLevel})");
+    $eng55->incIndent();
+    assertTest($eng55->indentLevel === 1, "GameEngine incIndent increments to 1 (got {$eng55->indentLevel})");
+    $eng55->incIndent();
+    assertTest($eng55->indentLevel === 2, "GameEngine incIndent increments to 2 (got {$eng55->indentLevel})");
+    $eng55->decIndent();
+    assertTest($eng55->indentLevel === 1, "GameEngine decIndent decrements to 1 (got {$eng55->indentLevel})");
+    $eng55->decIndent();
+    assertTest($eng55->indentLevel === 0, "GameEngine decIndent decrements to 0 (got {$eng55->indentLevel})");
+    $eng55->decIndent();
+    assertTest($eng55->indentLevel === 0, "GameEngine decIndent does not go below 0 (got {$eng55->indentLevel})");
+
+    // 2. Test World and ActionsRunner forwarding incIndent / decIndent
+    $sec55World->incIndent();
+    assertTest($eng55->indentLevel === 1, "World incIndent forwards to GameEngine (got {$eng55->indentLevel})");
+    $runner55 = new \Dimx\ActionsRunner($sec55World);
+    $runner55->incIndent();
+    assertTest($eng55->indentLevel === 2, "ActionsRunner incIndent forwards to GameEngine (got {$eng55->indentLevel})");
+    $runner55->decIndent();
+    $sec55World->decIndent();
+    assertTest($eng55->indentLevel === 0, "World/ActionsRunner decIndent restores level to 0 (got {$eng55->indentLevel})");
+
+    // 3. Test nested functions in SmallBasic with Event::fire
+    // Function outerFn calling innerFn(x)
+    $innerEvt = new \Dimx\Event('innerFn', 'FUNCTION', null, ['x'], 'test55.dxw', 'test55.dxw', 10);
+    $innerEvt->actions = <<<'SB'
+Debug "Inside innerFn with x=" + x
+Return x * 2
+SB;
+    $sec55World->registerEvent($innerEvt);
+
+    $outerEvt = new \Dimx\Event('outerFn', 'FUNCTION', null, ['n'], 'test55.dxw', 'test55.dxw', 20);
+    $outerEvt->actions = <<<'SB'
+Debug "Entering outerFn"
+Dim res = innerFn(n)
+Debug "Leaving outerFn with res=" + res
+Return res + 1
+SB;
+    $sec55World->registerEvent($outerEvt);
+
+    $resOuter = $sec55World->fireEvent('outerFn', $sec55World, null, null, [5]);
+    assertTest($resOuter === 11, "outerFn(5) correctly computes 5*2+1 = 11 (got " . var_export($resOuter, true) . ")");
+    assertTest($eng55->indentLevel === 0, "indentLevel restores to 0 after outerFn finishes (got {$eng55->indentLevel})");
+
+    $logContent55 = file_exists($logFile) ? file_get_contents($logFile) : '';
+
+    // Verify Calling FUNCTION signature and varspace
+    assertTest(str_contains($logContent55, "Calling FUNCTION outerFn(n) - test55.dxw(20) with varspace: {input={}, n=5}"),
+        "debug.log contains 'Calling FUNCTION outerFn(n) - test55.dxw(20) with varspace: {input={}, n=5}'");
+
+    // Verify nested call is indented with \t
+    assertTest(str_contains($logContent55, "\tCalling FUNCTION innerFn(x) - test55.dxw(10) with varspace: {input={}, x=5}"),
+        "debug.log contains indented '\\tCalling FUNCTION innerFn(x) - test55.dxw(10) with varspace: {input={}, x=5}'");
+
+    // Verify inner logs have double indentation \t\t
+    assertTest(str_contains($logContent55, "\t\tInside innerFn with x=5"),
+        "debug.log contains double-indented '\\t\\tInside innerFn with x=5'");
+
+    // Verify Returning: 10 has single indent
+    assertTest(str_contains($logContent55, "\tReturning: 10"),
+        "debug.log contains '\\tReturning: 10'");
+
+    // Verify outer Returning: 11 has 0 indent
+    assertTest(str_contains($logContent55, "Returning: 11"),
+        "debug.log contains root-level 'Returning: 11'");
+
+    @$pm->resetWorld($sec55WorldId);
 }
 
 // Clean up test worlds

@@ -108,6 +108,14 @@ class World extends DimxObject
             {
                 $this->world->log($msg);
             }
+            public function incIndent(): void
+            {
+                $this->world->incIndent();
+            }
+            public function decIndent(): void
+            {
+                $this->world->decIndent();
+            }
         };
     }
 
@@ -660,6 +668,24 @@ class World extends DimxObject
             $this->engine->log($message);
         } elseif (GameEngine::$activeInstance !== null) {
             GameEngine::$activeInstance->log($message);
+        }
+    }
+
+    public function incIndent(): void
+    {
+        if ($this->engine instanceof GameEngine) {
+            $this->engine->incIndent();
+        } elseif (GameEngine::$activeInstance !== null) {
+            GameEngine::$activeInstance->incIndent();
+        }
+    }
+
+    public function decIndent(): void
+    {
+        if ($this->engine instanceof GameEngine) {
+            $this->engine->decIndent();
+        } elseif (GameEngine::$activeInstance !== null) {
+            GameEngine::$activeInstance->decIndent();
         }
     }
 
