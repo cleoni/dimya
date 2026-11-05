@@ -623,7 +623,7 @@ class ActionsRunner
         // Also handle verb followed immediately by '(' e.g. "Debug("test")"
         if (preg_match('/^([A-Za-z0-9_]+)\s*\((.*)\)$/s', $line, $vm) && !str_contains($vm[1], '.')) {
             $verbCandidate = strtoupper($vm[1]);
-            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS'], true)) {
+            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET'], true)) {
                 $verb = $verbCandidate;
                 $argString = $vm[2];
             }
@@ -656,17 +656,37 @@ class ActionsRunner
             'REFRESHVIEW'         => $this->actRefreshView($args),
             'SENDCMD'             => $this->actSendCmd($args),
             'NEWITEM'             => $this->actNewItem($args),
-            'RESET'      => $this->actReset(),
+            'RESET'      => $this->actReset($args),
             'GIVE'       => $this->actGive($args),
             'DEBUG'      => $this->actDebug($args),
             default      => true,
         };
     }
 
-    protected function actReset(): bool
+    /**
+     * Reset [broadcastMsg] (SmallBasic 3.9.20)
+     * Resets the game engine world state, re-seeding the world and re-synchronizing players.
+     */
+    protected function actReset(array $args = []): bool
     {
         if ($this->world !== null) {
             $this->world->reset = true;
+            if (!empty($args)) {
+                $rawMsg = (string)$args[0];
+                $msg = (string)$this->evalValue($rawMsg);
+                if ((str_starts_with($msg, '"') && str_ends_with($msg, '"')) ||
+                    (str_starts_with($msg, "'") && str_ends_with($msg, "'"))) {
+                    $msg = substr($msg, 1, -1);
+                }
+                if ($msg !== '') {
+                    $this->world->broadcast($msg);
+                }
+            }
+            if ($this->world->engine !== null) {
+                $this->world->engine->log("Action: RESET");
+            } elseif (GameEngine::$activeInstance !== null) {
+                GameEngine::$activeInstance->log("Action: RESET");
+            }
         }
         return true;
     }

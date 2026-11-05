@@ -58,6 +58,7 @@ $sections = [
     55 => ['title' => 'Testing Function & Sub Logging (Calling FUNCTION/SUB with varspace) & Indentation (incIndent/decIndent)...', 'keywords' => ['calling function', 'calling', 'indent', 'incindent', 'decindent', 'indentlevel', 'varspace', 'nested']],
     56 => ['title' => 'Testing If..Else Construct Logging (IF ..., TRUE/FALSE, nested running & IF executed)...', 'keywords' => ['if', 'else', 'endif', 'executed', 'running', 'true', 'false', 'fourinline', 'onlook']],
     57 => ['title' => 'Testing Request Interaction Logging (USER, ROOM, STATUS, COMMAND, VIEW, DATE & input=...)', 'keywords' => ['user', 'room', 'status', 'command', 'view', 'date', 'interaction', 'request']],
+    58 => ['title' => 'Testing SmallBasic Reset Instruction & GameEngine::resetWorld()...', 'keywords' => ['reset', 'restart', 'smallbasic', 'actionsrunner', 'gameengine', 'reseeding']],
 ];
 
 // CLI Options parsing
@@ -1915,8 +1916,8 @@ if (shouldRun(47)) {
     }
 
     $sec47WorldId = 'w_sec47_debug_' . rand(1000, 9999);
-    $eng47 = new Dimx\GameEngine($pm, $sec47WorldId, null, $baseUrl);
-    assertTest($eng47->debugTo === 'none', "GameEngine::\$debugTo defaults to 'none'");
+    $eng47 = new Dimx\GameEngine($pm, $sec47WorldId, null, $baseUrl, ['debugTo' => 'none']);
+    assertTest($eng47->debugTo === 'none', "GameEngine::\$debugTo is 'none' when configured");
 
     // 1. engine.log() does nothing when engine.debugTo !== 'file'
     $ignoredMarker = "TEST_IGNORED_LOG_" . uniqid();
@@ -2884,6 +2885,109 @@ if (shouldRun(57)) {
         "debug.log contains DimensioneX input dictionary with string tokens");
 
     @$pm->resetWorld($sec57WorldId);
+}
+
+// ---------------------------------------------------------------------------
+// Section 58: Testing SmallBasic Reset Instruction & GameEngine::resetWorld()
+// ---------------------------------------------------------------------------
+if (shouldRun(58)) {
+    echo "\n--- Section 58: Testing SmallBasic Reset Instruction & GameEngine::resetWorld() ---\n";
+
+    $sec58WorldId = 'w_sec58_reset_' . rand(1000, 9999);
+    $eng58 = new Dimx\GameEngine($pm, $sec58WorldId, __DIR__ . '/../docs/dxw-examples/world1.dxw', $baseUrl, ['debugTo' => 'file']);
+
+    $sysFolder = Dimx\GameEngine::getSystemFolder();
+    $logFile = $sysFolder . '/debug.log';
+    if (file_exists($logFile)) {
+        @unlink($logFile);
+    }
+
+    // 1. ActionsRunner sets $world->reset = true and logs "Action: RESET"
+    $world58 = $eng58->loadOrSeedWorld();
+    assertTest($world58->reset === false, "World initial reset flag is false");
+
+    $runner58 = new Dimx\ActionsRunner($world58);
+    $resReset = $runner58->run('Reset');
+    assertTest($resReset === true, "ActionsRunner executes Reset statement successfully");
+    assertTest($world58->reset === true, "World reset flag set to true by Reset instruction");
+
+    $logContent = file_exists($logFile) ? file_get_contents($logFile) : '';
+    assertTest(str_contains($logContent, "Action: RESET\n"), "debug.log contains 'Action: RESET'");
+
+    // 2. Parenthesized Reset() syntax
+    $world58->reset = false;
+    $runner58->run('Reset()');
+    assertTest($world58->reset === true, "World reset flag set to true by parenthesized Reset() instruction");
+
+    // 3. Optional broadcast message argument with Reset
+    $world58->reset = false;
+    $p1 = new Dimx\Player($world58, 'Hero58', 'p_hero58');
+    $world58->addPlayer($p1);
+    $runner58->run('Reset "World is restarting now"');
+    assertTest($world58->reset === true, "Reset with message sets world reset flag to true");
+    $p1Msgs = $p1->drainConsole();
+    assertTest(count($p1Msgs) > 0 && str_contains($p1Msgs[0], 'World is restarting now'), "Reset broadcasts notification message to players");
+
+    // 4. End-to-end command execution triggering Reset
+    // Set up an item with onUse event that executes Reset
+    $world58->reset = false;
+    $beach = $world58->getRoom('beach') ?? reset($world58->rooms);
+    if ($beach !== null) {
+        $p1->move($beach);
+        $resetItem = new Dimx\Item($world58, 'Reset Crystal', 'reset_crystal');
+        $world58->addItem($resetItem);
+        $resetItem->move($beach);
+        $evtReset = new Dimx\Event('reset_crystal.onUse', 'EVENT');
+        $evtReset->actions = "Reset\n";
+        $world58->registerEvent($evtReset);
+    }
+    // Mutate world state before Reset
+    $world58->setProperty('custom_marker', 'mutated_before_reset');
+    $pm->saveWorld($world58);
+
+    if (file_exists($logFile)) {
+        @unlink($logFile);
+    }
+    $initialToken = (string)$pm->getSetting($sec58WorldId, 'world_reset_token', '');
+
+    // Human UI / JSON UI execution of 'use reset_crystal' command
+    $ui58 = new Dimx\UIjson();
+    $ui58->setEngine($eng58);
+    $cmdRes = $eng58->processCommand('Hero58', 'use', 'reset_crystal', '', $ui58);
+
+    assertTest(!empty($cmdRes['reset']), "processCommand returns reset => true when Reset is executed");
+    assertTest(!empty($cmdRes['logged_out']), "processCommand returns logged_out => true upon world reset");
+
+    $logContent2 = file_exists($logFile) ? file_get_contents($logFile) : '';
+    assertTest(str_contains($logContent2, "Action: RESET\n"), "debug.log contains 'Action: RESET' during command execution");
+    assertTest(str_contains($logContent2, "performing RESTART upon world reset flag\n"), "debug.log contains 'performing RESTART upon world reset flag'");
+
+    // 5. Verify world was re-seeded and previous mutated state was wiped
+    $reseededWorld = $eng58->loadOrSeedWorld();
+    assertTest($reseededWorld->getProperty('custom_marker') === null, "Mutated world property is cleared after re-seeding");
+
+    // 6. Verify world_reset_token has been updated in persistence
+    $newToken = (string)$pm->getSetting($sec58WorldId, 'world_reset_token', '');
+    assertTest($newToken !== '' && $newToken !== $initialToken, "world_reset_token in persistence changed after reset");
+
+    // 7. Verify UIjson payload reflects reset
+    ob_start();
+    $ui58->render($cmdRes);
+    $jsonOut = ob_get_clean();
+    $parsedJson = json_decode($jsonOut, true);
+    assertTest(is_array($parsedJson), "UIjson produces valid JSON output for reset");
+    assertTest(($parsedJson['status'] ?? '') === 'reset', "UIjson status is 'reset'");
+    assertTest(!empty($parsedJson['reset']), "UIjson payload contains reset: true");
+
+    // 8. Direct GameEngine::resetWorld() call
+    $directResetWorld = $eng58->resetWorld();
+    assertTest($directResetWorld instanceof Dimx\World, "GameEngine::resetWorld() returns a fresh World instance");
+    assertTest($directResetWorld->engine === $eng58, "re-seeded World has engine property bound to GameEngine");
+
+    if (file_exists($logFile)) {
+        @unlink($logFile);
+    }
+    @$pm->resetWorld($sec58WorldId);
 }
 
 // Clean up test worlds

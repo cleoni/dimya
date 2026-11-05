@@ -63,6 +63,8 @@ class UIjson extends UI
         $status = 'ok';
         if ($lockError) {
             $status = 'lock_busy';
+        } elseif (!empty($context['reset'])) {
+            $status = 'reset';
         } elseif ($loggedOut) {
             $status = 'logged_out';
         }
@@ -102,6 +104,7 @@ class UIjson extends UI
         $response = [
             'success'    => !$lockError,
             'status'     => $status,
+            'reset'      => !empty($context['reset']),
             'logged_out' => $loggedOut,
             'lock_error' => $lockError,
             'world'      => [

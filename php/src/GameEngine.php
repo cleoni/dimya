@@ -212,6 +212,16 @@ class GameEngine
     }
 
     /**
+     * Reset the game world state, re-seeding it from definition and invalidating player sessions.
+     */
+    public function resetWorld(bool $purgePlayers = false): World
+    {
+        $this->log("performing RESTART upon world reset flag");
+        $this->pm->resetWorld($this->worldId, $purgePlayers);
+        return $this->loadOrSeedWorld();
+    }
+
+    /**
      * Remove players that have exceeded the inactivity timeout.
      */
     protected function pruneStalePlayers(World $world): void
@@ -445,6 +455,7 @@ class GameEngine
         $hasNewMsgs      = false;
         $lockError       = false;
         $loggedOut       = in_array($cmd, ['logout'], true);
+        $wasReset        = false;
 
         // Concurrency-controlled execution via WorldLock (MySQL GET_LOCK)
         if ($this->pdo !== null && $this->lock !== null) {
@@ -467,6 +478,13 @@ class GameEngine
                 // Advance world clock tick
                 $world->tick();
 
+                $wasReset = false;
+                if (!empty($world->reset)) {
+                    $world = $this->resetWorld();
+                    $wasReset = true;
+                    $loggedOut = true;
+                }
+
                 // Drain console output and pending sound/music/message flags for this player
                 $msgs           = $player->drainConsole();
                 $pendingSound   = $player->drainSound();
@@ -480,8 +498,10 @@ class GameEngine
                 });
                 $cmdsToDeliver  = !empty($cmdList) ? implode(';', $cmdList) . ';' : '';
 
-                // Save mutated world state back to persistence
-                $this->pm->saveWorld($world);
+                // Save mutated world state back to persistence (only if NOT reset, since resetWorld already seeded fresh world)
+                if (!$wasReset) {
+                    $this->pm->saveWorld($world);
+                }
 
                 return [
                     'world'            => $world,
@@ -492,6 +512,7 @@ class GameEngine
                     'new_messages'     => $hasNewMsgs,
                     'commands'         => $cmdsToDeliver,
                     'logged_out'       => $loggedOut,
+                    'reset'            => $wasReset,
                 ];
             });
 
@@ -524,6 +545,7 @@ class GameEngine
                 $hasNewMsgs      = (bool)($result['new_messages'] ?? false);
                 $pendingCommands = (string)($result['commands'] ?? '');
                 $loggedOut       = $result['logged_out'] ?? $loggedOut;
+                $wasReset        = (bool)($result['reset'] ?? false);
             }
         } else {
             // Graceful degradation when DB is offline (session / memory fallback)
@@ -541,6 +563,14 @@ class GameEngine
             $this->executeCommandAction($world, $player, $cmd, $arg0, $arg1, $view, $rawInput);
 
             $world->tick();
+
+            $wasReset = false;
+            if (!empty($world->reset)) {
+                $world = $this->resetWorld();
+                $wasReset = true;
+                $loggedOut = true;
+            }
+
             $consoleMessages = $player->drainConsole();
             $pendingSound    = $player->drainSound();
             $pendingBgMusic  = $player->drainBackgroundSound();
@@ -552,7 +582,10 @@ class GameEngine
                 return $t !== '' && $t !== 'refresh!scene' && $t !== 'refresh #scene';
             });
             $pendingCommands = !empty($cmdList) ? implode(';', $cmdList) . ';' : '';
-            $this->pm->saveWorld($world);
+
+            if (!$wasReset) {
+                $this->pm->saveWorld($world);
+            }
         }
 
         if ($ui !== null) {
@@ -587,6 +620,7 @@ class GameEngine
             'worldId'          => $this->worldId,
             'msgRefreshRate'   => $msgRefreshRate,
             'logged_out'       => $loggedOut,
+            'reset'            => $wasReset,
         ];
     }
 

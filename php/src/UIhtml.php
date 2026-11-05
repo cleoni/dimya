@@ -184,6 +184,39 @@ class UIhtml extends UI
         }
         $msgRefreshRate  = (is_numeric($rawRefreshRate) && (int)$rawRefreshRate > 0) ? (int)$rawRefreshRate : 5;
 
+        // Render world reset notice
+        if (!empty($context['reset'])) {
+            if (!headers_sent()) {
+                header('Content-Type: text/html; charset=utf-8');
+            }
+            ?>
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title><?= htmlspecialchars($world->name) ?> — World Reset</title>
+              <style>
+                body{background:#0f172a;color:#f8fafc;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+                .box{background:#1e293b;padding:36px 40px;border-radius:12px;border:1px solid #334155;width:340px;text-align:center;box-shadow:0 10px 25px rgba(0,0,0,0.5)}
+                h2{margin:0 0 16px;color:#38bdf8}
+                p{font-size:14px;color:#94a3b8;line-height:1.6}
+                .btn{display:inline-block;margin-top:16px;padding:10px 20px;background:#2563eb;color:#fff;border-radius:4px;text-decoration:none;font-weight:600}
+                .btn:hover{background:#1d4ed8}
+              </style>
+            </head>
+            <body>
+              <div class="box">
+                <h2>World Reset</h2>
+                <p>The game world <b><?= htmlspecialchars($world->name) ?></b> has been reset and restarted.</p>
+                <a href="multiplayer.php" class="btn">Log In</a>
+              </div>
+            </body>
+            </html>
+            <?php
+            return;
+        }
+
         // Render departure / logged-out screen
         if (!empty($context['logged_out'])) {
             if (!headers_sent()) {

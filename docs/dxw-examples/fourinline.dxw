@@ -2,8 +2,8 @@ WORLD
 	NAME		Four-in-line
 	IMAGESFOLDER_PUBLIC	http://www.dimensionex.net/boardgames/
 	IMAGESFOLDER_LOCAL	/dimx/boardgames/
-	VERSION		1.3
-	'Tested on DimX 5.7.1b
+	VERSION		1.4
+	'Tested on DimY
 	AUTHOR  	Cris
 	SITE		http://www.dimensionex.net/turnbased/fourinline.htm
 	HELP		http://www.dimensionex.net/turnbased/help_four.htm
@@ -54,7 +54,7 @@ SETS
 	ARRAY players (empty),(empty)
 	ARRAY turnscore 0,0
 	ARRAY score	0,0
-	ARRAY color	black,black
+	ARRAY color	white,black
 	ARRAY pieces	0
 	ARRAY dirx	0,1,1,1,0,-1,-1,-1
 	ARRAY diry	1,1,0,-1,-1,-1,0,1
@@ -259,7 +259,7 @@ End_EVENT
 
 Sub play()
 	Speak SYS,$WORLD,"Game has begun... GOOD LUCK!"
-	PlayBackground $WORLD,"sndMimovie.mid"
+	PlayBackground $WORLD,"sndMimovie.mp3"
 	mode = "play"
 	SetPanel $WORLD,"play"
 End_Sub
@@ -270,10 +270,12 @@ Sub onLook
 		Return false
 	End_If
 	If $AGENT = players(nowplays)
-		If $OWNER.type = "cell" Or $OWNER.type = "mark"
-			If Not(placePiece($OWNER.col,$OWNER.row,color(nowplays)))
-				Return false
-			End_If
+		If Not($OWNER.type = "cell" Or $OWNER.type = "mark")
+			'	Please click a board position
+			Return false
+		End_If
+		If Not(placePiece($OWNER.col,$OWNER.row,color(nowplays)))
+			Return false
 		End_If
 		' else...
 		If has_scores
@@ -385,7 +387,7 @@ End_Function
 Sub gameOver(message)
 	Speak SYS,$WORLD,message
 	mode = "end"
-	PlayBackground $WORLD,"independenceday.mid"
+	PlayBackground $WORLD,"reggaeton.mp3"
 	SetPanel $WORLD,"end"
 End_Sub
 

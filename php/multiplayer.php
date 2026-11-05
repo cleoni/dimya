@@ -198,8 +198,8 @@ if (!empty($result['player']) && $result['player'] instanceof Dimx\Player) {
     $_SESSION['dimx_engine_player_id'] = $result['player']->id;
 }
 
-// 9. If player logged out, clear active session
-if (!empty($result['logged_out'])) {
+// 9. If player logged out or world was reset, clear active session
+if (!empty($result['logged_out']) || !empty($result['reset'])) {
     unset(
         $_SESSION['dimx_player'],
         $_SESSION['dimx_authenticated'],

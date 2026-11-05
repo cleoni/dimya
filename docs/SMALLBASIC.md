@@ -769,15 +769,16 @@ PrintRight [dest,] message [, message2, ...]
 
 ### 3.9.20 Reset
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+> **[Implemented in DimY]** Sets `$world->reset = true`, logged via `GameEngine::log("Action: RESET")`. When handled in `GameEngine::processCommand()`, triggers `GameEngine::resetWorld()`: the persistent world state and cache are cleared, the world definition is re-seeded fresh, and active player sessions are invalidated via reset token so players re-login.
 
-Broadcasts a notification and restarts/resets the game engine world state, re-synchronizing connected players.
+Restarts/resets the game engine world state, re-seeding the world from definition and re-synchronizing connected players. An optional broadcast message may be passed to notify players before the restart.
 
 ```basic
 Reset
+Reset [broadcastMsg]
 ```
 
-- Takes no parameters.
+- **`broadcastMsg`** *(Optional)*: Message string to broadcast to connected players in the world before the reset.
 
 ---
 
