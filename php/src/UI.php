@@ -83,6 +83,11 @@ abstract class UI
     abstract public function renderError(string $message, int $statusCode = 400): void;
 
     /**
+     * Render the connected players view (multiplayer.php?view=players).
+     */
+    abstract public function renderPlayers(World $world, string $format = '', ?Skin $skin = null): void;
+
+    /**
      * Detect whether the incoming request is from a bot (JSON) or a human browser (HTML).
      */
     public static function detectClientType(): string

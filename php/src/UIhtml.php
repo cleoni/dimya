@@ -197,6 +197,70 @@ class UIhtml extends UI
     }
 
     /**
+     * Render the connected players view (multiplayer.php?view=players).
+     *
+     * In standard view, outputs how many players are connected (or "Server up!" if none).
+     * In extended view (format=extended), also lists player names and their current rooms.
+     */
+    public function renderPlayers(World $world, string $format = '', ?Skin $skin = null): void
+    {
+        $skin = $skin ?? $world->defaultSkin ?? new Skin();
+        $activePlayers = [];
+        $seen = [];
+        foreach ($world->players as $p) {
+            if ($p instanceof Player) {
+                $key = $p->id !== '' ? $p->id : $p->getName();
+                if (!isset($seen[$key])) {
+                    $seen[$key] = true;
+                    $activePlayers[] = $p;
+                }
+            }
+        }
+        $s = count($activePlayers);
+
+        if (!headers_sent()) {
+            header('Content-Type: text/html; charset=utf-8');
+        }
+
+        echo "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n";
+        echo "<html>\n<head>\n";
+        echo "<meta charset=\"utf-8\">\n";
+        echo "<title>" . htmlspecialchars($world->getName(), ENT_QUOTES, 'UTF-8') . " - Players</title>\n";
+        if (!empty($skin->stylesheet)) {
+            echo "<link rel=\"stylesheet\" type=\"text/css\" href=\"" . htmlspecialchars($skin->stylesheet, ENT_QUOTES, 'UTF-8') . "\" />\n";
+        }
+        echo $skin->toHtml() . "\n";
+        echo "</head>\n<body ";
+        echo "bgcolor=\"" . htmlspecialchars($skin->bodyBgColor, ENT_QUOTES, 'UTF-8') . "\" ";
+        if (!empty($skin->bodyBackground)) {
+            echo "background=\"" . htmlspecialchars($skin->bodyBackground, ENT_QUOTES, 'UTF-8') . "\" ";
+        }
+        echo "style=\"font-family: tahoma,Helvetica;font-size:10pt\" >\n";
+
+        if ($s > 0) {
+            echo $s . " players\n";
+        } else {
+            echo "Server up!\n";
+        }
+
+        if (strcasecmp($format, 'extended') === 0) {
+            echo "<br/><br/>\n";
+            foreach ($activePlayers as $x) {
+                $c = $x->container;
+                $playerName = htmlspecialchars($x->getName(), ENT_QUOTES, 'UTF-8');
+                if ($c === null) {
+                    echo "<b>" . $playerName . "</b> is in NOWHERE<br/>\n";
+                } else {
+                    $roomName = htmlspecialchars($c->getName(), ENT_QUOTES, 'UTF-8');
+                    echo "<b>" . $playerName . "</b> is in " . $roomName . "<br/>\n";
+                }
+            }
+        }
+
+        echo "</body>\n</html>\n";
+    }
+
+    /**
      * Render the full interactive web player view.
      */
     public function render(array $context): void

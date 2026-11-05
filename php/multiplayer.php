@@ -90,6 +90,17 @@ if ($resetWorld) {
 $engine = new GameEngine($pm, $worldId, $worldFile, $baseUrl, $config);
 $ui->setEngine($engine);
 
+// 4c. Special views (e.g. view=players - Section 1.2.16 Who's online)
+$view = strtolower(trim((string)($input['view'] ?? $_GET['view'] ?? '')));
+if ($view === 'players') {
+    $world    = $engine->loadOrSeedWorld();
+    $format   = trim((string)($input['raw']['format'] ?? $_GET['format'] ?? ''));
+    $skinName = $requestedSkin !== '' ? $requestedSkin : (string)($_SESSION['dimx_skin'] ?? '');
+    $skin     = $world->getSkin($skinName) ?? $world->defaultSkin ?? new Skin();
+    $ui->renderPlayers($world, $format, $skin);
+    exit;
+}
+
 // 5. Player Authentication & Account Handling
 $sessionUser     = (string)($_SESSION['dimx_player'] ?? '');
 $isAuthenticated = !empty($_SESSION['dimx_authenticated']);

@@ -47,6 +47,44 @@ class UIjson extends UI
     }
 
     /**
+     * Render the connected players view as JSON (multiplayer.php?view=players&format=json).
+     */
+    public function renderPlayers(World $world, string $format = '', ?Skin $skin = null): void
+    {
+        $activePlayers = [];
+        $seen = [];
+        foreach ($world->players as $p) {
+            if ($p instanceof Player) {
+                $key = $p->id !== '' ? $p->id : $p->getName();
+                if (!isset($seen[$key])) {
+                    $seen[$key] = true;
+                    $activePlayers[] = $p;
+                }
+            }
+        }
+        $count = count($activePlayers);
+
+        $payload = [
+            'success' => true,
+            'count'   => $count,
+        ];
+
+        if (strcasecmp($format, 'extended') === 0) {
+            $list = [];
+            foreach ($activePlayers as $p) {
+                $c = $p->container;
+                $list[] = [
+                    'name' => $p->getName(),
+                    'room' => $c !== null ? $c->getName() : 'NOWHERE',
+                ];
+            }
+            $payload['players'] = $list;
+        }
+
+        $this->sendJson($payload);
+    }
+
+    /**
      * Render the game state / command outcome as a structured JSON record.
      */
     public function render(array $context): void

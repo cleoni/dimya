@@ -61,6 +61,7 @@ $sections = [
     58 => ['title' => 'Testing SmallBasic Reset Instruction & GameEngine::resetWorld()...', 'keywords' => ['reset', 'restart', 'smallbasic', 'actionsrunner', 'gameengine', 'reseeding']],
     59 => ['title' => 'Testing SmallBasic Array String Representation [key1=val,key2=val,...] & fourinline.dxw line 204...', 'keywords' => ['array', 'formatarray', 'smallbasic', 'fourinline', 'speak', 'representation', 'actionsrunner']],
     60 => ['title' => 'Testing WORLD Directives (NAME, VERSION, AUTHOR, SITE, GUI.LOGOSRC) & Login Form Layering...', 'keywords' => ['world', 'directives', 'author', 'site', 'version', 'logosrc', 'gui.logosrc', 'login', 'layers', 'background']],
+    61 => ['title' => "Testing Who's Online - The players view (multiplayer.php?view=players & format=extended)...", 'keywords' => ['view', 'players', 'view=players', 'format=extended', 'extended', 'online', 'who\'s online']],
 ];
 
 // CLI Options parsing
@@ -3190,6 +3191,82 @@ if (shouldRun(60)) {
     assertTest(str_contains($htmlCustom, 'ver. 5.0'), "ver. 5.0 is rendered when VERSION is present");
     assertTest(!str_contains($htmlCustom, 'by '), "'by AUTHOR' is NOT rendered when AUTHOR is absent");
     assertTest(!str_contains($htmlCustom, 'class="world-site"'), "Site link is NOT rendered when SITE is absent");
+}
+
+// -------------------------------------------------------------
+// Section 61: Testing Who's Online - The players view
+// (multiplayer.php?view=players & format=extended)
+// -------------------------------------------------------------
+if (shouldRun(61)) {
+    echo "\n--- Section 61: Testing Who's Online - The players view ---\n";
+
+    $sec61WorldId = 'test_w_sec61_' . uniqid();
+    $serverW61 = [
+        'DIMX_WORLD_ID'   => $sec61WorldId,
+        'DIMX_WORLD_FILE' => __DIR__ . '/../docs/dxw-examples/world2.dxw',
+    ];
+
+    // 1. Initial empty world: view=players should output "Server up!"
+    $outEmpty = runMultiplayer(['view' => 'players'], [], $serverW61);
+    assertTest(str_contains($outEmpty, 'Server up!'), "Initial empty world outputs 'Server up!'");
+    assertTest(str_contains($outEmpty, '- Players</title>'), "Output contains '<title>... - Players</title>'");
+    assertTest(str_contains($outEmpty, '<body') && str_contains($outEmpty, 'bgcolor='), "Output includes body with bgcolor");
+    assertTest(!str_contains($outEmpty, 'players'), "Initial empty world does NOT contain 'players' count");
+    assertTest(!str_contains($outEmpty, '<b>'), "Initial empty world does NOT list any player bold tags");
+
+    // 2. Initial empty world: view=players&format=extended
+    $outEmptyExt = runMultiplayer(['view' => 'players', 'format' => 'extended'], [], $serverW61);
+    assertTest(str_contains($outEmptyExt, 'Server up!'), "Extended empty world outputs 'Server up!'");
+    assertTest(str_contains($outEmptyExt, '<br/><br/>'), "Extended empty world includes '<br/><br/>'");
+    assertTest(!str_contains($outEmptyExt, 'is in'), "Extended empty world has no 'is in' lines");
+
+    // 3. Connect 1 player (PlayerOne)
+    $p1Login = runMultiplayer([
+        'username' => 'PlayerOne',
+        'password' => 'secret1',
+        'cmd'      => 'look',
+    ], [], $serverW61);
+
+    // Test view=players with 1 player
+    $out1 = runMultiplayer(['view' => 'players'], [], $serverW61);
+    assertTest(str_contains($out1, '1 players'), "view=players with 1 player outputs '1 players'");
+    assertTest(!str_contains($out1, 'Server up!'), "view=players with active players does NOT output 'Server up!'");
+    assertTest(!str_contains($out1, 'PlayerOne'), "Standard view=players does NOT list player names");
+
+    // Test view=players&format=extended with 1 player
+    $out1Ext = runMultiplayer(['view' => 'players', 'format' => 'extended'], [], $serverW61);
+    assertTest(str_contains($out1Ext, '1 players'), "Extended view with 1 player outputs '1 players'");
+    assertTest(str_contains($out1Ext, '<br/><br/>'), "Extended view includes '<br/><br/>'");
+    assertTest(str_contains($out1Ext, '<b>PlayerOne</b> is in '), "Extended view includes '<b>PlayerOne</b> is in <room>'");
+
+    // 4. Connect second player (PlayerTwo)
+    $p2Login = runMultiplayer([
+        'username' => 'PlayerTwo',
+        'password' => 'secret2',
+        'cmd'      => 'look',
+    ], [], $serverW61);
+
+    // Test view=players with 2 players
+    $out2 = runMultiplayer(['view' => 'players'], [], $serverW61);
+    assertTest(str_contains($out2, '2 players'), "view=players with 2 players outputs '2 players'");
+
+    // Test view=players&format=extended with 2 players
+    $out2Ext = runMultiplayer(['view' => 'players', 'format' => 'extended'], [], $serverW61);
+    assertTest(str_contains($out2Ext, '2 players'), "Extended view with 2 players outputs '2 players'");
+    assertTest(str_contains($out2Ext, '<b>PlayerOne</b> is in '), "Extended view lists PlayerOne");
+    assertTest(str_contains($out2Ext, '<b>PlayerTwo</b> is in '), "Extended view lists PlayerTwo");
+
+    // 5. JSON formats
+    $jsonStandard = runMultiplayer(['view' => 'players', 'format' => 'json'], [], $serverW61);
+    $dataStd = json_decode($jsonStandard, true);
+    assertTest(is_array($dataStd) && ($dataStd['count'] ?? 0) === 2, "JSON view=players returns count: 2");
+
+    $jsonExt = runMultiplayer(['view' => 'players', 'format' => 'extended', 'ui' => 'json'], [], $serverW61);
+    $dataExt = json_decode($jsonExt, true);
+    assertTest(is_array($dataExt) && count($dataExt['players'] ?? []) === 2, "JSON view=players&format=extended returns players list of 2");
+
+    // Clean up
+    @$pm->resetWorld($sec61WorldId);
 }
 
 // Clean up test worlds

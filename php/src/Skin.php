@@ -39,6 +39,7 @@ class Skin
     public string $skinFolder = '';
     public bool $hasExplicitSkinFolder = false;
     public string $bodyBgColor = '#000040';
+    public string $bodyBackground = '';
     public string $bodyStyle = '{font-size: 10pt;font-family: Tahoma;color:#00FFFF;margin:0;}';
     public string $panelBgColor = 'SILVER';
     public string $panelBackground = '';
@@ -266,7 +267,9 @@ class Skin
                         }
                         break;
                     case 'BODYBACKGROUND':
-                        // Deprecated: ignored if encountered in the skin loader
+                        if ($val !== '') {
+                            $bodyBackground = $val;
+                        }
                         break;
                     case 'BODYSTYLE':
                         if ($val !== '') {
@@ -337,6 +340,9 @@ class Skin
         }
         if ($bodyBgColor !== null) {
             $skin->bodyBgColor = $bodyBgColor;
+        }
+        if (isset($bodyBackground) && $bodyBackground !== '') {
+            $skin->bodyBackground = $bodyBackground;
         }
         if ($bodyStyle !== null) {
             $skin->bodyStyle = $bodyStyle;
@@ -498,5 +504,13 @@ body, td {
     font-weight: 600;
 }
 CSS;
+    }
+
+    /**
+     * Generate HTML <style> block containing this skin's CSS rules.
+     */
+    public function toHtml(): string
+    {
+        return "<style type=\"text/css\">\n" . $this->getCss() . "\n</style>";
     }
 }
