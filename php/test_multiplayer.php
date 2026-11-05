@@ -3060,6 +3060,35 @@ if (shouldRun(59)) {
     // 9. Test fourinline.dxw file contains updated line 204
     $fourContent = file_get_contents($fourDFile);
     assertTest(str_contains($fourContent, 'Speak "You are not one of the players - sorry. You are welcome to stay as a watcher." + nplayers + " :: " + target_players + " :: " + players'), "fourinline.dxw line 204 matches exact expected expression");
+
+    // 10. Equality comparison with game objects across sessions (findUser)
+    $pChampOldSession = new \Dimx\Player($sec59World, 'Champion', 'p_champ_oldsession');
+    $pChampOldSession->numericId = $p1->numericId;
+    $pCiccio = new \Dimx\Player($sec59World, 'ciccio', 'p_ciccio_123');
+    $pCiccio->numericId = 9999;
+    $sec59World->sets['players'] = [1 => $pChampOldSession, 2 => $pCiccio];
+    $sec59World->setProperty('players', [1 => $pChampOldSession, 2 => $pCiccio]);
+
+    $runner59->setLocalVar('user', $p1);
+    $eqRes1 = $runner59->run('return user = players(1)');
+    assertTest($eqRes1 === true, "user = players(1) is true for player across sessions (same account)");
+    $eqRes2 = $runner59->run('return user = players(2)');
+    assertTest($eqRes2 === false, "user = players(2) is false for different players");
+
+    $findUserTestScript = <<<'SB'
+For i=1 To SetLen(players)
+    If user = players(i)
+        Return i
+    End_If
+Next
+Return 0
+SB;
+    $foundUserIdx = $runner59->run($findUserTestScript);
+    assertTest($foundUserIdx === 1, "findUser(user) successfully finds matching player index (got: {$foundUserIdx})");
+
+    // Scalar-to-object comparison
+    assertTest($runner59->run('return user = "Champion"') === true, "user = 'Champion' matches player by name");
+    assertTest($runner59->run('return user = "' . $p1->id . '"') === true, "user = '<id>' matches player by ID");
 }
 
 // Clean up test worlds

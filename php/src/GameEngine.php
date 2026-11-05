@@ -357,6 +357,27 @@ class GameEngine
             }
 
             $world->addPlayer($player);
+
+            // Re-point any player references in world sets (e.g. players array) to active player instance
+            foreach ($world->sets as $sName => $sArr) {
+                if (is_array($sArr)) {
+                    $changed = false;
+                    foreach ($sArr as $sKey => $sVal) {
+                        if ($sVal instanceof Player) {
+                            if (($player->numericId !== null && $sVal->numericId === $player->numericId) ||
+                                strcasecmp($sVal->name, $player->name) === 0) {
+                                $sArr[$sKey] = $player;
+                                $changed = true;
+                            }
+                        }
+                    }
+                    if ($changed) {
+                        $world->sets[$sName] = $sArr;
+                        $world->setProperty($sName, $sArr);
+                    }
+                }
+            }
+
             $player->display("Welcome to <b>{$world->name}</b>, {$player->name}!");
             $world->fireEvent('onNew', $world, $player, null);
         } else {

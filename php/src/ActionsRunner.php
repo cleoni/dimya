@@ -1727,6 +1727,11 @@ class ActionsRunner
             $op    = $parts[1];
             $right = $this->evalValue(trim($parts[2]));
 
+            if ($op === '=' || $op === '<>') {
+                $isEqual = self::compareEquality($left, $right);
+                return ($op === '=') ? $isEqual : !$isEqual;
+            }
+
             if ($left instanceof DimxObject) {
                 $left = $left->id;
             }
@@ -1735,8 +1740,6 @@ class ActionsRunner
             }
 
             return match ($op) {
-                '<>' => ($left != $right),
-                '='  => ($left == $right),
                 '<=' => ($left <= $right),
                 '>=' => ($left >= $right),
                 '<'  => ($left < $right),
@@ -1949,6 +1952,85 @@ class ActionsRunner
             return get_class($val);
         }
         return (string)$val;
+    }
+
+    /**
+     * Compare equality of two operands taking into account DimxObject instances,
+     * player account IDs (numericId / nickname), and scalar values.
+     */
+    public static function compareEquality(mixed $left, mixed $right): bool
+    {
+        if ($left === $right) {
+            return true;
+        }
+
+        if ($left === null || $right === null) {
+            return $left === $right;
+        }
+
+        // Both are DimxObjects
+        if ($left instanceof DimxObject && $right instanceof DimxObject) {
+            // Same object ID
+            if ($left->id !== '' && $left->id === $right->id) {
+                return true;
+            }
+            // For Player instances, compare database account numericId or nickname
+            if ($left instanceof Player && $right instanceof Player) {
+                if ($left->numericId !== null && $right->numericId !== null && (int)$left->numericId > 0) {
+                    if ((int)$left->numericId === (int)$right->numericId) {
+                        return true;
+                    }
+                }
+                if ($left->name !== '' && $right->name !== '') {
+                    if (strcasecmp($left->name, $right->name) === 0) {
+                        return true;
+                    }
+                }
+            }
+            // Same class and same non-empty name
+            if (get_class($left) === get_class($right) && $left->name !== '' && $right->name !== '') {
+                if (strcasecmp($left->name, $right->name) === 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // One is DimxObject and the other is a scalar
+        if ($left instanceof DimxObject && is_scalar($right)) {
+            return self::compareObjectToScalar($left, $right);
+        }
+        if ($right instanceof DimxObject && is_scalar($left)) {
+            return self::compareObjectToScalar($right, $left);
+        }
+
+        // Numeric comparison
+        if (is_numeric($left) && is_numeric($right)) {
+            return (float)$left == (float)$right;
+        }
+
+        // Boolean comparison
+        if (is_bool($left) || is_bool($right)) {
+            return (bool)$left === (bool)$right;
+        }
+
+        // String comparison
+        return (string)$left === (string)$right;
+    }
+
+    public static function compareObjectToScalar(DimxObject $obj, mixed $val): bool
+    {
+        $str = trim((string)$val, "\"' \t");
+        if ($obj->id !== '' && strcasecmp($obj->id, $str) === 0) {
+            return true;
+        }
+        if ($obj->name !== '' && strcasecmp($obj->name, $str) === 0) {
+            return true;
+        }
+        if ($obj instanceof Player && is_numeric($val) && $obj->numericId !== null && (int)$obj->numericId > 0) {
+            return (int)$obj->numericId === (int)$val;
+        }
+        return false;
     }
 
     /**
