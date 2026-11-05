@@ -889,6 +889,7 @@ class DxwLoader
                             $rest = trim(substr($line, strlen($tokens[0]) + strlen($tokens[1]) + 1));
                             $parts = array_map('trim', explode(',', $rest));
                             $setArray = [];
+                            $idx = 1;
                             foreach ($parts as $p) {
                                 if ($p === '') continue;
                                 if (str_contains($p, '=')) {
@@ -900,7 +901,11 @@ class DxwLoader
                                     }
                                     $setArray[$k] = $v;
                                 } else {
-                                    $setArray[] = $p;
+                                    if ($directive === 'ARRAY') {
+                                        $setArray[$idx++] = $p;
+                                    } else {
+                                        $setArray[] = $p;
+                                    }
                                 }
                             }
                             $world->sets[$setId] = $setArray;

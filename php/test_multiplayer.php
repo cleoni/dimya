@@ -2791,6 +2791,7 @@ if (shouldRun(56)) {
 
     // Call play() to set mode="play"
     $fourWorld->fireEvent('play', $fourWorld);
+    $fourWorld->setProperty('nowplays', 1);
 
     // Clear log before onLook
     if (file_exists($logFile)) {
@@ -2999,17 +3000,24 @@ if (shouldRun(59)) {
 
     // 1. Static formatArray formatting
     assertTest(\Dimx\ActionsRunner::formatArray([]) === '[]', "Empty array formats as '[]'");
-    assertTest(\Dimx\ActionsRunner::formatArray(['(empty)', '(empty)']) === '[0=(empty),1=(empty)]', "Indexed array formats as '[0=(empty),1=(empty)]'");
+    assertTest(\Dimx\ActionsRunner::formatArray([1 => '(empty)', 2 => '(empty)']) === '[1=(empty),2=(empty)]', "1-based indexed array formats as '[1=(empty),2=(empty)]'");
     assertTest(\Dimx\ActionsRunner::formatArray(['hp' => 100, 'mp' => 50]) === '[hp=100,mp=50]', "Associative array formats as '[hp=100,mp=50]'");
-    assertTest(\Dimx\ActionsRunner::formatArray(['items' => ['sword', 'shield']]) === '[items=[0=sword,1=shield]]', "Nested array formats recursively");
+    assertTest(\Dimx\ActionsRunner::formatArray(['items' => [1 => 'sword', 2 => 'shield']]) === '[items=[1=sword,2=shield]]', "Nested array formats recursively");
     assertTest(\Dimx\ActionsRunner::formatArray(['active' => true, 'dead' => false, 'extra' => null]) === '[active=true,dead=false,extra=]', "Array with booleans/null formats cleanly");
 
-    // 2. ActionsRunner SmallBasic concatenation with array
+    // 2. DxwLoader ARRAY directive 1-based indexing verification
+    $fourDFile = __DIR__ . '/../docs/dxw-examples/fourinline.dxw';
+    $loaderFour = new \Dimx\DxwLoader();
+    $fourLoaded = $loaderFour->load($fourDFile);
+    assertTest(array_keys($fourLoaded->sets['players']) === [1, 2], "fourinline.dxw ARRAY players loads with 1-based index keys [1, 2]");
+    assertTest(array_keys($fourLoaded->sets['opposite']) === [1, 2, 3, 4, 5, 6, 7, 8], "fourinline.dxw ARRAY opposite loads with 1-based index keys 1 to 8");
+
+    // 3. ActionsRunner SmallBasic concatenation with array
     $sec59World = new \Dimx\World('w_sec59', 'Section 59 World');
     $p1 = new \Dimx\Player($sec59World, 'Champion', 'p_champ');
     $sec59World->addPlayer($p1);
-    $sec59World->sets['players'] = [$p1, '(empty)'];
-    $sec59World->setProperty('players', [$p1, '(empty)']);
+    $sec59World->sets['players'] = [1 => $p1, 2 => '(empty)'];
+    $sec59World->setProperty('players', [1 => $p1, 2 => '(empty)']);
     $sec59World->setProperty('nplayers', 1);
     $sec59World->setProperty('target_players', 2);
 
@@ -3017,26 +3025,39 @@ if (shouldRun(59)) {
 
     // Expression concatenation
     $concatRes = $runner59->run('return "Players: " + players');
-    assertTest($concatRes === 'Players: [0=Champion,1=(empty)]', "SmallBasic concatenation with array returns formatted string (got: " . var_export($concatRes, true) . ")");
+    assertTest($concatRes === 'Players: [1=Champion,2=(empty)]', "SmallBasic concatenation with array returns 1-based formatted string (got: " . var_export($concatRes, true) . ")");
 
-    // 3. Exact fourinline.dxw line 204
+    // 4. Exact fourinline.dxw line 204
     $line204Script = 'Speak "You are not one of the players - sorry. You are welcome to stay as a watcher." + nplayers + " :: " + target_players + " :: " + players';
     $runner59->run($line204Script);
     $lastMsg = end($sec59World->chatQueue);
-    $expectedMsg = 'You are not one of the players - sorry. You are welcome to stay as a watcher.1 :: 2 :: [0=Champion,1=(empty)]';
+    $expectedMsg = 'You are not one of the players - sorry. You are welcome to stay as a watcher.1 :: 2 :: [1=Champion,2=(empty)]';
     assertTest(($lastMsg['text'] ?? '') === $expectedMsg, "fourinline.dxw line 204 Speak generates formatted message: " . var_export($lastMsg['text'] ?? '', true));
 
-    // 4. Direct Speak array
+    // 5. Direct Speak array
     $runner59->run('Speak players');
     $lastMsg2 = end($sec59World->chatQueue);
-    assertTest(($lastMsg2['text'] ?? '') === '[0=Champion,1=(empty)]', "Speak players directly outputs array representation: " . var_export($lastMsg2['text'] ?? '', true));
+    assertTest(($lastMsg2['text'] ?? '') === '[1=Champion,2=(empty)]', "Speak players directly outputs array representation: " . var_export($lastMsg2['text'] ?? '', true));
 
-    // 5. Display / Print array
+    // 6. Split() and NewArray() 1-based index keys
+    $splitRes = $runner59->run('return Split("apple,banana,cherry", ",")');
+    assertTest(array_keys($splitRes) === [1, 2, 3], "Split() returns 1-based indexed array keys [1, 2, 3]");
+    $newArr = $runner59->run('return NewArray("alpha,beta,gamma")');
+    assertTest(array_keys($newArr) === [1, 2, 3], "NewArray() returns 1-based indexed array keys [1, 2, 3]");
+
+    // 7. Dynamic 1-based array element assignment
+    $runner59->run('testArr(1) = "first"');
+    $runner59->run('testArr(2) = "second"');
+    $arrVal = $runner59->getVariable('testArr');
+    assertTest(is_array($arrVal) && array_keys($arrVal) === [1, 2], "Dynamic array assignment testArr(1)=..., testArr(2)=... starts at index 1");
+    assertTest($runner59->run('return testArr(1)') === 'first', "testArr(1) returns 'first'");
+    assertTest($runner59->run('return testArr(2)') === 'second', "testArr(2) returns 'second'");
+
+    // 8. Display / Print array
     $runner59->run('Print players');
     $runner59->run('Display players');
 
-    // 6. Test fourinline.dxw file contains updated line 204
-    $fourDFile = __DIR__ . '/../docs/dxw-examples/fourinline.dxw';
+    // 9. Test fourinline.dxw file contains updated line 204
     $fourContent = file_get_contents($fourDFile);
     assertTest(str_contains($fourContent, 'Speak "You are not one of the players - sorry. You are welcome to stay as a watcher." + nplayers + " :: " + target_players + " :: " + players'), "fourinline.dxw line 204 matches exact expected expression");
 }

@@ -137,10 +137,9 @@ class ActionsRunner
 
     public function setArrayElement(string $name, int $index, mixed $val): void
     {
-        $idx0 = max(0, $index - 1);
-
         if (array_key_exists($name, $this->localVars) && is_array($this->localVars[$name])) {
-            $this->localVars[$name][$idx0] = $val;
+            $key = array_key_exists(0, $this->localVars[$name]) ? max(0, $index - 1) : $index;
+            $this->localVars[$name][$key] = $val;
             return;
         }
 
@@ -149,21 +148,29 @@ class ActionsRunner
             if (!is_array($arr)) {
                 $arr = [];
             }
-            $arr[$idx0] = $val;
+            $key = array_key_exists(0, $arr) ? max(0, $index - 1) : $index;
+            $arr[$key] = $val;
             $this->world->sets[$name] = $arr;
             $this->world->setProperty($name, $arr);
             return;
         }
 
-        $this->localVars[$name][$idx0] = $val;
+        if (!isset($this->localVars[$name]) || !is_array($this->localVars[$name])) {
+            $this->localVars[$name] = [];
+        }
+        $key = array_key_exists(0, $this->localVars[$name]) ? max(0, $index - 1) : $index;
+        $this->localVars[$name][$key] = $val;
     }
 
     public function getArrayElement(string $name, int $index): mixed
     {
-        $idx0 = max(0, $index - 1);
         $arr = $this->getVariable($name);
         if (is_array($arr)) {
-            return $arr[$idx0] ?? $arr[$index] ?? null;
+            if (array_key_exists(0, $arr)) {
+                $idx0 = max(0, $index - 1);
+                return $arr[$idx0] ?? $arr[$index] ?? null;
+            }
+            return $arr[$index] ?? null;
         }
         return null;
     }
@@ -2033,9 +2040,34 @@ class ActionsRunner
                 $str = (string)$this->evalValue($args[0] ?? '');
                 $sep = isset($args[1]) ? (string)$this->evalValue($args[1]) : ',';
                 if ($sep === '') {
-                    return [$str];
+                    return [1 => $str];
                 }
-                return explode($sep, $str);
+                $exploded = explode($sep, $str);
+                $res = [];
+                $idx = 1;
+                foreach ($exploded as $item) {
+                    $res[$idx++] = $item;
+                }
+                return $res;
+            }
+
+            // Built-in NewArray( [string] )
+            if (strcasecmp($fn, 'NewArray') === 0) {
+                if ($argStr === '') {
+                    return [];
+                }
+                $raw = $this->evalValue($argStr);
+                $str = is_string($raw) ? trim($raw, "\"'") : (string)$raw;
+                if ($str === '') {
+                    return [];
+                }
+                $parts = array_map('trim', explode(',', $str));
+                $res = [];
+                $idx = 1;
+                foreach ($parts as $p) {
+                    $res[$idx++] = $p;
+                }
+                return $res;
             }
 
             // Built-in Exists
