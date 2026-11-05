@@ -495,9 +495,11 @@ class World extends DimxObject
         array $input = [],
         mixed $defaultResult = true
     ): mixed {
-        $agentId = $agent instanceof DimxObject ? $agent->id : (is_scalar($agent) ? (string)$agent : 'null');
-        $targetId = $target instanceof DimxObject ? $target->id : (is_scalar($target) ? (string)$target : 'null');
-        $this->log("world.fireEvent: {$eventId}(\$OWNER=" . ($owner?->id ?? 'null') . ",\$AGENT={$agentId},\$TARGET={$targetId})");
+        $ownerStr  = $owner !== null ? (string)$owner : 'null';
+        $agentStr  = $agent instanceof DimxObject ? (string)$agent->id : (is_scalar($agent) ? (string)$agent : 'null');
+        $targetStr = $target instanceof DimxObject ? (string)$target->id : (is_scalar($target) ? (string)$target : '');
+        $inputStr  = !empty($input) ? (',input=' . Event::formatVarspaceValue($input, $this)) : '';
+        $this->log("world.fireEvent: {$eventId}(\$OWNER={$ownerStr},\$AGENT={$agentStr},\$TARGET={$targetStr}{$inputStr})");
 
         // 1. Try qualified event: owner.eventId (e.g., 'altar.onLook')
         if ($owner !== null) {

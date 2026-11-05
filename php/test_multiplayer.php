@@ -57,6 +57,7 @@ $sections = [
     54 => ['title' => 'Testing SmallBasic SetLen() Function, For .. To ... Next & For Each Constructs with debug.log...', 'keywords' => ['setlen', 'for', 'to', 'next', 'foreach', 'for each', 'loop', 'fourinline', 'smallbasic']],
     55 => ['title' => 'Testing Function & Sub Logging (Calling FUNCTION/SUB with varspace) & Indentation (incIndent/decIndent)...', 'keywords' => ['calling function', 'calling', 'indent', 'incindent', 'decindent', 'indentlevel', 'varspace', 'nested']],
     56 => ['title' => 'Testing If..Else Construct Logging (IF ..., TRUE/FALSE, nested running & IF executed)...', 'keywords' => ['if', 'else', 'endif', 'executed', 'running', 'true', 'false', 'fourinline', 'onlook']],
+    57 => ['title' => 'Testing Request Interaction Logging (USER, ROOM, STATUS, COMMAND, VIEW, DATE & input=...)', 'keywords' => ['user', 'room', 'status', 'command', 'view', 'date', 'interaction', 'request']],
 ];
 
 // CLI Options parsing
@@ -2789,6 +2790,74 @@ if (shouldRun(56)) {
     assertTest(str_contains($log56, "\t\t\tfourinline.dxw(274): running\n"), "debug.log contains '\\t\\t\\tfourinline.dxw(274): running'");
 
     @$pm->resetWorld($sec56WorldId);
+}
+
+// --------------------------------------------------------------------------
+// 57. Request Interaction Logging (USER, ROOM, STATUS, COMMAND, VIEW, DATE & input=...)
+// --------------------------------------------------------------------------
+if (shouldRun(57)) {
+    echo "\n--- Section 57: Testing Request Interaction Logging (USER, ROOM, STATUS, COMMAND, VIEW, DATE & input=...) ---\n";
+
+    $logFile = \Dimx\GameEngine::getSystemFolder() . DIRECTORY_SEPARATOR . 'debug.log';
+    if (file_exists($logFile)) {
+        file_put_contents($logFile, '');
+    }
+
+    $sec57WorldId = 'w_sec57_' . mt_rand(1000, 9999);
+    $eng57 = new \Dimx\GameEngine($pm, $sec57WorldId);
+    $fourDFile = __DIR__ . '/../docs/dxw-examples/fourinline.dxw';
+    $loaderFour = new \Dimx\DxwLoader();
+    $fourWorld = $loaderFour->load($fourDFile);
+    $fourWorld->id = $sec57WorldId;
+    $fourWorld->engine = $eng57;
+
+    // Start world and setup 2 players in play mode
+    $fourWorld->fireEvent('onStart', $fourWorld);
+    $boardRoom = $fourWorld->getRoom('board');
+    $p1 = new \Dimx\Player($fourWorld, 'Cris', 'p1_sec57');
+    $p2 = new \Dimx\Player($fourWorld, 'ciccio', 'p2_sec57');
+    $fourWorld->addPlayer($p1);
+    $fourWorld->addPlayer($p2);
+    if ($boardRoom !== null) {
+        $p1->move($boardRoom);
+        $p2->move($boardRoom);
+    }
+    $fourWorld->fireEvent('onNew', $fourWorld, $p1);
+    $fourWorld->fireEvent('onNew', $fourWorld, $p2);
+    $fourWorld->fireEvent('play', $fourWorld);
+    $pm->saveWorld($fourWorld);
+
+    // Clear log before click interaction
+    if (file_exists($logFile)) {
+        file_put_contents($logFile, '');
+    }
+
+    // Now issue processCommand simulating click on cell item i!_obj0 with view=scene
+    $eng57->processCommand('Cris', 'click', 'i!_obj0', '', null, 5701, false, false, 'p1_sec57', null, null, null, 'scene', [
+        'arg0' => 'i!_obj0',
+        'arg1' => '',
+        'cmd' => 'click',
+        'txtBox' => '',
+        'view' => 'scene',
+    ]);
+
+    $log57 = file_exists($logFile) ? file_get_contents($logFile) : '';
+
+    // Verify interaction header: USER, ROOM, STATUS, COMMAND, VIEW, DATE
+    assertTest(str_contains($log57, 'USER: Cris (p1_sec57)'), "debug.log contains 'USER: Cris (p1_sec57)'");
+    assertTest(str_contains($log57, 'ROOM: Four-in-line (board)'), "debug.log contains 'ROOM: Four-in-line (board)'");
+    assertTest(str_contains($log57, 'STATUS: CONNECTED'), "debug.log contains 'STATUS: CONNECTED'");
+    assertTest(str_contains($log57, 'COMMAND: click(i!_obj0,)'), "debug.log contains 'COMMAND: click(i!_obj0,)'");
+    assertTest(str_contains($log57, 'VIEW: scene'), "debug.log contains 'VIEW: scene'");
+    assertTest(str_contains($log57, 'DATE: ' . date('Y-m-d')), "debug.log contains current DATE");
+
+    // Verify world.fireEvent onLook with owner string, agent id, target, and input dictionary
+    assertTest(str_contains($log57, 'world.fireEvent: onLook($OWNER=_obj0 (column 1),$AGENT=p1_sec57,$TARGET='),
+        "debug.log contains 'world.fireEvent: onLook(\$OWNER=_obj0 (column 1),\$AGENT=p1_sec57,\$TARGET=...'");
+    assertTest(str_contains($log57, 'input={arg0=(S|i!_obj0|0.0), arg1=(S||0.0), cmd=(S|click|0.0), txtBox=(S||0.0), view=(S|scene|0.0)}'),
+        "debug.log contains DimensioneX input dictionary with string tokens");
+
+    @$pm->resetWorld($sec57WorldId);
 }
 
 // Clean up test worlds

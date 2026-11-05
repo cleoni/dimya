@@ -172,18 +172,25 @@ abstract class UI
         $rawMusic = $merged['music'] ?? null;
         $music    = ($rawMusic === '1' || $rawMusic === 1 || $rawMusic === 'true' || $rawMusic === true || $rawMusic === 'on');
 
+        $view = trim((string)($merged['view'] ?? 'scene'));
+        if ($view === '') {
+            $view = 'scene';
+        }
+
         return [
             'username'   => $username,
             'password'   => $password,
             'cmd'        => $cmd,
             'param'      => $param,
             'target'     => $target,
+            'view'       => $view,
             'skin'       => $skin,
             'sounds'     => $sounds,
             'has_sounds' => $hasSounds,
             'music'      => $music,
             'has_music'  => $hasMusic,
             'reset'      => $reset,
+            'raw'        => $merged,
         ];
     }
 }

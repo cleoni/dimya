@@ -423,11 +423,14 @@ class GameEngine
         ?string $existingEngineId = null,
         ?string $skinId = null,
         ?bool $sounds = null,
-        ?bool $music = null
+        ?bool $music = null,
+        string $view = 'scene',
+        array $rawInput = []
     ): array {
         $cmd      = strtolower(trim($cmd ?: 'look'));
         $param    = trim($param);
         $targetId = trim($targetId);
+        $view     = trim($view ?: 'scene');
 
         $consoleMessages = [];
         $pendingSound    = null;
@@ -440,12 +443,20 @@ class GameEngine
         // Concurrency-controlled execution via WorldLock (MySQL GET_LOCK)
         if ($this->pdo !== null && $this->lock !== null) {
             $result = $this->lock->executeAtomic($this->worldId, function (\PDO $pdo) use (
-                $playerName, $cmd, $param, $targetId, $ui, $loggedOut, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music
+                $playerName, $cmd, $param, $targetId, $ui, $loggedOut, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music, $view, $rawInput
             ): array {
                 $world  = $this->loadOrSeedWorld();
                 $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music);
 
-                $this->executeCommandAction($world, $player, $cmd, $param, $targetId);
+                $userStr    = $playerName . ' (' . $player->id . ')';
+                $room       = $player->getRoom();
+                $roomStr    = ($room !== null) ? ($room->name . ' (' . $room->id . ')') : '';
+                $status     = ($player !== null && !$loggedOut) ? 'CONNECTED' : 'DISCONNECTED';
+                $commandStr = $cmd . '(' . $param . ',' . $targetId . ')';
+                $dateStr    = date('Y-m-d H:i:s');
+                $this->log("USER: {$userStr} | ROOM: {$roomStr} | STATUS: {$status} | COMMAND: {$commandStr} | VIEW: {$view} | DATE: {$dateStr}");
+
+                $this->executeCommandAction($world, $player, $cmd, $param, $targetId, $view, $rawInput);
 
                 // Advance world clock tick
                 $world->tick();
@@ -513,7 +524,15 @@ class GameEngine
             $world  = $this->loadOrSeedWorld();
             $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music);
 
-            $this->executeCommandAction($world, $player, $cmd, $param, $targetId);
+            $userStr    = $playerName . ' (' . $player->id . ')';
+            $room       = $player->getRoom();
+            $roomStr    = ($room !== null) ? ($room->name . ' (' . $room->id . ')') : '';
+            $status     = ($player !== null && !$loggedOut) ? 'CONNECTED' : 'DISCONNECTED';
+            $commandStr = $cmd . '(' . $param . ',' . $targetId . ')';
+            $dateStr    = date('Y-m-d H:i:s');
+            $this->log("USER: {$userStr} | ROOM: {$roomStr} | STATUS: {$status} | COMMAND: {$commandStr} | VIEW: {$view} | DATE: {$dateStr}");
+
+            $this->executeCommandAction($world, $player, $cmd, $param, $targetId, $view, $rawInput);
 
             $world->tick();
             $consoleMessages = $player->drainConsole();
@@ -571,7 +590,9 @@ class GameEngine
         Player $player,
         string $cmd,
         string $param,
-        string $targetId
+        string $targetId,
+        string $view = 'scene',
+        array $rawInput = []
     ): void {
         $panel = $player->getPanel() ?? $world->defaultPanel;
         $isCoreCommand = in_array($cmd, [
@@ -594,6 +615,13 @@ class GameEngine
             case 'look':
             case 'click':
                 $lookTarget = !empty($targetId) ? $targetId : $param;
+                $inputData = [
+                    'arg0'   => $param !== '' ? $param : $targetId,
+                    'arg1'   => ($param !== '' && $targetId !== '') ? $targetId : '',
+                    'cmd'    => $cmd,
+                    'txtBox' => $rawInput['txtBox'] ?? '',
+                    'view'   => $view ?: 'scene',
+                ];
                 if (!empty($lookTarget)) {
                     $targetObj = $this->findAccessibleObject($player, $lookTarget);
 
@@ -625,7 +653,7 @@ class GameEngine
                             }
                         }
 
-                        $world->fireEvent('onLook', $targetObj, $player, null);
+                        $world->fireEvent('onLook', $targetObj, $player, '', $inputData);
                     } else {
                         $player->display("You do not see that here.");
                     }
@@ -639,7 +667,7 @@ class GameEngine
                         if (!empty($desc)) {
                             $player->display($desc);
                         }
-                        $world->fireEvent('onLook', $activeCont, $player, null);
+                        $world->fireEvent('onLook', $activeCont, $player, '', $inputData);
                     } else {
                         $player->display("You are in the void.");
                     }
@@ -1060,6 +1088,10 @@ class GameEngine
      */
     public function findAccessibleObject(Player $player, string $targetId): ?AdvObject
     {
+        if (preg_match('/^[a-z]!(.+)$/i', $targetId, $m)) {
+            $targetId = $m[1];
+        }
+
         // 1. Carried in player inventory
         if (isset($player->contents[$targetId])) {
             return $player->contents[$targetId];

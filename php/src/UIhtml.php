@@ -1607,6 +1607,7 @@ class UIhtml extends UI
                   <input type="hidden" name="cmd"    id="cmdInput"    value="look" />
                   <input type="hidden" name="param"  id="paramInput"  value="" />
                   <input type="hidden" name="target" id="targetInput" value="" />
+                  <input type="hidden" name="view"   id="viewInput"   value="scene" />
                   <?php if ($activePanel?->getButton('txtBox') !== null): ?>
                     <div style="font-size:12px;color:#111;margin-bottom:4px;font-weight:600">Write here and hit ENTER to speak</div>
                   <?php endif; ?>
@@ -2078,6 +2079,7 @@ class UIhtml extends UI
                 body.set('cmd', cmd);
                 body.set('param', param);
                 body.set('target', target);
+                body.set('view', 'scene');
 
                 fetch('multiplayer.php', {
                   method: 'POST',

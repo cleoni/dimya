@@ -188,7 +188,9 @@ $result = $engine->processCommand(
     $sessionEngineId,
     $activeSkin !== '' ? $activeSkin : null,
     $activeSounds,
-    $activeMusic
+    $activeMusic,
+    $input['view'] ?? 'scene',
+    $input['raw'] ?? []
 );
 
 // Store the active in-memory player ID in session

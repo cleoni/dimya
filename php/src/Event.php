@@ -81,7 +81,7 @@ class Event extends ManageableObject
             $namePart = $v->name !== '' ? " ({$v->name})" : '';
             return "(O|{$v->id}{$namePart}|0.0)";
         }
-        if (is_string($v) && $world !== null) {
+        if (is_string($v) && trim($v) !== '' && $world !== null) {
             $resolved = $world->getObjectExt($v);
             if ($resolved instanceof DimxObject) {
                 $namePart = $resolved->name !== '' ? " ({$resolved->name})" : '';
@@ -94,7 +94,8 @@ class Event extends ManageableObject
                 if (is_int($ik)) {
                     $inner[] = self::formatVarspaceValue($iv, $world);
                 } else {
-                    $inner[] = $ik . '=' . self::formatVarspaceValue($iv, $world);
+                    $valStr = is_string($iv) ? "(S|{$iv}|0.0)" : self::formatVarspaceValue($iv, $world);
+                    $inner[] = $ik . '=' . $valStr;
                 }
             }
             return '{' . implode(', ', $inner) . '}';
