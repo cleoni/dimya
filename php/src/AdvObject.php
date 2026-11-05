@@ -621,7 +621,7 @@ class AdvObject extends DimxObject
         if (str_starts_with($desc, '@')) {
             $funcExpr = substr($desc, 1);
             if ($this->world !== null && isset($this->world->events[$funcExpr])) {
-                $desc = (string)$this->world->fireEvent($funcExpr, $this, $agent);
+                $desc = ActionsRunner::formatValue($this->world->fireEvent($funcExpr, $this, $agent));
             }
         }
 

@@ -59,6 +59,7 @@ $sections = [
     56 => ['title' => 'Testing If..Else Construct Logging (IF ..., TRUE/FALSE, nested running & IF executed)...', 'keywords' => ['if', 'else', 'endif', 'executed', 'running', 'true', 'false', 'fourinline', 'onlook']],
     57 => ['title' => 'Testing Request Interaction Logging (USER, ROOM, STATUS, COMMAND, VIEW, DATE & input=...)', 'keywords' => ['user', 'room', 'status', 'command', 'view', 'date', 'interaction', 'request']],
     58 => ['title' => 'Testing SmallBasic Reset Instruction & GameEngine::resetWorld()...', 'keywords' => ['reset', 'restart', 'smallbasic', 'actionsrunner', 'gameengine', 'reseeding']],
+    59 => ['title' => 'Testing SmallBasic Array String Representation [key1=val,key2=val,...] & fourinline.dxw line 204...', 'keywords' => ['array', 'formatarray', 'smallbasic', 'fourinline', 'speak', 'representation', 'actionsrunner']],
 ];
 
 // CLI Options parsing
@@ -2812,9 +2813,9 @@ if (shouldRun(56)) {
     assertTest(str_contains($log56, "\tIF \$AGENT...\n"), "debug.log contains '\\tIF \$AGENT...'");
     assertTest(str_contains($log56, "\tTRUE\n"), "debug.log contains '\\tTRUE'");
     assertTest(str_contains($log56, "\t\tfourinline.dxw(273): running\n"), "debug.log contains '\\t\\tfourinline.dxw(273): running'");
-    assertTest(str_contains($log56, "\t\tIF \$OWNER...\n"), "debug.log contains '\\t\\tIF \$OWNER...'");
-    assertTest(str_contains($log56, "\t\tTRUE\n"), "debug.log contains '\\t\\tTRUE'");
-    assertTest(str_contains($log56, "\t\t\tfourinline.dxw(274): running\n"), "debug.log contains '\\t\\t\\tfourinline.dxw(274): running'");
+    assertTest(str_contains($log56, "\t\tIF Not(\$OWNER...\n"), "debug.log contains '\\t\\tIF Not(\$OWNER...'");
+    assertTest(str_contains($log56, "\t\tFALSE\n"), "debug.log contains '\\t\\tFALSE'");
+    assertTest(str_contains($log56, "\t\tfourinline.dxw(275): IF executed\n"), "debug.log contains '\\t\\tfourinline.dxw(275): IF executed'");
 
     @$pm->resetWorld($sec56WorldId);
 }
@@ -2988,6 +2989,56 @@ if (shouldRun(58)) {
         @unlink($logFile);
     }
     @$pm->resetWorld($sec58WorldId);
+}
+
+// -------------------------------------------------------------
+// Test 59: SmallBasic Array String Representation & fourinline line 204
+// -------------------------------------------------------------
+if (shouldRun(59)) {
+    echo "\n--- Section 59: Testing SmallBasic Array String Representation [key1=val,key2=val,...] & fourinline.dxw line 204 ---\n";
+
+    // 1. Static formatArray formatting
+    assertTest(\Dimx\ActionsRunner::formatArray([]) === '[]', "Empty array formats as '[]'");
+    assertTest(\Dimx\ActionsRunner::formatArray(['(empty)', '(empty)']) === '[0=(empty),1=(empty)]', "Indexed array formats as '[0=(empty),1=(empty)]'");
+    assertTest(\Dimx\ActionsRunner::formatArray(['hp' => 100, 'mp' => 50]) === '[hp=100,mp=50]', "Associative array formats as '[hp=100,mp=50]'");
+    assertTest(\Dimx\ActionsRunner::formatArray(['items' => ['sword', 'shield']]) === '[items=[0=sword,1=shield]]', "Nested array formats recursively");
+    assertTest(\Dimx\ActionsRunner::formatArray(['active' => true, 'dead' => false, 'extra' => null]) === '[active=true,dead=false,extra=]', "Array with booleans/null formats cleanly");
+
+    // 2. ActionsRunner SmallBasic concatenation with array
+    $sec59World = new \Dimx\World('w_sec59', 'Section 59 World');
+    $p1 = new \Dimx\Player($sec59World, 'Champion', 'p_champ');
+    $sec59World->addPlayer($p1);
+    $sec59World->sets['players'] = [$p1, '(empty)'];
+    $sec59World->setProperty('players', [$p1, '(empty)']);
+    $sec59World->setProperty('nplayers', 1);
+    $sec59World->setProperty('target_players', 2);
+
+    $runner59 = new \Dimx\ActionsRunner($sec59World, null, $p1);
+
+    // Expression concatenation
+    $concatRes = $runner59->run('return "Players: " + players');
+    assertTest($concatRes === 'Players: [0=Champion,1=(empty)]', "SmallBasic concatenation with array returns formatted string (got: " . var_export($concatRes, true) . ")");
+
+    // 3. Exact fourinline.dxw line 204
+    $line204Script = 'Speak "You are not one of the players - sorry. You are welcome to stay as a watcher." + nplayers + " :: " + target_players + " :: " + players';
+    $runner59->run($line204Script);
+    $lastMsg = end($sec59World->chatQueue);
+    $expectedMsg = 'You are not one of the players - sorry. You are welcome to stay as a watcher.1 :: 2 :: [0=Champion,1=(empty)]';
+    assertTest(($lastMsg['text'] ?? '') === $expectedMsg, "fourinline.dxw line 204 Speak generates formatted message: " . var_export($lastMsg['text'] ?? '', true));
+
+    // 4. Direct Speak array
+    $runner59->run('Speak players');
+    $lastMsg2 = end($sec59World->chatQueue);
+    assertTest(($lastMsg2['text'] ?? '') === '[0=Champion,1=(empty)]', "Speak players directly outputs array representation: " . var_export($lastMsg2['text'] ?? '', true));
+
+    // 5. Display / Print array
+    $runner59->run('Print players');
+    $runner59->run('Display players');
+
+    // 6. Test fourinline.dxw file contains updated line 204
+    $fourDFile = __DIR__ . '/../docs/dxw-examples/fourinline.dxw';
+    $fourContent = file_get_contents($fourDFile);
+    assertTest(str_contains($fourContent, 'Speak "You are not one of the players - sorry. You are welcome to stay as a watcher." + nplayers + " :: " + target_players + " :: " + players'), "fourinline.dxw line 204 matches exact expected expression");
 }
 
 // Clean up test worlds

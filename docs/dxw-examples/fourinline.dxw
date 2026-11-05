@@ -201,7 +201,7 @@ EVENT onStartGame
 				Call onNew()
 				Speak "OK you now have joined - click [START GAME] again to start"
 			Else
-				Speak "You are not one of the players - sorry. You are welcome to stay as a watcher."
+				Speak "You are not one of the players - sorry. You are welcome to stay as a watcher." + nplayers + " :: " + target_players + " :: " + players
 			End_If
 		End_If
 	Else

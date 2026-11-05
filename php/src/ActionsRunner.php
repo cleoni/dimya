@@ -548,6 +548,8 @@ class ActionsRunner
                             $obj->{$propName} = (int)$val;
                         } elseif (is_float($obj->{$propName})) {
                             $obj->{$propName} = (float)$val;
+                        } elseif (is_string($obj->{$propName})) {
+                            $obj->{$propName} = self::formatValue($val);
                         } else {
                             $obj->{$propName} = $val;
                         }
@@ -673,7 +675,7 @@ class ActionsRunner
             $this->world->reset = true;
             if (!empty($args)) {
                 $rawMsg = (string)$args[0];
-                $msg = (string)$this->evalValue($rawMsg);
+                $msg = self::formatValue($this->evalValue($rawMsg));
                 if ((str_starts_with($msg, '"') && str_ends_with($msg, '"')) ||
                     (str_starts_with($msg, "'") && str_ends_with($msg, "'"))) {
                     $msg = substr($msg, 1, -1);
@@ -716,11 +718,11 @@ class ActionsRunner
         }
         if (count($args) === 1) {
             $target = ($this->agent instanceof DimxObject ? $this->agent : null) ?? $this->world;
-            $cmd = (string)$this->evalValue((string)$args[0]);
+            $cmd = self::formatValue($this->evalValue((string)$args[0]));
         } else {
             $dest = $this->resolveObject((string)$args[0]);
             $target = $dest ?? ($this->agent instanceof DimxObject ? $this->agent : null) ?? $this->world;
-            $cmd = (string)$this->evalValue((string)$args[1]);
+            $cmd = self::formatValue($this->evalValue((string)$args[1]));
         }
         $cmd = trim($cmd, "\"' \t");
         if ($target !== null && method_exists($target, 'sendCmd')) {
@@ -740,7 +742,7 @@ class ActionsRunner
         } else {
             $parts = [];
             foreach ($args as $arg) {
-                $val = (string)$this->evalValue((string)$arg);
+                $val = self::formatValue($this->evalValue((string)$arg));
                 if ((str_starts_with($val, '"') && str_ends_with($val, '"')) ||
                     (str_starts_with($val, "'") && str_ends_with($val, "'"))) {
                     $val = substr($val, 1, -1);
@@ -1059,7 +1061,7 @@ class ActionsRunner
         if ($evalRes instanceof Image) {
             $chosen = $evalRes->toHtml();
         } else {
-            $chosen = (string)$evalRes;
+            $chosen = self::formatValue($evalRes);
             $chosen = trim($chosen, "\"'");
         }
 
@@ -1202,7 +1204,7 @@ class ActionsRunner
         if ($evalRes instanceof Image) {
             $chosen = $evalRes->toHtml();
         } else {
-            $chosen = (string)$evalRes;
+            $chosen = self::formatValue($evalRes);
             if ((str_starts_with($chosen, '"') && str_ends_with($chosen, '"')) ||
                 (str_starts_with($chosen, "'") && str_ends_with($chosen, "'"))) {
                 $chosen = substr($chosen, 1, -1);
@@ -1272,7 +1274,7 @@ class ActionsRunner
     protected function actBroadcast(array $args): bool
     {
         $rawMsg = $args[0] ?? '';
-        $msg = (string)$this->evalValue((string)$rawMsg);
+        $msg = self::formatValue($this->evalValue((string)$rawMsg));
         return $this->world->broadcast($msg);
     }
 
@@ -1551,7 +1553,7 @@ class ActionsRunner
         }
 
         $msg = !empty($args[0])
-            ? (string)$this->evalValue((string)$args[0])
+            ? self::formatValue($this->evalValue((string)$args[0]))
             : "<b>{$agentName}</b> has reached the goal!";
 
         return $this->world->broadcast($msg);
@@ -1899,6 +1901,50 @@ class ActionsRunner
     }
 
     /**
+     * Format an array into a SmallBasic string representation: [key1=val,key2=val,...]
+     */
+    public static function formatArray(array $arr, int $depth = 0): string
+    {
+        if ($depth > 10) {
+            return '[...]';
+        }
+        $parts = [];
+        foreach ($arr as $k => $v) {
+            $parts[] = $k . '=' . self::formatValue($v, $depth + 1);
+        }
+        return '[' . implode(',', $parts) . ']';
+    }
+
+    /**
+     * Format any value into its SmallBasic string representation.
+     */
+    public static function formatValue(mixed $val, int $depth = 0): string
+    {
+        if ($val === null) {
+            return '';
+        }
+        if (is_bool($val)) {
+            return $val ? 'true' : 'false';
+        }
+        if (is_array($val)) {
+            return self::formatArray($val, $depth);
+        }
+        if (is_object($val)) {
+            if ($val instanceof Image) {
+                return $val->toHtml();
+            }
+            if ($val instanceof DimxObject) {
+                return $val->name ?: $val->id;
+            }
+            if (method_exists($val, '__toString')) {
+                return (string)$val;
+            }
+            return get_class($val);
+        }
+        return (string)$val;
+    }
+
+    /**
      * Evaluate expression or literal into a PHP scalar value.
      */
     protected function evalValue(string $val): mixed
@@ -1957,8 +2003,8 @@ class ActionsRunner
                     default => $val,
                 };
             } elseif ($op === '+') {
-                $leftStr = ($left instanceof Image) ? $left->toHtml() : ($left instanceof DimxObject ? ($left->name ?: $left->id) : (string)$left);
-                $rightStr = ($right instanceof Image) ? $right->toHtml() : ($right instanceof DimxObject ? ($right->name ?: $right->id) : (string)$right);
+                $leftStr = self::formatValue($left);
+                $rightStr = self::formatValue($right);
                 return $leftStr . $rightStr;
             }
         }
