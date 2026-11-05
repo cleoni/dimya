@@ -49,16 +49,34 @@ class UIhtml extends UI
         $skinsList = (!empty($world?->skins) && is_array($world->skins))
             ? $world->skins
             : ['default' => new Skin('default', 'Default')];
+
+        $worldName    = (string)($world?->getProperty('NAME') ?? $world?->getProperty('name') ?? $world?->name ?? 'DimensioneX');
+        if ($worldName === '') {
+            $worldName = 'DimensioneX';
+        }
+        $worldVersion = (string)($world?->getProperty('VERSION') ?? $world?->getProperty('version') ?? $world?->version ?? '');
+        $worldAuthor  = (string)($world?->getProperty('AUTHOR') ?? $world?->getProperty('author') ?? $world?->author ?? '');
+        $worldSite    = (string)($world?->getProperty('SITE') ?? $world?->getProperty('site') ?? $world?->site ?? '');
+        $worldLogoSrc = (string)($world?->getProperty('GUI.LOGOSRC') ?? $world?->getProperty('LOGOSRC') ?? $world?->getProperty('logoSrc') ?? $world?->logoSrc ?? '');
         ?>
         <!DOCTYPE html>
         <html lang="en">
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>DimensioneX — Login</title>
+          <title><?= htmlspecialchars($worldName !== 'DimensioneX' ? $worldName . ' — Login' : 'DimensioneX — Login') ?></title>
           <style>
-            body{background:#0f172a;color:#f8fafc;font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
-            .box{background:#1e293b;padding:36px 40px;border-radius:12px;border:1px solid #334155;width:340px;box-shadow:0 10px 25px rgba(0,0,0,0.5)}
+            body{background:#0f172a;color:#f8fafc;font-family:system-ui,-apple-system,sans-serif;margin:0;min-height:100vh;position:relative}
+            .login-bg-layer{position:fixed;top:0;left:0;width:100%;z-index:0;pointer-events:none;overflow:hidden}
+            .login-bg-layer img{width:100%;height:auto;display:block}
+            .login-layer{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px 16px;box-sizing:border-box}
+            .box{background:rgba(30,41,59,0.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:36px 40px;border-radius:12px;border:1px solid #334155;width:360px;max-width:100%;box-shadow:0 10px 25px rgba(0,0,0,0.5);box-sizing:border-box}
+            .world-header{text-align:center;margin-bottom:8px}
+            .world-name{font-size:28px;font-weight:700;color:#38bdf8;line-height:1.2}
+            .world-author{font-size:14px;color:#cbd5e1;font-weight:500}
+            .world-version{font-size:13px;color:#94a3b8}
+            .world-site a{font-size:13px;color:#60a5fa;text-decoration:underline;word-break:break-all}
+            .world-site a:hover{color:#93c5fd}
             h2{margin:0 0 8px;color:#38bdf8}
             p.sub{margin:0 0 18px;font-size:13px;color:#94a3b8}
             .err{background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fca5a5;padding:10px 12px;border-radius:6px;font-size:13px;margin-bottom:16px}
@@ -75,52 +93,70 @@ class UIhtml extends UI
           </style>
         </head>
         <body>
-          <div class="box">
-            <h2>Enter the World</h2>
-            <p class="sub">Log in with your nickname or create a new account.</p>
-            <?php if (!empty($errorMessage)): ?>
-              <div class="err"><?= htmlspecialchars($errorMessage) ?></div>
-            <?php endif; ?>
-            <form method="POST">
-              <input type="hidden" name="width" id="clientWidth" value="1280">
-              <input type="hidden" name="height" id="clientHeight" value="800">
-
-              <label for="username">Nickname</label>
-              <input type="text" id="username" name="username" placeholder="Your nickname…" required autofocus maxlength="32" value="<?= $valUser ?>" />
-
-              <label for="password">Password</label>
-              <input type="password" id="password" name="password" placeholder="Your password…" required />
-
-              <div class="checkbox-row">
-                <div class="checkbox-item">
-                  <input type="checkbox" id="sounds" name="sounds" value="1"<?= $sounds ? ' checked' : '' ?> />
-                  <label for="sounds">Sounds</label>
-                </div>
-                <div class="checkbox-item">
-                  <input type="checkbox" id="music" name="music" value="1"<?= $music ? ' checked' : '' ?> />
-                  <label for="music">Music</label>
-                </div>
+          <?php if ($worldLogoSrc !== ''): ?>
+            <div class="login-bg-layer">
+              <img src="<?= htmlspecialchars($worldLogoSrc) ?>" alt="<?= htmlspecialchars($worldName) ?>" />
+            </div>
+          <?php endif; ?>
+          <div class="login-layer">
+            <div class="box">
+              <div class="world-header">
+                <div class="world-name"><?php if ($worldSite !== ''){ ?>
+				<a href="<?= htmlspecialchars($worldSite) ?>" target="_blank" rel="noopener noreferrer"><?php } ?><?= htmlspecialchars($worldName) ?><?php if ($worldSite !== ''){ ?></a><?php } ?></div>
+                <br>
+                <?php if ($worldAuthor !== ''): ?>
+                  <span class="world-author">by <?= htmlspecialchars($worldAuthor) ?></span><br>
+                <?php endif; ?>
+                <?php if ($worldVersion !== ''): ?>
+                  <span class="world-version">ver. <?= htmlspecialchars($worldVersion) ?></span><br>
+                <?php endif; ?>
               </div>
+              <br>
+              <p class="sub">Log in with your nickname or create a new account.</p>
+              <?php if (!empty($errorMessage)): ?>
+                <div class="err"><?= htmlspecialchars($errorMessage) ?></div>
+              <?php endif; ?>
+              <form method="POST">
+                <input type="hidden" name="width" id="clientWidth" value="1280">
+                <input type="hidden" name="height" id="clientHeight" value="800">
 
-              <label for="skin">Skin</label>
-              <select id="skin" name="skin">
-                <?php foreach ($skinsList as $sk): ?>
-                  <?php $isSelected = ($selectedSkin !== null && $selectedSkin !== '') && (strcasecmp($sk->id, $selectedSkin) === 0 || strcasecmp($sk->name, $selectedSkin) === 0); ?>
-                  <option value="<?= htmlspecialchars($sk->id) ?>"<?= $isSelected ? ' selected' : '' ?>><?= htmlspecialchars($sk->name) ?></option>
-                <?php endforeach; ?>
-              </select>
+                <label for="username">Nickname</label>
+                <input type="text" id="username" name="username" placeholder="Your nickname…" required autofocus maxlength="32" value="<?= $valUser ?>" />
 
-              <button type="submit">Play</button>
-            </form>
-            <script>
-              (function() {
-                var w = window.innerWidth || (window.screen ? window.screen.width : 0);
-                var h = window.innerHeight || (window.screen ? window.screen.height : 0);
-                if (w > 0) document.getElementById('clientWidth').value = w;
-                if (h > 0) document.getElementById('clientHeight').value = h;
-              })();
-            </script>
-            <div class="hint">If the nickname does not exist, an account will be created automatically.</div>
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Your password…" required />
+
+                <div class="checkbox-row">
+                  <div class="checkbox-item">
+                    <input type="checkbox" id="sounds" name="sounds" value="1"<?= $sounds ? ' checked' : '' ?> />
+                    <label for="sounds">Sounds</label>
+                  </div>
+                  <div class="checkbox-item">
+                    <input type="checkbox" id="music" name="music" value="1"<?= $music ? ' checked' : '' ?> />
+                    <label for="music">Music</label>
+                  </div>
+                </div>
+
+                <label for="skin">Skin</label>
+                <select id="skin" name="skin">
+                  <?php foreach ($skinsList as $sk): ?>
+                    <?php $isSelected = ($selectedSkin !== null && $selectedSkin !== '') && (strcasecmp($sk->id, $selectedSkin) === 0 || strcasecmp($sk->name, $selectedSkin) === 0); ?>
+                    <option value="<?= htmlspecialchars($sk->id) ?>"<?= $isSelected ? ' selected' : '' ?>><?= htmlspecialchars($sk->name) ?></option>
+                  <?php endforeach; ?>
+                </select>
+
+                <button type="submit">Play</button>
+              </form>
+              <script>
+                (function() {
+                  var w = window.innerWidth || (window.screen ? window.screen.width : 0);
+                  var h = window.innerHeight || (window.screen ? window.screen.height : 0);
+                  if (w > 0) document.getElementById('clientWidth').value = w;
+                  if (h > 0) document.getElementById('clientHeight').value = h;
+                })();
+              </script>
+              <div class="hint">If the nickname does not exist, an account will be created automatically.</div>
+            </div>
           </div>
         </body>
         </html>

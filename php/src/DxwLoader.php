@@ -274,7 +274,10 @@ class DxwLoader
             switch ($currentSection) {
                 case 'WORLD':
                     if ($directive === 'NAME') {
-                        $world->name = trim(substr($line, strlen($tokens[0])));
+                        $nameVal = trim(substr($line, strlen($tokens[0])));
+                        $world->name = $nameVal;
+                        $world->setProperty('name', $nameVal);
+                        $world->setProperty('NAME', $nameVal);
                     } elseif ($directive === 'IMAGESFOLDER') {
                         $imagesFolder = trim(substr($line, strlen($tokens[0])));
                         $world->imagesFolder = $imagesFolder;
@@ -291,7 +294,27 @@ class DxwLoader
                     } elseif ($directive === 'BGCOLOR') {
                         $world->bgcolor = trim(substr($line, strlen($tokens[0])));
                     } elseif ($directive === 'VERSION') {
-                        $world->setProperty('version', trim(substr($line, strlen($tokens[0]))));
+                        $verVal = trim(substr($line, strlen($tokens[0])));
+                        $world->version = $verVal;
+                        $world->setProperty('version', $verVal);
+                        $world->setProperty('VERSION', $verVal);
+                    } elseif ($directive === 'AUTHOR') {
+                        $authorVal = trim(substr($line, strlen($tokens[0])));
+                        $world->author = $authorVal;
+                        $world->setProperty('author', $authorVal);
+                        $world->setProperty('AUTHOR', $authorVal);
+                    } elseif ($directive === 'SITE') {
+                        $siteVal = trim(substr($line, strlen($tokens[0])));
+                        $world->site = $siteVal;
+                        $world->setProperty('site', $siteVal);
+                        $world->setProperty('SITE', $siteVal);
+                    } elseif ($directive === 'LOGOSRC') {
+                        $logoVal = $this->resolveImageUrl(trim(substr($line, strlen($tokens[0]))), $imagesFolder);
+                        $world->logoSrc = $logoVal;
+                        $world->setProperty('logoSrc', $logoVal);
+                        $world->setProperty('logosrc', $logoVal);
+                        $world->setProperty('LOGOSRC', $logoVal);
+                        $world->setProperty('GUI.LOGOSRC', $logoVal);
                     }
                     $i++;
                     break;
@@ -417,7 +440,12 @@ class DxwLoader
                             $world->setProperty('sceneLook', strtoupper($tokens[2]));
                         }
                     } elseif ($directive === 'LOGOSRC') {
-                        $world->setProperty('logoSrc', $this->resolveImageUrl(trim(substr($line, strlen($tokens[0]))), $imagesFolder));
+                        $logoVal = $this->resolveImageUrl(trim(substr($line, strlen($tokens[0]))), $imagesFolder);
+                        $world->logoSrc = $logoVal;
+                        $world->setProperty('logoSrc', $logoVal);
+                        $world->setProperty('logosrc', $logoVal);
+                        $world->setProperty('LOGOSRC', $logoVal);
+                        $world->setProperty('GUI.LOGOSRC', $logoVal);
                     } elseif ($directive === 'MAP') {
                         $world->setProperty('map', $this->resolveImageUrl(trim(substr($line, strlen($tokens[0]))), $imagesFolder));
                     } elseif ($directive === 'COMPASS') {

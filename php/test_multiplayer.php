@@ -60,6 +60,7 @@ $sections = [
     57 => ['title' => 'Testing Request Interaction Logging (USER, ROOM, STATUS, COMMAND, VIEW, DATE & input=...)', 'keywords' => ['user', 'room', 'status', 'command', 'view', 'date', 'interaction', 'request']],
     58 => ['title' => 'Testing SmallBasic Reset Instruction & GameEngine::resetWorld()...', 'keywords' => ['reset', 'restart', 'smallbasic', 'actionsrunner', 'gameengine', 'reseeding']],
     59 => ['title' => 'Testing SmallBasic Array String Representation [key1=val,key2=val,...] & fourinline.dxw line 204...', 'keywords' => ['array', 'formatarray', 'smallbasic', 'fourinline', 'speak', 'representation', 'actionsrunner']],
+    60 => ['title' => 'Testing WORLD Directives (NAME, VERSION, AUTHOR, SITE, GUI.LOGOSRC) & Login Form Layering...', 'keywords' => ['world', 'directives', 'author', 'site', 'version', 'logosrc', 'gui.logosrc', 'login', 'layers', 'background']],
 ];
 
 // CLI Options parsing
@@ -3089,6 +3090,106 @@ SB;
     // Scalar-to-object comparison
     assertTest($runner59->run('return user = "Champion"') === true, "user = 'Champion' matches player by name");
     assertTest($runner59->run('return user = "' . $p1->id . '"') === true, "user = '<id>' matches player by ID");
+}
+
+// -------------------------------------------------------------
+// Section 60: Testing WORLD Directives (NAME, VERSION, AUTHOR, SITE, GUI.LOGOSRC) & Login Form Layering
+// -------------------------------------------------------------
+if (shouldRun(60)) {
+    echo "\n--- Section 60: Testing WORLD Directives & Login Form Layering ---\n";
+
+    // 1. Test world3net.dxw directive parsing
+    $loader = new \Dimx\DxwLoader('https://example.com');
+    $w3 = $loader->load(__DIR__ . '/world3net.dxw');
+
+    assertTest($w3->getProperty('NAME') === 'The Beach', "world3net.dxw NAME stored in world properties as 'The Beach'");
+    assertTest($w3->name === 'The Beach', "world3net.dxw name property is 'The Beach'");
+    assertTest($w3->getProperty('VERSION') === '2.30', "world3net.dxw VERSION stored in world properties as '2.30'");
+    assertTest($w3->version === '2.30', "world3net.dxw version property is '2.30'");
+    assertTest($w3->getProperty('AUTHOR') === 'Cris', "world3net.dxw AUTHOR stored in world properties as 'Cris'");
+    assertTest($w3->author === 'Cris', "world3net.dxw author property is 'Cris'");
+    assertTest($w3->getProperty('SITE') === 'https://www.dimensionex.net/thebeach/multiplayer.htm', "world3net.dxw SITE stored in world properties");
+    assertTest($w3->site === 'https://www.dimensionex.net/thebeach/multiplayer.htm', "world3net.dxw site property matches SITE directive");
+    assertTest(str_contains((string)$w3->getProperty('GUI.LOGOSRC'), 'thebeachfront.jpg'), "world3net.dxw GUI.LOGOSRC stored in world properties");
+    assertTest(str_contains((string)$w3->getProperty('LOGOSRC'), 'thebeachfront.jpg'), "world3net.dxw LOGOSRC stored in world properties");
+    assertTest(str_contains((string)$w3->logoSrc, 'thebeachfront.jpg'), "world3net.dxw logoSrc property matches LOGOSRC");
+
+    // 2. Test world2.dxw (LOGOSRC under WORLD section, AUTHOR, VERSION, no SITE)
+    $w2 = $loader->load(__DIR__ . '/../docs/dxw-examples/world2.dxw');
+    assertTest($w2->name === 'World 2', "world2.dxw name is 'World 2'");
+    assertTest($w2->version === '1.9', "world2.dxw version is '1.9'");
+    assertTest($w2->author === 'Cristiano Leoni', "world2.dxw author is 'Cristiano Leoni'");
+    assertTest(str_contains((string)$w2->getProperty('GUI.LOGOSRC'), 'rana.gif'), "world2.dxw LOGOSRC under WORLD stored in GUI.LOGOSRC property");
+    assertTest($w2->site === '', "world2.dxw site is empty when not specified");
+
+    // 3. Test UIhtml::renderLogin() layering with world3net
+    $eng60 = new \Dimx\GameEngine($pm, 'w_sec60_beach', __DIR__ . '/world3net.dxw');
+    $ui60 = new \Dimx\UIhtml(null, $eng60);
+    ob_start();
+    $ui60->renderLogin();
+    $html60 = (string)ob_get_clean();
+
+    // Check lowest z-layer: logosrc background occupying whole width (stretch y dimension proportionally)
+    assertTest(str_contains($html60, 'login-bg-layer'), "Login page includes lowest z-layer container (.login-bg-layer)");
+    assertTest(str_contains($html60, 'z-index:0'), "Lowest z-layer has z-index:0");
+    assertTest(str_contains($html60, 'width:100%'), "Lowest z-layer background occupies whole width (width:100%)");
+    assertTest(str_contains($html60, 'thebeachfront.jpg'), "Lowest z-layer background image contains thebeachfront.jpg");
+    assertTest(str_contains($html60, 'height:auto'), "Lowest z-layer background image stretches y dimension proportionally (height:auto)");
+
+    // Check next layer: z-index:1 containing NAME, AUTHOR, VERSION, SITE, login form
+    assertTest(str_contains($html60, 'login-layer'), "Login page includes next layer container (.login-layer)");
+    assertTest(str_contains($html60, 'z-index:1'), "Next layer has z-index:1");
+    assertTest(str_contains($html60, 'class="world-name"'), "Next layer contains world name container");
+    assertTest(str_contains($html60, 'The Beach'), "Next layer renders world NAME 'The Beach'");
+    assertTest(str_contains($html60, 'class="world-author">by Cris</span>'), "Next layer renders 'by Cris'");
+    assertTest(str_contains($html60, 'class="world-version">ver. 2.30</span>'), "Next layer renders 'ver. 2.30'");
+    assertTest(str_contains($html60, 'href="https://www.dimensionex.net/thebeach/multiplayer.htm"'), "Next layer renders link to SITE");
+    assertTest(str_contains($html60, 'Enter the World'), "Next layer contains login form as it is now ('Enter the World')");
+    assertTest(str_contains($html60, 'name="username"'), "Next layer contains login form username field");
+
+    // Verify ordering of elements in DOM:
+    // lowest z-layer bg -> next layer content (NAME -> break -> by AUTHOR -> break -> ver. VERSION -> break -> link to SITE -> break -> form)
+    $posBg      = strpos($html60, '<div class="login-bg-layer">');
+    $posName    = strpos($html60, '<div class="world-name">The Beach</div>');
+    $posAuthor  = strpos($html60, 'by Cris');
+    $posVer     = strpos($html60, 'ver. 2.30');
+    $posSite    = strpos($html60, 'https://www.dimensionex.net/thebeach/multiplayer.htm');
+    $posForm    = strpos($html60, 'Enter the World');
+
+    assertTest($posBg !== false && $posName !== false && $posBg < $posName, "logosrc background layer appears before foreground content layer in DOM");
+    assertTest($posName < $posAuthor, "NAME appears before 'by AUTHOR'");
+    assertTest($posAuthor < $posVer, "'by AUTHOR' appears before 'ver. VERSION'");
+    assertTest($posVer < $posSite, "'ver. VERSION' appears before 'link to SITE'");
+    assertTest($posSite < $posForm, "'link to SITE' appears before login form");
+
+    // Verify line breaks between elements
+    $nameToAuthor = substr($html60, $posName, $posAuthor - $posName);
+    $authorToVer  = substr($html60, $posAuthor, $posVer - $posAuthor);
+    $verToSite    = substr($html60, $posVer, $posSite - $posVer);
+    $siteToForm   = substr($html60, $posSite, $posForm - $posSite);
+
+    assertTest(str_contains($nameToAuthor, '<br>'), "Break (<br>) exists between NAME and by AUTHOR");
+    assertTest(str_contains($authorToVer, '<br>'), "Break (<br>) exists between by AUTHOR and ver. VERSION");
+    assertTest(str_contains($verToSite, '<br>'), "Break (<br>) exists between ver. VERSION and link to SITE");
+    assertTest(str_contains($siteToForm, '<br>'), "Break (<br>) exists between link to SITE and login form");
+
+    // 4. Test minimal world without AUTHOR, SITE, LOGOSRC
+    $customDxw = "WORLD\nNAME Custom Land\nVERSION 5.0\nEND_WORLD\nROOMS\nROOM start, \"Start\"\nEND_ROOMS\n";
+    $tmpDxw = sys_get_temp_dir() . '/custom_' . uniqid() . '.dxw';
+    file_put_contents($tmpDxw, $customDxw);
+
+    $engCustom = new \Dimx\GameEngine($pm, 'w_sec60_custom', $tmpDxw);
+    $uiCustom = new \Dimx\UIhtml(null, $engCustom);
+    ob_start();
+    $uiCustom->renderLogin();
+    $htmlCustom = (string)ob_get_clean();
+    @unlink($tmpDxw);
+
+    assertTest(!str_contains($htmlCustom, '<div class="login-bg-layer">'), "No background image layer rendered when LOGOSRC is absent");
+    assertTest(str_contains($htmlCustom, 'Custom Land'), "World NAME 'Custom Land' is rendered");
+    assertTest(str_contains($htmlCustom, 'ver. 5.0'), "ver. 5.0 is rendered when VERSION is present");
+    assertTest(!str_contains($htmlCustom, 'by '), "'by AUTHOR' is NOT rendered when AUTHOR is absent");
+    assertTest(!str_contains($htmlCustom, 'class="world-site"'), "Site link is NOT rendered when SITE is absent");
 }
 
 // Clean up test worlds

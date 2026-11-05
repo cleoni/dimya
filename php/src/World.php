@@ -13,6 +13,9 @@ namespace Dimx;
 class World extends DimxObject
 {
     public string $site = '';
+    public string $author = '';
+    public string $version = '';
+    public string $logoSrc = '';
     public string $instanceId = '';
     public string $bgcolor = '#9DB9E9';
     public int $interphone = 1; // 0=room only, 1=world with vehicle privacy, 2=global
@@ -136,6 +139,20 @@ class World extends DimxObject
         $defaultSkin = new Skin('default', 'Default', '/skins/default/');
         $this->skins['default'] = $defaultSkin;
         $this->defaultSkin = $defaultSkin;
+
+        // Initialize core world properties
+        $this->setProperty('name', $this->name);
+        $this->setProperty('NAME', $this->name);
+        $this->setProperty('site', $this->site);
+        $this->setProperty('SITE', $this->site);
+        $this->setProperty('author', $this->author);
+        $this->setProperty('AUTHOR', $this->author);
+        $this->setProperty('version', $this->version);
+        $this->setProperty('VERSION', $this->version);
+        $this->setProperty('logoSrc', $this->logoSrc);
+        $this->setProperty('logosrc', $this->logoSrc);
+        $this->setProperty('LOGOSRC', $this->logoSrc);
+        $this->setProperty('GUI.LOGOSRC', $this->logoSrc);
 
         $this->log("World created with id=" . $this->id);
     }
@@ -725,6 +742,9 @@ class World extends DimxObject
     {
         $engineVersion = GameEngine::ENGINE_VERSION;
         $worldVersion  = (string)($this->getProperty('version') ?? '1.0');
+        if ($worldVersion === '') {
+            $worldVersion = '1.0';
+        }
         $serverTime    = date('D M d H:i:s T Y');
 
         $roomsCount = count($this->rooms);

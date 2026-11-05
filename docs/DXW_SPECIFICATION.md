@@ -9,13 +9,13 @@
 
 | Feature | DimY status |
 |---|---|
-| `WORLD`: `NAME`, `IMAGESFOLDER`, `IMAGESFOLDER_LOCAL/PUBLIC`, `VERSION`, `BGCOLOR` | Implemented (`IMAGESFOLDER_LOCAL` and `IMAGESFOLDER_PUBLIC` selected according to `GameEngine::$serverType` / `config.php` `'serverType'`) |
-| `WORLD`: `ENCODING`, `AUTHOR`, `AUTHOREMAIL`, `SITE`, `HELP`, `COUNTERHTML`, `SAVEGAME_PERSISTENCE`, `MUTING` | Not parsed (silently ignored) |
+| `WORLD`: `NAME`, `IMAGESFOLDER`, `IMAGESFOLDER_LOCAL/PUBLIC`, `VERSION`, `AUTHOR`, `SITE`, `BGCOLOR` | Implemented (`NAME`, `VERSION`, `AUTHOR`, `SITE` stored as world properties and rendered on login form; `IMAGESFOLDER_LOCAL` and `IMAGESFOLDER_PUBLIC` selected according to `GameEngine::$serverType` / `config.php` `'serverType'`) |
+| `WORLD`: `ENCODING`, `AUTHOREMAIL`, `HELP`, `COUNTERHTML`, `SAVEGAME_PERSISTENCE`, `MUTING` | Not parsed (silently ignored) |
 | `WORLD`: `INTERPHONE` | Not parsed (the `World::$interphone` property exists but keeps its default `1`) |
 | `WORLD`: `CLUSTER` | Dropped in DimY |
 | `Include` directive (any section) | Not parsed (silently ignored) |
-| `GUI`: `SCENE SIZE`, `SCREEN SIZE`, [`SKINS`](SKINS.md) | Implemented |
-| `GUI`: `SCENE LOOK`, `LOGOSRC`, `MAP`, `COMPASS`, `MSGLISTSIZE`, `SHOW PROPERTIES`, `HOOKS` | Parsed and stored as world properties, but not used by the UI/engine |
+| `GUI`: `SCENE SIZE`, `SCREEN SIZE`, [`SKINS`](SKINS.md), `LOGOSRC` | Implemented (`LOGOSRC` stored as `logoSrc`/`GUI.LOGOSRC` and rendered as lowest z-layer background in the login form) |
+| `GUI`: `SCENE LOOK`, `MAP`, `COMPASS`, `MSGLISTSIZE`, `SHOW PROPERTIES`, `HOOKS` | Parsed and stored as world properties, but not used by the UI/engine |
 | `GUI`: `PANEL`, `PANEL ... VERSION OF`, controls (`BUTTON`, `CR`, `MAP`, `TEXTBOX`, `LABEL`, `DROPDOWN`, `DELETE`, `CMD`) | Not parsed; only the built-in `default`/`chat` panels (`Panel::createDefaultPanel()`) exist |
 | `GUI`: `PAGE` templates and placeholders | Not parsed (`Page` class exists but is not loaded from DXW) |
 | `ROOMS`: `ROOM`, `DEFAULT`, `NAME`, `DESCRIPTION`, `ATTRLIST`, `PANEL`, `IMAGE` (+`SHOWAREA`) | Implemented (`PANEL` stored only as a property) |
@@ -168,9 +168,9 @@ END_WORLD
 | `IMAGESFOLDER_PUBLIC` | URL | (none) | Asset path prioritized when deployed to production (`serverType = 'public'` in `config.php` / `GameEngine::$serverType`, default). |
 | `ENCODING` | Keyword | `UTF-8` | Source file character encoding (`UTF-8` or `ANSI`). **[DimY: parsed but ignored - encoding is auto-detected: non-UTF-8 input is converted from ISO-8859-1/Windows-1252]** |
 | `VERSION` | String | `1.0` | World script version (independent of engine version). |
-| `AUTHOR` | String | `""` | Creator name or organization. **[DimX only - not yet implemented in DimY]** (not parsed) |
+| `AUTHOR` | String | `""` | Creator name or organization. **[DimY: parsed and stored in world property `author`, rendered in login form]** |
 | `AUTHOREMAIL` | String | `""` | Contact email address. **[DimX only - not yet implemented in DimY]** (not parsed) |
-| `SITE` | URL | `""` | Official website URL for the game world. **[DimX only - not yet implemented in DimY]** (not parsed) |
+| `SITE` | URL | `""` | Official website URL for the game world. **[DimY: parsed and stored in world property `site`, rendered as link in login form]** |
 | `HELP` | URL | `""` | Link opened when a player clicks the "Help" command button. **[DimX only - not yet implemented in DimY]** (not parsed) |
 | `COUNTERHTML` | HTML | `""` | Optional HTML snippet for visitor analytics or counter scripts. **[DimX only - not yet implemented in DimY]** (not parsed) |
 | `INTERPHONE` | Integer | `1` | Chat broadcast range: <br>`0` = Same room only.<br>`1` = World-wide, but enclosed items/vehicles provide privacy.<br>`2` = Global world-wide broadcast. **[DimY: parsed but ignored - the directive is not read by `DxwLoader`; `World::$interphone` stays at `1` unless set by script]** |
@@ -231,7 +231,7 @@ END_GUI
 * **`SCENE LOOK <mode>`** **[DimY: parsed but ignored - stored as world property `sceneLook`, avatar is never drawn in the scene]**: 
   * `1STPERSON` (default): Standard view; avatar is not drawn inside the room scene.
   * `3RDPERSON`: Avatar is rendered inside the room scene.
-* **`LOGOSRC <filename | URL>`**: Title logo graphic displayed in the header frame. **[DimY: parsed but ignored - stored as `logoSrc`, not rendered]**
+* **`LOGOSRC <filename | URL>`**: Title logo graphic displayed in the header frame and login screen. **[DimY: parsed and stored as `logoSrc` / `GUI.LOGOSRC`, rendered as lowest z-layer background on login form]**
 * **`MAP <filename | URL>`**: Default mini-map image (recommended size: `200x200`). **[DimY: parsed but ignored - stored as `map`, no mini-map is rendered]**
 * **`COMPASS <true | false>`**: If `true`, the navigation compass is permanently shown in the top bar; if `false`, only shown in rooms with multiple view angles. **[DimY: parsed but ignored - stored as `compass`; UIhtml always uses its own navpad logic]**
 * **`MSGLISTSIZE <int>`**: Maximum number of speech/event messages retained in the active console box (default: `3`). **[DimY: parsed but ignored - stored as `msgListSize`]**
