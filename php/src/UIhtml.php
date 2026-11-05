@@ -1131,7 +1131,7 @@ class UIhtml extends UI
                         <!-- Fader overlay mask (Layer 255) -->
                         <div class="fader_box"
                              style="position:absolute;left:0;top:0;width:<?= $scaledRoomW ?>px;height:<?= $scaledRoomH ?>px;z-index:255;cursor:pointer;"
-                             onclick="sendCmd('click','','<?= $dismissId ?>');if(window.event){window.event.stopPropagation();}"
+                             onclick="sendCmd('click','<?= $dismissId ?>');if(window.event){window.event.stopPropagation();}"
                              title="Click to dismiss">
                           <?php if (!empty($faderSrc)): ?>
                             <img src="<?= htmlspecialchars($faderSrc) ?>"
@@ -1604,10 +1604,10 @@ class UIhtml extends UI
                 <?php $activePanel = $player->getPanel() ?? $world->defaultPanel; ?>
                 <div id="cmdPrompt" class="dimx-cmd-prompt" title="Click to cancel pending command" onclick="clearPendingCmd()"></div>
                 <form id="cmdForm" data-panel-id="<?= htmlspecialchars($activePanel?->id ?? 'default') ?>" method="POST" action="multiplayer.php" style="margin:0" onsubmit="return handleFormSubmit(event)">
-                  <input type="hidden" name="cmd"    id="cmdInput"    value="look" />
-                  <input type="hidden" name="param"  id="paramInput"  value="" />
-                  <input type="hidden" name="target" id="targetInput" value="" />
-                  <input type="hidden" name="view"   id="viewInput"   value="scene" />
+                  <input type="hidden" name="cmd"  id="cmdInput"  value="look" />
+                  <input type="hidden" name="arg0" id="arg0Input" value="" />
+                  <input type="hidden" name="arg1" id="arg1Input" value="" />
+                  <input type="hidden" name="view" id="viewInput" value="scene" />
                   <?php if ($activePanel?->getButton('txtBox') !== null): ?>
                     <div style="font-size:12px;color:#111;margin-bottom:4px;font-weight:600">Write here and hit ENTER to speak</div>
                   <?php endif; ?>
@@ -1834,7 +1834,7 @@ class UIhtml extends UI
                   sendCmd('go', obj.id || dir);
                 } else {
                   // Direct click on object inspects it (click / onLook)
-                  sendCmd('click', '', obj.id);
+                  sendCmd('click', obj.id);
                 }
                 return;
               }
@@ -1889,7 +1889,7 @@ class UIhtml extends UI
                   return;
                 } else if (cmd === 'pick') {
                   // Pick everything
-                  submitCmd('pick', '', '*');
+                  submitCmd('pick', '*', '');
                   return;
                 } else if (cmd === 'say') {
                   // Speak aloud
@@ -1997,11 +1997,16 @@ class UIhtml extends UI
             });
 
             // ---- Game command submission ----
-            function sendCmd(cmd, param = '', target = '') {
+            function sendCmd(cmd, arg0 = '', arg1 = '') {
               const now = Date.now();
-              const targetId = target || param;
-              if (targetId) {
-                lastClickedObjId = targetId;
+              // In case just 1 parameter is passed in arg1 position, ensure arg0 gets filled
+              if (arg0 === '' && arg1 !== '' && cmd !== 'say') {
+                arg0 = arg1;
+                arg1 = '';
+              }
+              const clickedId = arg0 || arg1;
+              if (clickedId) {
+                lastClickedObjId = clickedId;
                 lastClickedObjTime = now;
               }
 
@@ -2010,10 +2015,10 @@ class UIhtml extends UI
                 // DimensioneX: if pendingCmd is 'use', 'use' on a link translates to 'go'
                 if (pendingCmd === 'use') {
                   clearPendingCmd();
-                  submitCmd(cmd, param, target);
+                  submitCmd(cmd, arg0, arg1);
                   return;
                 }
-                pendingArgs.push(targetId);
+                pendingArgs.push(clickedId);
                 const def = COMMAND_DEFS[pendingCmd] || { noArgs: 1 };
                 if (pendingArgs.length >= (def.noArgs || 1)) {
                   const cmdToSubmit = pendingCmd;
@@ -2035,32 +2040,41 @@ class UIhtml extends UI
                 return;
               }
 
-              // If target or param is already explicitly supplied (e.g. from exit button or inventory button)
-              if (param !== '' || target !== '') {
+              // If arg0 or arg1 is already explicitly supplied (e.g. from exit button or inventory button)
+              if (arg0 !== '' || arg1 !== '') {
                 clearPendingCmd();
-                submitCmd(cmd, param, target);
+                submitCmd(cmd, arg0, arg1);
                 return;
               }
 
-              // Called without target or param (e.g. from cell B button click)
+              // Called without arguments (e.g. from cell B button click)
               handleCommand(cmd);
             }
 
-            function submitCmd(cmd, param = '', target = '') {
+            function submitCmd(cmd, arg0 = '', arg1 = '') {
+              // In case just 1 parameter is passed in arg1 position, ensure arg0 gets filled
+              if (arg0 === '' && arg1 !== '' && cmd !== 'say') {
+                arg0 = arg1;
+                arg1 = '';
+              }
               if (cmd === 'say') {
-                if (!param) {
+                if (!arg0) {
                   const tb = document.getElementById('txtBox');
                   if (tb && tb.value) {
-                    param = tb.value;
+                    arg0 = tb.value;
                   }
                 }
-                if (!target) {
-                  target = '*';
+                if (!arg1) {
+                  arg1 = '*';
                 }
               }
-              document.getElementById('cmdInput').value   = cmd;
-              document.getElementById('paramInput').value  = param;
-              document.getElementById('targetInput').value = target;
+              const cmdInput  = document.getElementById('cmdInput');
+              const arg0Input = document.getElementById('arg0Input');
+              const arg1Input = document.getElementById('arg1Input');
+              if (cmdInput)  cmdInput.value  = cmd;
+              if (arg0Input) arg0Input.value = arg0;
+              if (arg1Input) arg1Input.value = arg1;
+
               // Full page navigation for logout/disconnect
               if (cmd === 'logout') {
                 document.getElementById('cmdForm').submit();
@@ -2077,8 +2091,8 @@ class UIhtml extends UI
               if (typeof window.fetch === 'function' && typeof window.DOMParser === 'function') {
                 const body = new URLSearchParams();
                 body.set('cmd', cmd);
-                body.set('param', param);
-                body.set('target', target);
+                body.set('arg0', arg0);
+                body.set('arg1', arg1);
                 body.set('view', 'scene');
 
                 fetch('multiplayer.php', {
@@ -2103,10 +2117,15 @@ class UIhtml extends UI
               if (e && typeof e.preventDefault === 'function') {
                 e.preventDefault();
               }
-              const cmd    = document.getElementById('cmdInput')?.value || 'look';
-              const param  = document.getElementById('paramInput')?.value || '';
-              const target = document.getElementById('targetInput')?.value || '';
-              submitCmd(cmd, param, target);
+              const tb = document.getElementById('txtBox');
+              if (tb && tb.value.trim() !== '') {
+                submitCmd('say', tb.value, '*');
+                return false;
+              }
+              const cmd  = document.getElementById('cmdInput')?.value || 'look';
+              const arg0 = document.getElementById('arg0Input')?.value || '';
+              const arg1 = document.getElementById('arg1Input')?.value || '';
+              submitCmd(cmd, arg0, arg1);
               return false;
             }
 
@@ -2294,7 +2313,7 @@ class UIhtml extends UI
               fetch('multiplayer.php?format=json', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'cmd=popmsg&param=' + encodeURIComponent(msgId)
+                body: 'cmd=popmsg&arg0=' + encodeURIComponent(msgId)
               }).catch(function() {});
             }
 

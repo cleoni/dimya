@@ -120,8 +120,10 @@ class UIjson extends UI
             'chat'       => $context['chat'] ?? ($world->chatQueue ?? []),
             'command'    => [
                 'cmd'    => $context['cmd']    ?? null,
-                'param'  => $context['param']  ?? null,
-                'target' => $context['target'] ?? null,
+                'arg0'   => $context['arg0']   ?? $context['param'] ?? null,
+                'arg1'   => $context['arg1']   ?? $context['target'] ?? null,
+                'param'  => $context['arg0']   ?? $context['param']  ?? null,
+                'target' => $context['arg1']   ?? $context['target'] ?? null,
             ],
         ];
 
@@ -334,8 +336,8 @@ class UIjson extends UI
         $result = $engine->processCommand(
             $params['username'],
             $params['cmd'] ?? 'look',
-            $params['param'] ?? '',
-            $params['target'] ?? '',
+            $params['arg0'] ?? $params['param'] ?? '',
+            $params['arg1'] ?? $params['target'] ?? '',
             $this,
             $auth['numeric_id'] ?? null,
             true

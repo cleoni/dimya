@@ -179,8 +179,8 @@ if ($clientType === 'json') {
 $result = $engine->processCommand(
     $playerName,
     $input['cmd'],
-    $input['param'],
-    $input['target'],
+    $input['arg0'],
+    $input['arg1'],
     $ui,
     $numericId ? (int)$numericId : null,
     (bool)$isBot,

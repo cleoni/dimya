@@ -263,7 +263,30 @@ if (shouldRun(2)) {
     assertTest($input['password'] === 'secret123', "Parsed password 'secret123'");
     assertTest($input['cmd'] === 'go', "Parsed cmd 'go'");
     assertTest($input['param'] === 'N', "Parsed param 'N' from 'dir'");
+    assertTest($input['arg0'] === 'N', "Parsed arg0 'N' from 'dir'");
     assertTest(!isset($input['world']) && !isset($input['world_file']), "World switching parameters are ignored (single world)");
+
+    // Test arg0 and arg1 resolution & single parameter normalization
+    $_GET = ['cmd' => 'click', 'arg0' => 'key1'];
+    $inClick = UI::parseInput();
+    assertTest($inClick['arg0'] === 'key1' && $inClick['arg1'] === '', "Single arg0 parameter is filled and arg1 is empty");
+
+    // Legacy target single parameter shifted to arg0
+    $_GET = ['cmd' => 'click', 'target' => 'door1'];
+    $inLegacyTarget = UI::parseInput();
+    assertTest($inLegacyTarget['arg0'] === 'door1' && $inLegacyTarget['arg1'] === '', "Single legacy target parameter shifted into arg0");
+
+    // Two parameters passed (e.g. usewith key1 on door1)
+    $_GET = ['cmd' => 'usewith', 'arg0' => 'key1', 'arg1' => 'door1'];
+    $inTwoArgs = UI::parseInput();
+    assertTest($inTwoArgs['arg0'] === 'key1' && $inTwoArgs['arg1'] === 'door1', "Two arguments populate arg0 and arg1");
+
+    // txtBox quick speech sets cmd='say', arg0=text, arg1='*'
+    $_GET = [];
+    $_POST = ['txtBox' => 'Hello adventurer'];
+    $inSpeech = UI::parseInput();
+    assertTest($inSpeech['cmd'] === 'say' && $inSpeech['arg0'] === 'Hello adventurer' && $inSpeech['arg1'] === '*', "txtBox quick speech populates cmd=say, arg0=speech and arg1=*");
+    $_POST = [];
 }
 
 // -------------------------------------------------------------
@@ -508,6 +531,9 @@ assertTest(str_contains($htmlOutput, 'Welcome to <b>World 2</b>, HumanHero!'), "
 assertTest(!preg_match('/\[p_\d+_[a-f0-9]+\]/', $htmlOutput), "HTML output does NOT expose internal player IDs in visible brackets");
 assertTest(str_contains($htmlOutput, 'id="consoleBox"'), "HTML output includes consoleBox element");
 assertTest(str_contains($htmlOutput, 'id="chatBox"'), "HTML output includes chatBox element");
+assertTest(str_contains($htmlOutput, 'name="arg0"') && str_contains($htmlOutput, 'id="arg0Input"'), "UIhtml form includes arg0 input");
+assertTest(str_contains($htmlOutput, 'name="arg1"') && str_contains($htmlOutput, 'id="arg1Input"'), "UIhtml form includes arg1 input");
+assertTest(!str_contains($htmlOutput, 'id="paramInput"') && !str_contains($htmlOutput, 'id="targetInput"'), "UIhtml form does NOT include legacy paramInput or targetInput");
 }
 
 // -------------------------------------------------------------
@@ -2138,12 +2164,12 @@ if (shouldRun(50)) {
 
     assertTest(strpos($viewClick, 'class="fader_box"') !== false, "Refreshed scene renders fader overlay (.fader_box) at z-index 255");
     assertTest(strpos($viewClick, 'fadewhite.gif') !== false, "Fader overlay utilizes skin picFader image (fadewhite.gif)");
-    assertTest(strpos($viewClick, "sendCmd('click','','workshop')") !== false, "Fader overlay click handler returns focus to room container (workshop)");
+    assertTest(strpos($viewClick, "sendCmd('click','workshop')") !== false, "Fader overlay click handler returns focus to room container (workshop)");
     assertTest(preg_match('/<img[^>]*data-obj-id="screwd"[^>]*style="[^"]*z-index:\s*256/i', $viewClick) === 1, "Refreshed scene renders zoomed screwdriver at z-index 256 on top of fader");
     assertTest(strpos($viewClick, 'cacciavite.gif') !== false, "Zoomed item uses object image (cacciavite.gif)");
 
     // 5. Dismiss zoom by clicking the fader overlay (click on container workshop)
-    $resDismiss = $sec50Engine->processCommand('ZoomTester', 'click', '', 'workshop');
+    $resDismiss = $sec50Engine->processCommand('ZoomTester', 'click', 'workshop', '');
     $pDismiss = $resDismiss['player'];
     assertTest($pDismiss->focus !== null && $pDismiss->focus->id === 'workshop', "Click on room container updates focus to container");
     assertTest(!str_contains(implode(' ', $resDismiss['messages']), "Containing:"), "Clicking room container does NOT output 'Containing:' contents list");

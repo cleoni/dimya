@@ -401,8 +401,8 @@ class GameEngine
      *
      * @param string $playerName Unique player name / ID
      * @param string $cmd Command verb (look, go, pick, drop, use, say, logout, etc.)
-     * @param string $param Secondary parameter or direction
-     * @param string $targetId Target item, link, or character ID
+     * @param string $arg0 Primary argument (e.g. clicked object ID, speech text, direction)
+     * @param string $arg1 Optional secondary argument (e.g. second object clicked, speech recipient)
      * @param mixed $ui Optional UI instance to attach to player
      * @param int|null $numericId Optional account numeric ID
      * @param bool $isBot Whether player is a bot
@@ -414,8 +414,8 @@ class GameEngine
     public function processCommand(
         string $playerName,
         string $cmd = 'look',
-        string $param = '',
-        string $targetId = '',
+        string $arg0 = '',
+        string $arg1 = '',
         mixed $ui = null,
         ?int $numericId = null,
         bool $isBot = false,
@@ -427,10 +427,16 @@ class GameEngine
         string $view = 'scene',
         array $rawInput = []
     ): array {
-        $cmd      = strtolower(trim($cmd ?: 'look'));
-        $param    = trim($param);
-        $targetId = trim($targetId);
-        $view     = trim($view ?: 'scene');
+        $cmd   = strtolower(trim($cmd ?: 'look'));
+        $arg0  = trim($arg0);
+        $arg1  = trim($arg1);
+        $view  = trim($view ?: 'scene');
+
+        // When just 1 parameter is passed, arg0 has to be the argument that gets filled
+        if ($arg0 === '' && $arg1 !== '' && $cmd !== 'say') {
+            $arg0 = $arg1;
+            $arg1 = '';
+        }
 
         $consoleMessages = [];
         $pendingSound    = null;
@@ -443,7 +449,7 @@ class GameEngine
         // Concurrency-controlled execution via WorldLock (MySQL GET_LOCK)
         if ($this->pdo !== null && $this->lock !== null) {
             $result = $this->lock->executeAtomic($this->worldId, function (\PDO $pdo) use (
-                $playerName, $cmd, $param, $targetId, $ui, $loggedOut, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music, $view, $rawInput
+                $playerName, $cmd, $arg0, $arg1, $ui, $loggedOut, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music, $view, $rawInput
             ): array {
                 $world  = $this->loadOrSeedWorld();
                 $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music);
@@ -452,11 +458,11 @@ class GameEngine
                 $room       = $player->getRoom();
                 $roomStr    = ($room !== null) ? ($room->name . ' (' . $room->id . ')') : '';
                 $status     = ($player !== null && !$loggedOut) ? 'CONNECTED' : 'DISCONNECTED';
-                $commandStr = $cmd . '(' . $param . ',' . $targetId . ')';
+                $commandStr = $cmd . '(' . $arg0 . ',' . $arg1 . ')';
                 $dateStr    = date('Y-m-d H:i:s');
                 $this->log("USER: {$userStr} | ROOM: {$roomStr} | STATUS: {$status} | COMMAND: {$commandStr} | VIEW: {$view} | DATE: {$dateStr}");
 
-                $this->executeCommandAction($world, $player, $cmd, $param, $targetId, $view, $rawInput);
+                $this->executeCommandAction($world, $player, $cmd, $arg0, $arg1, $view, $rawInput);
 
                 // Advance world clock tick
                 $world->tick();
@@ -528,11 +534,11 @@ class GameEngine
             $room       = $player->getRoom();
             $roomStr    = ($room !== null) ? ($room->name . ' (' . $room->id . ')') : '';
             $status     = ($player !== null && !$loggedOut) ? 'CONNECTED' : 'DISCONNECTED';
-            $commandStr = $cmd . '(' . $param . ',' . $targetId . ')';
+            $commandStr = $cmd . '(' . $arg0 . ',' . $arg1 . ')';
             $dateStr    = date('Y-m-d H:i:s');
             $this->log("USER: {$userStr} | ROOM: {$roomStr} | STATUS: {$status} | COMMAND: {$commandStr} | VIEW: {$view} | DATE: {$dateStr}");
 
-            $this->executeCommandAction($world, $player, $cmd, $param, $targetId, $view, $rawInput);
+            $this->executeCommandAction($world, $player, $cmd, $arg0, $arg1, $view, $rawInput);
 
             $world->tick();
             $consoleMessages = $player->drainConsole();
@@ -573,8 +579,10 @@ class GameEngine
             'commands'         => $pendingCommands,
             'lockError'        => $lockError,
             'cmd'              => $cmd,
-            'param'            => $param,
-            'target'           => $targetId,
+            'arg0'             => $arg0,
+            'arg1'             => $arg1,
+            'param'            => $arg0,
+            'target'           => $arg1,
             'storageLabel'     => $storageLabel,
             'worldId'          => $this->worldId,
             'msgRefreshRate'   => $msgRefreshRate,
@@ -589,11 +597,20 @@ class GameEngine
         World $world,
         Player $player,
         string $cmd,
-        string $param,
-        string $targetId,
+        string $arg0,
+        string $arg1,
         string $view = 'scene',
         array $rawInput = []
     ): void {
+        $arg0 = trim($arg0);
+        $arg1 = trim($arg1);
+
+        // When just 1 parameter is passed, arg0 has to be the argument that gets filled
+        if ($arg0 === '' && $arg1 !== '' && $cmd !== 'say') {
+            $arg0 = $arg1;
+            $arg1 = '';
+        }
+
         $panel = $player->getPanel() ?? $world->defaultPanel;
         $isCoreCommand = in_array($cmd, [
             'look', 'click', 'go', 'pick', 'drop',
@@ -614,10 +631,10 @@ class GameEngine
         switch ($cmd) {
             case 'look':
             case 'click':
-                $lookTarget = !empty($targetId) ? $targetId : $param;
+                $lookTarget = !empty($arg0) ? $arg0 : $arg1;
                 $inputData = [
-                    'arg0'   => $param !== '' ? $param : $targetId,
-                    'arg1'   => ($param !== '' && $targetId !== '') ? $targetId : '',
+                    'arg0'   => $arg0 !== '' ? $arg0 : $arg1,
+                    'arg1'   => ($arg0 !== '' && $arg1 !== '') ? $arg1 : '',
                     'cmd'    => $cmd,
                     'txtBox' => $rawInput['txtBox'] ?? '',
                     'view'   => $view ?: 'scene',
@@ -675,7 +692,7 @@ class GameEngine
                 break;
 
             case 'go':
-                $dir = $param ?: $targetId;
+                $dir = $arg0 ?: $arg1;
                 if (!empty($dir)) {
                     $link = $currentRoom ? ($currentRoom->getWay($dir) ?? $currentRoom->getLinkByDirection($dir) ?? $this->findAccessibleObject($player, $dir)) : null;
                     if ($link instanceof Link && !$link->isOpen()) {
@@ -698,7 +715,7 @@ class GameEngine
                 break;
 
             case 'pick':
-                $pickTarget = !empty($targetId) ? $targetId : $param;
+                $pickTarget = !empty($arg0) ? $arg0 : $arg1;
                 if (!empty($pickTarget) && $currentRoom !== null) {
                     $item = $this->findAccessibleObject($player, $pickTarget);
                     if ($item instanceof Item && $item->isAccessibleFrom($player)) {
@@ -721,7 +738,7 @@ class GameEngine
                 break;
 
             case 'drop':
-                $dropTarget = !empty($targetId) ? $targetId : $param;
+                $dropTarget = !empty($arg0) ? $arg0 : $arg1;
                 $dropDest = ($player->container instanceof AdvObject && $player->container->isVehicle())
                     ? $player->container
                     : $currentRoom;
@@ -739,7 +756,7 @@ class GameEngine
                 break;
 
             case 'open':
-                $openTarget = !empty($targetId) ? $targetId : $param;
+                $openTarget = !empty($arg0) ? $arg0 : $arg1;
                 if (!empty($openTarget)) {
                     $targetObj = $this->findAccessibleObject($player, $openTarget);
                     if ($targetObj instanceof AdvObject) {
@@ -757,7 +774,7 @@ class GameEngine
                 break;
 
             case 'close':
-                $closeTarget = !empty($targetId) ? $targetId : $param;
+                $closeTarget = !empty($arg0) ? $arg0 : $arg1;
                 if (!empty($closeTarget)) {
                     $targetObj = $this->findAccessibleObject($player, $closeTarget);
                     if ($targetObj instanceof AdvObject) {
@@ -771,11 +788,11 @@ class GameEngine
                 break;
 
             case 'use':
-                if (!empty($targetId) && !empty($param)) {
-                    $this->executeCommandAction($world, $player, 'use2', $param, $targetId);
+                if (!empty($arg1) && !empty($arg0)) {
+                    $this->executeCommandAction($world, $player, 'use2', $arg0, $arg1);
                     break;
                 }
-                $useTarget = !empty($targetId) ? $targetId : $param;
+                $useTarget = !empty($arg0) ? $arg0 : $arg1;
                 if (!empty($useTarget)) {
                     $clean = preg_replace('/\bwith\b/i', ' ', $useTarget);
                     $tokens = preg_split('/[,\s]+/', trim($clean));
@@ -798,11 +815,11 @@ class GameEngine
                 $item1Id = '';
                 $item2Id = '';
 
-                if (!empty($targetId) && !empty($param)) {
-                    $item1Id = $param;
-                    $item2Id = $targetId;
+                if (!empty($arg1) && !empty($arg0)) {
+                    $item1Id = $arg0;
+                    $item2Id = $arg1;
                 } else {
-                    $raw = !empty($param) ? $param : $targetId;
+                    $raw = !empty($arg0) ? $arg0 : $arg1;
                     $raw = preg_replace('/\bwith\b/i', ' ', $raw);
                     $tokens = preg_split('/[,\s]+/', trim($raw));
                     $item1Id = $tokens[0] ?? '';
@@ -826,7 +843,7 @@ class GameEngine
                 break;
 
             case 'search':
-                $searchTarget = !empty($targetId) ? $targetId : $param;
+                $searchTarget = !empty($arg0) ? $arg0 : $arg1;
                 if (!empty($searchTarget)) {
                     $targetObj = $this->findAccessibleObject($player, $searchTarget);
                     if ($targetObj instanceof AdvObject) {
@@ -848,11 +865,11 @@ class GameEngine
                 $itemTarget = '';
                 $toWhoTarget = '';
 
-                if (!empty($targetId) && !empty($param)) {
-                    $itemTarget = $param;
-                    $toWhoTarget = $targetId;
+                if (!empty($arg1) && !empty($arg0)) {
+                    $itemTarget = $arg0;
+                    $toWhoTarget = $arg1;
                 } else {
-                    $raw = !empty($param) ? $param : $targetId;
+                    $raw = !empty($arg0) ? $arg0 : $arg1;
                     $raw = preg_replace('/\bto\b/i', ' ', $raw);
                     $tokens = preg_split('/[,\s]+/', trim($raw));
                     $itemTarget = $tokens[0] ?? '';
@@ -897,11 +914,11 @@ class GameEngine
                 $itemTarget = '';
                 $containerTarget = '';
 
-                if (!empty($targetId) && !empty($param)) {
-                    $itemTarget = $param;
-                    $containerTarget = $targetId;
+                if (!empty($arg1) && !empty($arg0)) {
+                    $itemTarget = $arg0;
+                    $containerTarget = $arg1;
                 } else {
-                    $raw = !empty($param) ? $param : $targetId;
+                    $raw = !empty($arg0) ? $arg0 : $arg1;
                     $raw = preg_replace('/\b(in|into)\b/i', ' ', $raw);
                     $tokens = preg_split('/[,\s]+/', trim($raw));
                     $itemTarget = $tokens[0] ?? '';
@@ -925,20 +942,20 @@ class GameEngine
                 break;
 
             case 'say':
-                if (!empty($param)) {
+                if (!empty($arg0)) {
                     // Check if an explicit target was specified (say to someone)
-                    $isSpeakAloud = empty($targetId) || $targetId === '*';
+                    $isSpeakAloud = empty($arg1) || $arg1 === '*';
                     $targetObj = null;
 
                     if (!$isSpeakAloud) {
-                        $targetObj = $currentRoom?->getOccupants()[$targetId]
-                            ?? $world->getCharacter($targetId)
-                            ?? $world->getPlayer($targetId)
-                            ?? $currentRoom?->contents[$targetId]
+                        $targetObj = $currentRoom?->getOccupants()[$arg1]
+                            ?? $world->getCharacter($arg1)
+                            ?? $world->getPlayer($arg1)
+                            ?? $currentRoom?->contents[$arg1]
                             ?? null;
 
                         if ($targetObj === null && $currentRoom !== null) {
-                            $targetLower = strtolower($targetId);
+                            $targetLower = strtolower($arg1);
                             foreach ($currentRoom->getOccupants() as $occ) {
                                 if (strtolower($occ->name) === $targetLower || strtolower($occ->id) === $targetLower) {
                                     $targetObj = $occ;
@@ -950,25 +967,25 @@ class GameEngine
 
                     if (!$isSpeakAloud && $targetObj instanceof Character) {
                         // Spoken directly to someone
-                        $player->display("You say to <b>{$targetObj->name}</b>: " . htmlspecialchars($param));
+                        $player->display("You say to <b>{$targetObj->name}</b>: " . htmlspecialchars($arg0));
                         if ($targetObj instanceof Player) {
-                            $targetObj->display("<b>{$player->name}</b> says to you: " . htmlspecialchars($param));
+                            $targetObj->display("<b>{$player->name}</b> says to you: " . htmlspecialchars($arg0));
                         }
-                        $world->postChatMessage($player->name, "@{$targetObj->name}: " . $param, $targetObj->name, $currentRoom?->id);
-                        $world->fireEvent('onHear', $targetObj, $player, $param);
+                        $world->postChatMessage($player->name, "@{$targetObj->name}: " . $arg0, $targetObj->name, $currentRoom?->id);
+                        $world->fireEvent('onHear', $targetObj, $player, $arg0);
                     } else {
                         // Broadcast aloud to all players in the room (target is '*' or speaking aloud)
-                        $world->postChatMessage($player->name, $param, null, $currentRoom?->id);
+                        $world->postChatMessage($player->name, $arg0, null, $currentRoom?->id);
                         foreach ($world->players as $p) {
                             if ($p->getRoom() === $currentRoom) {
-                                $p->display("<b>{$player->name}</b> says: " . htmlspecialchars($param));
+                                $p->display("<b>{$player->name}</b> says: " . htmlspecialchars($arg0));
                             }
                         }
                         // Fire onHear only on other Players in the same room (computer controlled characters excluded)
                         if ($currentRoom !== null) {
                             foreach ($currentRoom->getOccupants() as $occ) {
                                 if ($occ !== $player && $occ instanceof Player) {
-                                    $world->fireEvent('onHear', $occ, $player, $param);
+                                    $world->fireEvent('onHear', $occ, $player, $arg0);
                                 }
                             }
                         }
@@ -1018,7 +1035,7 @@ class GameEngine
                 break;
 
             case 'enter':
-                $enterTarget = !empty($targetId) ? $targetId : $param;
+                $enterTarget = !empty($arg0) ? $arg0 : $arg1;
                 if (!empty($enterTarget)) {
                     $targetObj = $this->findAccessibleObject($player, $enterTarget);
                     if ($targetObj === null) {
@@ -1048,7 +1065,7 @@ class GameEngine
                 break;
 
             case 'popmsg':
-                $msgId = !empty($param) ? $param : (!empty($targetId) ? $targetId : ($_REQUEST['msgid'] ?? ''));
+                $msgId = !empty($arg0) ? $arg0 : (!empty($arg1) ? $arg1 : ($_REQUEST['msgid'] ?? ''));
                 if ($msgId !== '') {
                     $player->popMessage((string)$msgId);
                 }
@@ -1071,10 +1088,10 @@ class GameEngine
                 $btn = $panel?->getButton($cmd);
                 $handled = false;
                 if ($btn !== null && !empty($btn->event)) {
-                    $handled = (bool)$world->fireEvent($btn->event, $world, $player, $targetId, ['param' => $param], false);
+                    $handled = (bool)$world->fireEvent($btn->event, $world, $player, $arg1, ['param' => $arg0, 'arg0' => $arg0, 'arg1' => $arg1], false);
                 }
                 if (!$handled) {
-                    $handled = (bool)$world->fireEvent("cmd_{$cmd}", $player, $player, $targetId, ['param' => $param], false);
+                    $handled = (bool)$world->fireEvent("cmd_{$cmd}", $player, $player, $arg1, ['param' => $arg0, 'arg0' => $arg0, 'arg1' => $arg1], false);
                 }
                 if (!$handled) {
                     $player->display("Unknown command: {$cmd}");

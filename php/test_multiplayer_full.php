@@ -5294,12 +5294,12 @@ if (shouldRun(50)) {
 
     assertTest(strpos($viewClick, 'class="fader_box"') !== false, "Refreshed scene renders fader overlay (.fader_box) at z-index 255");
     assertTest(strpos($viewClick, 'fadewhite.gif') !== false, "Fader overlay utilizes skin picFader image (fadewhite.gif)");
-    assertTest(strpos($viewClick, "sendCmd('click','','workshop')") !== false, "Fader overlay click handler returns focus to room container (workshop)");
+    assertTest(strpos($viewClick, "sendCmd('click','workshop')") !== false, "Fader overlay click handler returns focus to room container (workshop)");
     assertTest(preg_match('/<img[^>]*data-obj-id="screwd"[^>]*style="[^"]*z-index:\s*256/i', $viewClick) === 1, "Refreshed scene renders zoomed screwdriver at z-index 256 on top of fader");
     assertTest(strpos($viewClick, 'cacciavite.gif') !== false, "Zoomed item uses object image (cacciavite.gif)");
 
     // 5. Dismiss zoom by clicking the fader overlay (click on container workshop)
-    $resDismiss = $sec50Engine->processCommand('ZoomTester', 'click', '', 'workshop');
+    $resDismiss = $sec50Engine->processCommand('ZoomTester', 'click', 'workshop', '');
     $pDismiss = $resDismiss['player'];
     assertTest($pDismiss->focus !== null && $pDismiss->focus->id === 'workshop', "Click on room container updates focus to container");
     assertTest(!str_contains(implode(' ', $resDismiss['messages']), "Containing:"), "Clicking room container does NOT output 'Containing:' contents list");
