@@ -20,6 +20,7 @@ Comprehensive technical documentation and formal specifications reside in the [`
   - `world1.dxw` — Minimal introductory world
   - `world2.dxw` — Minimal adventure with linked rooms, 1 character, events
   - `world3net.dxw` — The Beach (full multiplayer environment with multi-directional views)
+  - `demoturnbased.dxw` — Minimal turn-based game implemented entirely in DXW / SmallBasic
   - `fourinline.dxw` — Turn-based board game implemented entirely in DXW / SmallBasic
 
 ---
