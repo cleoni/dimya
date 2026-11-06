@@ -154,6 +154,42 @@ if (!empty($requestedUser)) {
         $numericId  = (int)($auth['numeric_id'] ?? 0);
         $isBot      = !empty($auth['is_bot']) || $isBot;
 
+        // Name check: no player should ever log in with a name that is already in use in the World
+        $world = $engine->loadOrSeedWorld();
+
+        // 1. Check if name collides with an NPC Character in the world
+        $isNpcCollision = false;
+        foreach ($world->characters as $c) {
+            if (!$c instanceof \Dimx\Player) {
+                if (strtolower(trim($c->name)) === strtolower(trim($playerName)) || strtolower(trim($c->id)) === strtolower(trim($playerName))) {
+                    $isNpcCollision = true;
+                    break;
+                }
+            }
+        }
+
+        // 2. Check if name collides with an active Player already in the World
+        $activeInWorld = $world->getPlayerByName($playerName);
+        $isPlayerCollision = false;
+        if ($activeInWorld !== null) {
+            // For a bot API request (no session cookie) continuing existing session with matching numeric ID: allow command dispatch
+            if ($isBot && (int)$activeInWorld->numericId === $numericId && ($input['cmd'] ?? '') !== 'login') {
+                $isPlayerCollision = false;
+            } else {
+                $isPlayerCollision = true;
+            }
+        }
+
+        if ($isNpcCollision || $isPlayerCollision) {
+            $err = "Invalid nickname - choose another";
+            if ($ui instanceof UIhtml) {
+                $ui->renderLogin($err, $requestedUser, $activeSkin, (bool)$activeSounds, (bool)$activeMusic);
+            } else {
+                $ui->renderLogin($err, $requestedUser, $activeSkin);
+            }
+            exit;
+        }
+
         $_SESSION['dimx_player']            = $playerName;
         $_SESSION['dimx_authenticated']     = true;
         $_SESSION['dimx_numeric_id']        = $numericId;

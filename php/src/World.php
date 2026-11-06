@@ -20,6 +20,7 @@ class World extends DimxObject
     public string $bgcolor = '#9DB9E9';
     public int $interphone = 1; // 0=room only, 1=world with vehicle privacy, 2=global
     public int $tickLength = 30; // Seconds between clock ticks
+    public int $playerTimeout = 30; // Seconds of inactivity allowed before a player is killed
     public int $lastTick = 0; // Timestamp of last executed clock tick
     public mixed $mode = 0; // 0 = stopped / lobby / won (Goal), 1 = adventure running, or string like "pre", "play"
     public int $savegamePersistence = 2; // 0=restart only, 1=version only, 2=permanent
@@ -398,6 +399,50 @@ class World extends DimxObject
     }
 
     /**
+     * Retrieve a character by their display name (case-insensitive).
+     */
+    public function getCharacterByName(string $name): ?Character
+    {
+        $target = strtolower(trim($name));
+        if ($target === '') {
+            return null;
+        }
+        foreach ($this->characters as $c) {
+            if (strtolower(trim($c->name)) === $target) {
+                return $c;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check if a player or character with the given name (or id) is currently active in the World.
+     */
+    public function isNameInUse(string $name): bool
+    {
+        $target = strtolower(trim($name));
+        if ($target === '') {
+            return false;
+        }
+
+        // Check active players (display name or in-memory ID)
+        foreach ($this->players as $p) {
+            if (strtolower(trim($p->name)) === $target || strtolower(trim($p->id)) === $target) {
+                return true;
+            }
+        }
+
+        // Check characters (NPCs and entities in the world, by display name or definition ID)
+        foreach ($this->characters as $c) {
+            if (strtolower(trim($c->name)) === $target || strtolower(trim($c->id)) === $target) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Remove a player from world registry and their current room/container.
      */
     public function removePlayer(Player|string $player): ?Player
@@ -577,6 +622,20 @@ class World extends DimxObject
 
         // Fire onTick
         $this->fireEvent('onTick', $this, null, null);
+
+        // Check for inactive players (> 30s since last interaction) and kill them
+        $playersToCheck = array_values($this->players);
+        foreach ($playersToCheck as $player) {
+            if (!$player instanceof Player) {
+                continue;
+            }
+            $last = (int)($player->lastInteraction ?: $player->lastActive ?: $player->getProperty('lastInteraction') ?: $player->getProperty('lastActive') ?: 0);
+            if ($last > 0 && ($now - $last) >= $this->playerTimeout) {
+                $this->log("Player {$player->name} ({$player->id}) timed out after " . ($now - $last) . "s of inactivity - killing player.");
+                $player->die();
+                $this->removePlayer($player);
+            }
+        }
 
         // Fire Living for all characters
         foreach ($this->characters as $char) {

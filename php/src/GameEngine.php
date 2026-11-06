@@ -90,7 +90,7 @@ class GameEngine
     }
 
     /** Inactivity timeout for automatically disconnecting idle players (seconds) */
-    public int $playerTimeout = 1800; // 30 minutes
+    public int $playerTimeout = 30; // 30 seconds
 
     public function __construct(
         PersistenceManager $pm,
@@ -111,6 +111,12 @@ class GameEngine
             if (is_array($loadedConfig)) {
                 $this->config = $loadedConfig;
             }
+        }
+
+        if (isset($this->config['player_timeout']) && is_numeric($this->config['player_timeout'])) {
+            $this->playerTimeout = max(1, (int)$this->config['player_timeout']);
+        } elseif (isset($this->config['playerTimeout']) && is_numeric($this->config['playerTimeout'])) {
+            $this->playerTimeout = max(1, (int)$this->config['playerTimeout']);
         }
 
         if (isset($this->config['serverType']) && is_string($this->config['serverType'])) {
@@ -149,6 +155,7 @@ class GameEngine
             if (isset($this->config['tickLength']) && is_numeric($this->config['tickLength'])) {
                 $world->tickLength = max(1, (int)$this->config['tickLength']);
             }
+            $world->playerTimeout = $this->playerTimeout;
             $this->pruneStalePlayers($world);
             return $world;
         }
@@ -227,13 +234,15 @@ class GameEngine
     protected function pruneStalePlayers(World $world): void
     {
         $now = time();
-        foreach ($world->players as $k => $p) {
+        $playersToCheck = array_values($world->players);
+        foreach ($playersToCheck as $p) {
             if (!$p instanceof Player) {
-                unset($world->players[$k]);
                 continue;
             }
-            $last = (int)($p->getProperty('lastActive') ?? $now);
-            if (($now - $last) > $this->playerTimeout) {
+            $last = (int)($p->lastInteraction ?: $p->lastActive ?: $p->getProperty('lastInteraction') ?: $p->getProperty('lastActive') ?: 0);
+            if ($last > 0 && ($now - $last) >= $this->playerTimeout) {
+                $this->log("Pruning stale player {$p->name} ({$p->id}) - idle for " . ($now - $last) . "s");
+                $p->die();
                 $world->removePlayer($p);
             }
         }
@@ -418,7 +427,7 @@ class GameEngine
         }
 
         // Update player activity timestamp
-        $player->setProperty('lastActive', time());
+        $player->recordInteraction();
 
         if ($ui !== null) {
             $player->setUI($ui);

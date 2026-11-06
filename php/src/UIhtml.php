@@ -112,6 +112,7 @@ class UIhtml extends UI
                 <?php endif; ?>
               </div>
               <br>
+              <h2>Enter the World</h2>
               <p class="sub">Log in with your nickname or create a new account.</p>
               <?php if (!empty($errorMessage)): ?>
                 <div class="err"><?= htmlspecialchars($errorMessage) ?></div>

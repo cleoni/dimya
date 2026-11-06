@@ -23,6 +23,12 @@ class Player extends Character
     public ?string $prevPanelId = null;
     public bool $listening = true;
 
+    /** @var int Timestamp of the last time an interaction / request was received */
+    public int $lastActive = 0;
+
+    /** @var int Timestamp of the last interaction / request received (alias for lastActive) */
+    public int $lastInteraction = 0;
+
     /** @var bool Whether player enabled Sound FX at login */
     public bool $sounds = false;
 
@@ -96,6 +102,19 @@ class Player extends Character
             $capacity, $volume, $defContainer
         );
         $this->accepts = '*';
+        $this->recordInteraction();
+    }
+
+    /**
+     * Record timestamp of the last time an interaction occurred (i.e. request received).
+     */
+    public function recordInteraction(?int $timestamp = null): void
+    {
+        $t = $timestamp ?? time();
+        $this->lastActive = $t;
+        $this->lastInteraction = $t;
+        $this->properties['lastActive'] = $t;
+        $this->properties['lastInteraction'] = $t;
     }
 
     public function isPlayer(): bool

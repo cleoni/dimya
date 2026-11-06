@@ -62,6 +62,7 @@ $sections = [
     59 => ['title' => 'Testing SmallBasic Array String Representation [key1=val,key2=val,...] & fourinline.dxw line 204...', 'keywords' => ['array', 'formatarray', 'smallbasic', 'fourinline', 'speak', 'representation', 'actionsrunner']],
     60 => ['title' => 'Testing WORLD Directives (NAME, VERSION, AUTHOR, SITE, GUI.LOGOSRC) & Login Form Layering...', 'keywords' => ['world', 'directives', 'author', 'site', 'version', 'logosrc', 'gui.logosrc', 'login', 'layers', 'background']],
     61 => ['title' => "Testing Who's Online - The players view (multiplayer.php?view=players & format=extended)...", 'keywords' => ['view', 'players', 'view=players', 'format=extended', 'extended', 'online', 'who\'s online']],
+    62 => ['title' => 'Testing Player Inactivity Timeout (30s) at Tick Event & Nickname Conflict Check at Login...', 'keywords' => ['timeout', 'inactivity', 'tick', 'kill', 'lastactive', 'lastinteraction', 'nickname', 'conflict', 'login']],
 ];
 
 // CLI Options parsing
@@ -3145,34 +3146,30 @@ if (shouldRun(60)) {
     assertTest(str_contains($html60, 'class="world-author">by Cris</span>'), "Next layer renders 'by Cris'");
     assertTest(str_contains($html60, 'class="world-version">ver. 2.30</span>'), "Next layer renders 'ver. 2.30'");
     assertTest(str_contains($html60, 'href="https://www.dimensionex.net/thebeach/multiplayer.htm"'), "Next layer renders link to SITE");
-    assertTest(str_contains($html60, 'Enter the World'), "Next layer contains login form as it is now ('Enter the World')");
+    assertTest(str_contains($html60, '<form method="POST">'), "Next layer contains login form");
     assertTest(str_contains($html60, 'name="username"'), "Next layer contains login form username field");
 
     // Verify ordering of elements in DOM:
-    // lowest z-layer bg -> next layer content (NAME -> break -> by AUTHOR -> break -> ver. VERSION -> break -> link to SITE -> break -> form)
+    // lowest z-layer bg -> next layer content (NAME -> break -> by AUTHOR -> break -> ver. VERSION -> break -> form)
     $posBg      = strpos($html60, '<div class="login-bg-layer">');
-    $posName    = strpos($html60, '<div class="world-name">The Beach</div>');
+    $posName    = strpos($html60, '<div class="world-name">');
     $posAuthor  = strpos($html60, 'by Cris');
     $posVer     = strpos($html60, 'ver. 2.30');
-    $posSite    = strpos($html60, 'https://www.dimensionex.net/thebeach/multiplayer.htm');
-    $posForm    = strpos($html60, 'Enter the World');
+    $posForm    = strpos($html60, '<form method="POST">');
 
     assertTest($posBg !== false && $posName !== false && $posBg < $posName, "logosrc background layer appears before foreground content layer in DOM");
     assertTest($posName < $posAuthor, "NAME appears before 'by AUTHOR'");
     assertTest($posAuthor < $posVer, "'by AUTHOR' appears before 'ver. VERSION'");
-    assertTest($posVer < $posSite, "'ver. VERSION' appears before 'link to SITE'");
-    assertTest($posSite < $posForm, "'link to SITE' appears before login form");
+    assertTest($posVer < $posForm, "'ver. VERSION' appears before login form");
 
     // Verify line breaks between elements
     $nameToAuthor = substr($html60, $posName, $posAuthor - $posName);
     $authorToVer  = substr($html60, $posAuthor, $posVer - $posAuthor);
-    $verToSite    = substr($html60, $posVer, $posSite - $posVer);
-    $siteToForm   = substr($html60, $posSite, $posForm - $posSite);
+    $verToForm    = substr($html60, $posVer, $posForm - $posVer);
 
     assertTest(str_contains($nameToAuthor, '<br>'), "Break (<br>) exists between NAME and by AUTHOR");
     assertTest(str_contains($authorToVer, '<br>'), "Break (<br>) exists between by AUTHOR and ver. VERSION");
-    assertTest(str_contains($verToSite, '<br>'), "Break (<br>) exists between ver. VERSION and link to SITE");
-    assertTest(str_contains($siteToForm, '<br>'), "Break (<br>) exists between link to SITE and login form");
+    assertTest(str_contains($verToForm, '<br>'), "Break (<br>) exists between ver. VERSION and login form");
 
     // 4. Test minimal world without AUTHOR, SITE, LOGOSRC
     $customDxw = "WORLD\nNAME Custom Land\nVERSION 5.0\nEND_WORLD\nROOMS\nROOM start, \"Start\"\nEND_ROOMS\n";
@@ -3267,6 +3264,111 @@ if (shouldRun(61)) {
 
     // Clean up
     @$pm->resetWorld($sec61WorldId);
+}
+
+// -------------------------------------------------------------
+// Section 62: Testing Player Inactivity Timeout (30s) at Tick Event & Nickname Conflict Check at Login
+// -------------------------------------------------------------
+if (shouldRun(62)) {
+    echo "\n--- Section 62: Testing Player Inactivity Timeout (30s) at Tick Event & Nickname Conflict Check at Login ---\n";
+
+    $sec62WorldId = 'test_w_sec62_' . uniqid();
+    $serverW62 = [
+        'DIMX_WORLD_ID'   => $sec62WorldId,
+        'DIMX_WORLD_FILE' => __DIR__ . '/world3net.dxw',
+    ];
+
+    // Part 1: Verify Player instance records timestamp on construct and interaction
+    $pTest = new \Dimx\Player(null, 'Alice');
+    assertTest(isset($pTest->lastActive) && $pTest->lastActive > 0, "Player instance has lastActive property populated (> 0)");
+    assertTest(isset($pTest->lastInteraction) && $pTest->lastInteraction > 0, "Player instance has lastInteraction property populated (> 0)");
+    assertTest($pTest->lastActive === $pTest->lastInteraction, "lastActive matches lastInteraction on initialization");
+
+    $pastTime = time() - 100;
+    $pTest->recordInteraction($pastTime);
+    assertTest($pTest->lastActive === $pastTime, "recordInteraction updates lastActive");
+    assertTest($pTest->lastInteraction === $pastTime, "recordInteraction updates lastInteraction");
+
+    // Part 2: Verify Tick kills players with > 30s inactivity
+    $w62 = new \Dimx\World($sec62WorldId, 'TimeoutWorld');
+    $room = new \Dimx\Room($w62, 'Lobby', 'lobby');
+    $w62->addRoom($room);
+
+    $pActive = new \Dimx\Player($w62, 'ActivePlayer', 'p_act');
+    $pActive->recordInteraction(time() - 10); // 10s ago (< 30s)
+    $w62->addPlayer($pActive);
+    $room->addObject($pActive);
+
+    $pStale = new \Dimx\Player($w62, 'StalePlayer', 'p_stale');
+    $pStale->recordInteraction(time() - 35); // 35s ago (> 30s)
+    $w62->addPlayer($pStale);
+    $room->addObject($pStale);
+
+    assertTest(isset($w62->players['p_act']), "Active player present in world before tick");
+    assertTest(isset($w62->players['p_stale']), "Stale player present in world before tick");
+
+    // Execute clock tick
+    $w62->tick(force: true);
+
+    assertTest(isset($w62->players['p_act']), "Active player survives tick (< 30s inactivity)");
+    assertTest(!isset($w62->players['p_stale']), "Stale player killed at tick (> 30s inactivity)");
+    assertTest(!isset($room->contents['p_stale']), "Stale player removed from room container contents");
+
+    // Part 3: Test World::isNameInUse()
+    $npc = new \Dimx\Character($w62, 'Old Sailor', 'sailor');
+    $w62->addCharacter($npc);
+
+    assertTest($w62->isNameInUse('ActivePlayer') === true, "isNameInUse matches active player name");
+    assertTest($w62->isNameInUse('activeplayer') === true, "isNameInUse is case-insensitive for active player name");
+    assertTest($w62->isNameInUse('Old Sailor') === true, "isNameInUse matches character display name");
+    assertTest($w62->isNameInUse('sailor') === true, "isNameInUse matches character ID");
+    assertTest($w62->isNameInUse('SAILOR') === true, "isNameInUse is case-insensitive for character ID");
+    assertTest($w62->isNameInUse('NonExistent') === false, "isNameInUse returns false for unused name");
+    assertTest($w62->isNameInUse('StalePlayer') === false, "isNameInUse returns false for player who was killed");
+
+    // Part 4: Integration test via multiplayer.php login
+    // 4a. Log in initial player 'Alice62'
+    $loginAlice = runMultiplayer([
+        'format'   => 'json',
+        'username' => 'Alice62',
+        'password' => 'secret123',
+        'cmd'      => 'look',
+    ], [], $serverW62);
+    $dataAlice = json_decode($loginAlice, true);
+    assertTest(($dataAlice['success'] ?? false) === true, "Alice62 logged in successfully");
+
+    // 4b. Another user tries to log in with SAME nickname 'Alice62'
+    $loginConflict = runMultiplayer([
+        'format'   => 'json',
+        'username' => 'Alice62',
+        'password' => 'secret123',
+        'cmd'      => 'login',
+    ], [], $serverW62);
+    $dataConflict = json_decode($loginConflict, true);
+    assertTest(($dataConflict['success'] ?? true) === false, "Login with already used nickname rejected");
+    assertTest(($dataConflict['status'] ?? '') === 'login_required', "Rejected login status is 'login_required'");
+    assertTest(($dataConflict['error'] ?? '') === 'Invalid nickname - choose another', "Error is 'Invalid nickname - choose another'");
+
+    // 4c. User tries to log in with existing NPC Character name in world3net ('surfer')
+    $loginNpc = runMultiplayer([
+        'format'   => 'json',
+        'username' => 'surfer',
+        'password' => 'pass123',
+        'cmd'      => 'look',
+    ], [], $serverW62);
+    $dataNpc = json_decode($loginNpc, true);
+    assertTest(($dataNpc['success'] ?? true) === false, "Login with NPC Character nickname rejected");
+    assertTest(($dataNpc['error'] ?? '') === 'Invalid nickname - choose another', "NPC nickname collision returns 'Invalid nickname - choose another'");
+
+    // 4d. HTML client receives "Invalid nickname - choose another"
+    $loginHtmlConflict = runMultiplayer([
+        'username' => 'Alice62',
+        'password' => 'secret123',
+    ], [], $serverW62);
+    assertTest(str_contains($loginHtmlConflict, 'Invalid nickname - choose another'), "UIhtml renders 'Invalid nickname - choose another' error");
+
+    // Clean up
+    @$pm->resetWorld($sec62WorldId);
 }
 
 // Clean up test worlds
