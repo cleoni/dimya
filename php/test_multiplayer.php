@@ -3102,7 +3102,7 @@ if (shouldRun(60)) {
 
     // 1. Test world3net.dxw directive parsing
     $loader = new \Dimx\DxwLoader('https://example.com');
-    $w3 = $loader->load(__DIR__ . '/world3net.dxw');
+    $w3 = $loader->load(dirname(__DIR__) . '/docs/dxw-examples/world3net.dxw');
 
     assertTest($w3->getProperty('NAME') === 'The Beach', "world3net.dxw NAME stored in world properties as 'The Beach'");
     assertTest($w3->name === 'The Beach', "world3net.dxw name property is 'The Beach'");
@@ -3125,7 +3125,7 @@ if (shouldRun(60)) {
     assertTest($w2->site === '', "world2.dxw site is empty when not specified");
 
     // 3. Test UIhtml::renderLogin() layering with world3net
-    $eng60 = new \Dimx\GameEngine($pm, 'w_sec60_beach', __DIR__ . '/world3net.dxw');
+    $eng60 = new \Dimx\GameEngine($pm, 'w_sec60_beach', dirname(__DIR__) . '/docs/dxw-examples/world3net.dxw');
     $ui60 = new \Dimx\UIhtml(null, $eng60);
     ob_start();
     $ui60->renderLogin();
@@ -3275,7 +3275,7 @@ if (shouldRun(62)) {
     $sec62WorldId = 'test_w_sec62_' . uniqid();
     $serverW62 = [
         'DIMX_WORLD_ID'   => $sec62WorldId,
-        'DIMX_WORLD_FILE' => __DIR__ . '/world3net.dxw',
+        'DIMX_WORLD_FILE' => dirname(__DIR__) . '/docs/dxw-examples/world3net.dxw',
     ];
 
     // Part 1: Verify Player instance records timestamp on construct and interaction
