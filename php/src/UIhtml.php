@@ -2536,7 +2536,7 @@ class UIhtml extends UI
 
             async function pollChat() {
               try {
-                const url = 'chat.php?world_id=' + encodeURIComponent(WORLD_ID)
+                const url = 'multiplayer.php?view=msgs&world_id=' + encodeURIComponent(WORLD_ID)
                           + '&player=' + encodeURIComponent(PLAYER_NAME);
                 const resp = await fetch(url, { credentials: 'same-origin' });
                 if (!resp.ok) return;

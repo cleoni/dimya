@@ -3588,6 +3588,52 @@ if (shouldRun(63)) {
     $chatDataCheck = json_decode($chatCheck, true);
     assertTest(!isset($chatDataCheck['commands']) || empty($chatDataCheck['commands']), "No redundant refresh!scene returned via chat after rendering #scene");
 
+    // 5. Test stale player pruning triggered by view=msgs polling
+    // Re-login Player1 (HumanAlpha) and Player2 (HumanBeta)
+    runMultiplayer([
+        'username' => 'HumanAlpha',
+        'password' => 'secret123',
+        'cmd'      => 'look',
+    ], [], $serverW63);
+    runMultiplayer([
+        'username' => 'HumanBeta',
+        'password' => 'secret123',
+        'cmd'      => 'look',
+    ], [], $serverW63);
+
+    // Drain pending commands for HumanAlpha so queue is clean
+    $pm->drainCommands($sec63WorldId, 'HumanAlpha');
+
+    // Make HumanBeta stale (idle for 35 seconds), HumanAlpha active (idle 5 seconds)
+    $wStale = $pm->loadWorld($sec63WorldId);
+    $betaObj = $wStale->getPlayerByName('HumanBeta');
+    $alphaObj = $wStale->getPlayerByName('HumanAlpha');
+    assertTest($betaObj !== null && $alphaObj !== null, "Both players exist in world before stale check");
+    $betaObj->lastInteraction = time() - 35;
+    $betaObj->lastActive = time() - 35;
+    $betaObj->setProperty('lastInteraction', time() - 35);
+    $betaObj->setProperty('lastActive', time() - 35);
+    $alphaOldTime = time() - 5;
+    $alphaObj->lastInteraction = $alphaOldTime;
+    $alphaObj->lastActive = $alphaOldTime;
+    $alphaObj->setProperty('lastInteraction', $alphaOldTime);
+    $alphaObj->setProperty('lastActive', $alphaOldTime);
+    $alphaObj->drainCommands();
+    $pm->saveWorld($wStale);
+
+    // HumanAlpha polls multiplayer.php?view=msgs
+    $pollResp = runMultiplayer([], ['view' => 'msgs', 'world_id' => $sec63WorldId, 'player' => 'HumanAlpha'], $serverW63);
+    $pollData = json_decode($pollResp, true);
+    assertTest(($pollData['ok'] ?? false) === true, "Polling view=msgs succeeded");
+    assertTest(isset($pollData['commands']) && str_contains($pollData['commands'], 'refresh!scene'), "HumanAlpha received refresh!scene upon stale HumanBeta pruning");
+
+    // Verify HumanBeta was removed from world, HumanAlpha remains and was touched (not stale)
+    $wAfter = $pm->loadWorld($sec63WorldId);
+    assertTest($wAfter->getPlayerByName('HumanBeta') === null, "Stale player HumanBeta was pruned from world");
+    $alphaAfter = $wAfter->getPlayerByName('HumanAlpha');
+    assertTest($alphaAfter !== null, "Active player HumanAlpha remains in world");
+    assertTest($alphaAfter->lastInteraction > $alphaOldTime, "HumanAlpha interaction timestamp was updated by view=msgs polling");
+
     // Clean up
     @$pm->resetWorld($sec63WorldId);
     if (is_dir($sec63DataDir)) {

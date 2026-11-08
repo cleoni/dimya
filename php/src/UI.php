@@ -160,6 +160,7 @@ abstract class UI
         $rawCmd   = $merged['cmd'] ?? $merged['command'] ?? $merged['action'] ?? null;
         $arg0     = trim((string)($merged['arg0'] ?? $merged['param'] ?? $merged['direction'] ?? $merged['dir'] ?? $merged['value'] ?? $merged['msgid'] ?? $merged['item1'] ?? ''));
         $arg1     = trim((string)($merged['arg1'] ?? $merged['target'] ?? $merged['target_id'] ?? $merged['arg2'] ?? $merged['item2'] ?? $merged['target2'] ?? $merged['item'] ?? $merged['with'] ?? ''));
+        $view     = trim((string)($merged['view'] ?? 'scene'));
 
         if (($rawCmd === null || trim((string)$rawCmd) === '') && isset($merged['txtBox']) && trim((string)$merged['txtBox']) !== '') {
             $cmd = 'say';
@@ -170,7 +171,13 @@ abstract class UI
                 $arg1 = '*';
             }
         } else {
-            $cmd = ($rawCmd !== null && trim((string)$rawCmd) !== '') ? strtolower(trim((string)$rawCmd)) : 'login';
+            if ($rawCmd !== null && trim((string)$rawCmd) !== '') {
+                $cmd = strtolower(trim((string)$rawCmd));
+            } elseif (strtolower($view) === 'msgs') {
+                $cmd = '';
+            } else {
+                $cmd = 'login';
+            }
         }
 
         // If command is say and txtBox is present but arg0 is empty

@@ -52,9 +52,9 @@ $sessionUser    = (string)($_SESSION['dimx_player'] ?? '');
 $activeUsername = !empty($requestedUser) ? $requestedUser : $sessionUser;
 $ui             = ($clientType === 'json') ? $createBotUi($activeUsername) : new UIhtml();
 
-// 4. Single authoritative world per installation (configured strictly on server)
+// 4. Single authoritative world per installation (configured strictly on server, with query/session fallback)
 $worldFile = $_SERVER['DIMX_WORLD_FILE'] ?? $_ENV['DIMX_WORLD_FILE'] ?? ($config['world_file'] ?? $config['default_world'] ?? null);
-$worldId   = $_SERVER['DIMX_WORLD_ID'] ?? 'main';
+$worldId   = trim((string)($_SERVER['DIMX_WORLD_ID'] ?? $_GET['world_id'] ?? $_POST['world_id'] ?? $_SESSION['dimx_world'] ?? ($config['world_id'] ?? 'main')));
 
 // 4b. Invalidate session if world was reset or reset is requested
 $activeResetToken = (string)($pm->getSetting($worldId, 'world_reset_token', ''));
@@ -129,6 +129,19 @@ if (!empty($requestedUser)) {
     // Check if session is already authenticated for this exact user
     if ($isAuthenticated && $sessionUser === $requestedUser) {
         $playerName = $requestedUser;
+    } elseif ($view === 'msgs' && $password === '') {
+        $world = $engine->loadOrSeedWorld(false);
+        $activePlayer = $world->getPlayerByName($requestedUser) ?? $world->getPlayer($requestedUser);
+        if ($activePlayer !== null) {
+            $playerName      = $activePlayer->name;
+            $numericId       = $activePlayer->numericId;
+            $sessionEngineId = $activePlayer->id;
+            $isNewLogin      = false;
+        } else {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'error' => 'Player not found'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
     } else {
         // Authenticate credentials or auto-create account
         if ($password === '') {
@@ -155,7 +168,7 @@ if (!empty($requestedUser)) {
         $isBot      = !empty($auth['is_bot']) || $isBot;
 
         // Name check: no player should ever log in with a name that is already in use in the World
-        $world = $engine->loadOrSeedWorld();
+        $world = $engine->loadOrSeedWorld(false);
 
         // 1. Check if name collides with an NPC Character in the world
         $isNpcCollision = false;
@@ -204,6 +217,11 @@ if (!empty($requestedUser)) {
     $playerName = $sessionUser;
 } else {
     // No username provided and no authenticated session
+    if ($view === 'msgs') {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok' => false, 'error' => 'Player not specified'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     if ($ui instanceof UIhtml) {
         $ui->renderLogin(null, null, $activeSkin, (bool)$activeSounds, (bool)$activeMusic);
     } else {
@@ -236,7 +254,7 @@ $result = $engine->processCommand(
     $activeSkin !== '' ? $activeSkin : null,
     $activeSounds,
     $activeMusic,
-    $input['view'] ?? 'scene',
+    $view !== '' ? $view : ($input['view'] ?? 'scene'),
     $input['raw'] ?? []
 );
 
@@ -257,6 +275,21 @@ if (!empty($result['logged_out']) || !empty($result['reset'])) {
         $_SESSION['dimx_sounds'],
         $_SESSION['dimx_music']
     );
+}
+
+// If view is msgs, return JSON payload immediately matching DimensioneX/chat poll format
+if ($view === 'msgs') {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    $response = [
+        'ok'       => true,
+        'messages' => $result['chat'] ?? [],
+    ];
+    if (!empty($result['commands'])) {
+        $response['commands'] = $result['commands'];
+    }
+    echo json_encode($response, JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 // 10. Attach UI to player and return outcome via the player's UI

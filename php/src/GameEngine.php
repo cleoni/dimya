@@ -144,7 +144,7 @@ class GameEngine
     /**
      * Load an existing world from storage or seed it from .dxw / demo fallback.
      */
-    public function loadOrSeedWorld(): World
+    public function loadOrSeedWorld(bool $pruneStale = true): World
     {
         // 1. Try loading from persistence
         $world = $this->pm->loadWorld($this->worldId);
@@ -156,7 +156,9 @@ class GameEngine
                 $world->tickLength = max(1, (int)$this->config['tickLength']);
             }
             $world->playerTimeout = $this->playerTimeout;
-            $this->pruneStalePlayers($world);
+            if ($pruneStale) {
+                $this->pruneStalePlayers($world);
+            }
             return $world;
         }
 
@@ -467,10 +469,14 @@ class GameEngine
         string $view = 'scene',
         array $rawInput = []
     ): array {
-        $cmd   = strtolower(trim($cmd ?: 'look'));
+        $cmd   = strtolower(trim((string)$cmd));
         $arg0  = trim($arg0);
         $arg1  = trim($arg1);
-        $view  = trim($view ?: 'scene');
+        $view  = trim((string)($view ?: 'scene'));
+
+        if ($cmd === '' && strtolower($view) !== 'msgs') {
+            $cmd = 'look';
+        }
 
         // When just 1 parameter is passed, arg0 has to be the argument that gets filled
         if ($arg0 === '' && $arg1 !== '' && $cmd !== 'say') {
@@ -520,13 +526,20 @@ class GameEngine
                 $pendingSound   = $player->drainSound();
                 $pendingBgMusic = $player->drainBackgroundSound();
                 $hasNewMsgs     = $player->drainNewMessages();
-                $rawCommands    = $player->drainCommands();
-                $this->pm->drainCommands($this->worldId, $player->name);
-                $cmdList = array_filter(explode(';', $rawCommands), function ($c) {
+                $rawMem  = $player->drainCommands();
+                $rawPm   = $this->pm->drainCommands($this->worldId, $player->name);
+                $rawAll  = array_filter(array_merge(explode(';', $rawMem), explode(';', $rawPm)));
+                $cmdList = array_filter($rawAll, function ($c) use ($view) {
                     $t = strtolower(trim($c));
-                    return $t !== '' && $t !== 'refresh!scene' && $t !== 'refresh #scene';
+                    if ($t === '') {
+                        return false;
+                    }
+                    if (($t === 'refresh!scene' || $t === 'refresh #scene') && strtolower(trim((string)$view)) === 'scene') {
+                        return false;
+                    }
+                    return true;
                 });
-                $cmdsToDeliver  = !empty($cmdList) ? implode(';', $cmdList) . ';' : '';
+                $cmdsToDeliver  = !empty($cmdList) ? implode(';', array_unique($cmdList)) . ';' : '';
 
                 // Save mutated world state back to persistence (only if NOT reset, since resetWorld already seeded fresh world)
                 if (!$wasReset) {
@@ -605,13 +618,20 @@ class GameEngine
             $pendingSound    = $player->drainSound();
             $pendingBgMusic  = $player->drainBackgroundSound();
             $hasNewMsgs      = $player->drainNewMessages();
-            $rawCommands     = $player->drainCommands();
-            $this->pm->drainCommands($this->worldId, $player->name);
-            $cmdList = array_filter(explode(';', $rawCommands), function ($c) {
+            $rawMem  = $player->drainCommands();
+            $rawPm   = $this->pm->drainCommands($this->worldId, $player->name);
+            $rawAll  = array_filter(array_merge(explode(';', $rawMem), explode(';', $rawPm)));
+            $cmdList = array_filter($rawAll, function ($c) use ($view) {
                 $t = strtolower(trim($c));
-                return $t !== '' && $t !== 'refresh!scene' && $t !== 'refresh #scene';
+                if ($t === '') {
+                    return false;
+                }
+                if (($t === 'refresh!scene' || $t === 'refresh #scene') && strtolower(trim((string)$view)) === 'scene') {
+                    return false;
+                }
+                return true;
             });
-            $pendingCommands = !empty($cmdList) ? implode(';', $cmdList) . ';' : '';
+            $pendingCommands = !empty($cmdList) ? implode(';', array_unique($cmdList)) . ';' : '';
 
             if (!$wasReset) {
                 $this->pm->saveWorld($world);
@@ -666,6 +686,10 @@ class GameEngine
         string $view = 'scene',
         array $rawInput = []
     ): void {
+        $cmd  = trim($cmd);
+        if ($cmd === '') {
+            return;
+        }
         $arg0 = trim($arg0);
         $arg1 = trim($arg1);
 
