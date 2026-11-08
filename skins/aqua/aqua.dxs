@@ -1,0 +1,38 @@
+SKIN	aqua
+	' Version 1.4
+	NAME		Aqua
+	PICPLAYER    	avatar.gif
+	PICSPACER    	blank.gif
+	PICFADER    	fadewhite.gif
+	ICOPLAYER    	player.gif
+	ICOCHARACTER    character.gif
+	ICOITEM    	item.gif
+	ICOWAY    	way.gif
+	ICOWAYN    	north.gif
+	ICOWAYS    	south.gif
+	ICOWAYE    	right.gif
+	ICOWAYW    	left.gif
+	ICOWAYU    	up.gif
+	ICOWAYD    	down.gif
+	ICOROTL    	icorotl.gif
+	ICOROTR    	icorotr.gif
+	ICOREV    	reverse.gif
+
+	SNDNEWMSG    	drip.wav
+
+	BODYBGCOLOR    	#000030
+	BODYBACKGROUND    
+	BODYSTYLE    {font-size:10pt;font-family:Century Gothic;color:#B0EAFF}
+	SYSMSGSTYLE    {font-size:10pt;font-weight:bold;font-family:Century Gothic;color:#FF1111}
+	LINKSTYLE    {font-size:10pt;font-family: Century Gothic;color:#E0FFFF}
+	ALINKSTYLE    {font-size:10pt;font-family: Century Gothic;color:#00FF00;text-decoration: none}
+	ICONLABELSTYLE    {font-size: 8pt; font-family: Tahoma;color:#FFFFFF}
+	PANELBGCOLOR    SILVER
+	PANELBACKGROUND    aqua_sea.jpg
+	PANELSTYLE    {font-size:10pt;font-family:Tahoma;color:#000050}
+	BUTTONSTYLE	{background: dimgray $SKINICON no-repeat; text-align: left; padding-left: 17px; color: white; cursor: hand; font-family: Tahoma; font-size: 9pt; height: 21px}
+	TITLESTYLE    	{BACKGROUND: #0020A0 url($SKINFOLDER/gradblu.jpg); COLOR: #FFFFFF; FONT-SIZE: 10pt; FONT-FAMILY: Fixedsys; TEXT-DECORATION: none}
+	LIST1BGCOLOR    #101040
+	LIST2BGCOLOR    #313161
+	LISTSTYLE    {font-size:8pt;font-family:Century Gothic;color:#DDDDDD}
+END_SKIN
