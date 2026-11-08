@@ -507,7 +507,7 @@ class GameEngine
                 $status     = ($player !== null && !$loggedOut) ? 'CONNECTED' : 'DISCONNECTED';
                 $commandStr = $cmd . '(' . $arg0 . ',' . $arg1 . ')';
                 $dateStr    = date('Y-m-d H:i:s');
-                $this->log("USER: {$userStr} | ROOM: {$roomStr} | STATUS: {$status} | COMMAND: {$commandStr} | VIEW: {$view} | DATE: {$dateStr}");
+                $this->log("{$dateStr} USER: {$userStr} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: {$roomStr} | STATUS: {$status}");
 
                 $this->executeCommandAction($world, $player, $cmd, $arg0, $arg1, $view, $rawInput);
 
@@ -601,7 +601,7 @@ class GameEngine
             $status     = ($player !== null && !$loggedOut) ? 'CONNECTED' : 'DISCONNECTED';
             $commandStr = $cmd . '(' . $arg0 . ',' . $arg1 . ')';
             $dateStr    = date('Y-m-d H:i:s');
-            $this->log("USER: {$userStr} | ROOM: {$roomStr} | STATUS: {$status} | COMMAND: {$commandStr} | VIEW: {$view} | DATE: {$dateStr}");
+            $this->log("{$dateStr} USER: {$userStr} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: {$roomStr} | STATUS: {$status}");
 
             $this->executeCommandAction($world, $player, $cmd, $arg0, $arg1, $view, $rawInput);
 
