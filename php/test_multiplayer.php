@@ -63,6 +63,7 @@ $sections = [
     60 => ['title' => 'Testing WORLD Directives (NAME, VERSION, AUTHOR, SITE, GUI.LOGOSRC) & Login Form Layering...', 'keywords' => ['world', 'directives', 'author', 'site', 'version', 'logosrc', 'gui.logosrc', 'login', 'layers', 'background']],
     61 => ['title' => "Testing Who's Online - The players view (multiplayer.php?view=players & format=extended)...", 'keywords' => ['view', 'players', 'view=players', 'format=extended', 'extended', 'online', 'who\'s online']],
     62 => ['title' => 'Testing Player Inactivity Timeout (30s) at Tick Event & Nickname Conflict Check at Login...', 'keywords' => ['timeout', 'inactivity', 'tick', 'kill', 'lastactive', 'lastinteraction', 'nickname', 'conflict', 'login']],
+    63 => ['title' => 'Testing PeopleContainer Object Entry & Scene Refresh Dispatch with Deduplication...', 'keywords' => ['refresh', 'scene', 'refresh!scene', 'peoplecontainer', 'room', 'dedup', 'commands', 'entry', 'queue']],
 ];
 
 // CLI Options parsing
@@ -187,7 +188,7 @@ function assertTest(bool $condition, string $title): void
     }
 }
 
-function runMultiplayer(array $get = [], array $post = [], array $server = []): string
+function runMultiplayer(array $get = [], array $post = [], array $server = [], array $session = []): string
 {
     if (!isset($server['DIMX_WORLD_FILE'])) {
         $server['DIMX_WORLD_FILE'] = __DIR__ . '/../docs/dxw-examples/world2.dxw';
@@ -196,13 +197,37 @@ function runMultiplayer(array $get = [], array $post = [], array $server = []): 
         $server['DIMX_WORLD_ID'] = 'test_unit_w2';
     }
     $runner = sys_get_temp_dir() . '/dimx_run_' . uniqid() . '.php';
+    $sessionCode = '';
+    if (!empty($session)) {
+        $sessionCode = "@session_start();\n"
+            . "\$_SESSION = " . var_export($session, true) . ";\n";
+    }
     $code = "<?php\n"
+        . $sessionCode
         . '$_GET = ' . var_export($get, true) . ";\n"
         . '$_POST = ' . var_export($post, true) . ";\n";
     foreach ($server as $k => $v) {
         $code .= '$_SERVER[' . var_export($k, true) . '] = ' . var_export($v, true) . ";\n";
     }
     $code .= "require " . var_export(__DIR__ . '/multiplayer.php', true) . ";\n";
+    file_put_contents($runner, $code);
+
+    $cmd = 'C:\\xampp\\php\\php.exe ' . escapeshellarg($runner);
+    $output = (string)shell_exec($cmd);
+    @unlink($runner);
+    return $output;
+}
+
+function runChat(array $get = [], array $post = [], array $server = []): string
+{
+    $runner = sys_get_temp_dir() . '/dimx_chat_' . uniqid() . '.php';
+    $code = "<?php\n"
+        . '$_GET = ' . var_export($get, true) . ";\n"
+        . '$_POST = ' . var_export($post, true) . ";\n";
+    foreach ($server as $k => $v) {
+        $code .= '$_SERVER[' . var_export($k, true) . '] = ' . var_export($v, true) . ";\n";
+    }
+    $code .= "require " . var_export(__DIR__ . '/chat.php', true) . ";\n";
     file_put_contents($runner, $code);
 
     $cmd = 'C:\\xampp\\php\\php.exe ' . escapeshellarg($runner);
@@ -3369,6 +3394,206 @@ if (shouldRun(62)) {
 
     // Clean up
     @$pm->resetWorld($sec62WorldId);
+}
+
+// -------------------------------------------------------------
+// Section 63: Testing PeopleContainer Object Entry & Scene Refresh Dispatch with Deduplication
+// -------------------------------------------------------------
+if (shouldRun(63)) {
+    echo "\n--- Section 63: Testing PeopleContainer Object Entry & Scene Refresh Dispatch with Deduplication ---\n";
+
+    $sec63WorldId = 'test_w_sec63_' . uniqid();
+    $serverW63 = [
+        'DIMX_WORLD_ID'   => $sec63WorldId,
+        'DIMX_WORLD_FILE' => dirname(__DIR__) . '/docs/dxw-examples/world3net.dxw',
+    ];
+
+    // Part 1: Unit test with Room and Players
+    $sec63DataDir = __DIR__ . '/data_test_sec63_' . uniqid();
+    $sec63Pm = new \Dimx\PersistenceManager([], $sec63DataDir);
+    $w63 = new \Dimx\World($sec63WorldId, 'Sec63 World');
+    $w63->persistence = $sec63Pm;
+    $startRoom = new \Dimx\Room($w63, 'Starting Room', 'start_room');
+    $otherRoom = new \Dimx\Room($w63, 'Other Room', 'other_room');
+    $w63->addRoom($startRoom);
+    $w63->addRoom($otherRoom);
+
+    // Add Player1 to startRoom
+    $p1 = new \Dimx\Player($w63, 'PlayerOne', 'p_one');
+    $w63->addPlayer($p1);
+    $p1->move($startRoom);
+
+    // Initial state: drain any commands from initial placement
+    $p1->drainCommands();
+    $sec63Pm->drainCommands($sec63WorldId, 'PlayerOne');
+    assertTest($p1->getPendingCommands() === [], "Player1 has empty pending commands after initial drain");
+    assertTest($sec63Pm->hasCommand($sec63WorldId, 'PlayerOne', 'refresh!scene') === false, "Persistence has no pending refresh!scene for Player1");
+
+    // Player2 joins the same room (startRoom)
+    $p2 = new \Dimx\Player($w63, 'PlayerTwo', 'p_two');
+    $w63->addPlayer($p2);
+    $p2->move($startRoom);
+
+    // Player1 must have received refresh!scene
+    assertTest(in_array('refresh!scene', $p1->getPendingCommands(), true), "Player1 received refresh!scene when Player2 joined room");
+    assertTest($sec63Pm->hasCommand($sec63WorldId, 'PlayerOne', 'refresh!scene') === true, "Persistence recorded refresh!scene for Player1");
+
+    // Part 2: Deduplication test
+    // While refresh!scene is in Player1's queue, another object enters (e.g. items, or another player)
+    $item1 = new \Dimx\Item($w63, 'Gold Coin', 'coin1');
+    $startRoom->addObject($item1);
+    $item2 = new \Dimx\Item($w63, 'Silver Coin', 'coin2');
+    $startRoom->addObject($item2);
+
+    // Player1 queue should have exactly one refresh!scene, not three
+    $p1Pending = $p1->getPendingCommands();
+    $refreshCount = count(array_filter($p1Pending, fn($c) => $c === 'refresh!scene'));
+    assertTest($refreshCount === 1, "Player1 pendingCommands contains exactly one refresh!scene despite multiple object entries");
+
+    // Draining persistence commands produces exactly one 'refresh!scene;'
+    $drained = $sec63Pm->drainCommands($sec63WorldId, 'PlayerOne');
+    assertTest($drained === 'refresh!scene;', "drainCommands for Player1 returned exactly 'refresh!scene;' without duplication");
+    assertTest($sec63Pm->hasCommand($sec63WorldId, 'PlayerOne', 'refresh!scene') === false, "Persistence queue is empty after drain");
+
+    // Part 3: Object departure triggers refresh for players remaining in room
+    $p1->drainCommands();
+    assertTest($p1->getPendingCommands() === [], "Player1 queue cleared");
+
+    // Player2 moves from startRoom to otherRoom
+    $p2->move($otherRoom);
+
+    assertTest(in_array('refresh!scene', $p1->getPendingCommands(), true), "Player1 in startRoom received refresh!scene when Player2 left");
+    $p1->drainCommands();
+    $sec63Pm->drainCommands($sec63WorldId, 'PlayerOne');
+
+    // Part 4: End-to-end multiplayer login integration test via runMultiplayer & runChat
+    // 4a. Human Player1 logs into world3net
+    $loginP1 = runMultiplayer([
+        'username' => 'HumanAlpha',
+        'password' => 'secret123',
+        'cmd'      => 'look',
+    ], [], $serverW63);
+    assertTest(str_contains($loginP1, 'id="scene"'), "HumanAlpha logged in and received HTML scene");
+
+    // Ensure HumanAlpha's command queue is drained/clean
+    $pm->drainCommands($sec63WorldId, 'HumanAlpha');
+
+    // 4b. Human Player2 logs into world3net (enters the same default starting room 'spiaggia2')
+    $loginP2 = runMultiplayer([
+        'username' => 'HumanBeta',
+        'password' => 'secret123',
+        'cmd'      => 'look',
+    ], [], $serverW63);
+    assertTest(str_contains($loginP2, 'id="scene"'), "HumanBeta logged in and received HTML scene");
+
+    // 4c. HumanAlpha polls chat.php
+    $chatResp = runChat([
+        'world_id' => $sec63WorldId,
+        'player'   => 'HumanAlpha',
+    ]);
+    $chatData = json_decode($chatResp, true);
+    assertTest(($chatData['ok'] ?? false) === true, "Chat poll for HumanAlpha succeeded");
+    assertTest(isset($chatData['commands']), "Chat poll returned commands payload for HumanAlpha");
+    assertTest(str_contains($chatData['commands'] ?? '', 'refresh!scene'), "HumanAlpha received refresh!scene command via chat polling");
+
+    // 4d. Subsequent immediate chat poll has no leftover commands (drained)
+    $chatResp2 = runChat([
+        'world_id' => $sec63WorldId,
+        'player'   => 'HumanAlpha',
+    ]);
+    $chatData2 = json_decode($chatResp2, true);
+    assertTest(!isset($chatData2['commands']) || empty($chatData2['commands']), "Subsequent chat poll has no pending commands");
+
+    // 4e. HumanBeta exits the room by moving to spiaggia3 via LINK w24
+    $moveBeta = runMultiplayer([
+        'username' => 'HumanBeta',
+        'password' => 'secret123',
+        'format'   => 'json',
+        'cmd'      => 'go',
+        'dir'      => 'w24',
+    ], [], $serverW63);
+    $dataMoveBeta = json_decode($moveBeta, true);
+    assertTest(($dataMoveBeta['success'] ?? false) === true, "HumanBeta moved via exit w24");
+
+    // HumanAlpha (staying behind in spiaggia2) must receive refresh!scene because HumanBeta left the room
+    $chatRespExit = runChat([
+        'world_id' => $sec63WorldId,
+        'player'   => 'HumanAlpha',
+    ]);
+    $chatDataExit = json_decode($chatRespExit, true);
+    assertTest(isset($chatDataExit['commands']), "Chat poll returned commands for HumanAlpha after HumanBeta exited room");
+    assertTest(str_contains($chatDataExit['commands'] ?? '', 'refresh!scene'), "HumanAlpha received refresh!scene when HumanBeta exited room");
+
+    // 4f. HumanBeta moves back to spiaggia2 via LINK w24
+    $moveBetaBack = runMultiplayer([
+        'username' => 'HumanBeta',
+        'password' => 'secret123',
+        'format'   => 'json',
+        'cmd'      => 'go',
+        'dir'      => 'w24',
+    ], [], $serverW63);
+    $dataMoveBack = json_decode($moveBetaBack, true);
+    assertTest(($dataMoveBack['success'] ?? false) === true, "HumanBeta returned to spiaggia2 via exit w24");
+
+    // HumanAlpha receives refresh!scene because HumanBeta re-entered
+    $chatRespReenter = runChat([
+        'world_id' => $sec63WorldId,
+        'player'   => 'HumanAlpha',
+    ]);
+    $chatDataReenter = json_decode($chatRespReenter, true);
+    assertTest(str_contains($chatDataReenter['commands'] ?? '', 'refresh!scene'), "HumanAlpha received refresh!scene when HumanBeta re-entered room");
+
+    // 4g. HumanBeta logs out of the world while in the same room as HumanAlpha
+    $logoutBeta = runMultiplayer([
+        'username' => 'HumanBeta',
+        'password' => 'secret123',
+        'format'   => 'json',
+        'cmd'      => 'logout',
+    ], [], $serverW63);
+    $dataLogout = json_decode($logoutBeta, true);
+    assertTest(($dataLogout['logged_out'] ?? false) === true, "HumanBeta logged out successfully");
+
+    // HumanAlpha receives refresh!scene because HumanBeta left on logout
+    $chatRespLogout = runChat([
+        'world_id' => $sec63WorldId,
+        'player'   => 'HumanAlpha',
+    ]);
+    $chatDataLogout = json_decode($chatRespLogout, true);
+    assertTest(str_contains($chatDataLogout['commands'] ?? '', 'refresh!scene'), "HumanAlpha received refresh!scene when HumanBeta left on logout");
+
+    // 4h. Queue clearing on #scene render:
+    // If a player has a pending refresh!scene in queue, rendering #scene clears it.
+    $pm->queueCommand($sec63WorldId, 'HumanAlpha', 'refresh!scene');
+    assertTest($pm->hasCommand($sec63WorldId, 'HumanAlpha', 'refresh!scene') === true, "refresh!scene is queued in persistence for HumanAlpha");
+
+    // HumanAlpha renders #scene (e.g. sends 'look' command)
+    $resetToken = (string)$pm->getSetting($sec63WorldId, 'world_reset_token', '');
+    $renderScene = runMultiplayer([
+        'username' => 'HumanAlpha',
+        'password' => 'secret123',
+        'cmd'      => 'look',
+    ], [], $serverW63, [
+        'dimx_player'            => 'HumanAlpha',
+        'dimx_authenticated'     => true,
+        'dimx_world_reset_token' => $resetToken,
+    ]);
+    assertTest(str_contains($renderScene, 'id="scene"'), "HumanAlpha rendered #scene HTML");
+
+    // Any refresh!scene in persistence and in-memory must now be cleared
+    assertTest($pm->hasCommand($sec63WorldId, 'HumanAlpha', 'refresh!scene') === false, "Rendering #scene cleared refresh!scene from persistence");
+    $chatCheck = runChat([
+        'world_id' => $sec63WorldId,
+        'player'   => 'HumanAlpha',
+    ]);
+    $chatDataCheck = json_decode($chatCheck, true);
+    assertTest(!isset($chatDataCheck['commands']) || empty($chatDataCheck['commands']), "No redundant refresh!scene returned via chat after rendering #scene");
+
+    // Clean up
+    @$pm->resetWorld($sec63WorldId);
+    if (is_dir($sec63DataDir)) {
+        array_map('unlink', glob("{$sec63DataDir}/*.*"));
+        @rmdir($sec63DataDir);
+    }
 }
 
 // Clean up test worlds

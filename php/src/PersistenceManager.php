@@ -1099,6 +1099,95 @@ class PersistenceManager
     }
 
     /**
+     * Check if a specific client command is already queued for a player.
+     */
+    public function hasCommand(string $worldId, string $playerName, string $command): bool
+    {
+        $command = trim($command);
+        if ($command === '') {
+            return false;
+        }
+
+        if ($this->isConnected()) {
+            try {
+                $stmt = $this->pdo->prepare("
+                    SELECT 1 FROM dimx_commands
+                    WHERE world_id = :wid AND player_name = :pname AND command_text = :cmd
+                    LIMIT 1
+                ");
+                $stmt->execute([
+                    ':wid'   => $worldId,
+                    ':pname' => $playerName,
+                    ':cmd'   => $command,
+                ]);
+                return (bool)$stmt->fetchColumn();
+            } catch (\PDOException $e) {
+                error_log("PersistenceManager::hasCommand error: " . $e->getMessage());
+            }
+        }
+
+        // File-based fallback
+        $safeName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $playerName);
+        $file = "{$this->storageDir}/cmd_{$worldId}_{$safeName}.txt";
+        if (file_exists($file)) {
+            $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if ($lines !== false) {
+                foreach ($lines as $line) {
+                    if (trim($line) === $command) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Clear a specific client command (or variant) for a player.
+     */
+    public function clearCommand(string $worldId, string $playerName, string $command): bool
+    {
+        $command = trim($command);
+        if ($command === '') {
+            return false;
+        }
+
+        if ($this->isConnected()) {
+            try {
+                $stmt = $this->pdo->prepare("
+                    DELETE FROM dimx_commands
+                    WHERE world_id = :wid AND player_name = :pname AND LOWER(command_text) = LOWER(:cmd)
+                ");
+                return $stmt->execute([
+                    ':wid'   => $worldId,
+                    ':pname' => $playerName,
+                    ':cmd'   => $command,
+                ]);
+            } catch (\PDOException $e) {
+                error_log("PersistenceManager::clearCommand error: " . $e->getMessage());
+            }
+        }
+
+        // File-based fallback
+        $safeName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $playerName);
+        $file = "{$this->storageDir}/cmd_{$worldId}_{$safeName}.txt";
+        if (file_exists($file)) {
+            $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if ($lines !== false) {
+                $filtered = array_filter($lines, function ($line) use ($command) {
+                    return strcasecmp(trim($line), $command) !== 0;
+                });
+                if (empty($filtered)) {
+                    @unlink($file);
+                } else {
+                    file_put_contents($file, implode("\n", $filtered) . "\n", LOCK_EX);
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
      * Queue a client command for a player (e.g. "refresh!scene", "refresh!ctrls").
      */
     public function queueCommand(string $worldId, string $playerName, string $command): bool
@@ -1106,6 +1195,10 @@ class PersistenceManager
         $command = trim($command);
         if ($command === '') {
             return false;
+        }
+
+        if ($this->hasCommand($worldId, $playerName, $command)) {
+            return true; // Already queued, avoid duplicates
         }
 
         if ($this->isConnected()) {

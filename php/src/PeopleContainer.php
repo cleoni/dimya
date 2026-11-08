@@ -32,6 +32,32 @@ class PeopleContainer extends AdvObject
     }
 
     /**
+     * Add an AdvObject to this container's contents and notify contained players.
+     * Matches DimensioneX AdvObject.objPlace() dispatching Const.CMDE_REFRSCENE.
+     */
+    public function addObject(AdvObject $obj): bool
+    {
+        $res = parent::addObject($obj);
+        if ($res) {
+            $this->sendCmd('refresh!scene');
+        }
+        return $res;
+    }
+
+    /**
+     * Remove an object from this container and notify contained players.
+     * Matches DimensioneX AdvObject.objRemove() dispatching Const.CMDE_REFRSCENE.
+     */
+    public function removeObject(AdvObject|string $obj): ?AdvObject
+    {
+        $removed = parent::removeObject($obj);
+        if ($removed !== null) {
+            $this->sendCmd('refresh!scene');
+        }
+        return $removed;
+    }
+
+    /**
      * Broadcasts a message to all characters/players inside this container.
      */
     public function display(string $msg): bool

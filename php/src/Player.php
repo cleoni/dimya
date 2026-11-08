@@ -275,6 +275,45 @@ class Player extends Character
     }
 
     /**
+     * Check if a specific command is already pending for this player (in persistence or in-memory fallback).
+     */
+    public function hasPendingCommand(string $cmd): bool
+    {
+        $cmd = trim($cmd);
+        if ($cmd === '') {
+            return false;
+        }
+        if ($this->world !== null && $this->world->persistence !== null) {
+            return $this->world->persistence->hasCommand($this->world->id, $this->name, $cmd);
+        }
+        return in_array($cmd, $this->pendingCommands, true);
+    }
+
+    /**
+     * Clear specific pending command(s) for this player.
+     *
+     * @param string|string[] $cmds Single command or array of command strings to remove
+     */
+    public function clearPendingCommand(string|array $cmds): void
+    {
+        $cmdList = is_array($cmds) ? $cmds : [$cmds];
+        $normList = array_map(fn($c) => strtolower(trim((string)$c)), $cmdList);
+
+        $this->pendingCommands = array_values(array_filter(
+            $this->pendingCommands,
+            function ($c) use ($normList) {
+                return !in_array(strtolower(trim($c)), $normList, true);
+            }
+        ));
+
+        if ($this->world !== null && $this->world->persistence !== null) {
+            foreach ($cmdList as $c) {
+                $this->world->persistence->clearCommand($this->world->id, $this->name, $c);
+            }
+        }
+    }
+
+    /**
      * Send client command to this player.
      * Matches DimensioneX Player.sendCmd().
      */
@@ -285,9 +324,10 @@ class Player extends Character
             return false;
         }
         $this->world?->log("Sending: {$cmd} to player {$this->id}");
-        if (!in_array($cmd, $this->pendingCommands, true)) {
-            $this->pendingCommands[] = $cmd;
+        if ($this->hasPendingCommand($cmd)) {
+            return true; // Avoid duplicate commands (e.g. refresh!scene) in the player's queue
         }
+        $this->pendingCommands[] = $cmd;
         if ($this->world !== null && $this->world->persistence !== null) {
             $this->world->persistence->queueCommand($this->world->id, $this->name, $cmd);
         }

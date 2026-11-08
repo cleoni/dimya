@@ -36,6 +36,7 @@ Detailed documentation and diagrams have been generated and saved to the [`docs/
 - **Do NOT re-introduce intentionally dropped features**:
   - `Cluster` / clustering features.
   - `Dict` / `DictSorted` classes (replaced with PHP native arrays and built-in types).
+- Production of useless code should be avoided.
   
 ## Debugging Tools and Recommendations
 - In order to inspect the world's inner status it is useful to use the **Snapshot** feature of the maintenance console: HTTP post to `maint.php` while passing as HTTP parameters `action="snapshot"` and `adminPasswd` set to the current Admin password as defined in `config.php`.

@@ -354,6 +354,17 @@ class UIhtml extends UI
         $isInsideVehicle = ($player->container instanceof \Dimx\AdvObject && $player->container->isVehicle());
         $activeContainer = $isInsideVehicle ? $player->container : $currentRoom;
 
+        // When the player is rendering #scene, they are looking directly at the freshly rendered scene.
+        // Clear any pending scene refresh commands in memory and in persistence to prevent useless refreshes right after.
+        if ($player instanceof Player) {
+            $player->clearPendingCommand(['refresh!scene', 'refresh #scene', 'refresh!all', 'refresh #all']);
+            $pm = $world->persistence ?? $this->engine?->pm ?? null;
+            if ($pm !== null) {
+                $pm->clearCommand($world->id, $player->name, 'refresh!scene');
+                $pm->clearCommand($world->id, $player->name, 'refresh #scene');
+            }
+        }
+
         $skin         = $player->skin ?? $world->skins['default'] ?? $world->defaultSkin ?? new Skin('default', 'Default');
         $occupants    = $activeContainer ? array_values(array_filter($activeContainer->getOccupants(), fn($c) => !$c->isHidden())) : [];
         $roomItems    = $activeContainer ? array_values(array_filter($activeContainer->getItems(), fn($i) => !$i->isHidden()))     : [];
@@ -2280,6 +2291,7 @@ class UIhtml extends UI
 
               // 1. Refresh #scene (title bar, #display, #consoleBox, #dashboard)
               if (areas.scene !== false) {
+                lastSceneRenderTime = Date.now();
                 const curScene = document.getElementById('scene');
                 if (curScene) {
                   curScene.innerHTML = newScene.innerHTML;
@@ -2465,10 +2477,13 @@ class UIhtml extends UI
               return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             }
 
+            let lastSceneRenderTime = Date.now();
+            let sceneRefreshPending = false;
             function refreshScene() {
-              if (typeof window.fetch !== 'function' || typeof window.DOMParser !== 'function') {
+              if (sceneRefreshPending || typeof window.fetch !== 'function' || typeof window.DOMParser !== 'function') {
                 return;
               }
+              sceneRefreshPending = true;
               fetch('multiplayer.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -2477,14 +2492,20 @@ class UIhtml extends UI
               })
               .then(function(res) { return res.text(); })
               .then(function(html) {
+                sceneRefreshPending = false;
                 refreshAreas(html);
               })
-              .catch(function() {});
+              .catch(function() {
+                sceneRefreshPending = false;
+              });
             }
 
             function clientExecuteCmd(what) {
               what = (what || '').trim();
               if (what === 'refresh!scene' || what === 'refresh #scene' || what === 'refresh!all' || what === 'refresh #all') {
+                if (Date.now() - lastSceneRenderTime < 1500) {
+                  return; // Player just rendered the scene; avoid redundant refresh right after
+                }
                 refreshScene();
               } else if (what === 'refresh!ctrls' || what === 'refresh #ctrls') {
                 refreshScene();
