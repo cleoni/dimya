@@ -128,6 +128,12 @@ class Player extends Character
     public function setUI(mixed $ui): void
     {
         $this->ui = $ui;
+        if ($ui instanceof UI) {
+            $this->sounds = $ui->hasSounds();
+            $this->audioSupport = $this->sounds;
+            $this->music = $ui->hasMusic();
+            $this->musicSupport = $this->music;
+        }
     }
 
     /**
@@ -154,12 +160,12 @@ class Player extends Character
     }
 
     /**
-     * Prevent serializing runtime UI and transient focus instances into DB or persistent storage.
+     * Persist runtime UI (sound/music support properties) and exclude only transient focus instances from storage.
      */
     public function __sleep(): array
     {
         $vars = array_keys(get_object_vars($this));
-        return array_values(array_diff($vars, ['ui', 'focus']));
+        return array_values(array_diff($vars, ['focus']));
     }
 
     /**
@@ -183,6 +189,9 @@ class Player extends Character
     {
         $this->sounds = $enabled;
         $this->audioSupport = $enabled;
+        if ($this->ui instanceof UI) {
+            $this->ui->setSounds($enabled);
+        }
     }
 
     /**
@@ -192,6 +201,9 @@ class Player extends Character
     {
         $this->music = $enabled;
         $this->musicSupport = $enabled;
+        if ($this->ui instanceof UI) {
+            $this->ui->setMusic($enabled);
+        }
     }
 
     /**
@@ -200,7 +212,10 @@ class Player extends Character
      */
     public function playSound(string $soundfile): bool
     {
-        if (!$this->sounds && !$this->audioSupport) {
+        $hasSound = ($this->ui instanceof UI)
+            ? $this->ui->hasSounds()
+            : ($this->sounds || $this->audioSupport);
+        if (!$hasSound) {
             return false;
         }
         $soundfile = trim($soundfile);
@@ -230,7 +245,10 @@ class Player extends Character
      */
     public function playBackground(string $soundfile, bool $loop = false): bool
     {
-        if (!$this->music && !$this->musicSupport) {
+        $hasMusic = ($this->ui instanceof UI)
+            ? $this->ui->hasMusic()
+            : ($this->music || $this->musicSupport);
+        if (!$hasMusic) {
             return false;
         }
         $soundfile = trim($soundfile);

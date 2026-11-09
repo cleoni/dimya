@@ -838,6 +838,15 @@ class Character extends AdvObject
         $sb .= "<li>space: free=" . $this->getFreeSpace() . "/used=" . $this->getUsedSpace() . "</li>\n";
 
         if ($this instanceof Player) {
+            $ui = $this->getUI();
+            $soundSupport = ($ui instanceof UI)
+                ? ($ui->hasSounds() ? 'ON' : 'OFF')
+                : (($this->sounds || $this->audioSupport) ? 'ON' : 'OFF');
+            $musicSupport = ($ui instanceof UI)
+                ? ($ui->hasMusic() ? 'ON' : 'OFF')
+                : (($this->music || $this->musicSupport) ? 'ON' : 'OFF');
+            $sb .= "<li>sound support: {$soundSupport}</li>\n";
+            $sb .= "<li>music support: {$musicSupport}</li>\n";
             $sb .= "<li>" . count($this->messagesQueue) . " messages</li>\n";
             $sb .= "<li>panel: " . htmlspecialchars($this->panel?->id ?? 'default', ENT_QUOTES, 'UTF-8') . "</li>\n";
             $sb .= "<li>prevpanelids: " . htmlspecialchars((string)($this->prevPanelId ?? ''), ENT_QUOTES, 'UTF-8') . "</li>\n";

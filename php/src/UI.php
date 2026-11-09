@@ -17,6 +17,53 @@ abstract class UI
     protected ?GameEngine $engine = null;
     protected string $type = 'generic';
 
+    /** @var bool Sound FX support enabled for this UI presentation */
+    public bool $sounds = true;
+    public bool $audioSupport = true;
+
+    /** @var bool Background music support enabled for this UI presentation */
+    public bool $music = true;
+    public bool $musicSupport = true;
+
+    /**
+     * Prevent serializing PDO engine or circular player instances into DB persistence.
+     * Persist only UI configuration and sound/music support flags.
+     */
+    public function __sleep(): array
+    {
+        return ['type', 'sounds', 'audioSupport', 'music', 'musicSupport'];
+    }
+
+    public function setSounds(bool $enabled): void
+    {
+        $this->sounds = $enabled;
+        $this->audioSupport = $enabled;
+        if ($this->player !== null) {
+            $this->player->sounds = $enabled;
+            $this->player->audioSupport = $enabled;
+        }
+    }
+
+    public function setMusic(bool $enabled): void
+    {
+        $this->music = $enabled;
+        $this->musicSupport = $enabled;
+        if ($this->player !== null) {
+            $this->player->music = $enabled;
+            $this->player->musicSupport = $enabled;
+        }
+    }
+
+    public function hasSounds(): bool
+    {
+        return $this->sounds || $this->audioSupport;
+    }
+
+    public function hasMusic(): bool
+    {
+        return $this->music || $this->musicSupport;
+    }
+
     /**
      * Get the UI type identifier ('html' or 'json').
      */

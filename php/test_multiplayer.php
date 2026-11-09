@@ -65,6 +65,8 @@ $sections = [
     62 => ['title' => 'Testing Player Inactivity Timeout (30s) at Tick Event & Nickname Conflict Check at Login...', 'keywords' => ['timeout', 'inactivity', 'tick', 'kill', 'lastactive', 'lastinteraction', 'nickname', 'conflict', 'login']],
     63 => ['title' => 'Testing PeopleContainer Object Entry & Scene Refresh Dispatch with Deduplication...', 'keywords' => ['refresh', 'scene', 'refresh!scene', 'peoplecontainer', 'room', 'dedup', 'commands', 'entry', 'queue']],
     64 => ['title' => 'Testing SmallBasic Goal Instruction & Database Recording in dimx_goals...', 'keywords' => ['goal', 'smallbasic', 'dimx_goals', 'hall of fame', 'hof', 'mode', 'actionsrunner', 'surfer']],
+    65 => ['title' => 'Testing Login Attempt Logging to debug.log & Stale Player Pruning Inside Main Loop at Login...', 'keywords' => ['login', 'stale', 'pruning', 'tick', 'debug.log', 'main loop', 'reconnect']],
+    66 => ['title' => 'Testing UIhtml Sound & Music Support Property Storage, Snapshot Inspection & Audio Rendering...', 'keywords' => ['sound', 'music', 'audiosupport', 'musicsupport', 'uihtml', 'snapshot', 'playbackground', 'session']],
 ];
 
 // CLI Options parsing
@@ -3725,7 +3727,12 @@ if (shouldRun(64)) {
     $pm->clearGoals($w3Sec64Id);
     $sec64Engine = new \Dimx\GameEngine($pm, $w3Sec64Id, $w3File);
     $w3World = $sec64Engine->loadOrSeedWorld();
-    assertTest($w3World->getEvent('surfer.onLook') !== null, "world3net.dxw loaded with surfer.onLook event");
+    $surferEv = $w3World->getEvent('surfer.onLook');
+    assertTest($surferEv !== null, "world3net.dxw loaded with surfer.onLook event");
+    if ($surferEv !== null) {
+        $surferEv->actions = "Goal \"Finished game\"\n" . ($surferEv->actions ?? '');
+        $sec64Engine->pm->saveWorld($w3World);
+    }
 
     // Connect player and look at surfer
     $player = $sec64Engine->ensurePlayer($w3World, 'GoalHunter');
@@ -3799,6 +3806,184 @@ if (shouldRun(64)) {
     @$pm->clearGoals($w3Sec64Id);
     @$pm->resetWorld($emptyHofWorldId);
     @$pm->clearGoals($emptyHofWorldId);
+}
+
+// -------------------------------------------------------------
+// Section 65: Testing Login Attempt Logging to debug.log & Stale Player Pruning Inside Main Loop at Login
+// -------------------------------------------------------------
+if (shouldRun(65)) {
+    echo "\n--- Section 65: Testing Login Attempt Logging to debug.log & Stale Player Pruning Inside Main Loop at Login ---\n";
+
+    $sec65WorldId = 'test_w_sec65_' . uniqid();
+    $serverW65 = [
+        'DIMX_WORLD_ID'   => $sec65WorldId,
+        'DIMX_WORLD_FILE' => dirname(__DIR__) . '/docs/dxw-examples/world3net.dxw',
+    ];
+
+    $logFile = \Dimx\GameEngine::getSystemFolder() . DIRECTORY_SEPARATOR . 'debug.log';
+    $originalLog = file_exists($logFile) ? file_get_contents($logFile) : null;
+    file_put_contents($logFile, ''); // Clear debug.log for isolated assertion
+
+    // Step 1: User "Cris65" logs in as human player
+    $loginHtml1 = runMultiplayer([
+        'username' => 'Cris65',
+        'password' => 'crisPass123',
+    ], [], $serverW65);
+
+    assertTest(str_contains($loginHtml1, '<!DOCTYPE html>'), "Cris65 received HTML scene upon initial login");
+    assertTest(str_contains($loginHtml1, 'Cris65'), "Cris65 is displayed in HTML output");
+
+    $logContent = file_get_contents($logFile);
+    assertTest(str_contains($logContent, 'USER: Cris65 (p_'), "debug.log contains initial successful login with in-memory ID");
+    assertTest(str_contains($logContent, 'STATUS: CONNECTED'), "debug.log contains STATUS: CONNECTED on successful login");
+    assertTest(str_contains($logContent, 'COMMAND: login(,)'), "debug.log contains COMMAND: login(,)");
+
+    // Step 2: Cris65 closed browser. Another tab or user immediately tries to log in with same name 'Cris65'
+    file_put_contents($logFile, ''); // Clear log to inspect this specific request
+    $loginConflictHtml = runMultiplayer([
+        'username' => 'Cris65',
+        'password' => 'crisPass123',
+    ], [], $serverW65);
+
+    assertTest(str_contains($loginConflictHtml, 'Invalid nickname - choose another'), "Login with active player returns 'Invalid nickname - choose another'");
+    $logContentConflict = file_get_contents($logFile);
+    assertTest(str_contains($logContentConflict, 'USER: Cris65'), "debug.log contains login attempt for Cris65");
+    assertTest(str_contains($logContentConflict, 'STATUS: DISCONNECTED'), "debug.log contains STATUS: DISCONNECTED on nickname conflict");
+    assertTest(str_contains($logContentConflict, 'COMMAND: login(,)'), "debug.log contains COMMAND: login(,) for rejected attempt");
+
+    // Step 3: Test wrong password attempt is also logged to debug.log with STATUS: DISCONNECTED
+    file_put_contents($logFile, '');
+    $wrongPassHtml = runMultiplayer([
+        'username' => 'Cris65',
+        'password' => 'wrong_password_here',
+    ], [], $serverW65);
+    assertTest(str_contains($wrongPassHtml, 'Authentication failed') || str_contains($wrongPassHtml, 'Incorrect password'), "Wrong password returns authentication error");
+    $logContentWrong = file_get_contents($logFile);
+    assertTest(str_contains($logContentWrong, 'USER: Cris65'), "debug.log contains failed login attempt for Cris65 with wrong password");
+    assertTest(str_contains($logContentWrong, 'STATUS: DISCONNECTED'), "debug.log contains STATUS: DISCONNECTED for wrong password attempt");
+
+    // Step 4: Simulate 35 seconds passing with no contact from Cris65 (closed browser)
+    $engine65 = new \Dimx\GameEngine($pm, $sec65WorldId, $serverW65['DIMX_WORLD_FILE'], '', ['debugTo' => 'file']);
+    $w65 = $pm->loadWorld($sec65WorldId);
+    $crisPlayer = $w65->getPlayerByName('Cris65');
+    assertTest($crisPlayer !== null, "Cris65 exists in persisted world before timeout");
+    $crisPlayer->lastInteraction = time() - 35;
+    $crisPlayer->lastActive = time() - 35;
+    $pm->saveWorld($w65);
+
+    // Step 5: Cris65 returns and submits login with 'Cris65' and correct password
+    file_put_contents($logFile, '');
+    $loginHtmlReconnected = runMultiplayer([
+        'username' => 'Cris65',
+        'password' => 'crisPass123',
+    ], [], $serverW65);
+
+    assertTest(!str_contains($loginHtmlReconnected, 'Invalid nickname - choose another'), "Returning player after 35s is NOT blocked by nickname collision");
+    assertTest(str_contains($loginHtmlReconnected, '<!DOCTYPE html>'), "Returning player receives HTML scene");
+    assertTest(str_contains($loginHtmlReconnected, 'Cris65'), "Returning player scene includes Cris65");
+
+    $logContentReconnected = file_get_contents($logFile);
+    assertTest(str_contains($logContentReconnected, 'Pruning stale player Cris65'), "debug.log records stale player pruning of old Cris65 session");
+    assertTest(str_contains($logContentReconnected, 'STATUS: CONNECTED'), "debug.log records STATUS: CONNECTED for reconnected Cris65");
+
+    // Restore debug.log
+    if ($originalLog !== null) {
+        file_put_contents($logFile, $originalLog);
+    } else {
+        @unlink($logFile);
+    }
+
+    // Clean up
+    @$pm->resetWorld($sec65WorldId);
+}
+
+// -------------------------------------------------------------
+// Section 66: Testing UIhtml Sound & Music Support Property Storage, Snapshot Inspection & Audio Rendering
+// -------------------------------------------------------------
+if (shouldRun(66)) {
+    echo "\n--- Section 66: Testing UIhtml Sound & Music Support Property Storage, Snapshot Inspection & Audio Rendering ---\n";
+
+    // 1. UIhtml constructor defaults & methods
+    $uiDefault = new \Dimx\UIhtml();
+    assertTest($uiDefault->hasSounds() === true, "UIhtml default sounds is ON (true)");
+    assertTest($uiDefault->hasMusic() === true, "UIhtml default music is ON (true)");
+
+    $uiDefault->setSounds(false);
+    $uiDefault->setMusic(false);
+    assertTest($uiDefault->hasSounds() === false, "UIhtml setSounds(false) turns sounds OFF");
+    assertTest($uiDefault->hasMusic() === false, "UIhtml setMusic(false) turns music OFF");
+
+    // 2. Snapshot output on Player character
+    $sec66WorldId = 'test_w_sec66_' . uniqid();
+    $serverW66 = [
+        'DIMX_WORLD_ID'   => $sec66WorldId,
+        'DIMX_WORLD_FILE' => dirname(__DIR__) . '/docs/dxw-examples/world3net.dxw',
+    ];
+
+    // Login with Sounds & Music ON
+    $sessionMusicOn = [];
+    $htmlMusicOn = runMultiplayer([
+        'username'   => 'AudioTester',
+        'password'   => 'audioPass123',
+        'sounds'     => '1',
+        'music'      => '1',
+        'has_sounds' => '1',
+        'has_music'  => '1',
+    ], $sessionMusicOn, $serverW66);
+
+    assertTest(str_contains($htmlMusicOn, '<!DOCTYPE html>'), "AudioTester logged in successfully");
+    assertTest(!isset($sessionMusicOn['dimx_sounds']), "Sound support is NOT stored in PHP \$_SESSION");
+    assertTest(!isset($sessionMusicOn['dimx_music']), "Music support is NOT stored in PHP \$_SESSION");
+
+    // Verify System Snapshot via $world->htmlAdminSnapshot()
+    $engine66 = new \Dimx\GameEngine($pm, $sec66WorldId, $serverW66['DIMX_WORLD_FILE']);
+    $w66 = $engine66->loadOrSeedWorld(false);
+    $audioPlayer = $w66->getPlayerByName('AudioTester');
+    assertTest($audioPlayer !== null, "AudioTester found in persisted world");
+    assertTest($audioPlayer->getUI() instanceof \Dimx\UIhtml, "AudioTester has active UIhtml instance");
+    assertTest($audioPlayer->getUI()->hasSounds() === true, "AudioTester UIhtml hasSounds() is true");
+    assertTest($audioPlayer->getUI()->hasMusic() === true, "AudioTester UIhtml hasMusic() is true");
+
+    $snapshotOn = $w66->htmlAdminSnapshot();
+    assertTest(str_contains($snapshotOn, 'sound support: ON'), "System Snapshot contains 'sound support: ON'");
+    assertTest(str_contains($snapshotOn, 'music support: ON'), "System Snapshot contains 'music support: ON'");
+
+    // Login with Sounds & Music OFF
+    $sessionMusicOff = [];
+    $htmlMusicOff = runMultiplayer([
+        'username'   => 'SilentTester',
+        'password'   => 'silentPass123',
+        'has_sounds' => '1',
+        'has_music'  => '1',
+    ], $sessionMusicOff, $serverW66);
+
+    assertTest(str_contains($htmlMusicOff, '<!DOCTYPE html>'), "SilentTester logged in successfully");
+    assertTest(!isset($sessionMusicOff['dimx_sounds']), "Sound support is NOT stored in PHP \$_SESSION for SilentTester");
+    assertTest(!isset($sessionMusicOff['dimx_music']), "Music support is NOT stored in PHP \$_SESSION for SilentTester");
+
+    $w66Reloaded = $engine66->loadOrSeedWorld(false);
+    $silentPlayer = $w66Reloaded->getPlayerByName('SilentTester');
+    assertTest($silentPlayer !== null, "SilentTester found in persisted world");
+    assertTest($silentPlayer->getUI() instanceof \Dimx\UIhtml, "SilentTester has active UIhtml instance");
+    assertTest($silentPlayer->getUI()->hasSounds() === false, "SilentTester UIhtml hasSounds() is false");
+    assertTest($silentPlayer->getUI()->hasMusic() === false, "SilentTester UIhtml hasMusic() is false");
+
+    $snapshotOff = $w66Reloaded->htmlAdminSnapshot();
+    assertTest(str_contains($snapshotOff, 'sound support: OFF'), "System Snapshot contains 'sound support: OFF'");
+    assertTest(str_contains($snapshotOff, 'music support: OFF'), "System Snapshot contains 'music support: OFF'");
+
+    // 3. Audio / Background music rendering behavior
+    // For AudioTester (music ON), playBackground queues music
+    $audioPlayer->playBackground('test_track.mp3', true);
+    assertTest($audioPlayer->backgroundSound !== null, "playBackground queues sound for AudioTester (music ON)");
+
+    // For SilentTester (music OFF), playBackground is ignored
+    $queued = $silentPlayer->playBackground('test_track.mp3', true);
+    assertTest($queued === false, "playBackground returns false for SilentTester (music OFF)");
+    assertTest($silentPlayer->backgroundSound === null, "playBackground does NOT queue sound for SilentTester");
+
+    // Clean up
+    @$pm->resetWorld($sec66WorldId);
 }
 
 // Clean up test worlds

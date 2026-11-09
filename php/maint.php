@@ -36,7 +36,7 @@ if (!empty($action) && (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' || $action
         $_SESSION['adminPasswd'] = $inputPasswd;
         switch ($action) {
             case 'snapshot':
-                $worldId   = $_SERVER['DIMX_WORLD_ID'] ?? 'main';
+                $worldId   = trim((string)($_SERVER['DIMX_WORLD_ID'] ?? $_POST['world_id'] ?? $_GET['world_id'] ?? ($config['world_id'] ?? 'main')));
                 $worldFile = $_SERVER['DIMX_WORLD_FILE'] ?? $_ENV['DIMX_WORLD_FILE'] ?? ($config['world_file'] ?? $config['default_world'] ?? null);
                 if (empty($worldFile) || !file_exists($worldFile)) {
                     if (file_exists(__DIR__ . '/world3net.dxw')) {
@@ -108,14 +108,14 @@ if (!empty($action) && (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' || $action
                 break;
 
             case 'reset_world':
-                $worldId = 'main';
+                $worldId = trim((string)($_SERVER['DIMX_WORLD_ID'] ?? $_POST['world_id'] ?? $_GET['world_id'] ?? ($config['world_id'] ?? 'main')));
                 $purgePlayers = !empty($_POST['purge_players']);
                 $pm->resetWorld($worldId, $purgePlayers);
                 $message = "The game world has been reset and all active player sessions have been invalidated. It will be re-seeded from server configuration on the next player connection.";
                 break;
 
             case 'clear_chat':
-                $worldId = 'main';
+                $worldId = trim((string)($_SERVER['DIMX_WORLD_ID'] ?? $_POST['world_id'] ?? $_GET['world_id'] ?? ($config['world_id'] ?? 'main')));
                 if ($pm->isConnected()) {
                     try {
                         $pdo = $pm->getPdo();

@@ -251,6 +251,25 @@ class GameEngine
     }
 
     /**
+     * Advance the world clock tick and prune stale players inside concurrency lock.
+     */
+    public function executeTick(): void
+    {
+        if ($this->pdo !== null && $this->lock !== null) {
+            $this->lock->executeAtomic($this->worldId, function (\PDO $pdo): array {
+                $world = $this->loadOrSeedWorld(true);
+                $world->tick();
+                $this->pm->saveWorld($world);
+                return [];
+            });
+        } else {
+            $world = $this->loadOrSeedWorld(true);
+            $world->tick();
+            $this->pm->saveWorld($world);
+        }
+    }
+
+    /**
      * Ensure the player exists in the world, setting start room and UI if new.
      * The in-memory player ID lives strictly in memory and changes every time the user logs in.
      */
@@ -306,9 +325,19 @@ class GameEngine
             $player->isBot     = $isBot;
             if ($sounds !== null) {
                 $player->setSounds($sounds);
+                if ($ui instanceof UI) {
+                    $ui->setSounds($sounds);
+                }
+            } elseif ($ui instanceof UI) {
+                $player->setSounds($ui->hasSounds());
             }
             if ($music !== null) {
                 $player->setMusic($music);
+                if ($ui instanceof UI) {
+                    $ui->setMusic($music);
+                }
+            } elseif ($ui instanceof UI) {
+                $player->setMusic($ui->hasMusic());
             }
             if ($player->skin?->picPlayer) {
                 $player->images['N'] = clone $player->skin->picPlayer;
@@ -400,9 +429,30 @@ class GameEngine
             }
             if ($sounds !== null) {
                 $player->setSounds($sounds);
+                if ($ui instanceof UI) {
+                    $ui->setSounds($sounds);
+                }
+            } elseif ($player->ui instanceof UI) {
+                if ($ui instanceof UI) {
+                    $ui->setSounds($player->ui->hasSounds());
+                }
+                $player->setSounds($player->ui->hasSounds());
+            } elseif ($ui instanceof UI) {
+                $ui->setSounds($player->sounds || $player->audioSupport);
             }
+
             if ($music !== null) {
                 $player->setMusic($music);
+                if ($ui instanceof UI) {
+                    $ui->setMusic($music);
+                }
+            } elseif ($player->ui instanceof UI) {
+                if ($ui instanceof UI) {
+                    $ui->setMusic($player->ui->hasMusic());
+                }
+                $player->setMusic($player->ui->hasMusic());
+            } elseif ($ui instanceof UI) {
+                $ui->setMusic($player->music || $player->musicSupport);
             }
             if ($chosenSkin !== null) {
                 $player->setSkin($chosenSkin);
@@ -498,7 +548,47 @@ class GameEngine
             $result = $this->lock->executeAtomic($this->worldId, function (\PDO $pdo) use (
                 $playerName, $cmd, $arg0, $arg1, $ui, $loggedOut, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music, $view, $rawInput
             ): array {
-                $world  = $this->loadOrSeedWorld();
+                $world = $this->loadOrSeedWorld(true);
+
+                if ($isNewLogin) {
+                    $isNpcCollision = false;
+                    foreach ($world->characters as $c) {
+                        if (!$c instanceof Player) {
+                            if (strcasecmp(trim($c->name), trim($playerName)) === 0 || strcasecmp(trim($c->id), trim($playerName)) === 0) {
+                                $isNpcCollision = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    $activeInWorld = $world->getPlayerByName($playerName);
+                    $isPlayerCollision = false;
+                    if ($activeInWorld !== null) {
+                        if ($isBot && (int)$activeInWorld->numericId === $numericId && $cmd !== 'login') {
+                            $isPlayerCollision = false;
+                        } else {
+                            $isPlayerCollision = true;
+                        }
+                    }
+
+                    if ($isNpcCollision || $isPlayerCollision) {
+                        $room = $activeInWorld?->getRoom();
+                        $roomStr = ($room !== null) ? ($room->name . ' (' . $room->id . ')') : '';
+                        $commandStr = $cmd . '(' . $arg0 . ',' . $arg1 . ')';
+                        $dateStr = date('Y-m-d H:i:s');
+                        $this->log("{$dateStr} USER: {$playerName} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: {$roomStr} | STATUS: DISCONNECTED");
+
+                        $world->tick();
+                        $this->pm->saveWorld($world);
+
+                        return [
+                            'world'       => $world,
+                            'player'      => null,
+                            'login_error' => 'Invalid nickname - choose another',
+                        ];
+                    }
+                }
+
                 $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music);
 
                 $userStr    = $playerName . ' (' . $player->id . ')';
@@ -580,6 +670,32 @@ class GameEngine
                     $player->setSkin($sk);
                 }
             } else {
+                if (!empty($result['login_error'])) {
+                    $storageLabel = $this->pm->checkConnection()['type'];
+                    return [
+                        'world'            => $result['world'] ?? null,
+                        'player'           => null,
+                        'room'             => null,
+                        'messages'         => [],
+                        'chat'             => [],
+                        'sound'            => null,
+                        'background_music' => null,
+                        'new_messages'     => false,
+                        'commands'         => '',
+                        'lockError'        => false,
+                        'login_error'      => $result['login_error'],
+                        'success'          => false,
+                        'cmd'              => $cmd,
+                        'arg0'             => $arg0,
+                        'arg1'             => $arg1,
+                        'param'            => $arg0,
+                        'target'           => $arg1,
+                        'storageLabel'     => $storageLabel,
+                        'worldId'          => $this->worldId,
+                        'status'           => 'login_required',
+                        'error'            => $result['login_error'],
+                    ];
+                }
                 $world           = $result['world'];
                 $player          = $result['player'];
                 $consoleMessages = $result['msgs'];
@@ -592,7 +708,66 @@ class GameEngine
             }
         } else {
             // Graceful degradation when DB is offline (session / memory fallback)
-            $world  = $this->loadOrSeedWorld();
+            $world  = $this->loadOrSeedWorld(true);
+
+            if ($isNewLogin) {
+                $isNpcCollision = false;
+                foreach ($world->characters as $c) {
+                    if (!$c instanceof Player) {
+                        if (strcasecmp(trim($c->name), trim($playerName)) === 0 || strcasecmp(trim($c->id), trim($playerName)) === 0) {
+                            $isNpcCollision = true;
+                            break;
+                        }
+                    }
+                }
+
+                $activeInWorld = $world->getPlayerByName($playerName);
+                $isPlayerCollision = false;
+                if ($activeInWorld !== null) {
+                    if ($isBot && (int)$activeInWorld->numericId === $numericId && $cmd !== 'login') {
+                        $isPlayerCollision = false;
+                    } else {
+                        $isPlayerCollision = true;
+                    }
+                }
+
+                if ($isNpcCollision || $isPlayerCollision) {
+                    $room = $activeInWorld?->getRoom();
+                    $roomStr = ($room !== null) ? ($room->name . ' (' . $room->id . ')') : '';
+                    $commandStr = $cmd . '(' . $arg0 . ',' . $arg1 . ')';
+                    $dateStr = date('Y-m-d H:i:s');
+                    $this->log("{$dateStr} USER: {$playerName} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: {$roomStr} | STATUS: DISCONNECTED");
+
+                    $world->tick();
+                    $this->pm->saveWorld($world);
+
+                    $storageLabel = $this->pm->checkConnection()['type'];
+                    return [
+                        'world'            => $world,
+                        'player'           => null,
+                        'room'             => null,
+                        'messages'         => [],
+                        'chat'             => [],
+                        'sound'            => null,
+                        'background_music' => null,
+                        'new_messages'     => false,
+                        'commands'         => '',
+                        'lockError'        => false,
+                        'login_error'      => 'Invalid nickname - choose another',
+                        'success'          => false,
+                        'cmd'              => $cmd,
+                        'arg0'             => $arg0,
+                        'arg1'             => $arg1,
+                        'param'            => $arg0,
+                        'target'           => $arg1,
+                        'storageLabel'     => $storageLabel,
+                        'worldId'          => $this->worldId,
+                        'status'           => 'login_required',
+                        'error'            => 'Invalid nickname - choose another',
+                    ];
+                }
+            }
+
             $player = $this->ensurePlayer($world, $playerName, $ui, $numericId, $isBot, $isNewLogin, $existingEngineId, $skinId, $sounds, $music);
 
             $userStr    = $playerName . ' (' . $player->id . ')';
@@ -638,7 +813,7 @@ class GameEngine
             }
         }
 
-        if ($ui !== null) {
+        if ($player !== null && $ui !== null) {
             $player->setUI($ui);
         }
 
@@ -648,12 +823,12 @@ class GameEngine
             : 5;
 
         // Messages box (Cell C) displays the player's 10 most recent incoming messages only (arrival order)
-        $chatMessages = $player->getMessages();
+        $chatMessages = $player ? $player->getMessages() : [];
 
         return [
             'world'            => $world,
             'player'           => $player,
-            'room'             => $player->getRoom(),
+            'room'             => $player?->getRoom(),
             'messages'         => $consoleMessages,
             'chat'             => $chatMessages,
             'sound'            => $pendingSound,

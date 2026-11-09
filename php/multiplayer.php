@@ -68,8 +68,6 @@ if ($resetWorld) {
         $_SESSION['dimx_is_bot'],
         $_SESSION['dimx_engine_player_id'],
         $_SESSION['dimx_skin'],
-        $_SESSION['dimx_sounds'],
-        $_SESSION['dimx_music'],
         $_SESSION['dimx_world_obj']
     );
 } elseif ($activeResetToken !== '' && (!isset($_SESSION['dimx_world_reset_token']) || $_SESSION['dimx_world_reset_token'] !== $activeResetToken)) {
@@ -80,8 +78,6 @@ if ($resetWorld) {
         $_SESSION['dimx_is_bot'],
         $_SESSION['dimx_engine_player_id'],
         $_SESSION['dimx_skin'],
-        $_SESSION['dimx_sounds'],
-        $_SESSION['dimx_music'],
         $_SESSION['dimx_world_obj']
     );
 }
@@ -123,15 +119,21 @@ if ($requestedSkin !== '') {
 }
 $activeSkin = $requestedSkin !== '' ? $requestedSkin : (string)($_SESSION['dimx_skin'] ?? '');
 
-// Capture Sounds & Music checkboxes at login or when explicitly passed
-if (!empty($requestedUser) || !empty($input['has_sounds'])) {
-    $_SESSION['dimx_sounds'] = (bool)($input['sounds'] ?? false);
+// Capture Sounds & Music checkboxes at login form submission or when explicitly passed
+$isLoginSubmission = (!empty($requestedUser) && $password !== '');
+$explicitSounds = ($isLoginSubmission || !empty($input['has_sounds'])) ? (bool)($input['sounds'] ?? false) : null;
+$explicitMusic  = ($isLoginSubmission || !empty($input['has_music']))  ? (bool)($input['music'] ?? false)  : null;
+
+if ($ui instanceof UI) {
+    if ($explicitSounds !== null) {
+        $ui->setSounds($explicitSounds);
+    }
+    if ($explicitMusic !== null) {
+        $ui->setMusic($explicitMusic);
+    }
 }
-if (!empty($requestedUser) || !empty($input['has_music'])) {
-    $_SESSION['dimx_music'] = (bool)($input['music'] ?? false);
-}
-$activeSounds = isset($_SESSION['dimx_sounds']) ? (bool)$_SESSION['dimx_sounds'] : null;
-$activeMusic  = isset($_SESSION['dimx_music']) ? (bool)$_SESSION['dimx_music'] : null;
+$activeSounds = $explicitSounds;
+$activeMusic  = $explicitMusic;
 
 if (!empty($requestedUser)) {
     // If client supplied an explicit username:
@@ -154,8 +156,12 @@ if (!empty($requestedUser)) {
     } else {
         // Authenticate credentials or auto-create account
         if ($password === '') {
+            $commandStr = ($input['cmd'] ?? 'login') . '(' . ($input['arg0'] ?? '') . ',' . ($input['arg1'] ?? '') . ')';
+            $dateStr    = date('Y-m-d H:i:s');
+            $engine->log("{$dateStr} USER: {$requestedUser} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: | STATUS: DISCONNECTED");
+            $engine->executeTick();
             if ($ui instanceof UIhtml) {
-                $ui->renderLogin("Password is required for player '{$requestedUser}'.", $requestedUser, $activeSkin, (bool)$activeSounds, (bool)$activeMusic);
+                $ui->renderLogin("Password is required for player '{$requestedUser}'.", $requestedUser, $activeSkin, $ui->hasSounds(), $ui->hasMusic());
             } else {
                 $ui->renderLogin("Password is required for player '{$requestedUser}'.", $requestedUser, $activeSkin);
             }
@@ -164,8 +170,12 @@ if (!empty($requestedUser)) {
 
         $auth = $pm->authenticateOrCreatePlayer($worldId, $requestedUser, $password, $isBot);
         if (!$auth['success']) {
+            $commandStr = ($input['cmd'] ?? 'login') . '(' . ($input['arg0'] ?? '') . ',' . ($input['arg1'] ?? '') . ')';
+            $dateStr    = date('Y-m-d H:i:s');
+            $engine->log("{$dateStr} USER: {$requestedUser} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: | STATUS: DISCONNECTED");
+            $engine->executeTick();
             if ($ui instanceof UIhtml) {
-                $ui->renderLogin($auth['error'] ?? 'Authentication failed.', $requestedUser, $activeSkin, (bool)$activeSounds, (bool)$activeMusic);
+                $ui->renderLogin($auth['error'] ?? 'Authentication failed.', $requestedUser, $activeSkin, $ui->hasSounds(), $ui->hasMusic());
             } else {
                 $ui->renderLogin($auth['error'] ?? 'Authentication failed.', $requestedUser, $activeSkin);
             }
@@ -175,50 +185,7 @@ if (!empty($requestedUser)) {
         $playerName = (string)($auth['name'] ?? $requestedUser);
         $numericId  = (int)($auth['numeric_id'] ?? 0);
         $isBot      = !empty($auth['is_bot']) || $isBot;
-
-        // Name check: no player should ever log in with a name that is already in use in the World
-        $world = $engine->loadOrSeedWorld(false);
-
-        // 1. Check if name collides with an NPC Character in the world
-        $isNpcCollision = false;
-        foreach ($world->characters as $c) {
-            if (!$c instanceof \Dimx\Player) {
-                if (strtolower(trim($c->name)) === strtolower(trim($playerName)) || strtolower(trim($c->id)) === strtolower(trim($playerName))) {
-                    $isNpcCollision = true;
-                    break;
-                }
-            }
-        }
-
-        // 2. Check if name collides with an active Player already in the World
-        $activeInWorld = $world->getPlayerByName($playerName);
-        $isPlayerCollision = false;
-        if ($activeInWorld !== null) {
-            // For a bot API request (no session cookie) continuing existing session with matching numeric ID: allow command dispatch
-            if ($isBot && (int)$activeInWorld->numericId === $numericId && ($input['cmd'] ?? '') !== 'login') {
-                $isPlayerCollision = false;
-            } else {
-                $isPlayerCollision = true;
-            }
-        }
-
-        if ($isNpcCollision || $isPlayerCollision) {
-            $err = "Invalid nickname - choose another";
-            if ($ui instanceof UIhtml) {
-                $ui->renderLogin($err, $requestedUser, $activeSkin, (bool)$activeSounds, (bool)$activeMusic);
-            } else {
-                $ui->renderLogin($err, $requestedUser, $activeSkin);
-            }
-            exit;
-        }
-
-        $_SESSION['dimx_player']            = $playerName;
-        $_SESSION['dimx_authenticated']     = true;
-        $_SESSION['dimx_numeric_id']        = $numericId;
-        $_SESSION['dimx_is_bot']            = $isBot;
-        $_SESSION['dimx_world_reset_token'] = $activeResetToken;
-
-        $isNewLogin      = true;
+        $isNewLogin = true;
         $sessionEngineId = null;
     }
 } elseif ($isAuthenticated && $sessionUser !== '') {
@@ -232,16 +199,12 @@ if (!empty($requestedUser)) {
         exit;
     }
     if ($ui instanceof UIhtml) {
-        $ui->renderLogin(null, null, $activeSkin, (bool)$activeSounds, (bool)$activeMusic);
+        $ui->renderLogin(null, null, $activeSkin, $ui->hasSounds(), $ui->hasMusic());
     } else {
         $ui->renderLogin(null, null, $activeSkin);
     }
     exit;
 }
-
-$_SESSION['dimx_player']            = $playerName;
-$_SESSION['dimx_world']             = $worldId;
-$_SESSION['dimx_world_reset_token'] = $activeResetToken;
 
 // Ensure UI instance matches finalized playerName
 if ($clientType === 'json') {
@@ -267,6 +230,29 @@ $result = $engine->processCommand(
     $input['raw'] ?? []
 );
 
+if (!empty($result['login_error'])) {
+    unset(
+        $_SESSION['dimx_player'],
+        $_SESSION['dimx_authenticated'],
+        $_SESSION['dimx_numeric_id'],
+        $_SESSION['dimx_is_bot'],
+        $_SESSION['dimx_engine_player_id']
+    );
+    if ($ui instanceof UIhtml) {
+        $ui->renderLogin($result['login_error'], $requestedUser, $activeSkin, $ui->hasSounds(), $ui->hasMusic());
+    } else {
+        $ui->renderLogin($result['login_error'], $requestedUser, $activeSkin);
+    }
+    exit;
+}
+
+$_SESSION['dimx_player']            = $playerName;
+$_SESSION['dimx_world']             = $worldId;
+$_SESSION['dimx_authenticated']     = true;
+$_SESSION['dimx_numeric_id']        = $numericId;
+$_SESSION['dimx_is_bot']            = $isBot;
+$_SESSION['dimx_world_reset_token'] = $activeResetToken;
+
 // Store the active in-memory player ID in session
 if (!empty($result['player']) && $result['player'] instanceof Dimx\Player) {
     $_SESSION['dimx_engine_player_id'] = $result['player']->id;
@@ -280,9 +266,7 @@ if (!empty($result['logged_out']) || !empty($result['reset'])) {
         $_SESSION['dimx_numeric_id'],
         $_SESSION['dimx_is_bot'],
         $_SESSION['dimx_engine_player_id'],
-        $_SESSION['dimx_skin'],
-        $_SESSION['dimx_sounds'],
-        $_SESSION['dimx_music']
+        $_SESSION['dimx_skin']
     );
 }
 

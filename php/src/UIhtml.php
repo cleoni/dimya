@@ -12,11 +12,24 @@ namespace Dimx;
  */
 class UIhtml extends UI
 {
-    public function __construct(?Player $player = null, ?GameEngine $engine = null)
-    {
+    public function __construct(
+        ?Player $player = null,
+        ?GameEngine $engine = null,
+        bool $sounds = true,
+        bool $music = true
+    ) {
         $this->type = 'html';
         $this->player = $player;
         $this->engine = $engine;
+        $this->sounds = $sounds;
+        $this->audioSupport = $sounds;
+        $this->music = $music;
+        $this->musicSupport = $music;
+    }
+
+    public function __sleep(): array
+    {
+        return ['type', 'sounds', 'audioSupport', 'music', 'musicSupport'];
     }
 
     /**
@@ -39,7 +52,7 @@ class UIhtml extends UI
     /**
      * Render the login form for human players.
      */
-    public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null, ?string $selectedSkin = null, bool $sounds = false, bool $music = false): void
+    public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null, ?string $selectedSkin = null, bool $sounds = true, bool $music = true): void
     {
         if (!headers_sent()) {
             header('Content-Type: text/html; charset=utf-8');
@@ -450,9 +463,13 @@ class UIhtml extends UI
         $links        = (!$isInsideVehicle && $currentRoom) ? array_values(array_filter($currentRoom->getLinks(), fn($l) => !$l->isHidden()))     : [];
         $activePanel  = $player->getPanel() ?? $world->defaultPanel;
 
-        // One-shot Sound FX resolution (only for players who enabled Sounds at login)
+        // One-shot Sound FX resolution (driven by UIhtml sound support property)
         $commands      = (string)($context['commands'] ?? '');
-        $soundsEnabled = !empty($player->sounds) || !empty($player->audioSupport);
+        $soundsEnabled = $this->hasSounds();
+        if ($player !== null) {
+            $player->sounds = $soundsEnabled;
+            $player->audioSupport = $soundsEnabled;
+        }
         $pendingSound  = $context['sound'] ?? $player->drainSound();
         $hasNewMsgs    = !empty($context['new_messages']) || $player->drainNewMessages();
         $soundUrl      = null;
@@ -467,8 +484,12 @@ class UIhtml extends UI
             $player->drainNewMessages();
         }
 
-        // Background Music resolution (only for players who enabled Music at login)
-        $musicEnabled = !empty($player->music) || !empty($player->musicSupport);
+        // Background Music resolution (driven by UIhtml music support property)
+        $musicEnabled = $this->hasMusic();
+        if ($player !== null) {
+            $player->music = $musicEnabled;
+            $player->musicSupport = $musicEnabled;
+        }
         $pendingBg    = $context['background_music'] ?? $player->drainBackgroundSound();
         $bgMusic      = null;
         $bgTriggered  = false;
@@ -1837,7 +1858,7 @@ class UIhtml extends UI
                   <?= $activePanel?->toHtml($skin) ?>
                 </form>
                 <?php if ($musicEnabled): ?>
-                  <audio id="bgplayer" hidden style="display:none"></audio>
+                  <audio id="bgplayer"<?= ($bgMusic !== null && !empty($bgMusic['src'])) ? ' src="' . htmlspecialchars($bgMusic['src']) . '"' : '' ?><?= (!empty($bgMusic['loop'])) ? ' loop' : '' ?> hidden style="display:none"></audio>
                 <?php endif; ?>
               </div>
 
@@ -2428,7 +2449,7 @@ class UIhtml extends UI
               }
 
               // 4. Execute backend audio/music orders from #dimx-scene-meta
-              const meta = document.getElementById('dimx-scene-meta');
+              const meta = doc.getElementById('dimx-scene-meta') || document.getElementById('dimx-scene-meta');
               if (meta) {
                 const soundUrl    = meta.getAttribute('data-sound-url') || '';
                 const bgSrc       = meta.getAttribute('data-bg-src') || '';
@@ -2489,22 +2510,50 @@ class UIhtml extends UI
 
             function playBackgroundMusic(src, loop = false, forceRestart = false) {
               if (!MUSIC_ENABLED || !src) return;
-              const $bg = $('#bgplayer');
-              const player = $bg.length ? $bg[0] : document.getElementById('bgplayer');
-              if (!player) return;
+              let player = document.getElementById('bgplayer');
+              if (!player) {
+                player = document.createElement('audio');
+                player.id = 'bgplayer';
+                player.hidden = true;
+                player.style.display = 'none';
+                (document.getElementById('ctrls') || document.body).appendChild(player);
+              }
               player.loop = !!loop;
-              const currentSrc = player.getAttribute('src') || '';
-              if (currentSrc === src && !forceRestart) {
+              const currentAttr = player.getAttribute('src') || '';
+              const currentProp = player.src || '';
+              let fullTargetUrl = src;
+              try {
+                fullTargetUrl = new URL(src, window.location.href).href;
+              } catch (e) {}
+
+              const isSame = (currentAttr === src) || (currentProp === fullTargetUrl) || (currentProp === src);
+
+              if (isSame && !forceRestart && !player.paused) {
                 return;
               }
-              if (currentSrc !== src) {
-                $bg.attr('src', src);
-              } else {
+
+              if (!isSame || forceRestart) {
+                player.src = src;
+                player.setAttribute('src', src);
+                player.load();
+              } else if (player.paused) {
                 try { player.currentTime = 0; } catch (e) {}
               }
+
               const playPromise = player.play();
               if (playPromise && typeof playPromise.catch === 'function') {
-                playPromise.catch(function() {});
+                playPromise.catch(function(err) {
+                  // Autoplay policy fallback: resume playing on first user gesture
+                  const resumeOnInteract = function() {
+                    player.play().catch(function() {});
+                    document.removeEventListener('click', resumeOnInteract);
+                    document.removeEventListener('keydown', resumeOnInteract);
+                    document.removeEventListener('touchstart', resumeOnInteract);
+                  };
+                  document.addEventListener('click', resumeOnInteract, { once: true });
+                  document.addEventListener('keydown', resumeOnInteract, { once: true });
+                  document.addEventListener('touchstart', resumeOnInteract, { once: true });
+                });
               }
             }
             window.playBackgroundMusic = playBackgroundMusic;
