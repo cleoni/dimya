@@ -85,6 +85,26 @@ class UIjson extends UI
     }
 
     /**
+     * Render the Hall of Fame view as JSON (multiplayer.php?view=hof&format=json).
+     */
+    public function renderHof(World $world, array $goals = [], string $format = '', ?Skin $skin = null): void
+    {
+        $payload = [
+            'success'     => true,
+            'view'        => 'hof',
+            'world'       => [
+                'id'      => $world->id,
+                'name'    => $world->name,
+                'version' => $world->version,
+            ],
+            'goals_count' => count($goals),
+            'goals'       => $goals,
+        ];
+
+        $this->sendJson($payload);
+    }
+
+    /**
      * Render the game state / command outcome as a structured JSON record.
      */
     public function render(array $context): void

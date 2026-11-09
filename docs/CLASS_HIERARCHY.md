@@ -173,6 +173,13 @@ Identical to DimensioneX:
 - [`chat.php`](file:///c:/xampp/htdocs/dimya/php/chat.php) is a separate, lock-free endpoint polled by [`UIhtml`](file:///c:/xampp/htdocs/dimya/php/src/UIhtml.php#L13) every `msgRefreshRate` seconds (configured in [`php/config.php`](file:///c:/xampp/htdocs/dimya/php/config.php), default `5`s) to refresh `#msgs`, so chat polling never contends with the world lock.
 - [`maint.php`](file:///c:/xampp/htdocs/dimya/php/maint.php) is the administration page (DB check/init, profiles, diagnostics); [`bot.php`](file:///c:/xampp/htdocs/dimya/php/bot.php) is a sample cURL bot client; [`test_multiplayer.php`](file:///c:/xampp/htdocs/dimya/php/test_multiplayer.php) holds automated tests.
 
+#### Supported Gateway Views (`multiplayer.php?view=*`)
+The `view` HTTP request parameter (via GET or POST) selects the response presentation:
+- **`view=scene`** *(Default)*: Full interactive virtual world gameplay interface (`#scene`, `#display`, `#dashboard`, `#ctrls`, and `#msgs`).
+- **`view=players`**: "Who's Online" view (§1.2.16). Displays the active player count; when called with `format=extended`, lists all connected players and their current room locations. Also supports `format=json`.
+- **`view=hof`**: "Hall of Fame" view. Displays the name of the world, version, and the table of completed `Goal` events from `dimx_goals` in date order (latest to oldest), showing Date, Player Name, World Version, and Goal Message. Also supports `format=json`.
+- **`view=msgs`**: Lightweight AJAX polling endpoint returning recent chat messages and queued client UI commands as JSON.
+
 ---
 
 ## 4. Detailed UML Class Diagrams with Operations & Attributes
@@ -235,6 +242,7 @@ classDiagram
         +tick(bool force) bool
         +broadcast(string msg) bool
         +postChatMessage(...) bool
+        +goal(string agentName, ?string message, int score) bool
     }
 
     class AdvObject {
@@ -422,6 +430,8 @@ classDiagram
         +authenticateOrCreatePlayer(...) 
         +postMessage(...) bool
         +getMessages(...) array
+        +recordGoal(string worldId, string playerName, int score, ?string worldVersion, ?string message) bool
+        +getGoals(string worldId, int limit) array
     }
 
     class WorldLock {
@@ -460,6 +470,8 @@ classDiagram
         +render(array ctx)*
         +renderLogin(...)*
         +renderError(...)*
+        +renderPlayers(World w, string format, Skin skin)*
+        +renderHof(World w, array goals, string format, Skin skin)*
     }
 
     class UIhtml

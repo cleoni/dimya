@@ -262,6 +262,84 @@ class UIhtml extends UI
     }
 
     /**
+     * Render the Hall of Fame view (multiplayer.php?view=hof).
+     * Prints Name of the World and goal events sorted from latest to oldest with
+     * date, player name, world version and goal message.
+     */
+    public function renderHof(World $world, array $goals = [], string $format = '', ?Skin $skin = null): void
+    {
+        $skin = $skin ?? $world->defaultSkin ?? new Skin();
+        $worldName = htmlspecialchars($world->getName(), ENT_QUOTES, 'UTF-8');
+        $worldVer  = htmlspecialchars((string)($world->version ?? ''), ENT_QUOTES, 'UTF-8');
+
+        // Ensure latest to oldest date sorting
+        usort($goals, function ($a, $b) {
+            $timeA = strtotime((string)($a['created_at'] ?? $a['date'] ?? ''));
+            $timeB = strtotime((string)($b['created_at'] ?? $b['date'] ?? ''));
+            if ($timeA === $timeB) {
+                return ((int)($b['goal_id'] ?? 0)) <=> ((int)($a['goal_id'] ?? 0));
+            }
+            return $timeB <=> $timeA;
+        });
+
+        if (!headers_sent()) {
+            header('Content-Type: text/html; charset=utf-8');
+        }
+
+        echo "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n";
+        echo "<html>\n<head>\n";
+        echo "<meta charset=\"utf-8\">\n";
+        echo "<title>" . $worldName . " - Hall of Fame</title>\n";
+        if (!empty($skin->stylesheet)) {
+            echo "<link rel=\"stylesheet\" type=\"text/css\" href=\"" . htmlspecialchars($skin->stylesheet, ENT_QUOTES, 'UTF-8') . "\" />\n";
+        }
+        echo $skin->toHtml() . "\n";
+        echo "</head>\n<body ";
+        echo "bgcolor=\"" . htmlspecialchars($skin->bodyBgColor, ENT_QUOTES, 'UTF-8') . "\" ";
+        if (!empty($skin->bodyBackground)) {
+            echo "background=\"" . htmlspecialchars($skin->bodyBackground, ENT_QUOTES, 'UTF-8') . "\" ";
+        }
+        echo "style=\"font-family: tahoma,Helvetica,Arial,sans-serif;font-size:10pt;padding:20px;\" >\n";
+
+        echo "<h2>" . $worldName . "</h2>\n";
+        if ($worldVer !== '') {
+            echo "<p style=\"color:#64748b;margin-top:-6px;\">version " . $worldVer . "</p>\n";
+        }
+        echo "<h3>Hall of Fame</h3>\n";
+
+        if (empty($goals)) {
+            echo "<p><b>Nobody was able to finish this game yet.</b></p>\n";
+        } else {
+            echo "<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\" style=\"border-collapse:collapse;width:100%;max-width:850px;background:#ffffff;color:#1e293b;\">\n";
+            echo "<thead>\n<tr bgcolor=\"#f1f5f9\" style=\"text-align:left;\">\n";
+            echo "<th style=\"padding:8px;\">Date</th>\n";
+            echo "<th style=\"padding:8px;\">Player</th>\n";
+            echo "<th style=\"padding:8px;\">Version</th>\n";
+            echo "<th style=\"padding:8px;\">Message</th>\n";
+            echo "</tr>\n</thead>\n<tbody>\n";
+
+            foreach ($goals as $g) {
+                $dateStr    = htmlspecialchars((string)($g['created_at'] ?? $g['date'] ?? ''), ENT_QUOTES, 'UTF-8');
+                $playerName = htmlspecialchars((string)($g['player_name'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8');
+                $verStr     = htmlspecialchars((string)($g['world_version'] ?? '—'), ENT_QUOTES, 'UTF-8');
+                $msgStr     = htmlspecialchars((string)($g['message'] ?? '—'), ENT_QUOTES, 'UTF-8');
+
+                echo "<tr>\n";
+                echo "<td style=\"padding:8px;white-space:nowrap;\">" . $dateStr . "</td>\n";
+                echo "<td style=\"padding:8px;\"><b>" . $playerName . "</b></td>\n";
+                echo "<td style=\"padding:8px;\">" . $verStr . "</td>\n";
+                echo "<td style=\"padding:8px;\">" . $msgStr . "</td>\n";
+                echo "</tr>\n";
+            }
+
+            echo "</tbody>\n</table>\n";
+        }
+
+        echo "<p style=\"margin-top:20px;\"><a href=\"multiplayer.php\" style=\"color:#0284c7;text-decoration:none;\">&laquo; Back to game</a></p>\n";
+        echo "</body>\n</html>\n";
+    }
+
+    /**
      * Render the full interactive web player view.
      */
     public function render(array $context): void

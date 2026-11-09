@@ -344,3 +344,17 @@ Whenever an event fires (e.g. `onLook`, `onUseWith`, `onEnter`, `whenPicked`, `L
 3. **Execution Termination**:
    Executing `Return <expression>` immediately terminates execution of the event script, returning the evaluated boolean or numeric scalar back to the engine caller.
 
+---
+
+## 6. Gateway Views (`multiplayer.php?view=*`)
+
+Clients interact with DimensioneY via the `multiplayer.php` gateway. The `view` query parameter (via GET or POST) selects the response representation:
+
+| View Parameter | Description | Supported Formats |
+|---|---|---|
+| `view=scene` *(default)* | Full interactive gameplay screen containing the scene viewport (`#display`), navigation/inventory dashboard (`#dashboard`), action controls (`#ctrls`), and incoming chat panel (`#msgs`). | HTML (`UIhtml`), JSON (`UIjson`/`UIbot`) |
+| `view=players` | "Who's Online" status view (§1.2.16). Displays the active player count; when called with `format=extended`, lists all connected players and their current room locations. | HTML, JSON |
+| `view=hof` | "Hall of Fame" view. Displays the World Name, version, and the table of completed `Goal` victory events (from `dimx_goals`), sorted from latest to oldest with Date, Player Name, World Version, and Goal Message. | HTML, JSON |
+| `view=msgs` | Lightweight real-time chat & system messages polling endpoint for `#msgs` and async command delivery. | JSON |
+
+

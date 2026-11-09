@@ -175,6 +175,19 @@ class PersistenceManager
                 INDEX idx_world_player (world_id, player_name)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
+            'create_goals' => "CREATE TABLE IF NOT EXISTS dimx_goals (
+                goal_id       BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                world_id      VARCHAR(64)  NOT NULL,
+                player_name   VARCHAR(128) NOT NULL,
+                score         INT          DEFAULT 0,
+                world_version VARCHAR(32)  DEFAULT NULL,
+                message       TEXT         DEFAULT NULL,
+                created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_world (world_id),
+                INDEX idx_world_player (world_id, player_name),
+                INDEX idx_world_time (world_id, created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
             // ---- ALTER: add missing columns (each in its own statement) ----
             'alter_worlds_src'      => "ALTER TABLE dimx_worlds ADD COLUMN IF NOT EXISTS world_src VARCHAR(512) DEFAULT NULL",
             'alter_worlds_json'     => "ALTER TABLE dimx_worlds MODIFY COLUMN state_json LONGTEXT",
@@ -1316,5 +1329,112 @@ class PersistenceManager
         } catch (PDOException $e) {
             return -1;
         }
+    }
+
+    // =========================================================================
+    // Goal events (Hall of Fame)
+    // =========================================================================
+
+    /**
+     * Record a goal event achieved by a player.
+     */
+    public function recordGoal(
+        string $worldId,
+        string $playerName,
+        int $score = 0,
+        ?string $worldVersion = null,
+        ?string $message = null
+    ): bool {
+        if ($this->isConnected()) {
+            try {
+                $stmt = $this->pdo->prepare("
+                    INSERT INTO dimx_goals (world_id, player_name, score, world_version, message, created_at)
+                    VALUES (:wid, :player, :score, :ver, :msg, NOW())
+                ");
+                return $stmt->execute([
+                    ':wid'    => $worldId,
+                    ':player' => $playerName,
+                    ':score'  => $score,
+                    ':ver'    => $worldVersion,
+                    ':msg'    => $message,
+                ]);
+            } catch (PDOException $e) {
+                error_log("PersistenceManager::recordGoal error: " . $e->getMessage());
+            }
+        }
+
+        // File-based fallback (append to JSONL)
+        $file = "{$this->storageDir}/goals_{$worldId}.jsonl";
+        $line = json_encode([
+            'world_id'      => $worldId,
+            'player_name'   => $playerName,
+            'score'         => $score,
+            'world_version' => $worldVersion,
+            'message'       => $message,
+            'created_at'    => date('Y-m-d H:i:s'),
+        ]) . "\n";
+        return file_put_contents($file, $line, FILE_APPEND | LOCK_EX) !== false;
+    }
+
+    /**
+     * Retrieve goal events for a given world, most recent first.
+     *
+     * @return array<array{goal_id?: int, world_id: string, player_name: string, score: int, world_version: ?string, message: ?string, created_at: string}>
+     */
+    public function getGoals(string $worldId, int $limit = 50): array
+    {
+        if ($this->isConnected()) {
+            try {
+                $stmt = $this->pdo->prepare("
+                    SELECT * FROM dimx_goals
+                    WHERE world_id = :wid
+                    ORDER BY goal_id DESC
+                    LIMIT :lim
+                ");
+                $stmt->bindValue(':wid', $worldId);
+                $stmt->bindValue(':lim', $limit, \PDO::PARAM_INT);
+                $stmt->execute();
+                return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+            } catch (PDOException $e) {
+                error_log("PersistenceManager::getGoals error: " . $e->getMessage());
+            }
+        }
+
+        $file = "{$this->storageDir}/goals_{$worldId}.jsonl";
+        if (!file_exists($file)) {
+            return [];
+        }
+        $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        $goals = [];
+        foreach (array_reverse($lines) as $l) {
+            $data = json_decode($l, true);
+            if (is_array($data)) {
+                $goals[] = $data;
+                if (count($goals) >= $limit) {
+                    break;
+                }
+            }
+        }
+        return $goals;
+    }
+
+    /**
+     * Clear goal records for a given world (useful in tests).
+     */
+    public function clearGoals(string $worldId): bool
+    {
+        if ($this->isConnected()) {
+            try {
+                $stmt = $this->pdo->prepare("DELETE FROM dimx_goals WHERE world_id = :wid");
+                $stmt->execute([':wid' => $worldId]);
+            } catch (PDOException $e) {
+                error_log("PersistenceManager::clearGoals error: " . $e->getMessage());
+            }
+        }
+        $file = "{$this->storageDir}/goals_{$worldId}.jsonl";
+        if (file_exists($file)) {
+            @unlink($file);
+        }
+        return true;
     }
 }

@@ -88,6 +88,16 @@ abstract class UI
     abstract public function renderPlayers(World $world, string $format = '', ?Skin $skin = null): void;
 
     /**
+     * Render the Hall of Fame view (multiplayer.php?view=hof).
+     *
+     * @param World $world Current world instance
+     * @param array $goals List of goal events (from dimx_goals)
+     * @param string $format Optional format ('json', 'extended', etc.)
+     * @param Skin|null $skin Optional skin
+     */
+    abstract public function renderHof(World $world, array $goals = [], string $format = '', ?Skin $skin = null): void;
+
+    /**
      * Detect whether the incoming request is from a bot (JSON) or a human browser (HTML).
      */
     public static function detectClientType(): string

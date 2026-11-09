@@ -42,7 +42,32 @@ CREATE TABLE IF NOT EXISTS dimx_messages (
     message_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     world_id VARCHAR(64) NOT NULL,
     sender_name VARCHAR(128) NOT NULL,
+    recipient_name VARCHAR(128) DEFAULT NULL,
     message_text TEXT NOT NULL,
     created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
     INDEX idx_world_time (world_id, message_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Player commands audit/queue table
+CREATE TABLE IF NOT EXISTS dimx_commands (
+    command_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    world_id VARCHAR(64) NOT NULL,
+    player_name VARCHAR(128) NOT NULL,
+    command_text VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_world_player (world_id, player_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Goal events table (Hall of Fame records)
+CREATE TABLE IF NOT EXISTS dimx_goals (
+    goal_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    world_id VARCHAR(64) NOT NULL,
+    player_name VARCHAR(128) NOT NULL,
+    score INT DEFAULT 0,
+    world_version VARCHAR(32) DEFAULT NULL,
+    message TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_world (world_id),
+    INDEX idx_world_player (world_id, player_name),
+    INDEX idx_world_time (world_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

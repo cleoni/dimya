@@ -100,6 +100,15 @@ if ($view === 'players') {
     $ui->renderPlayers($world, $format, $skin);
     exit;
 }
+if ($view === 'hof') {
+    $world    = $engine->loadOrSeedWorld();
+    $goals    = $pm->getGoals($worldId);
+    $format   = trim((string)($input['raw']['format'] ?? $_GET['format'] ?? ''));
+    $skinName = $requestedSkin !== '' ? $requestedSkin : (string)($_SESSION['dimx_skin'] ?? '');
+    $skin     = $world->getSkin($skinName) ?? $world->defaultSkin ?? new Skin();
+    $ui->renderHof($world, $goals, $format, $skin);
+    exit;
+}
 
 // 5. Player Authentication & Account Handling
 $sessionUser     = (string)($_SESSION['dimx_player'] ?? '');

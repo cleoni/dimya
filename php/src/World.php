@@ -150,6 +150,8 @@ class World extends DimxObject
         $this->setProperty('AUTHOR', $this->author);
         $this->setProperty('version', $this->version);
         $this->setProperty('VERSION', $this->version);
+        $this->setProperty('mode', $this->mode);
+        $this->setProperty('MODE', $this->mode);
         $this->setProperty('logoSrc', $this->logoSrc);
         $this->setProperty('logosrc', $this->logoSrc);
         $this->setProperty('LOGOSRC', $this->logoSrc);
@@ -208,6 +210,41 @@ class World extends DimxObject
     {
         $this->log("Displaying: {$msg} in whole world");
         return $this->display($msg);
+    }
+
+    /**
+     * Signal that the game objective has been achieved and the adventure is completed.
+     * Sets world mode to 0 (game won / completed), broadcasts the goal message,
+     * posts a chat message, logs the event, and records the goal event in persistence.
+     *
+     * @param string      $agentName Name of player or character achieving the goal
+     * @param string|null $message   Optional custom goal message
+     * @param int         $score     Player score at time of completion
+     */
+    public function goal(string $agentName, ?string $message = null, int $score = 0): bool
+    {
+        $this->log("Action: GOAL");
+
+        $finalMsg = $message;
+        if ($finalMsg === null || $finalMsg === '') {
+            $finalMsg = "<b>{$agentName}</b> has reached the goal!";
+        }
+
+        $this->broadcast($finalMsg);
+
+        $sender = $this->defaultCharacter?->name ?? 'a voice...';
+        $this->postChatMessage($sender, $finalMsg);
+
+        $this->mode = 0;
+        $this->setProperty('mode', 0);
+        $this->setProperty('MODE', 0);
+
+        $pm = $this->persistence ?? GameEngine::$activeInstance?->pm;
+        if ($pm !== null) {
+            $pm->recordGoal($this->id, $agentName, $score, $this->version ?: null, $finalMsg);
+        }
+
+        return true;
     }
 
     /** @var array<array{id: int|string, sender: string, text: string, time: string}> In-memory recent chat messages queue */

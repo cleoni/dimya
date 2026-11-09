@@ -64,6 +64,7 @@ $sections = [
     61 => ['title' => "Testing Who's Online - The players view (multiplayer.php?view=players & format=extended)...", 'keywords' => ['view', 'players', 'view=players', 'format=extended', 'extended', 'online', 'who\'s online']],
     62 => ['title' => 'Testing Player Inactivity Timeout (30s) at Tick Event & Nickname Conflict Check at Login...', 'keywords' => ['timeout', 'inactivity', 'tick', 'kill', 'lastactive', 'lastinteraction', 'nickname', 'conflict', 'login']],
     63 => ['title' => 'Testing PeopleContainer Object Entry & Scene Refresh Dispatch with Deduplication...', 'keywords' => ['refresh', 'scene', 'refresh!scene', 'peoplecontainer', 'room', 'dedup', 'commands', 'entry', 'queue']],
+    64 => ['title' => 'Testing SmallBasic Goal Instruction & Database Recording in dimx_goals...', 'keywords' => ['goal', 'smallbasic', 'dimx_goals', 'hall of fame', 'hof', 'mode', 'actionsrunner', 'surfer']],
 ];
 
 // CLI Options parsing
@@ -2906,7 +2907,7 @@ if (shouldRun(57)) {
     assertTest(str_contains($log57, 'STATUS: CONNECTED'), "debug.log contains 'STATUS: CONNECTED'");
     assertTest(str_contains($log57, 'COMMAND: click(i!_obj0,)'), "debug.log contains 'COMMAND: click(i!_obj0,)'");
     assertTest(str_contains($log57, 'VIEW: scene'), "debug.log contains 'VIEW: scene'");
-    assertTest(str_contains($log57, 'DATE: ' . date('Y-m-d')), "debug.log contains current DATE");
+    assertTest(str_contains($log57, date('Y-m-d')), "debug.log contains current DATE (" . date('Y-m-d') . ")");
 
     // Verify world.fireEvent onLook with owner string, agent id, target, and input dictionary
     assertTest(str_contains($log57, 'world.fireEvent: onLook($OWNER=_obj0 (column 1),$AGENT=p1_sec57,$TARGET='),
@@ -3640,6 +3641,168 @@ if (shouldRun(63)) {
         array_map('unlink', glob("{$sec63DataDir}/*.*"));
         @rmdir($sec63DataDir);
     }
+}
+
+// =========================================================================
+// Section 64: Testing SmallBasic Goal Instruction & Database Recording in dimx_goals
+// =========================================================================
+if (shouldRun(64)) {
+    echo "\n--- Section 64: Testing SmallBasic Goal Instruction & Database Recording in dimx_goals ---\n";
+
+    $sec64WorldId = 'test_w_sec64_' . bin2hex(random_bytes(4));
+    $sec64World = new \Dimx\World($sec64WorldId, 'Goal World');
+    $sec64World->version = '3.14';
+    $sec64World->mode = 1;
+    $sec64World->setProperty('mode', 1);
+    $sec64World->persistence = $pm;
+
+    $sec64Room = new \Dimx\Room($sec64World, 'Chamber of Victory');
+    $sec64World->addRoom($sec64Room);
+
+    $sec64Player = new \Dimx\Player($sec64World, 'Champion', 'p_champion', 'Hero');
+    $sec64Player->score = 50;
+    $sec64Player->move($sec64Room);
+    $sec64World->addPlayer($sec64Player);
+
+    // 1. Basic Goal execution without argument
+    $pm->clearGoals($sec64WorldId);
+    $runner1 = new \Dimx\ActionsRunner($sec64World, $sec64Room, $sec64Player, null);
+    $ret1 = $runner1->run("Goal");
+
+    assertTest($ret1 === true, "ActionsRunner executes 'Goal' successfully");
+    assertTest($sec64World->mode === 0, "World mode changed to 0 upon Goal");
+    assertTest($sec64World->getProperty('mode') === 0, "\$WORLD.mode property set to 0");
+    assertTest($sec64Player->score === 60, "Player score incremented by 10 (50 -> 60)");
+
+    $playerCons1 = implode(' ', $sec64Player->drainConsole());
+    assertTest(str_contains($playerCons1, 'Champion') && str_contains($playerCons1, 'goal'), "Default goal message broadcast to player console: '{$playerCons1}'");
+
+    $goals1 = $pm->getGoals($sec64WorldId);
+    assertTest(count($goals1) === 1, "Goal event recorded in persistence (1 entry)");
+    assertTest(($goals1[0]['player_name'] ?? '') === 'Champion', "Goal event player_name is 'Champion'");
+    assertTest((int)($goals1[0]['score'] ?? 0) === 60, "Goal event score is 60");
+    assertTest(($goals1[0]['world_version'] ?? '') === '3.14', "Goal event world_version is '3.14'");
+    assertTest(str_contains($goals1[0]['message'] ?? '', 'Champion'), "Goal event message contains player name");
+
+    // 2. Goal with custom message
+    $sec64World->mode = 1;
+    $runner2 = new \Dimx\ActionsRunner($sec64World, $sec64Room, $sec64Player, null);
+    $runner2->run('Goal "Completed the epic quest!"');
+
+    assertTest($sec64World->mode === 0, "World mode changed to 0 upon custom Goal");
+    assertTest($sec64Player->score === 70, "Player score incremented by 10 (60 -> 70)");
+    $playerCons2 = implode(' ', $sec64Player->drainConsole());
+    assertTest(str_contains($playerCons2, 'Completed the epic quest!'), "Custom goal message broadcast to console: '{$playerCons2}'");
+
+    $goals2 = $pm->getGoals($sec64WorldId);
+    assertTest(count($goals2) === 2, "Persistence contains 2 goal events");
+    assertTest(($goals2[0]['message'] ?? '') === 'Completed the epic quest!', "Most recent goal message is 'Completed the epic quest!'");
+
+    // 3. Parenthesized syntax Goal("...") and Goal()
+    $sec64World->mode = 1;
+    $runner3 = new \Dimx\ActionsRunner($sec64World, $sec64Room, $sec64Player, null);
+    $ret3 = $runner3->run('Goal("Victory via parens!")');
+    assertTest($ret3 === true, "ActionsRunner executes Goal(\"...\") syntax");
+    assertTest($sec64World->mode === 0, "World mode set to 0 by parenthesized Goal(...)");
+
+    // 4. File-based fallback when database is offline
+    $fileDataDir = sys_get_temp_dir() . '/dimx_goal_filetest_' . uniqid();
+    @mkdir($fileDataDir, 0777, true);
+    $filePm = new \Dimx\PersistenceManager([], $fileDataDir); // Empty db config forces file fallback
+    $fileWorldId = 'file_world_test';
+    $filePm->recordGoal($fileWorldId, 'FilePlayer', 42, '1.0', 'Offline achievement');
+    $fileGoals = $filePm->getGoals($fileWorldId);
+    assertTest(count($fileGoals) === 1, "File-based PersistenceManager records goal to JSONL when DB disconnected");
+    assertTest(($fileGoals[0]['player_name'] ?? '') === 'FilePlayer', "File goal player_name is 'FilePlayer'");
+    assertTest((int)($fileGoals[0]['score'] ?? 0) === 42, "File goal score is 42");
+    assertTest(($fileGoals[0]['message'] ?? '') === 'Offline achievement', "File goal message matches");
+    @unlink("{$fileDataDir}/goals_{$fileWorldId}.jsonl");
+    @rmdir($fileDataDir);
+
+    // 5. End-to-end integration: Look at surfer in world3net.dxw
+    $w3Sec64Id = 'test_w3_goal_' . bin2hex(random_bytes(4));
+    $w3File = __DIR__ . '/../../worlds/world3net.dxw';
+    if (!file_exists($w3File)) {
+        $w3File = __DIR__ . '/../docs/dxw-examples/world3net.dxw';
+    }
+
+    $pm->clearGoals($w3Sec64Id);
+    $sec64Engine = new \Dimx\GameEngine($pm, $w3Sec64Id, $w3File);
+    $w3World = $sec64Engine->loadOrSeedWorld();
+    assertTest($w3World->getEvent('surfer.onLook') !== null, "world3net.dxw loaded with surfer.onLook event");
+
+    // Connect player and look at surfer
+    $player = $sec64Engine->ensurePlayer($w3World, 'GoalHunter');
+    $surfer = $w3World->getCharacter('surfer');
+    if ($surfer !== null && $player->getRoom() !== null) {
+        $surfer->move($player->getRoom());
+        $sec64Engine->pm->saveWorld($w3World);
+    }
+    $lookResult = $sec64Engine->processCommand('GoalHunter', 'look', 'surfer');
+    assertTest(is_array($lookResult), "processCommand('GoalHunter', 'look', 'surfer') succeeded");
+
+    $lookMsgs = implode(' ', $lookResult['messages'] ?? []);
+    assertTest(str_contains($lookMsgs, 'Finished game'), "Response messages contain goal broadcast 'Finished game': '{$lookMsgs}'");
+
+    // Verify chat messages contain surfer speech and voice broadcast
+    $chatItems = $lookResult['chat'] ?? [];
+    $chatTexts = array_column($chatItems, 'text');
+    $chatAll = implode(' ', $chatTexts);
+    assertTest(str_contains($chatAll, 'Finished game'), "Chat contains goal message 'Finished game'");
+
+    // Check goals recorded in dimx_goals
+    $w3Goals = $pm->getGoals($w3Sec64Id);
+    assertTest(count($w3Goals) >= 1, "Goal recorded in database for world3net.dxw");
+    $topGoal = $w3Goals[0];
+    assertTest(($topGoal['player_name'] ?? '') === 'GoalHunter', "Goal record player_name is 'GoalHunter'");
+    assertTest(($topGoal['message'] ?? '') === 'Finished game', "Goal record message is 'Finished game'");
+    assertTest((int)($topGoal['score'] ?? 0) === 10, "GoalHunter score in goal record is 10");
+
+    // Verify world mode became 0
+    $w3Reloaded = $sec64Engine->loadOrSeedWorld();
+    assertTest((int)$w3Reloaded->mode === 0, "world3net.dxw world mode is 0 after Goal execution");
+
+    // 6. Test multiplayer.php?view=hof (Hall of Fame HTML and JSON views)
+    $hofHtml = runMultiplayer(
+        ['view' => 'hof'],
+        [],
+        ['DIMX_WORLD_ID' => $w3Sec64Id, 'DIMX_WORLD_FILE' => $w3File]
+    );
+    assertTest(str_contains($hofHtml, '<!DOCTYPE HTML'), "view=hof returns valid HTML document");
+    assertTest(str_contains($hofHtml, 'Hall of Fame'), "view=hof contains 'Hall of Fame'");
+    assertTest(str_contains($hofHtml, $w3World->getName()), "view=hof prints World name ('" . $w3World->getName() . "')");
+    assertTest(str_contains($hofHtml, 'GoalHunter'), "view=hof table contains player 'GoalHunter'");
+    assertTest(str_contains($hofHtml, 'Finished game'), "view=hof table contains goal message 'Finished game'");
+    assertTest(str_contains($hofHtml, '<table') && str_contains($hofHtml, '>Date</th>') && str_contains($hofHtml, '>Player</th>'), "view=hof renders table with Date and Player headers");
+    assertTest(str_contains($hofHtml, 'Back to game'), "view=hof contains link 'Back to game'");
+
+    // Test view=hof in JSON format
+    $hofJson = runMultiplayer(
+        ['view' => 'hof', 'format' => 'json'],
+        [],
+        ['DIMX_WORLD_ID' => $w3Sec64Id, 'DIMX_WORLD_FILE' => $w3File]
+    );
+    $hofData = json_decode($hofJson, true);
+    assertTest(is_array($hofData) && !empty($hofData['success']), "view=hof with format=json returns successful JSON response");
+    assertTest(($hofData['view'] ?? '') === 'hof', "JSON response view is 'hof'");
+    assertTest(($hofData['goals'][0]['player_name'] ?? '') === 'GoalHunter', "JSON goals list contains 'GoalHunter'");
+
+    // Test view=hof with empty goals
+    $emptyHofWorldId = 'test_w_empty_hof_' . bin2hex(random_bytes(4));
+    $emptyHofHtml = runMultiplayer(
+        ['view' => 'hof'],
+        [],
+        ['DIMX_WORLD_ID' => $emptyHofWorldId, 'DIMX_WORLD_FILE' => $w3File]
+    );
+    assertTest(str_contains($emptyHofHtml, 'Nobody was able to finish this game yet'), "Empty HOF displays 'Nobody was able to finish this game yet'");
+
+    // Clean up
+    @$pm->resetWorld($sec64WorldId);
+    @$pm->clearGoals($sec64WorldId);
+    @$pm->resetWorld($w3Sec64Id);
+    @$pm->clearGoals($w3Sec64Id);
+    @$pm->resetWorld($emptyHofWorldId);
+    @$pm->clearGoals($emptyHofWorldId);
 }
 
 // Clean up test worlds

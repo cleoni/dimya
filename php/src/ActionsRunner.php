@@ -632,7 +632,7 @@ class ActionsRunner
         // Also handle verb followed immediately by '(' e.g. "Debug("test")"
         if (preg_match('/^([A-Za-z0-9_]+)\s*\((.*)\)$/s', $line, $vm) && !str_contains($vm[1], '.')) {
             $verbCandidate = strtoupper($vm[1]);
-            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET'], true)) {
+            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET', 'GOAL'], true)) {
                 $verb = $verbCandidate;
                 $argString = $vm[2];
             }
@@ -1550,20 +1550,26 @@ class ActionsRunner
     }
 
     /**
-     * Goal [message]
+     * Goal [message] (SmallBasic 3.9.10)
+     * Signals that the game objective has been achieved and the adventure is completed.
      */
     protected function actGoal(array $args): bool
     {
-        $agentName = ($this->agent instanceof ManageableObject) ? $this->agent->name : 'A player';
+        $agentName = ($this->agent instanceof ManageableObject)
+            ? $this->agent->name
+            : (is_string($this->agent) && $this->agent !== '' ? $this->agent : 'A player');
+
+        $score = 0;
         if ($this->agent instanceof Player) {
             $this->agent->score += 10;
+            $score = $this->agent->score;
         }
 
-        $msg = !empty($args[0])
+        $msgArg = !empty($args[0])
             ? self::formatValue($this->evalValue((string)$args[0]))
-            : "<b>{$agentName}</b> has reached the goal!";
+            : null;
 
-        return $this->world->broadcast($msg);
+        return $this->world->goal($agentName, $msgArg, $score);
     }
 
     /**

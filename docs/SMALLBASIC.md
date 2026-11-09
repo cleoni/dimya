@@ -599,7 +599,7 @@ Next
 
 ### 3.9.10 Goal
 
-> **[DimY: partial]** Only broadcasts the message and adds 10 to the agent's score. `$WORLD.mode = 0`, Hall of Fame (.hof) recording and panel switching are **DimX only - not yet implemented in DimY**.
+> **[DimY: implemented]** Broadcasts the goal message, posts a system chat message, adds 10 to the player's score, sets `$WORLD.mode = 0`, logs `Action: GOAL`, and records the completion event in the database (`dimx_goals` table, replacing DimX's `.hof` text file).
 
 Signals that the game objective has been achieved and the adventure is completed.
 
@@ -609,9 +609,11 @@ Goal [message]
 
 - **Effects**:
   1. Sends a global broadcast message announcing that the game has been completed, when, and by whom (uses default system message if `message` is omitted).
-  2. Sets the global aggregate variable `$WORLD.mode = 0`.
-  3. Records the completion event in the game's Hall of Fame (`.hof`).
-  4. Switches the active interface panel (typically restoring the default panel).
+  2. Posts a system chat message announcing completion to all connected players.
+  3. Increments the player's score by 10 points.
+  4. Sets the global aggregate variable `$WORLD.mode = 0`.
+  5. Records the completion event in the database (`dimx_goals` table; fallback to JSONL when offline). In DimX, this was written to a `.hof` (Hall of Fame) text file.
+  6. Logs `Action: GOAL` to `debug.log` when debugging is enabled (`debugTo=file`).
 - **Tip**: Testing `$WORLD.mode` is a standard way to verify whether an adventure is actively running (`mode = 1`) or in lobby/stopped state (`mode = 0`).
 
 ---
