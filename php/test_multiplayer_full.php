@@ -4992,32 +4992,32 @@ if (shouldRun(46)) {
         "World3net: direct speech to barman (say text barman) DOES trigger barman.onHear"
     );
 
-    // 8. Testing chat.php async refresh endpoint for #msgs / #chatBox
+    // 8. Testing multiplayer.php?view=msgs async refresh endpoint for #msgs / #chatBox
     // Save current world with BarCustomer having messages
     $pm->saveWorld($w3net);
 
-    // Call chat.php for BarCustomer
-    $chatPhpScript = __DIR__ . '/chat.php';
+    // Call multiplayer.php?view=msgs for BarCustomer
+    $multiplayerScript = __DIR__ . '/multiplayer.php';
     $chatRunner = __DIR__ . '/temp_chat_runner.php';
     file_put_contents($chatRunner, "<?php
 \$_SERVER['REQUEST_METHOD'] = 'GET';
-\$_GET = ['world_id' => '{$sec46W3Id}', 'player' => 'BarCustomer'];
-require '{$chatPhpScript}';
+\$_GET = ['view' => 'msgs', 'world_id' => '{$sec46W3Id}', 'player' => 'BarCustomer'];
+require '{$multiplayerScript}';
 ");
     $chatJson = shell_exec("php {$chatRunner}");
     @unlink($chatRunner);
 
     $chatData = json_decode((string)$chatJson, true);
-    assertTest(is_array($chatData) && !empty($chatData['ok']), "chat.php returns valid JSON with ok=true");
-    assertTest(isset($chatData['messages']) && is_array($chatData['messages']), "chat.php returns 'messages' array");
+    assertTest(is_array($chatData) && !empty($chatData['ok']), "multiplayer.php?view=msgs returns valid JSON with ok=true");
+    assertTest(isset($chatData['messages']) && is_array($chatData['messages']), "multiplayer.php?view=msgs returns 'messages' array");
     assertTest(
         !empty($chatData['messages']) && end($chatData['messages'])['sender'] === 'the barman',
-        "chat.php retrieves barman response for BarCustomer"
+        "multiplayer.php?view=msgs retrieves barman response for BarCustomer"
     );
 
     assertTest(
-        str_contains($htmlOutput, 'pollChat()') && str_contains($htmlOutput, "url = 'chat.php?world_id='"),
-        "UIhtml script defines pollChat() querying chat.php"
+        str_contains($htmlOutput, 'pollChat()') && str_contains($htmlOutput, "multiplayer.php?view=msgs"),
+        "UIhtml script defines pollChat() querying multiplayer.php?view=msgs"
     );
     assertTest(
         str_contains($htmlOutput, "box.innerHTML = newHtml") || str_contains($htmlOutput, "box.innerHTML = rendered"),

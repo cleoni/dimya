@@ -786,7 +786,7 @@ Reset [broadcastMsg]
 
 ### 3.9.21 RefreshView
 
-> **[DimY: implemented]** Dispatches `refresh!scene` command to the destination target (room, player, or `$WORLD`). On UIhtml, the client polls `chat.php` or receives `data-commands` to trigger `refreshScene()` and update `#scene` without a full page reload.
+> **[DimY: implemented]** Dispatches `refresh!scene` command to the destination target (room, player, or `$WORLD`). On UIhtml, the client polls `multiplayer.php?view=msgs` or receives `data-commands` to trigger `refreshScene()` and update `#scene` without a full page reload.
 
 Forces an immediate client-side UI view refresh.
 

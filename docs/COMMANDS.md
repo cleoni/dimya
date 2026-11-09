@@ -183,7 +183,7 @@ Every command cycle follows this processing pipeline:
   * If `target` is omitted: broadcasts speech to current room or world (subject to world interphone settings).
   * If `target` is a room ID: delivers message to that room.
   * If `target` is a player/character name: whispers privately.
-  * Speech messages from chat controls (`say`, speech textbox) and script instructions (`Speak`) are delivered directly to the chat messages queue (`#msgs` / `chat.php` / UIjson `'chat'`) and do not pollute the room description / console space.
+  * Speech messages from chat controls (`say`, speech textbox) and script instructions (`Speak`) are delivered directly to the chat messages queue (`#msgs` / `multiplayer.php?view=msgs` / UIjson `'chat'`) and do not pollute the room description / console space.
 * **Events**: Fires `onHear` on each receiving occupant.
 
 ### 14. `save` **[DimY: partial - `onSave` not fired]**

@@ -87,7 +87,6 @@ DimensioneX uses servlets (`multiplayer`, `Maint`) and dedicated exception/utili
 ```mermaid
 flowchart LR
     multiplayer["multiplayer.php (game gateway)"] --> GameEngine
-    chat["chat.php (lock-free chat endpoint)"] --> PersistenceManager
     maint["maint.php (admin console)"] --> PersistenceManager
     bot["bot.php (cURL test bot client)"] -. HTTP JSON .-> multiplayer
     GameEngine --> WorldLock
@@ -169,8 +168,8 @@ Identical to DimensioneX:
 - [`GameEngine`](file:///c:/xampp/htdocs/dimya/php/src/GameEngine.php#L13) loads (or seeds) the world through [`PersistenceManager`](file:///c:/xampp/htdocs/dimya/php/src/PersistenceManager.php#L24), dispatches each command, fires events and persists state, all under [`WorldLock`](file:///c:/xampp/htdocs/dimya/php/src/WorldLock.php#L31).
 
 ### D. Web Tier & Request Processing
-- [`multiplayer.php`](file:///c:/xampp/htdocs/dimya/php/multiplayer.php) is the gateway. `UI::detectClientType()` picks [`UIhtml`](file:///c:/xampp/htdocs/dimya/php/src/UIhtml.php#L13) (humans) or [`UIjson`](file:///c:/xampp/htdocs/dimya/php/src/UIjson.php#L15)/[`UIbot`](file:///c:/xampp/htdocs/dimya/php/src/UIbot.php#L22) (bots). The UI is stored in `Player::$ui`.
-- [`chat.php`](file:///c:/xampp/htdocs/dimya/php/chat.php) is a separate, lock-free endpoint polled by [`UIhtml`](file:///c:/xampp/htdocs/dimya/php/src/UIhtml.php#L13) every `msgRefreshRate` seconds (configured in [`php/config.php`](file:///c:/xampp/htdocs/dimya/php/config.php), default `5`s) to refresh `#msgs`, so chat polling never contends with the world lock.
+- [`multiplayer.php`](file:///c:/xampp/htdocs/dimya/php/multiplayer.php) is the unified game gateway. `UI::detectClientType()` picks [`UIhtml`](file:///c:/xampp/htdocs/dimya/php/src/UIhtml.php#L13) (humans) or [`UIjson`](file:///c:/xampp/htdocs/dimya/php/src/UIjson.php#L15)/[`UIbot`](file:///c:/xampp/htdocs/dimya/php/src/UIbot.php#L22) (bots). The UI is stored in `Player::$ui`.
+- Chat & message updates are polled via `multiplayer.php?view=msgs` every `msgRefreshRate` seconds (configured in [`php/config.php`](file:///c:/xampp/htdocs/dimya/php/config.php), default `5`s) to refresh `#msgs` and receive asynchronous client commands (`refresh!scene`, etc.).
 - [`maint.php`](file:///c:/xampp/htdocs/dimya/php/maint.php) is the administration page (DB check/init, profiles, diagnostics); [`bot.php`](file:///c:/xampp/htdocs/dimya/php/bot.php) is a sample cURL bot client; [`test_multiplayer.php`](file:///c:/xampp/htdocs/dimya/php/test_multiplayer.php) holds automated tests.
 
 #### Supported Gateway Views (`multiplayer.php?view=*`)

@@ -221,20 +221,16 @@ function runMultiplayer(array $get = [], array $post = [], array $server = [], a
 
 function runChat(array $get = [], array $post = [], array $server = []): string
 {
-    $runner = sys_get_temp_dir() . '/dimx_chat_' . uniqid() . '.php';
-    $code = "<?php\n"
-        . '$_GET = ' . var_export($get, true) . ";\n"
-        . '$_POST = ' . var_export($post, true) . ";\n";
-    foreach ($server as $k => $v) {
-        $code .= '$_SERVER[' . var_export($k, true) . '] = ' . var_export($v, true) . ";\n";
+    if (!isset($get['view'])) {
+        $get['view'] = 'msgs';
     }
-    $code .= "require " . var_export(__DIR__ . '/chat.php', true) . ";\n";
-    file_put_contents($runner, $code);
-
-    $cmd = 'C:\\xampp\\php\\php.exe ' . escapeshellarg($runner);
-    $output = (string)shell_exec($cmd);
-    @unlink($runner);
-    return $output;
+    if (!isset($get['username']) && isset($get['player'])) {
+        $get['username'] = $get['player'];
+    }
+    if (!isset($server['DIMX_WORLD_ID']) && isset($get['world_id'])) {
+        $server['DIMX_WORLD_ID'] = (string)$get['world_id'];
+    }
+    return runMultiplayer($get, $post, $server);
 }
 
 // Common test fixtures available to all sections
@@ -3487,7 +3483,7 @@ if (shouldRun(63)) {
     ], [], $serverW63);
     assertTest(str_contains($loginP2, 'id="scene"'), "HumanBeta logged in and received HTML scene");
 
-    // 4c. HumanAlpha polls chat.php
+    // 4c. HumanAlpha polls multiplayer.php?view=msgs (chat polling)
     $chatResp = runChat([
         'world_id' => $sec63WorldId,
         'player'   => 'HumanAlpha',
