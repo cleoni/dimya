@@ -184,7 +184,7 @@ END_WORLD
 
 The runtime URL for all scene pictures, sprites, and skin icons is computed by concatenating `config.php`'s `'base_url'` and `.dxw`'s `IMAGESFOLDER`:
 
-$$\text{Asset URL} = \text{config}['\text{base\_url}'] + \text{WORLD}.\text{IMAGESFOLDER} + \text{filename}$$
+Asset URL=`config[′base_url′]` + `WORLD.IMAGESFOLDER` + filename
 
 When deploying DimensioneY inside an application subfolder (e.g. `http://localhost/game1/`), beware of duplicate path segments:
 
