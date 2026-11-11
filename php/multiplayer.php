@@ -16,6 +16,20 @@ declare(strict_types=1);
  */
 
 if (session_status() === PHP_SESSION_NONE) {
+    // Support session ID passed explicitly in query, POST, headers, or JSON body (for constrained clients without cookies)
+    $incomingSessionId = (string)($_GET['session_id'] ?? $_GET['PHPSESSID'] ?? $_POST['session_id'] ?? $_POST['PHPSESSID'] ?? $_SERVER['HTTP_X_SESSION_ID'] ?? '');
+    if ($incomingSessionId === '') {
+        $rawInputForSession = file_get_contents('php://input');
+        if (!empty($rawInputForSession)) {
+            $parsedJson = json_decode($rawInputForSession, true);
+            if (is_array($parsedJson) && !empty($parsedJson['session_id'])) {
+                $incomingSessionId = trim((string)$parsedJson['session_id']);
+            }
+        }
+    }
+    if ($incomingSessionId !== '' && preg_match('/^[-,a-zA-Z0-9]{1,128}$/', $incomingSessionId)) {
+        session_id($incomingSessionId);
+    }
     @session_start();
 }
 require_once __DIR__ . '/autoload.php';
@@ -185,8 +199,24 @@ if (!empty($requestedUser)) {
         $playerName = (string)($auth['name'] ?? $requestedUser);
         $numericId  = (int)($auth['numeric_id'] ?? 0);
         $isBot      = !empty($auth['is_bot']) || $isBot;
-        $isNewLogin = true;
-        $sessionEngineId = null;
+
+        // If this is a gameplay command (not an explicit login command) and the player is already active in the world,
+        // continue their active session rather than wiping and respawning them.
+        $cmdName = strtolower(trim((string)($input['cmd'] ?? 'login')));
+        if ($cmdName !== 'login') {
+            $existingWorld = $engine->loadOrSeedWorld(false);
+            $activePlayer  = $existingWorld->getPlayerByName($playerName);
+            if ($activePlayer !== null) {
+                $isNewLogin      = false;
+                $sessionEngineId = $activePlayer->id;
+            } else {
+                $isNewLogin      = true;
+                $sessionEngineId = null;
+            }
+        } else {
+            $isNewLogin      = true;
+            $sessionEngineId = null;
+        }
     }
 } elseif ($isAuthenticated && $sessionUser !== '') {
     // Ongoing authenticated session

@@ -27,10 +27,11 @@ class UIjson extends UI
     public function renderLogin(?string $errorMessage = null, ?string $defaultUsername = null, ?string $selectedSkin = null): void
     {
         $this->sendJson([
-            'success' => false,
-            'status'  => 'login_required',
-            'error'   => $errorMessage ?? "Player authentication required. Please supply 'username' (or 'player') and 'password'.",
-            'message' => $errorMessage ?? "Player authentication required. If the account does not exist, it will be created automatically.",
+            'success'    => false,
+            'status'     => 'login_required',
+            'session_id' => session_id() !== '' ? session_id() : null,
+            'error'      => $errorMessage ?? "Player authentication required. Please supply 'username' (or 'player') and 'password'.",
+            'message'    => $errorMessage ?? "Player authentication required. If the account does not exist, it will be created automatically.",
         ], 401);
     }
 
@@ -162,6 +163,7 @@ class UIjson extends UI
         $response = [
             'success'    => !$lockError,
             'status'     => $status,
+            'session_id' => session_id() !== '' ? session_id() : null,
             'reset'      => !empty($context['reset']),
             'logged_out' => $loggedOut,
             'lock_error' => $lockError,

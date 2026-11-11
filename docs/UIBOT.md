@@ -35,9 +35,13 @@ Accept: application/json
 *(Query parameter fallback: `?bot=1` or `?format=json` can also be used if the target platform lacks custom HTTP header support).*
 
 ### Session & Cookie Management
-- The server issues a standard PHP session cookie (`Set-Cookie: PHPSESSID=...`).
-- **The client must store and send back cookies** on every subsequent request.
-- *Fallback for constrained systems without cookie storage*: If cookies cannot be stored, sending `"username"` and `"password"` with every POST payload will re-authenticate each turn.
+- The server issues a standard PHP session cookie (`Set-Cookie: PHPSESSID=...`) and also returns `"session_id": "..."` directly inside the top-level JSON response.
+- **The client must store and send back session identity** on every subsequent request via one of:
+  1. Standard HTTP Cookie header (`Cookie: PHPSESSID=<session_id>`).
+  2. JSON POST body parameter (`"session_id": "<session_id>"`).
+  3. Query string parameter (`?session_id=<session_id>` or `?PHPSESSID=<session_id>`).
+  4. Custom header (`X-Session-ID: <session_id>`).
+- *Fallback for constrained systems without session tracking*: If session identity cannot be stored, sending `"username"` and `"password"` with gameplay commands will re-authenticate each turn without wiping the active player from the room.
 
 ### Concurrency & World Locking (HTTP 503)
 DimensioneY guarantees atomic world transactions using transactional locks (`WorldLock`).
