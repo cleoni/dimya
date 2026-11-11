@@ -1118,12 +1118,17 @@ include __DIR__ . '/maint.php';
 $maintDeniedBadPass = ob_get_clean();
 assertTest(str_contains($maintDeniedBadPass, 'Access denied: incorrect or missing admin password'), "maint.php denies action with incorrect adminPasswd");
 
-// Test maint.php authorization with correct password
+// Test maint.php authorization with correct password and debug.log deletion
+$testDebugLog = __DIR__ . '/debug.log';
+file_put_contents($testDebugLog, "temporary test debug log content\n");
+assertTest(file_exists($testDebugLog), "test debug.log file exists prior to reset_world");
+
 $_POST = ['action' => 'reset_world', 'adminPasswd' => $cfg['adminPasswd']];
 ob_start();
 include __DIR__ . '/maint.php';
 $maintSuccess = ob_get_clean();
 assertTest(str_contains($maintSuccess, 'The game world has been reset'), "maint.php authorizes action with correct adminPasswd");
+assertTest(!file_exists($testDebugLog), "maint.php deletes debug.log before world reset");
 }
 
 // -------------------------------------------------------------

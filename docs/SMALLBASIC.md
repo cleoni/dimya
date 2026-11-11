@@ -1504,12 +1504,20 @@ Rounds `number` to the specified number of decimal digits.
 
 ### 3.10.48 SetContainsKey( set, key )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
-Checks if `set` contains an entry with key `key`.
+Checks if `set` (or array/dictionary) contains an entry with key `key` (case-insensitive key comparison).
 
 - **Syntax**: `hasKey = SetContainsKey( set, key )`
-- **Returns**: Boolean (`1` if key exists, `0` otherwise).
+- **Parameters**:
+  - `set`: An associative set, dictionary, array, or variable containing one. Returns `0`/`false` if not a collection or empty.
+  - `key`: A string, integer, or `DimxObject` whose ID/name is tested.
+- **Returns**: Boolean (`true` / `1` if key exists, `false` / `0` otherwise).
+- **Example**:
+  ```basic
+  Dim items = getItemsIn($AGENT)
+  If SetContainsKey(items, "talisman")
+      Display "You possess the talisman."
+  End_If
+  ```
 
 ---
 

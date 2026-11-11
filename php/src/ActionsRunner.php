@@ -2076,7 +2076,17 @@ class ActionsRunner
 
         // Boolean comparison
         if (is_bool($left) || is_bool($right)) {
-            return (bool)$left === (bool)$right;
+            $toBool = function ($v) {
+                if (is_bool($v)) return $v;
+                if (is_numeric($v)) return (int)$v !== 0;
+                if (is_string($v)) {
+                    $u = strtoupper(trim($v));
+                    if ($u === 'FALSE' || $u === '0' || $u === '') return false;
+                    if ($u === 'TRUE' || $u === '1') return true;
+                }
+                return (bool)$v;
+            };
+            return $toBool($left) === $toBool($right);
         }
 
         // String comparison
@@ -2179,6 +2189,40 @@ class ActionsRunner
                     return count($arr);
                 }
                 return -1;
+            }
+
+            // Built-in SetContainsKey( set, key )
+            if (strcasecmp($fn, 'SetContainsKey') === 0) {
+                $args = $this->parseArguments($argStr);
+                $rawSet = isset($args[0]) ? $this->evalValue($args[0]) : null;
+                if (!is_array($rawSet) && isset($args[0])) {
+                    $arr = $this->getVariable($args[0]);
+                    if (is_array($arr)) {
+                        $rawSet = $arr;
+                    }
+                }
+                if (!is_array($rawSet)) {
+                    return false;
+                }
+
+                $keyVal = isset($args[1]) ? $this->evalValue($args[1]) : '';
+                if ($keyVal instanceof DimxObject) {
+                    $searchKey = (string)$keyVal->id;
+                } elseif ($keyVal === null) {
+                    $searchKey = '';
+                } else {
+                    $searchKey = (string)$keyVal;
+                }
+
+                if (array_key_exists($searchKey, $rawSet)) {
+                    return true;
+                }
+                foreach (array_keys($rawSet) as $k) {
+                    if (strcasecmp((string)$k, $searchKey) === 0) {
+                        return true;
+                    }
+                }
+                return false;
             }
 
             // Built-in Split( valuestring, separatorstring )

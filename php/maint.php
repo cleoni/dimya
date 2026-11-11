@@ -110,6 +110,17 @@ if (!empty($action) && (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' || $action
             case 'reset_world':
                 $worldId = trim((string)($_SERVER['DIMX_WORLD_ID'] ?? $_POST['world_id'] ?? $_GET['world_id'] ?? ($config['world_id'] ?? 'main')));
                 $purgePlayers = !empty($_POST['purge_players']);
+                // Delete debug.log before world reset
+                $debugLogFiles = array_unique([
+                    __DIR__ . '/debug.log',
+                    \Dimx\GameEngine::getSystemFolder() . '/debug.log',
+                ]);
+                foreach ($debugLogFiles as $logFile) {
+                    if (file_exists($logFile)) {
+                        @unlink($logFile);
+                    }
+                }
+
                 $pm->resetWorld($worldId, $purgePlayers);
                 $message = "The game world has been reset and all active player sessions have been invalidated. It will be re-seeded from server configuration on the next player connection.";
                 break;

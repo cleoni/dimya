@@ -68,6 +68,7 @@ $sections = [
     65 => ['title' => 'Testing Login Attempt Logging to debug.log & Stale Player Pruning Inside Main Loop at Login...', 'keywords' => ['login', 'stale', 'pruning', 'tick', 'debug.log', 'main loop', 'reconnect']],
     66 => ['title' => 'Testing UIhtml Sound & Music Support Property Storage, Snapshot Inspection & Audio Rendering...', 'keywords' => ['sound', 'music', 'audiosupport', 'musicsupport', 'uihtml', 'snapshot', 'playbackground', 'session']],
     67 => ['title' => 'Testing SmallBasic getItemsIn Function (Objects, Sets, Arrays, $WORLD, $AGENT & loc_relic_vault in world.dxw)...', 'keywords' => ['getitemsin', 'items', 'smallbasic', 'world.dxw', 'loc_relic_vault', 'inventory', 'actionsrunner']],
+    68 => ['title' => 'Testing SmallBasic SetContainsKey Function (Sets, Dictionaries, Arrays, Case-Insensitivity, Objects, & loc_relic_vault in world.dxw)...', 'keywords' => ['setcontainskey', 'smallbasic', 'set', 'contains', 'talisman', 'loc_relic_vault', 'world.dxw', 'actionsrunner']],
 ];
 
 // CLI Options parsing
@@ -1158,12 +1159,17 @@ include __DIR__ . '/maint.php';
 $maintDeniedBadPass = ob_get_clean();
 assertTest(str_contains($maintDeniedBadPass, 'Access denied: incorrect or missing admin password'), "maint.php denies action with incorrect adminPasswd");
 
-// Test maint.php authorization with correct password
+// Test maint.php authorization with correct password and debug.log deletion
+$testDebugLog = __DIR__ . '/debug.log';
+file_put_contents($testDebugLog, "temporary test debug log content\n");
+assertTest(file_exists($testDebugLog), "test debug.log file exists prior to reset_world");
+
 $_POST = ['action' => 'reset_world', 'adminPasswd' => $cfg['adminPasswd']];
 ob_start();
 include __DIR__ . '/maint.php';
 $maintSuccess = ob_get_clean();
 assertTest(str_contains($maintSuccess, 'The game world has been reset'), "maint.php authorizes action with correct adminPasswd");
+assertTest(!file_exists($testDebugLog), "maint.php deletes debug.log before world reset");
 }
 
 // -------------------------------------------------------------
@@ -4114,6 +4120,133 @@ if (shouldRun(67)) {
 
         // Clean up
         @$pm->resetWorld($sec67WorldId);
+    }
+}
+
+// -------------------------------------------------------------
+// Section 68: Testing SmallBasic SetContainsKey Function (Sets, Dictionaries, Arrays, Case-Insensitivity, Objects, & loc_relic_vault in world.dxw)
+// -------------------------------------------------------------
+if (shouldRun(68)) {
+    echo "\n--- Section 68: Testing SmallBasic SetContainsKey Function (Sets, Dictionaries, Arrays, Case-Insensitivity, Objects, & loc_relic_vault in world.dxw) ---\n";
+
+    // 1. Direct unit tests
+    $sec68World = new \Dimx\World('w_sec68');
+    $roomVault = new \Dimx\Room($sec68World, 'Subterranean Relic Vault', 'loc_relic_vault');
+    $sec68World->addRoom($roomVault);
+
+    $itemTalisman = new \Dimx\Item($sec68World, 'Ceremonial Talisman', 'talisman', 'A sacred paper talisman');
+    $sec68World->addItem($itemTalisman);
+
+    $player = new \Dimx\Player($sec68World, 'Cris', 'p_cris');
+    $sec68World->addPlayer($player);
+    $player->container = $roomVault;
+
+    // A. Without talisman in inventory
+    $runner = new \Dimx\ActionsRunner($sec68World, $roomVault, $player, null);
+    $runner->run('Dim items = getItemsIn($AGENT)');
+    $runner->run('Dim hasTalisman = SetContainsKey(items, "talisman")');
+    $hasTalisman = $runner->getLocalVar('hasTalisman');
+    assertTest($hasTalisman === false, "SetContainsKey(items, 'talisman') returns false when key is absent");
+
+    $runner->run('Display "test: " + SetContainsKey(items, "talisman")');
+    $cons = implode(' ', $player->drainConsole());
+    assertTest(str_contains($cons, 'test: false'), "Display 'test: ' + SetContainsKey(items, 'talisman') outputs 'test: false': '{$cons}'");
+
+    $runner->run("If SetContainsKey(items, \"talisman\")\nDisplay \"HAS_KEY\"\nElse\nDisplay \"NO_KEY\"\nEnd_If");
+    $consIf = implode(' ', $player->drainConsole());
+    assertTest(str_contains($consIf, 'NO_KEY') && !str_contains($consIf, 'HAS_KEY'), "If SetContainsKey branch jumps to Else when false: '{$consIf}'");
+
+    // B. With talisman in inventory
+    $itemTalisman->move($player);
+    $runner2 = new \Dimx\ActionsRunner($sec68World, $roomVault, $player, null);
+    $runner2->run('Dim items = getItemsIn($AGENT)');
+    $runner2->run('Dim hasTalisman2 = SetContainsKey(items, "talisman")');
+    $hasTalisman2 = $runner2->getLocalVar('hasTalisman2');
+    assertTest($hasTalisman2 === true, "SetContainsKey(items, 'talisman') returns true when key is present");
+
+    $runner2->run('Display "test: " + SetContainsKey(items, "talisman")');
+    $cons2 = implode(' ', $player->drainConsole());
+    assertTest(str_contains($cons2, 'test: true'), "Display 'test: ' + SetContainsKey(items, 'talisman') outputs 'test: true': '{$cons2}'");
+
+    $runner2->run("If SetContainsKey(items, \"talisman\")\nDisplay \"HAS_KEY\"\nElse\nDisplay \"NO_KEY\"\nEnd_If");
+    $consIf2 = implode(' ', $player->drainConsole());
+    assertTest(str_contains($consIf2, 'HAS_KEY') && !str_contains($consIf2, 'NO_KEY'), "If SetContainsKey branch jumps to Then when true: '{$consIf2}'");
+
+    // C. Case-insensitivity test
+    $runner2->run('Dim hasUpper = SetContainsKey(items, "TALISMAN")');
+    assertTest($runner2->getLocalVar('hasUpper') === true, "SetContainsKey is case-insensitive with 'TALISMAN'");
+    $runner2->run('Dim hasMixed = SetContainsKey(items, "TaLiSmAn")');
+    assertTest($runner2->getLocalVar('hasMixed') === true, "SetContainsKey is case-insensitive with 'TaLiSmAn'");
+
+    // D. Key passed as DimxObject
+    $runner2->run('Dim hasObj = SetContainsKey(items, talisman)');
+    assertTest($runner2->getLocalVar('hasObj') === true, "SetContainsKey accepts DimxObject item as key argument");
+
+    // E. Indexed / numeric array keys
+    $runner->run('Dim arr = Split("alpha,beta,gamma", ",")');
+    $runner->run('Dim hasKey1 = SetContainsKey(arr, 1)');
+    $runner->run('Dim hasKey99 = SetContainsKey(arr, 99)');
+    assertTest($runner->getLocalVar('hasKey1') === true, "SetContainsKey(arr, 1) returns true for numeric key 1");
+    assertTest($runner->getLocalVar('hasKey99') === false, "SetContainsKey(arr, 99) returns false for non-existent key 99");
+
+    // F. Non-array or empty collection checks
+    $runner->run('Dim nonArr = SetContainsKey("not_an_array", "key")');
+    assertTest($runner->getLocalVar('nonArr') === false, "SetContainsKey on non-array returns false");
+    $runner->run('Dim emptyArr = NewArray()');
+    $runner->run('Dim emptyRes = SetContainsKey(emptyArr, "key")');
+    assertTest($runner->getLocalVar('emptyRes') === false, "SetContainsKey on empty array returns false");
+
+    // 2. Integration test with world.dxw
+    $worldDxwFile = dirname(__DIR__, 2) . '/worlds/world.dxw';
+    if (!file_exists($worldDxwFile)) {
+        $worldDxwFile = dirname(__DIR__) . '/docs/dxw-examples/world.dxw';
+    }
+
+    if (file_exists($worldDxwFile)) {
+        $sec68WorldId = 'test_w_sec68_' . uniqid();
+        $pm->clearGoals($sec68WorldId);
+        $engine68 = new \Dimx\GameEngine($pm, $sec68WorldId, $worldDxwFile);
+
+        // Cris logs in and navigates: loc_shrine_entrance -> loc_courtyard -> loc_inner_sanctum -> loc_celestial_chamber -> loc_relic_vault
+        $engine68->processCommand('Cris', 'look');
+
+        // Move N to loc_courtyard
+        $engine68->processCommand('Cris', 'go', 'N');
+        // Move N to loc_inner_sanctum
+        $engine68->processCommand('Cris', 'go', 'N');
+        // Move W to loc_celestial_chamber
+        $engine68->processCommand('Cris', 'go', 'W');
+
+        // Move D into loc_relic_vault WITHOUT talisman
+        $resD = $engine68->processCommand('Cris', 'go', 'D');
+        $messagesD = json_encode($resD['messages'] ?? []);
+        assertTest(str_contains($messagesD, 'test: false'), "loc_relic_vault without talisman outputs 'test: false': {$messagesD}");
+        assertTest(str_contains($messagesD, ' You don\'t have the talisman'), "loc_relic_vault without talisman outputs ' You don\\'t have the talisman'");
+        assertTest(str_contains($messagesD, 'NO talisman'), "loc_relic_vault without talisman outputs 'NO talisman'");
+        assertTest(!str_contains($messagesD, 'Yes you have got the talisman'), "loc_relic_vault without talisman does NOT output 'Yes you have got the talisman'");
+
+        // Move talisman into Cris's inventory
+        $activeWorld = $engine68->loadOrSeedWorld();
+        $crisObj = $activeWorld->getPlayerByName('Cris');
+        $talismanInWorld = $activeWorld->getItem('talisman');
+        if ($crisObj !== null && $talismanInWorld !== null) {
+            $talismanInWorld->move($crisObj);
+            $pm->saveWorld($activeWorld, $sec68WorldId);
+        }
+
+        // Move U back to celestial chamber
+        $engine68->processCommand('Cris', 'go', 'U');
+
+        // Move D back into loc_relic_vault WITH talisman
+        $resD2 = $engine68->processCommand('Cris', 'go', 'D');
+        $messagesD2 = json_encode($resD2['messages'] ?? []);
+        assertTest(str_contains($messagesD2, 'test: true'), "loc_relic_vault WITH talisman outputs 'test: true': {$messagesD2}");
+        assertTest(str_contains($messagesD2, 'Yes you have got the talisman'), "loc_relic_vault WITH talisman outputs 'Yes you have got the talisman'");
+        assertTest(str_contains($messagesD2, 'WOO! you have got the talisman'), "loc_relic_vault WITH talisman outputs 'WOO! you have got the talisman'");
+        assertTest(!str_contains($messagesD2, ' You don\'t have the talisman'), "loc_relic_vault WITH talisman does NOT output ' You don\\'t have the talisman'");
+
+        // Clean up
+        @$pm->resetWorld($sec68WorldId);
     }
 }
 
