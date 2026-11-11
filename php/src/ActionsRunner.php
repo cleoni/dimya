@@ -135,6 +135,32 @@ class ActionsRunner
         }
     }
 
+    /**
+     * Log an error message and treat it like a Display instruction to output
+     * the error description to the appropriate console (e.g. $AGENT or $OWNER).
+     */
+    public function displayError(string $errMsg): void
+    {
+        $logMsg = $errMsg . ($this->fileShort !== '' && $this->currLine > 0 ? " near line {$this->currLine} in {$this->fileShort}" : "");
+        $this->log($logMsg);
+
+        $destination = ($this->agent instanceof DimxObject)
+            ? $this->agent
+            : (($this->owner instanceof DimxObject) ? $this->owner : $this->world);
+
+        if ($destination instanceof DimxObject && method_exists($destination, 'display')) {
+            $destination->display($errMsg);
+        } elseif ($destination instanceof Room) {
+            foreach ($destination->getOccupants() as $occ) {
+                if (method_exists($occ, 'display')) {
+                    $occ->display($errMsg);
+                }
+            }
+        } elseif ($destination instanceof World) {
+            $destination->broadcast($errMsg);
+        }
+    }
+
     public function setArrayElement(string $name, int $index, mixed $val): void
     {
         if (array_key_exists($name, $this->localVars) && is_array($this->localVars[$name])) {
@@ -318,7 +344,31 @@ class ActionsRunner
                 }
                 $this->log("IF {$firstWord}...");
 
-                $condVal = $this->evalCondition($condClean);
+                try {
+                    $condVal = $this->evalCondition($condClean);
+                } catch (\Throwable $e) {
+                    $this->displayError("ERROR: " . $e->getMessage());
+
+                    // Skip the entire IF block to matching END_IF and proceed to the next instruction
+                    $nesting = 1;
+                    $i++;
+                    while ($i < $count) {
+                        $sub = $lines[$i]['text'];
+                        if (preg_match('/^IF\b/i', $sub)) {
+                            $nesting++;
+                        } elseif (preg_match('/^(END_IF|END\s+IF|ENDIF)\b/i', $sub)) {
+                            $nesting--;
+                            if ($nesting === 0) {
+                                $this->currLine = $lines[$i]['line'];
+                                $i++;
+                                break;
+                            }
+                        }
+                        $i++;
+                    }
+                    continue;
+                }
+
                 // Java: world.logger.debug(expr.boolVal() ? "TRUE" : "FALSE");
                 if ($condVal) {
                     $this->log("TRUE");
@@ -401,7 +451,30 @@ class ActionsRunner
             if (preg_match('/^FOR\s+EACH\b\s+([A-Za-z0-9_]+)\s+IN\s+(.+)$/i', $line, $fem)) {
                 $varName = $fem[1];
                 $collExpr = trim($fem[2]);
-                $collection = $this->evalValue($collExpr);
+                try {
+                    $collection = $this->evalValue($collExpr);
+                } catch (\Throwable $e) {
+                    $this->displayError("ERROR: " . $e->getMessage());
+
+                    // Skip the entire FOR block to matching NEXT and proceed to next instruction
+                    $nesting = 1;
+                    $i++;
+                    while ($i < $count) {
+                        $sub = $lines[$i]['text'];
+                        if (preg_match('/^FOR\b/i', $sub)) {
+                            $nesting++;
+                        } elseif (preg_match('/^NEXT\b/i', $sub)) {
+                            $nesting--;
+                            if ($nesting === 0) {
+                                $this->currLine = $lines[$i]['line'];
+                                $i++;
+                                break;
+                            }
+                        }
+                        $i++;
+                    }
+                    continue;
+                }
                 if (!is_array($collection)) {
                     $collection = $this->getVariable($collExpr);
                 }
@@ -452,9 +525,32 @@ class ActionsRunner
             // Check for For loop: For var = start To end [Step s]
             if (preg_match('/^FOR\b\s+([A-Za-z0-9_]+)\s*=\s*(.+?)\s+TO\s+(.+?)(\s+STEP\s+(.+?))?$/i', $line, $fm)) {
                 $varName = $fm[1];
-                $startVal = (int)$this->evalValue($fm[2]);
-                $endVal = (int)$this->evalValue($fm[3]);
-                $step = isset($fm[5]) ? (int)$this->evalValue($fm[5]) : 1;
+                try {
+                    $startVal = (int)$this->evalValue($fm[2]);
+                    $endVal = (int)$this->evalValue($fm[3]);
+                    $step = isset($fm[5]) ? (int)$this->evalValue($fm[5]) : 1;
+                } catch (\Throwable $e) {
+                    $this->displayError("ERROR: " . $e->getMessage());
+
+                    // Skip the entire FOR block to matching NEXT and proceed to next instruction
+                    $nesting = 1;
+                    $i++;
+                    while ($i < $count) {
+                        $sub = $lines[$i]['text'];
+                        if (preg_match('/^FOR\b/i', $sub)) {
+                            $nesting++;
+                        } elseif (preg_match('/^NEXT\b/i', $sub)) {
+                            $nesting--;
+                            if ($nesting === 0) {
+                                $this->currLine = $lines[$i]['line'];
+                                $i++;
+                                break;
+                            }
+                        }
+                        $i++;
+                    }
+                    continue;
+                }
 
                 $loopLines = [];
                 $nesting = 1;
@@ -495,7 +591,13 @@ class ActionsRunner
             }
 
             // Normal single statement execution
-            $stmtRes = $this->executeStatement($line);
+            try {
+                $stmtRes = $this->executeStatement($line);
+            } catch (\Throwable $e) {
+                $this->displayError("ERROR: " . $e->getMessage());
+                $i++;
+                continue;
+            }
             if ($this->hasReturned) {
                 return $this->returnValue;
             }
@@ -635,6 +737,8 @@ class ActionsRunner
             if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET', 'GOAL'], true)) {
                 $verb = $verbCandidate;
                 $argString = $vm[2];
+            } elseif ($this->world?->getEvent($vm[1]) !== null) {
+                return $this->actCall([], $line);
             }
         }
 
@@ -668,7 +772,7 @@ class ActionsRunner
             'RESET'      => $this->actReset($args),
             'GIVE'       => $this->actGive($args),
             'DEBUG'      => $this->actDebug($args),
-            default      => true,
+            default      => ($this->world?->getEvent($parts[0] ?? '') !== null) ? $this->actCall([], $line) : true,
         };
     }
 
@@ -1758,6 +1862,111 @@ class ActionsRunner
     }
 
     /**
+     * Searches for objects inside container by primary type prefix or subtype.
+     * Matches DimensioneX funGetObjectsType (§3.10.14).
+     *
+     * @param mixed $container Object instance, array of items/objects, room, or container ID
+     * @param string $type The type prefix or subtype to match
+     * @param bool $matchSubtype If true, matches dotted subtype parts; if false, prefix match
+     * @return array<string, DimxObject>
+     */
+    protected function funGetObjectsType(mixed $container, string $type, bool $matchSubtype = false): array
+    {
+        $newSet = [];
+        if ($type === '' || $container === null) {
+            return $newSet;
+        }
+
+        $checkObject = function(mixed $dxo) use (&$newSet, $type, $matchSubtype): void {
+            if (!($dxo instanceof DimxObject)) {
+                if (is_string($dxo) && $dxo !== '' && $this->world !== null) {
+                    $dxo = $this->world->getObjectExt($dxo);
+                }
+            }
+            if ($dxo instanceof DimxObject) {
+                $objType = (string)($dxo->getProperty('type') ?? (property_exists($dxo, 'type') ? $dxo->type : ''));
+                if ($matchSubtype) {
+                    $parts = explode('.', $objType);
+                    foreach ($parts as $p) {
+                        if (strcasecmp(trim($p), $type) === 0) {
+                            $newSet[$dxo->id] = $dxo;
+                            break;
+                        }
+                    }
+                } else {
+                    if (stripos($objType, $type) === 0) {
+                        $newSet[$dxo->id] = $dxo;
+                    }
+                }
+            }
+        };
+
+        if (is_array($container)) {
+            foreach ($container as $elem) {
+                $checkObject($elem);
+            }
+            return $newSet;
+        }
+
+        if (is_string($container)) {
+            $resolved = $this->resolveObject($container);
+            if ($resolved === null && $this->world !== null) {
+                $resolved = $this->world->getObjectExt($container);
+            }
+            $container = $resolved;
+        }
+
+        if ($container instanceof AdvObject) {
+            $contents = $container->getContents();
+            foreach ($contents as $dxo) {
+                $checkObject($dxo);
+            }
+        } elseif ($container instanceof World) {
+            if (isset($container->items) && is_array($container->items)) {
+                foreach ($container->items as $dxo) {
+                    $checkObject($dxo);
+                }
+            }
+        }
+
+        return $newSet;
+    }
+
+    /**
+     * Checks if a string has unbalanced parentheses outside of quoted string literals.
+     */
+    protected function hasUnbalancedParens(string $s): bool
+    {
+        $len = strlen($s);
+        $depth = 0;
+        $inQuote = false;
+        $quoteChar = '';
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $s[$i];
+            if ($inQuote) {
+                if ($ch === $quoteChar) {
+                    $inQuote = false;
+                }
+                continue;
+            }
+            if ($ch === '"' || $ch === "'") {
+                $inQuote = true;
+                $quoteChar = $ch;
+                continue;
+            }
+            if ($ch === '(') {
+                $depth++;
+            } elseif ($ch === ')') {
+                $depth--;
+                if ($depth < 0) {
+                    return true;
+                }
+            }
+        }
+        return ($depth !== 0);
+    }
+
+    /**
      * Evaluate condition expression like "$WORLD.mode <> 1" or "open = 0"
      */
     protected function evalCondition(string $expr): mixed
@@ -2115,6 +2324,10 @@ class ActionsRunner
     {
         $val = trim($val);
 
+        if ($this->hasUnbalancedParens($val)) {
+            throw new \RuntimeException("Syntax error: unbalanced parentheses in expression '{$val}'");
+        }
+
         // Unwrap outer parentheses if fully enclosed: (expr)
         while (str_starts_with($val, '(') && str_ends_with($val, ')') && self::isFullyEnclosedInParens($val)) {
             $val = trim(substr($val, 1, -1));
@@ -2151,6 +2364,14 @@ class ActionsRunner
         }
         if ($upper === '$TARGET') {
             return $this->target;
+        }
+
+        // Top-level logical OR / AND outside parentheses and quotes (for expressions and assignments: res = res Or ...)
+        if ($parts = $this->splitTopLevelLogical($val, 'OR')) {
+            return (bool)$this->evalCondition(trim($parts[0])) || (bool)$this->evalCondition(trim($parts[1]));
+        }
+        if ($parts = $this->splitTopLevelLogical($val, 'AND')) {
+            return (bool)$this->evalCondition(trim($parts[0])) && (bool)$this->evalCondition(trim($parts[1]));
         }
 
         // Top-level binary arithmetic & string concatenation outside quotes/parentheses
@@ -2357,6 +2578,27 @@ class ActionsRunner
                 return $newSet;
             }
 
+            // Built-in getObjectsType( container, type ) and getObjectsSubtype( container, subtype )
+            if (strcasecmp($fn, 'getObjectsType') === 0 || strcasecmp($fn, 'getObjectsSubtype') === 0) {
+                $isSubtype = (strcasecmp($fn, 'getObjectsSubtype') === 0);
+                $args = $this->parseArguments($argStr);
+                $targetExpr = $args[0] ?? '';
+                $typeFilter = isset($args[1]) ? (string)$this->evalValue($args[1]) : '';
+                if ($typeFilter === '') {
+                    return [];
+                }
+
+                $contVal = $this->evalValue($targetExpr);
+                if (!is_array($contVal)) {
+                    $arr = $this->getVariable($targetExpr);
+                    if (is_array($arr)) {
+                        $contVal = $arr;
+                    }
+                }
+
+                return $this->funGetObjectsType($contVal, $typeFilter, $isSubtype);
+            }
+
             // Check if $fn is an array / set
             $arr = $this->getVariable($fn);
             if (is_array($arr)) {
@@ -2370,26 +2612,18 @@ class ActionsRunner
             // Check if $fn is a custom script Function/Sub in world events
             if ($this->world !== null) {
                 $ev = $this->world->getEvent($fn);
-                if ($ev !== null || isset($this->world->events[$fn])) {
+                if ($ev !== null) {
                     $rawArgs = ($argStr !== '') ? $this->parseArguments($argStr) : [];
                     $evalArgs = [];
                     foreach ($rawArgs as $a) {
                         $evalArgs[] = $this->evalValue($a);
                     }
-                    return $this->world->fireEvent($fn, $this->owner, $this->agent, $this->target, $evalArgs, null);
-                }
-                // Case-insensitive check on events
-                foreach ($this->world->events as $ek => $ev) {
-                    if (strcasecmp($ek, $fn) === 0) {
-                        $rawArgs = ($argStr !== '') ? $this->parseArguments($argStr) : [];
-                        $evalArgs = [];
-                        foreach ($rawArgs as $a) {
-                            $evalArgs[] = $this->evalValue($a);
-                        }
-                        return $this->world->fireEvent($ek, $this->owner, $this->agent, $this->target, $evalArgs, null);
-                    }
+                    return $this->world->fireEvent($ev->id, $this->owner, $this->agent, $this->target, $evalArgs, null);
                 }
             }
+
+            // Unknown function or array error: throw exception so it is NOT treated as a literal
+            throw new \RuntimeException("Unknown Function or Array: {$fn}");
         }
 
         // Property access e.g. "$WORLD.mode", "$OWNER.Health", "box.open", "x.name", "players(nowplays).name"

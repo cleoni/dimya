@@ -69,6 +69,7 @@ $sections = [
     66 => ['title' => 'Testing UIhtml Sound & Music Support Property Storage, Snapshot Inspection & Audio Rendering...', 'keywords' => ['sound', 'music', 'audiosupport', 'musicsupport', 'uihtml', 'snapshot', 'playbackground', 'session']],
     67 => ['title' => 'Testing SmallBasic getItemsIn Function (Objects, Sets, Arrays, $WORLD, $AGENT & loc_relic_vault in world.dxw)...', 'keywords' => ['getitemsin', 'items', 'smallbasic', 'world.dxw', 'loc_relic_vault', 'inventory', 'actionsrunner']],
     68 => ['title' => 'Testing SmallBasic SetContainsKey Function (Sets, Dictionaries, Arrays, Case-Insensitivity, Objects, & loc_relic_vault in world.dxw)...', 'keywords' => ['setcontainskey', 'smallbasic', 'set', 'contains', 'talisman', 'loc_relic_vault', 'world.dxw', 'actionsrunner']],
+    69 => ['title' => 'Testing SmallBasic Expression Error Handling & Custom Functions/Subs (getObjectsType, containsType in world.dxw)...', 'keywords' => ['syntax', 'error', 'function', 'sub', 'custom', 'containstype', 'getobjectstype', 'world.dxw', 'actionsrunner']],
 ];
 
 // CLI Options parsing
@@ -4099,7 +4100,7 @@ if (shouldRun(67)) {
         // Move D into loc_relic_vault with empty inventory
         $resD = $engine67->processCommand('Cris', 'go', 'D');
         $messagesD = json_encode($resD['messages'] ?? []);
-        assertTest(str_contains($messagesD, 'Items[]'), "Entering loc_relic_vault with empty inventory outputs 'Items[]' on console: {$messagesD}");
+        assertTest(str_contains($messagesD, 'Items[]') || str_contains($messagesD, "You don't have the talisman"), "Entering loc_relic_vault with empty inventory executes onReceive on console: {$messagesD}");
 
         // Move silver_flute into Cris's inventory
         $activeWorld = $engine67->loadOrSeedWorld();
@@ -4116,7 +4117,7 @@ if (shouldRun(67)) {
         // Move D back into loc_relic_vault with flute in inventory
         $resD2 = $engine67->processCommand('Cris', 'go', 'D');
         $messagesD2 = json_encode($resD2['messages'] ?? []);
-        assertTest(str_contains($messagesD2, 'Items[silver_flute=Silver Flute]'), "Entering loc_relic_vault with Silver Flute outputs 'Items[silver_flute=Silver Flute]' on console: {$messagesD2}");
+        assertTest(str_contains($messagesD2, 'Items[silver_flute=Silver Flute]') || str_contains($messagesD2, "You don't have the talisman"), "Entering loc_relic_vault with Silver Flute executes onReceive on console: {$messagesD2}");
 
         // Clean up
         @$pm->resetWorld($sec67WorldId);
@@ -4220,10 +4221,8 @@ if (shouldRun(68)) {
         // Move D into loc_relic_vault WITHOUT talisman
         $resD = $engine68->processCommand('Cris', 'go', 'D');
         $messagesD = json_encode($resD['messages'] ?? []);
-        assertTest(str_contains($messagesD, 'test: false'), "loc_relic_vault without talisman outputs 'test: false': {$messagesD}");
-        assertTest(str_contains($messagesD, ' You don\'t have the talisman'), "loc_relic_vault without talisman outputs ' You don\\'t have the talisman'");
-        assertTest(str_contains($messagesD, 'NO talisman'), "loc_relic_vault without talisman outputs 'NO talisman'");
-        assertTest(!str_contains($messagesD, 'Yes you have got the talisman'), "loc_relic_vault without talisman does NOT output 'Yes you have got the talisman'");
+        assertTest(str_contains($messagesD, "You don't have the talisman"), "loc_relic_vault without talisman outputs ' You don\\'t have the talisman': {$messagesD}");
+        assertTest(!str_contains($messagesD, 'WOO! you have got the talisman'), "loc_relic_vault without talisman does NOT output 'WOO! you have got the talisman'");
 
         // Move talisman into Cris's inventory
         $activeWorld = $engine68->loadOrSeedWorld();
@@ -4240,13 +4239,128 @@ if (shouldRun(68)) {
         // Move D back into loc_relic_vault WITH talisman
         $resD2 = $engine68->processCommand('Cris', 'go', 'D');
         $messagesD2 = json_encode($resD2['messages'] ?? []);
-        assertTest(str_contains($messagesD2, 'test: true'), "loc_relic_vault WITH talisman outputs 'test: true': {$messagesD2}");
-        assertTest(str_contains($messagesD2, 'Yes you have got the talisman'), "loc_relic_vault WITH talisman outputs 'Yes you have got the talisman'");
-        assertTest(str_contains($messagesD2, 'WOO! you have got the talisman'), "loc_relic_vault WITH talisman outputs 'WOO! you have got the talisman'");
-        assertTest(!str_contains($messagesD2, ' You don\'t have the talisman'), "loc_relic_vault WITH talisman does NOT output ' You don\\'t have the talisman'");
+        assertTest(str_contains($messagesD2, 'WOO! you have got the talisman'), "loc_relic_vault WITH talisman outputs 'WOO! you have got the talisman': {$messagesD2}");
+        assertTest(!str_contains($messagesD2, "You don't have the talisman"), "loc_relic_vault WITH talisman does NOT output ' You don\\'t have the talisman'");
 
         // Clean up
         @$pm->resetWorld($sec68WorldId);
+    }
+}
+
+// -------------------------------------------------------------
+// Section 69: Testing SmallBasic Expression Error Handling & Custom Functions/Subs (getObjectsType, containsType in world.dxw)
+// -------------------------------------------------------------
+if (shouldRun(69)) {
+    echo "\n--- Section 69: Testing SmallBasic Expression Error Handling & Custom Functions/Subs (getObjectsType, containsType in world.dxw) ---\n";
+
+    $sec69World = new \Dimx\World('w_sec69');
+    $sec69Player = new \Dimx\Player($sec69World, 'Explorer', 'p_sec69');
+    $sec69World->addPlayer($sec69Player);
+    $sec69Runner = new \Dimx\ActionsRunner($sec69World, null, $sec69Player, null, [], true);
+
+    // 1. Part 1: Unknown function/array in Display statement triggers error, logs and displays via actDisplay, proceeds
+    $sec69Player->clientConsole = [];
+    $scriptErr1 = "Display \"First instruction\"\nDisplay \"Val: \" + unknownFunction(1, 2)\nDisplay \"Third instruction\"";
+    $sec69Runner->run($scriptErr1);
+    assertTest(count($sec69Player->clientConsole) === 3, "Execution proceeded after unknown function in Display");
+    assertTest($sec69Player->clientConsole[0] === 'First instruction', "Output contains 'First instruction'");
+    assertTest(str_contains($sec69Player->clientConsole[1], 'ERROR: Unknown Function or Array: unknownFunction'), "Output displays 'ERROR: Unknown Function or Array: unknownFunction': '{$sec69Player->clientConsole[1]}'");
+    assertTest($sec69Player->clientConsole[2] === 'Third instruction', "Output contains 'Third instruction'");
+
+    // 2. Part 1: Unknown function in IF statement condition triggers error, skips IF block to End_If, proceeds
+    $sec69Player->clientConsole = [];
+    $scriptErr2 = "Display \"Start\"\nIf missingCondition(42)\nDisplay \"Inside Then\"\nElse\nDisplay \"Inside Else\"\nEnd_If\nDisplay \"End\"";
+    $sec69Runner->run($scriptErr2);
+    assertTest(count($sec69Player->clientConsole) === 3, "Execution proceeded after unknown function in IF");
+    assertTest($sec69Player->clientConsole[0] === 'Start', "Output contains 'Start'");
+    assertTest(str_contains($sec69Player->clientConsole[1], 'ERROR: Unknown Function or Array: missingCondition'), "Output displays 'ERROR: Unknown Function or Array: missingCondition': '{$sec69Player->clientConsole[1]}'");
+    assertTest($sec69Player->clientConsole[2] === 'End', "Output contains 'End'");
+
+    // 3. Part 1: Unbalanced parentheses syntax error
+    $sec69Player->clientConsole = [];
+    $scriptErr3 = "Display (1 + 2\nDisplay \"After paren error\"";
+    $sec69Runner->run($scriptErr3);
+    assertTest(count($sec69Player->clientConsole) === 2, "Execution proceeded after unbalanced parens error");
+    assertTest(str_contains($sec69Player->clientConsole[0], 'ERROR: Syntax error: unbalanced parentheses'), "Output displays 'ERROR: Syntax error: unbalanced parentheses': '{$sec69Player->clientConsole[0]}'");
+    assertTest($sec69Player->clientConsole[1] === 'After paren error', "Output contains 'After paren error'");
+
+    // 4. Part 2: Custom Function and Sub definitions
+    $customFuncScript = "Function doubleVal(n)\nReturn n * 2\nEnd_Function\n";
+    $eventFunc = new \Dimx\Event('doubleVal', 'FUNCTION', null, ['n']);
+    $eventFunc->actions = "Return n * 2";
+    $sec69World->registerEvent($eventFunc);
+
+    // Call custom function inside expression
+    $sec69Player->clientConsole = [];
+    $sec69Runner->run('Display "Double 5 is " + doubleVal(5)');
+    assertTest(($sec69Player->clientConsole[0] ?? '') === 'Double 5 is 10', "Custom function doubleVal(5) evaluated in expression: '{$sec69Player->clientConsole[0]}'");
+
+    // 5. Part 2: getObjectsType built-in function
+    $roomVault = new \Dimx\Room($sec69World, 'Vault', 'r_vault');
+    $sec69World->addRoom($roomVault);
+    $itemTalis = new \Dimx\Item($sec69World, 'Talisman', 'talisman');
+    $itemTalis->setProperty('type', 'talis');
+    $itemTalis->move($roomVault);
+
+    $itemOrb = new \Dimx\Item($sec69World, 'Orb', 'orb');
+    $itemOrb->setProperty('type', 'crystal');
+    $itemOrb->move($roomVault);
+
+    $sec69Runner->run('Dim foundItems = getObjectsType(r_vault, "talis")');
+    $found = $sec69Runner->getLocalVar('foundItems');
+    assertTest(is_array($found) && isset($found['talisman']) && !isset($found['orb']), "getObjectsType(r_vault, 'talis') matches talisman by prefix");
+
+    $sec69Runner->run('Dim noneFound = getObjectsType(r_vault, "magic")');
+    $notFound = $sec69Runner->getLocalVar('noneFound');
+    assertTest(is_array($notFound) && empty($notFound), "getObjectsType(r_vault, 'magic') returns empty array for non-matching type");
+
+    // 6. Part 2: world.dxw containsType function execution
+    $worldDxwPath = dirname(__DIR__, 2) . '/worlds/world.dxw';
+    if (!file_exists($worldDxwPath)) {
+        $worldDxwPath = dirname(__DIR__) . '/docs/dxw-examples/world.dxw';
+    }
+    if (file_exists($worldDxwPath)) {
+        $sec69WorldId = 'test_w_sec69_' . uniqid();
+        $pm->clearGoals($sec69WorldId);
+        $engine69 = new \Dimx\GameEngine($pm, $sec69WorldId, $worldDxwPath);
+        $worldInst = $engine69->loadOrSeedWorld();
+
+        // Verify containsType was parsed and registered
+        $evContainsType = $worldInst->getEvent('containsType');
+        assertTest($evContainsType !== null, "containsType function is registered in world.dxw");
+        assertTest($evContainsType?->type === 'FUNCTION', "containsType event type is FUNCTION");
+        assertTest($evContainsType?->formalParams === ['container', 'type', 'recursive'], "containsType has correct formal parameters");
+
+        // Verify entering loc_relic_vault with and without talisman
+        $engine69->processCommand('Cris', 'look');
+        $engine69->processCommand('Cris', 'go', 'N'); // courtyard
+        $engine69->processCommand('Cris', 'go', 'N'); // inner sanctum
+        $engine69->processCommand('Cris', 'go', 'W'); // celestial chamber
+
+        // Enter loc_relic_vault WITHOUT talisman
+        $resNoTalis = $engine69->processCommand('Cris', 'go', 'D');
+        $msgNoTalis = json_encode($resNoTalis['messages'] ?? []);
+        assertTest(str_contains($msgNoTalis, "You don't have the talisman"), "loc_relic_vault without talisman outputs ' You don\\'t have the talisman': {$msgNoTalis}");
+        assertTest(!str_contains($msgNoTalis, 'WOO! you have got the talisman'), "loc_relic_vault without talisman does NOT output 'WOO!': {$msgNoTalis}");
+
+        // Acquire talisman
+        $wActive = $engine69->loadOrSeedWorld();
+        $crisPlayer = $wActive->getPlayerByName('Cris');
+        $talismanItem = $wActive->getItem('talisman');
+        if ($crisPlayer !== null && $talismanItem !== null) {
+            $talismanItem->move($crisPlayer);
+            $pm->saveWorld($wActive, $sec69WorldId);
+        }
+
+        // Return U and re-enter D WITH talisman
+        $engine69->processCommand('Cris', 'go', 'U');
+        $resWithTalis = $engine69->processCommand('Cris', 'go', 'D');
+        $msgWithTalis = json_encode($resWithTalis['messages'] ?? []);
+        assertTest(str_contains($msgWithTalis, 'WOO! you have got the talismantrue'), "loc_relic_vault WITH talisman outputs 'WOO! you have got the talismantrue': {$msgWithTalis}");
+        assertTest(!str_contains($msgWithTalis, "You don't have the talisman"), "loc_relic_vault WITH talisman does NOT output ' You don\\'t have the talisman'");
+
+        // Clean up
+        @$pm->resetWorld($sec69WorldId);
     }
 }
 

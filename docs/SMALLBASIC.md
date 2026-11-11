@@ -13,7 +13,7 @@
 | Area | Item | DimY status |
 |---|---|---|
 | Directive | `Include` | Not implemented (DimX only) |
-| Structure | `Sub` / `Function` | Partial: registered as events and callable via `Call`; no formal parameter binding, no value returned to expressions |
+| Structure | `Sub` / `Function` | Fully supported: formal parameter binding, custom functions in expressions, return values, and recursive calls |
 | Structure | `input()` set | Partial: passed to the runner but not accessible from scripts |
 | Structure | `HOOKS` | Partial: stored as world property `hooks`; dispatch of external commands to scripts not implemented |
 | Types | Image / Set / Array objects in scripts | Not implemented (world `SET` declarations are loaded; only `RndSet` reads them) |
@@ -142,9 +142,7 @@ SmallBasic scripts are organized into three block types: **`Sub`**, **`Function`
 
 ### 3.4.1 Sub
 
-> **[DimY: partial - no formal parameter binding]** `Sub` blocks are registered as events and run via `Call`; `$OWNER`/`$AGENT`/`$TARGET` are passed.
-
-Defines a custom procedure that can be called from anywhere using the `Call` statement.
+Defines a custom subroutine/procedure that can be called from scripts via `Call subroutineName` or directly `subroutineName(arg1, arg2)`.
 
 ```basic
 Sub subroutineName [( parameter1 [, parameter2, ... ] )]
@@ -152,18 +150,18 @@ Sub subroutineName [( parameter1 [, parameter2, ... ] )]
 End_Sub
 ```
 
+- Formal parameters are bound to passed positional arguments within the procedure's local variable scope.
 - The special variables `$OWNER`, `$AGENT`, and `$TARGET` are implicitly shared with the subroutine.
 - Calling syntax:
   ```basic
   Call mySub
   Call mySub(arg1, arg2)
+  mySub(arg1, arg2)
   ```
 
 ### 3.4.2 Function
 
-> **[DimY: partial]** `Function` blocks are registered like events; calling them inside expressions and receiving the `Return` value is **[DimX only - not yet implemented in DimY]**.
-
-Defines a custom procedure that calculates and returns a value using the `Return` statement.
+Defines a custom function that calculates and returns a value using the `Return` statement. Custom functions can be called directly inside expressions (including arithmetic, logical conditions, and string concatenations) and as standalone statements.
 
 ```basic
 Function functionName [( parameter1 [, parameter2, ... ] )]
@@ -172,17 +170,18 @@ Function functionName [( parameter1 [, parameter2, ... ] )]
 End_Function
 ```
 
+- Formal parameters are bound to positional arguments within the function's local scope.
+- Return values are evaluated and returned to the caller or enclosing expression.
+- Supports recursive calls (e.g. searching hierarchical containers).
 - The special variables `$OWNER`, `$AGENT`, and `$TARGET` are implicitly shared with the function.
 - Example:
   ```basic
   Function addValues(a, b)
-      Display "Computing..."
       Return a + b
   End_Function
 
   EVENT onNew
-      Display "Calling addValues..."
-      retval = addValues(2, 3)
+      Dim retval = addValues(2, 3)
       Display "Result is = " + retval
   End_EVENT
   ```
@@ -495,9 +494,7 @@ Ban player
 
 ### 3.9.3 Call
 
-> **[DimY: partial]** `Call obj.event` / `Call name` fire the event or `Sub` (via `World::fireEvent`). Parameters are parsed but `Sub` formal parameters are not bound, so arguments are not visible to the callee.
-
-Calls a custom `Sub` or `EVENT`, implicitly passing the current `$OWNER`, `$AGENT`, and `$TARGET` context.
+Calls a custom `Sub` or `EVENT`, implicitly passing the current `$OWNER`, `$AGENT`, and `$TARGET` context and binding positional arguments to formal parameters.
 
 ```basic
 Call subroutineName
@@ -1130,21 +1127,33 @@ Finds and returns a reference to the game object with identifier `id`. If `id` i
 
 ### 3.10.13 getObjectsSubtype( container, subtype )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
-Performs a partial match search on item types. Returns a `SET` of items inside `container` whose `TYPE` attribute contains the substring `subtype`.
+Performs a subtype match search on item types. Returns an associative array (`SET`) of items inside `container` (or within a collection/array of items) whose `type` attribute contains the dotted subtype `subtype` (e.g. `type.subtype`, case-insensitive).
 
 - **Syntax**: `itemSet = getObjectsSubtype( container, subtype )`
+- **Parameters**:
+  - `container`: Container object, room, character/player, item, container ID string, or collection/array of items.
+  - `subtype`: String subtype part to match.
+- **Returns**: An associative array (`SET`) of matching items indexed by object ID.
 
 ---
 
 ### 3.10.14 getObjectsType( container, type )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
-Searches for items inside `container` by primary type prefix. Returns a `SET` of matching items.
+Searches for items inside `container` (or within an array/collection of items) by primary type prefix. Returns an associative array (`SET`) of matching items whose `type` attribute starts with `type` (case-insensitive).
 
 - **Syntax**: `itemSet = getObjectsType( container, type )`
+- **Parameters**:
+  - `container`: Container object, room, character/player, item, container ID string, or collection/array of items.
+  - `type`: String type prefix to match.
+- **Returns**: An associative array (`SET`) of matching items indexed by object ID.
+- **Example**:
+  ```basic
+  Dim items = getItemsIn($AGENT)
+  Dim talismans = getObjectsType(items, "talis")
+  If SetLen(talismans) > 0
+      Display "You have a talisman!"
+  End_If
+  ```
 
 ---
 

@@ -107,9 +107,12 @@ class DxwLoader
                 }
 
                 $firstToken = strtoupper(preg_split('/\s+/', $trimmed)[0] ?? '');
+                $secondToken = strtoupper(preg_split('/\s+/', $trimmed)[1] ?? '');
                 if (in_array($firstToken, ['SCRIPTS', 'EVENTS', 'EVENT', 'SUB', 'FUNCTION'], true)) {
                     $inScripts = true;
                 } elseif (in_array($firstToken, ['END_SCRIPTS', 'END_EVENTS', 'END_EVENT', 'END_SUB', 'END_FUNCTION'], true)) {
+                    $inScripts = false;
+                } elseif ($firstToken === 'END' && in_array($secondToken, ['EVENT', 'SUB', 'FUNCTION', 'EVENTS', 'SCRIPTS', 'WORLD'], true)) {
                     $inScripts = false;
                 } elseif (in_array($firstToken, ['ROOMS', 'CHARACTERS', 'ITEMS', 'LINKS', 'SETS', 'GUI', 'WORLD'], true)) {
                     $inScripts = false;
@@ -315,6 +318,9 @@ class DxwLoader
                         $world->setProperty('logosrc', $logoVal);
                         $world->setProperty('LOGOSRC', $logoVal);
                         $world->setProperty('GUI.LOGOSRC', $logoVal);
+                    } elseif ($directive === 'EVENT' || $directive === 'SUB' || $directive === 'FUNCTION') {
+                        $this->parseScriptBlock($directive, $line, $tokens, $cleanLines, $cleanLineNumbers, $total, $i, $sourceName, $world);
+                        break;
                     }
                     $i++;
                     break;
@@ -945,41 +951,7 @@ class DxwLoader
 
                 case 'SCRIPTS':
                     if ($directive === 'EVENT' || $directive === 'SUB' || $directive === 'FUNCTION') {
-                        $rawSig = trim(substr($line, strlen($tokens[0])));
-                        $eventQual = $tokens[1] ?? '';
-                        $formalParams = [];
-                        if (preg_match('/^([A-Za-z0-9_.]+)(?:\s*\((.*)\))?$/s', $rawSig, $sigMatch)) {
-                            $eventQual = trim($sigMatch[1]);
-                            if (isset($sigMatch[2]) && trim($sigMatch[2]) !== '') {
-                                $formalParams = array_values(array_filter(array_map('trim', explode(',', $sigMatch[2])), fn($p) => $p !== ''));
-                            }
-                        }
-                        $eventType = $directive;
-                        $actionLines = [];
-                        $actionStartIndex = $i + 1;
-                        $i++;
-                        while ($i < $total) {
-                            $subLine = $cleanLines[$i];
-                            $subTokens = preg_split('/\s+/', $subLine);
-                            $subDir = strtoupper($subTokens[0] ?? '');
-
-                            if (in_array($subDir, ['EVENT', 'SUB', 'FUNCTION', 'END_SCRIPTS', 'END_EVENTS', 'ROOMS', 'ITEMS', 'CHARACTERS', 'LINKS'])) {
-                                break;
-                            }
-                            if ($subDir === 'END_EVENT' || $subDir === 'END_SUB' || $subDir === 'END_FUNCTION') {
-                                $i++;
-                                break;
-                            }
-                            $actionLines[] = $subLine;
-                            $i++;
-                        }
-
-                        $actionText = implode("\n", $actionLines);
-                        $actionsStartLine = $cleanLineNumbers[$actionStartIndex] ?? (($cleanLineNumbers[$actionStartIndex - 1] ?? 0) + 1);
-                        $fileShort = basename($sourceName);
-                        $event = new Event($eventQual, $eventType, null, $formalParams, $sourceName, $fileShort, $actionsStartLine);
-                        $event->actions = $actionText;
-                        $world->registerEvent($event);
+                        $this->parseScriptBlock($directive, $line, $tokens, $cleanLines, $cleanLineNumbers, $total, $i, $sourceName, $world);
                     } else {
                         $i++;
                     }
@@ -1017,6 +989,61 @@ class DxwLoader
         $world->defaultSkin = $world->skins['default'];
 
         return $world;
+    }
+
+    /**
+     * Parses an EVENT, SUB, or FUNCTION block and registers it into the world.
+     */
+    protected function parseScriptBlock(
+        string $directive,
+        string $line,
+        array $tokens,
+        array $cleanLines,
+        array $cleanLineNumbers,
+        int $total,
+        int &$i,
+        string $sourceName,
+        World $world
+    ): void {
+        $rawSig = trim(substr($line, strlen($tokens[0])));
+        $eventQual = $tokens[1] ?? '';
+        $formalParams = [];
+        if (preg_match('/^([A-Za-z0-9_.]+)(?:\s*\((.*)\))?$/s', $rawSig, $sigMatch)) {
+            $eventQual = trim($sigMatch[1]);
+            if (isset($sigMatch[2]) && trim($sigMatch[2]) !== '') {
+                $formalParams = array_values(array_filter(array_map('trim', explode(',', $sigMatch[2])), fn($p) => $p !== ''));
+            }
+        }
+        $eventType = strtoupper($directive);
+        $actionLines = [];
+        $actionStartIndex = $i + 1;
+        $i++;
+        while ($i < $total) {
+            $subLine = $cleanLines[$i];
+            $subTokens = preg_split('/\s+/', $subLine);
+            $subDir = strtoupper($subTokens[0] ?? '');
+            $subNext = strtoupper($subTokens[1] ?? '');
+
+            if (in_array($subDir, ['EVENT', 'SUB', 'FUNCTION', 'END_SCRIPTS', 'END_EVENTS', 'END_WORLD', 'ROOMS', 'ITEMS', 'CHARACTERS', 'LINKS'], true)) {
+                break;
+            }
+            if (
+                $subDir === 'END_EVENT' || $subDir === 'END_SUB' || $subDir === 'END_FUNCTION' ||
+                ($subDir === 'END' && in_array($subNext, ['EVENT', 'SUB', 'FUNCTION', 'EVENTS', 'SCRIPTS', 'WORLD'], true))
+            ) {
+                $i++;
+                break;
+            }
+            $actionLines[] = $subLine;
+            $i++;
+        }
+
+        $actionText = implode("\n", $actionLines);
+        $actionsStartLine = $cleanLineNumbers[$actionStartIndex] ?? (($cleanLineNumbers[$actionStartIndex - 1] ?? 0) + 1);
+        $fileShort = basename($sourceName);
+        $event = new Event($eventQual, $eventType, null, $formalParams, $sourceName, $fileShort, $actionsStartLine);
+        $event->actions = $actionText;
+        $world->registerEvent($event);
     }
 
     /**
