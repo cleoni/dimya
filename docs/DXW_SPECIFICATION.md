@@ -182,7 +182,7 @@ END_WORLD
 
 ### Media Resolution & Subfolder Deployment (`base_url` + `IMAGESFOLDER`)
 
-The runtime URL for all scene pictures, sprites, and skin icons is computed by concatenating `config.php`'s `'base_url'` and `.dxw`'s `IMAGESFOLDER`:
+The runtime URL for all media assets (scene pictures, sprites, sound files) is computed by concatenating `config.php`'s `'base_url'` and `.dxw`'s `IMAGESFOLDER`:
 
 Asset URL=`config[′base_url′]` + `WORLD.IMAGESFOLDER` + filename
 
@@ -190,8 +190,8 @@ When deploying DimensioneY inside an application subfolder (e.g. `http://localho
 
 | Configuration Pattern | `config['base_url']` | `.dxw` `IMAGESFOLDER` | Resolved URL Example | Verdict |
 |---|---|---|---|---|
-| **Recommended (App Base)** | `http://localhost/game1` | `/assets/images/` | `http://localhost/game1/assets/images/...` | **Correct** |
-| **Server Root Base** | `http://localhost` | `/game1/assets/images/` | `http://localhost/game1/assets/images/...` | **Correct** |
+| **Recommended (App Base)** | `http://localhost/game1` | `/pics/` | `http://localhost/game1/pics/...` | **Correct** |
+| **Server Root Base** | `http://localhost` | `/game1/pics/` | `http://localhost/game1/pics/...` | **Correct** |
 | **Duplicate Path Bug** | `http://localhost/game1` | `/game1/assets/images/` | `http://localhost/game1/game1/assets/images/...` | ❌ **Broken (404)** |
 
 *Rule:* If `'base_url'` contains the application folder (`/game1`), never repeat `/game1/` inside `IMAGESFOLDER`.

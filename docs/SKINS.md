@@ -87,6 +87,10 @@ Otherwise, the skin's `SKINFOLDER` is automatically derived from the World's act
 
 This rule applies to **all** skins, including `default`.
 
+The runtime URL for all media assets (skin icons) is computed by concatenating `config.php`'s `'base_url'` and `.dxs`'s `SKINFOLDER`:
+
+Asset URL=`config[′base_url′]` + `WORLD.IMAGESFOLDER` or `SKINFOLDER` + filename
+
 ### Directory Layout
 The folder structure follows the rule that the skin directory name matches the skin ID:
 
