@@ -14,6 +14,7 @@ Comprehensive technical documentation and formal specifications reside in the [`
 - [**docs/SMALLBASIC.md**](docs/SMALLBASIC.md) — **Definitive SmallBasic Language Reference**. Covers types, operators, statements, event model (`$OWNER`, `$AGENT`, `$TARGET`, `$WORLD`), and the complete catalog of all 55 built-in functions.
 - [**docs/COMMANDS.md**](docs/COMMANDS.md) — **Game Engine Command Specification & API Reference**. Details all core commands (`click`, `go`, `rotate`, `look`, `use`, `use2`, `open`, `close`, `pick`, `drop`, `search`, `hide`, `put`, `give`, `enter`, `exit`, `say`, `save`, `login`, `logout`), event bindings, parameter handling, and custom panel buttons.
 - [**docs/SKINS.md**](docs/SKINS.md) — **Skins (`.dxs`) Specification**. Covers directive rules, media directories, and skin attribute reference.
+- [**docs/UIBOT.md**](docs/UIBOT.md) — **UIbot API & Client Specification**. Formal REST/JSON protocol reference and implementation blueprint for AI agents and automated/interactive clients.
 - [**docs/PLAY-AS-BOT.md**](docs/PLAY-AS-BOT.md) — **Bot & AI Player API Guide**. Instructions for connecting external scripts or AI agents to the multiplayer engine via the `UIbot` JSON interface.
 - [**docs/CLASS_HIERARCHY.md**](docs/CLASS_HIERARCHY.md) — Class hierarchy of **DimensioneY (this PHP implementation)**, same structure as the DimX one for comparison.
 - [**docs/dxw-examples/**](docs/dxw-examples/) — Reference `.dxw` world definition files:
