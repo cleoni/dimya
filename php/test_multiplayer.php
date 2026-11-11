@@ -67,6 +67,7 @@ $sections = [
     64 => ['title' => 'Testing SmallBasic Goal Instruction & Database Recording in dimx_goals...', 'keywords' => ['goal', 'smallbasic', 'dimx_goals', 'hall of fame', 'hof', 'mode', 'actionsrunner', 'surfer']],
     65 => ['title' => 'Testing Login Attempt Logging to debug.log & Stale Player Pruning Inside Main Loop at Login...', 'keywords' => ['login', 'stale', 'pruning', 'tick', 'debug.log', 'main loop', 'reconnect']],
     66 => ['title' => 'Testing UIhtml Sound & Music Support Property Storage, Snapshot Inspection & Audio Rendering...', 'keywords' => ['sound', 'music', 'audiosupport', 'musicsupport', 'uihtml', 'snapshot', 'playbackground', 'session']],
+    67 => ['title' => 'Testing SmallBasic getItemsIn Function (Objects, Sets, Arrays, $WORLD, $AGENT & loc_relic_vault in world.dxw)...', 'keywords' => ['getitemsin', 'items', 'smallbasic', 'world.dxw', 'loc_relic_vault', 'inventory', 'actionsrunner']],
 ];
 
 // CLI Options parsing
@@ -3984,6 +3985,136 @@ if (shouldRun(66)) {
 
     // Clean up
     @$pm->resetWorld($sec66WorldId);
+}
+
+// -------------------------------------------------------------
+// Section 67: Testing SmallBasic getItemsIn Function (Objects, Sets, Arrays, $WORLD, $AGENT & loc_relic_vault in world.dxw)
+// -------------------------------------------------------------
+if (shouldRun(67)) {
+    echo "\n--- Section 67: Testing SmallBasic getItemsIn Function (Objects, Sets, Arrays, \$WORLD, \$AGENT & loc_relic_vault in world.dxw) ---\n";
+
+    // 1. Direct ActionsRunner unit tests with objects, rooms, items
+    $sec67World = new \Dimx\World('w_sec67');
+    $sec67World->name = 'Relic World';
+    $roomVault = new \Dimx\Room($sec67World, 'Subterranean Relic Vault', 'loc_relic_vault');
+    $sec67World->addRoom($roomVault);
+
+    $roomGlade = new \Dimx\Room($sec67World, 'Hidden Glade', 'loc_glade');
+    $sec67World->addRoom($roomGlade);
+
+    $itemOrb = new \Dimx\Item($sec67World, 'Celestial Star Orb', 'celestial_orb', 'A glowing orb');
+    $sec67World->addItem($itemOrb);
+    $itemOrb->move($roomVault);
+
+    $itemFlute = new \Dimx\Item($sec67World, 'Silver Flute', 'silver_flute', 'A silver flute');
+    $sec67World->addItem($itemFlute);
+    $itemFlute->move($roomGlade);
+
+    $player = new \Dimx\Player($sec67World, 'Cris', 'p_tester');
+    $sec67World->addPlayer($player);
+    $player->container = $roomVault;
+
+    // A. Empty inventory getItemsIn($AGENT)
+    $runner = new \Dimx\ActionsRunner($sec67World, $roomVault, $player, null);
+    $runner->run('Dim myItems = getItemsIn($AGENT)');
+    $varItems = $runner->getLocalVar('myItems');
+    assertTest(is_array($varItems) && count($varItems) === 0, "getItemsIn(\$AGENT) on empty inventory returns empty array");
+
+    // B. Concatenation with empty array: "Items" + myItems
+    $runner->run('Display "Items" + myItems');
+    $cons = implode(' ', $player->drainConsole());
+    assertTest(str_contains($cons, 'Items[]'), "Display 'Items' + myItems outputs 'Items[]' when empty: '{$cons}'");
+
+    // C. Non-empty inventory getItemsIn($AGENT)
+    $itemFlute->move($player);
+    $runner2 = new \Dimx\ActionsRunner($sec67World, $roomVault, $player, null);
+    $runner2->run('Dim myItems = getItemsIn($AGENT)');
+    $varItems2 = $runner2->getLocalVar('myItems');
+    assertTest(is_array($varItems2) && count($varItems2) === 1, "getItemsIn(\$AGENT) with item returns array with 1 item");
+    assertTest(isset($varItems2['silver_flute']) && $varItems2['silver_flute'] === $itemFlute, "Item in array has key 'silver_flute' and Item object reference");
+
+    $runner2->run('Display "Items" + myItems');
+    $cons2 = implode(' ', $player->drainConsole());
+    assertTest(str_contains($cons2, 'Items[silver_flute=Silver Flute]'), "Display 'Items' + myItems outputs 'Items[silver_flute=Silver Flute]': '{$cons2}'");
+
+    // D. getItemsIn on room object and room string ID
+    $runner->run('Dim vItems = getItemsIn(loc_relic_vault)');
+    $varVItems = $runner->getLocalVar('vItems');
+    assertTest(isset($varVItems['celestial_orb']), "getItemsIn(loc_relic_vault) returns celestial_orb");
+
+    // E. getItemsIn on $WORLD returns all items
+    $runner->run('Dim wItems = getItemsIn($WORLD)');
+    $varWItems = $runner->getLocalVar('wItems');
+    assertTest(count($varWItems) === 2 && isset($varWItems['celestial_orb']) && isset($varWItems['silver_flute']), "getItemsIn(\$WORLD) returns all items in the world");
+
+    // F. getItemsIn on an array/set of rooms
+    $runner->run('Dim setRooms = NewArray("loc_relic_vault,loc_glade")');
+    $runner->run('Dim multiItems = getItemsIn(setRooms)');
+    $varMulti = $runner->getLocalVar('multiItems');
+    assertTest(isset($varMulti['celestial_orb']), "getItemsIn(setRooms) returns items from collection of rooms");
+
+    // G. SetLen and For Each with getItemsIn
+    $runner2->run('Dim numItems = SetLen(getItemsIn($AGENT))');
+    $len = $runner2->getLocalVar('numItems');
+    assertTest($len === 1, "SetLen(getItemsIn(\$AGENT)) returns 1");
+
+    $runner2->run("Dim names = ''\nFor Each it In getItemsIn(\$AGENT)\nnames = names + it.name\nNext");
+    $namesVal = $runner2->getLocalVar('names');
+    assertTest($namesVal === 'Silver Flute', "For Each loop iterates items from getItemsIn(): '{$namesVal}'");
+
+    // H. Associative key lookup: myItems("silver_flute")
+    $runner2->run('Dim pickedObj = myItems("silver_flute")');
+    $pickedObj = $runner2->getLocalVar('pickedObj');
+    assertTest($pickedObj === $itemFlute, "Key lookup myItems(\"silver_flute\") returns Item object");
+
+    // 2. Integration test with world.dxw
+    $worldDxwFile = dirname(__DIR__, 2) . '/worlds/world.dxw';
+    if (!file_exists($worldDxwFile)) {
+        $worldDxwFile = dirname(__DIR__) . '/docs/dxw-examples/world.dxw';
+    }
+
+    if (file_exists($worldDxwFile)) {
+        $sec67WorldId = 'test_w_sec67_' . uniqid();
+        $pm->clearGoals($sec67WorldId);
+        $engine67 = new \Dimx\GameEngine($pm, $sec67WorldId, $worldDxwFile);
+
+        // Cris logs in and navigates: loc_shrine_entrance -> loc_courtyard -> loc_inner_sanctum -> loc_celestial_chamber -> loc_relic_vault
+        $engine67->processCommand('Cris', 'look');
+        $pStart = $engine67->loadOrSeedWorld()->getPlayerByName('Cris');
+        assertTest($pStart !== null && $pStart->getRoom()->id === 'loc_shrine_entrance', "Cris started in loc_shrine_entrance");
+
+        // Move N to loc_courtyard
+        $engine67->processCommand('Cris', 'go', 'N');
+        // Move N to loc_inner_sanctum
+        $engine67->processCommand('Cris', 'go', 'N');
+        // Move W to loc_celestial_chamber
+        $engine67->processCommand('Cris', 'go', 'W');
+
+        // Move D into loc_relic_vault with empty inventory
+        $resD = $engine67->processCommand('Cris', 'go', 'D');
+        $messagesD = json_encode($resD['messages'] ?? []);
+        assertTest(str_contains($messagesD, 'Items[]'), "Entering loc_relic_vault with empty inventory outputs 'Items[]' on console: {$messagesD}");
+
+        // Move silver_flute into Cris's inventory
+        $activeWorld = $engine67->loadOrSeedWorld();
+        $crisObj = $activeWorld->getPlayerByName('Cris');
+        $fluteObj = $activeWorld->getItem('silver_flute');
+        if ($crisObj !== null && $fluteObj !== null) {
+            $fluteObj->move($crisObj);
+            $pm->saveWorld($activeWorld, $sec67WorldId);
+        }
+
+        // Move U back to celestial chamber
+        $engine67->processCommand('Cris', 'go', 'U');
+
+        // Move D back into loc_relic_vault with flute in inventory
+        $resD2 = $engine67->processCommand('Cris', 'go', 'D');
+        $messagesD2 = json_encode($resD2['messages'] ?? []);
+        assertTest(str_contains($messagesD2, 'Items[silver_flute=Silver Flute]'), "Entering loc_relic_vault with Silver Flute outputs 'Items[silver_flute=Silver Flute]' on console: {$messagesD2}");
+
+        // Clean up
+        @$pm->resetWorld($sec67WorldId);
+    }
 }
 
 // Clean up test worlds

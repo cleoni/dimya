@@ -523,6 +523,17 @@ class World extends DimxObject
         return $this->items[$id] ?? null;
     }
 
+    /**
+     * Get all world objects (rooms, characters, players, items, contents).
+     * Matches DimensioneX Java World.getContents().
+     *
+     * @return array<string, mixed>
+     */
+    public function getContents(bool $checkOpen = false): array
+    {
+        return array_merge($this->rooms, $this->characters, $this->players, $this->items, $this->contents);
+    }
+
     public function addLink(Link $link): void
     {
         $link->world = $this;

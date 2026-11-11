@@ -1699,6 +1699,65 @@ class ActionsRunner
     }
 
     /**
+     * Helper to collect items directly contained inside an object (or world) into a result set.
+     * Matches DimensioneX DimxParser.innerGetItemsIn().
+     *
+     * @param mixed $o Object, world, container ID, or collection element
+     * @param array<string, AdvObject> &$newSet Result set indexed by item ID
+     */
+    protected function innerGetItemsIn(mixed $o, array &$newSet): void
+    {
+        if ($o === null) {
+            return;
+        }
+        if (is_array($o)) {
+            foreach ($o as $sub) {
+                $this->innerGetItemsIn($sub, $newSet);
+            }
+            return;
+        }
+        if (is_string($o)) {
+            $t = trim($o);
+            if ($t === '') {
+                return;
+            }
+            $resolved = $this->resolveObject($t);
+            if ($resolved === null && $this->world !== null) {
+                $resolved = $this->world->getObjectExt($t);
+            }
+            $o = $resolved;
+            if ($o === null) {
+                return;
+            }
+        }
+        if ($o instanceof World) {
+            if (isset($o->items) && is_array($o->items)) {
+                foreach ($o->items as $item) {
+                    if ($item instanceof Item || (method_exists($item, 'isanItem') && $item->isanItem())) {
+                        $newSet[$item->id] = $item;
+                    }
+                }
+            }
+            if (isset($o->contents) && is_array($o->contents)) {
+                foreach ($o->contents as $item) {
+                    if ($item instanceof Item || (method_exists($item, 'isanItem') && $item->isanItem())) {
+                        $newSet[$item->id] = $item;
+                    }
+                }
+            }
+            return;
+        }
+        if ($o instanceof AdvObject) {
+            $contents = $o->getContents();
+            foreach ($contents as $dxo) {
+                if ($dxo instanceof Item || (method_exists($dxo, 'isanItem') && $dxo->isanItem())) {
+                    $newSet[$dxo->id] = $dxo;
+                }
+            }
+        }
+    }
+
+    /**
      * Evaluate condition expression like "$WORLD.mode <> 1" or "open = 0"
      */
     protected function evalCondition(string $expr): mixed
@@ -2229,11 +2288,39 @@ class ActionsRunner
                 );
             }
 
+            // Built-in getItemsIn( object_or_collection )
+            if (strcasecmp($fn, 'getItemsIn') === 0) {
+                if ($argStr === '') {
+                    return [];
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $argVal = $this->evalValue($targetExpr);
+                if (!is_array($argVal)) {
+                    $arr = $this->getVariable($targetExpr);
+                    if (is_array($arr)) {
+                        $argVal = $arr;
+                    }
+                }
+                $newSet = [];
+                if (is_array($argVal)) {
+                    foreach ($argVal as $elem) {
+                        $this->innerGetItemsIn($elem, $newSet);
+                    }
+                } else {
+                    $this->innerGetItemsIn($argVal, $newSet);
+                }
+                return $newSet;
+            }
+
             // Check if $fn is an array / set
             $arr = $this->getVariable($fn);
             if (is_array($arr)) {
-                $idx = (int)$this->evalValue($argStr);
-                return $this->getArrayElement($fn, $idx);
+                $evalKey = $this->evalValue($argStr);
+                if (is_int($evalKey) || ctype_digit((string)$evalKey)) {
+                    return $this->getArrayElement($fn, (int)$evalKey);
+                }
+                return $arr[(string)$evalKey] ?? null;
             }
 
             // Check if $fn is a custom script Function/Sub in world events

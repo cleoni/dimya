@@ -206,7 +206,7 @@ End_EVENT
 
 ### 3.4.4 Example & HOOKS
 
-> **[DimY: partial]** `HOOKS` is stored only as the world property `hooks`; mapping HTTP commands to script functions is not yet implemented in DimY. `getItemsIn`, `getCharactersIn`, `For Each` and `Dim` used below are also not implemented.
+> **[DimY: partial]** `HOOKS` is stored only as the world property `hooks`; mapping HTTP commands to script functions is not yet implemented in DimY. `getCharactersIn` used below is also not implemented.
 
 DimensioneX supports `HOOKS` to accept external HTTP commands and trigger event handlers:
 
@@ -1101,11 +1101,20 @@ Returns a `SET` of all exit links originating from the specified room or collect
 
 ### 3.10.11 getItemsIn( object )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
-Returns a `SET` of all `ITEM` objects directly contained in the specified container/room.
+Returns a `SET` of all `ITEM` objects directly contained in the specified container/room/character/world.
 
 - **Syntax**: `itemSet = getItemsIn( object )`
+- **Parameters**: `object` (Object reference, object string ID, `$WORLD`, `$AGENT`, `$OWNER`, `$TARGET`, or an `ARRAY`/`SET` of objects/IDs).
+- **Returns**: A key-value set (`SET`) where keys are item IDs and values are `Item` objects.
+- **Example**:
+  ```basic
+  myset = getItemsIn($OWNER.container)
+  For Each item In myset
+      If Not(item.hidden)
+          Display $WORLD, $OWNER.name + " sees " + item.name
+      End_If
+  Next
+  ```
 
 ---
 
