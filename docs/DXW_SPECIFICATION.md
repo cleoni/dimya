@@ -179,6 +179,23 @@ END_WORLD
 | `CLUSTER` | ID | (none) | Multi-area cluster identifier for clustered worlds linked via `MoveOutside`. **[dropped in DimY]** (Cluster feature intentionally removed) |
 | `BGCOLOR` | Color | `#000040` | Scene background color for transparent scene images. *(DimY: parsed in the `WORLD` section.)* |
 
+
+### Media Resolution & Subfolder Deployment (`base_url` + `IMAGESFOLDER`)
+
+The runtime URL for all scene pictures, sprites, and skin icons is computed by concatenating `config.php`'s `'base_url'` and `.dxw`'s `IMAGESFOLDER`:
+
+$$\text{Asset URL} = \text{config}['\text{base\_url}'] + \text{WORLD}.\text{IMAGESFOLDER} + \text{filename}$$
+
+When deploying DimensioneY inside an application subfolder (e.g. `http://localhost/game1/`), beware of duplicate path segments:
+
+| Configuration Pattern | `config['base_url']` | `.dxw` `IMAGESFOLDER` | Resolved URL Example | Verdict |
+|---|---|---|---|---|
+| **Recommended (App Base)** | `http://localhost/game1` | `/assets/images/` | `http://localhost/game1/assets/images/...` | **Correct** |
+| **Server Root Base** | `http://localhost` | `/game1/assets/images/` | `http://localhost/game1/assets/images/...` | **Correct** |
+| **Duplicate Path Bug** | `http://localhost/game1` | `/game1/assets/images/` | `http://localhost/game1/game1/assets/images/...` | ❌ **Broken (404)** |
+
+*Rule:* If `'base_url'` contains the application folder (`/game1`), never repeat `/game1/` inside `IMAGESFOLDER`.
+
 ---
 
 ## 4. The GUI Section

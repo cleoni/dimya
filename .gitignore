@@ -76,3 +76,6 @@ Thumbs.db
 # ==========================================
 config.php
 /php/data/
+AGENTS.md
+.aiexclude
+.htaccess
