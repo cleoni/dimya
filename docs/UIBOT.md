@@ -48,6 +48,11 @@ DimensioneY guarantees atomic world transactions using transactional locks (`Wor
 - If another player or event is mutating the database at the exact millisecond of the request, the server returns **HTTP status 503** with `{"status": "lock_busy", "lock_error": true}`.
 - **Handling requirement**: The client **must** wait 100–250 ms and retry the exact same request.
 
+### Player Inactivity & Idle Timeout
+- The server automatically prunes idle player characters when their elapsed inactivity reaches `playerTimeout` (configured on the server in `config.php`, default: 30–90 seconds).
+- When pruned for inactivity, the character is removed from the room and marked disconnected. If the client subsequently issues another action, the server treats it as a reconnecting session and re-spawns the player at the world's entrance (flagging `"is_new_login": true`).
+- **Interactive & Terminal Clients**: Clients where human input or terminal display takes time (such as retro computers like the Commodore 64) should ensure the server's `playerTimeout` is set to an appropriate duration (e.g. 90–300 seconds).
+
 ---
 
 ## 3. Authentication & Account Lifecycle

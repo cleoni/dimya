@@ -64,6 +64,15 @@ return [
     'tickLength' => 30,
 
     // -------------------------------------------------------------------------
+    // Player Inactivity Timeout (seconds)
+    // -------------------------------------------------------------------------
+    // Maximum idle time in seconds before an inactive player character is
+    // automatically disconnected and pruned from the world (default: 30 seconds).
+    // For human players or retro/terminal clients (such as Commodore 64),
+    // a higher value such as 90 or 300 seconds is recommended.
+    'playerTimeout' => 90,
+
+    // -------------------------------------------------------------------------
     // Messages Panel (#msgs) Refresh Rate (seconds)
     // -------------------------------------------------------------------------
     // Interval in seconds at which the web client (UIhtml) polls the server
