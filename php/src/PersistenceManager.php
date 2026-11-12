@@ -187,18 +187,54 @@ class PersistenceManager
                 INDEX idx_world_player (world_id, player_name),
                 INDEX idx_world_time (world_id, created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
-
-            // ---- ALTER: add missing columns (each in its own statement) ----
-            'alter_worlds_src'      => "ALTER TABLE dimx_worlds ADD COLUMN IF NOT EXISTS world_src VARCHAR(512) DEFAULT NULL",
-            'alter_worlds_json'     => "ALTER TABLE dimx_worlds MODIFY COLUMN state_json LONGTEXT",
-            'alter_players_console' => "ALTER TABLE dimx_players ADD COLUMN IF NOT EXISTS console_json MEDIUMTEXT",
-            'alter_players_pass'    => "ALTER TABLE dimx_players MODIFY COLUMN password VARCHAR(255) NOT NULL DEFAULT ''",
-            'alter_players_bot'     => "ALTER TABLE dimx_players ADD COLUMN IF NOT EXISTS is_bot TINYINT(1) DEFAULT 0",
-            'alter_players_id'      => "ALTER TABLE dimx_players ADD COLUMN IF NOT EXISTS id INT UNSIGNED AUTO_INCREMENT UNIQUE FIRST",
-            'alter_messages_recip'  => "ALTER TABLE dimx_messages ADD COLUMN IF NOT EXISTS recipient_name VARCHAR(128) DEFAULT NULL",
         ];
 
         foreach ($statements as $key => $sql) {
+            try {
+                $this->pdo->exec($sql);
+            } catch (PDOException $e) {
+                $errors[$key] = $e->getMessage();
+                error_log("PersistenceManager::initTables [{$key}]: " . $e->getMessage());
+            }
+        }
+
+        // ---- ALTER: add missing columns safely across all MySQL & MariaDB versions ----
+        // Avoid "ADD COLUMN IF NOT EXISTS" because standard MySQL (< 8.0.29) throws syntax error 1064.
+        $columnAdditions = [
+            'dimx_worlds'   => [
+                'world_src' => "ALTER TABLE dimx_worlds ADD COLUMN world_src VARCHAR(512) DEFAULT NULL",
+            ],
+            'dimx_players'  => [
+                'console_json' => "ALTER TABLE dimx_players ADD COLUMN console_json MEDIUMTEXT",
+                'is_bot'       => "ALTER TABLE dimx_players ADD COLUMN is_bot TINYINT(1) DEFAULT 0",
+                'id'           => "ALTER TABLE dimx_players ADD COLUMN id INT UNSIGNED AUTO_INCREMENT UNIQUE FIRST",
+            ],
+            'dimx_messages' => [
+                'recipient_name' => "ALTER TABLE dimx_messages ADD COLUMN recipient_name VARCHAR(128) DEFAULT NULL",
+            ],
+        ];
+
+        foreach ($columnAdditions as $table => $cols) {
+            foreach ($cols as $col => $alterSql) {
+                try {
+                    $checkStmt = $this->pdo->query("SHOW COLUMNS FROM `{$table}` LIKE '{$col}'");
+                    if (!$checkStmt->fetch()) {
+                        $this->pdo->exec($alterSql);
+                    }
+                } catch (PDOException $e) {
+                    $errors["alter_{$table}_{$col}"] = $e->getMessage();
+                    error_log("PersistenceManager::initTables [alter_{$table}_{$col}]: " . $e->getMessage());
+                }
+            }
+        }
+
+        // Modifications that are safe to repeat
+        $modifications = [
+            'alter_worlds_json'  => "ALTER TABLE dimx_worlds MODIFY COLUMN state_json LONGTEXT",
+            'alter_players_pass' => "ALTER TABLE dimx_players MODIFY COLUMN password VARCHAR(255) NOT NULL DEFAULT ''",
+        ];
+
+        foreach ($modifications as $key => $sql) {
             try {
                 $this->pdo->exec($sql);
             } catch (PDOException $e) {
