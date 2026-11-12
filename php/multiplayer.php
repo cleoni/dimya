@@ -172,7 +172,7 @@ if (!empty($requestedUser)) {
         if ($password === '') {
             $commandStr = ($input['cmd'] ?? 'login') . '(' . ($input['arg0'] ?? '') . ',' . ($input['arg1'] ?? '') . ')';
             $dateStr    = date('Y-m-d H:i:s');
-            $engine->log("{$dateStr} USER: {$requestedUser} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: | STATUS: DISCONNECTED");
+            $engine->log("{$dateStr} USER: {$requestedUser} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: | STATUS: DISCONNECTED (REFUSAL: password required)");
             $engine->executeTick();
             if ($ui instanceof UIhtml) {
                 $ui->renderLogin("Password is required for player '{$requestedUser}'.", $requestedUser, $activeSkin, $ui->hasSounds(), $ui->hasMusic());
@@ -186,7 +186,8 @@ if (!empty($requestedUser)) {
         if (!$auth['success']) {
             $commandStr = ($input['cmd'] ?? 'login') . '(' . ($input['arg0'] ?? '') . ',' . ($input['arg1'] ?? '') . ')';
             $dateStr    = date('Y-m-d H:i:s');
-            $engine->log("{$dateStr} USER: {$requestedUser} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: | STATUS: DISCONNECTED");
+            $err        = $auth['error'] ?? 'Authentication failed';
+            $engine->log("{$dateStr} USER: {$requestedUser} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: | STATUS: DISCONNECTED (REFUSAL: {$err})");
             $engine->executeTick();
             if ($ui instanceof UIhtml) {
                 $ui->renderLogin($auth['error'] ?? 'Authentication failed.', $requestedUser, $activeSkin, $ui->hasSounds(), $ui->hasMusic());
@@ -199,30 +200,17 @@ if (!empty($requestedUser)) {
         $playerName = (string)($auth['name'] ?? $requestedUser);
         $numericId  = (int)($auth['numeric_id'] ?? 0);
         $isBot      = !empty($auth['is_bot']) || $isBot;
-
-        // If this is a gameplay command (not an explicit login command) and the player is already active in the world,
-        // continue their active session rather than wiping and respawning them.
-        $cmdName = strtolower(trim((string)($input['cmd'] ?? 'login')));
-        if ($cmdName !== 'login') {
-            $existingWorld = $engine->loadOrSeedWorld(false);
-            $activePlayer  = $existingWorld->getPlayerByName($playerName);
-            if ($activePlayer !== null) {
-                $isNewLogin      = false;
-                $sessionEngineId = $activePlayer->id;
-            } else {
-                $isNewLogin      = true;
-                $sessionEngineId = null;
-            }
-        } else {
-            $isNewLogin      = true;
-            $sessionEngineId = null;
-        }
+        $isNewLogin = true;
+        $sessionEngineId = null;
     }
 } elseif ($isAuthenticated && $sessionUser !== '') {
     // Ongoing authenticated session
     $playerName = $sessionUser;
 } else {
     // No username provided and no authenticated session
+    $commandStr = ($input['cmd'] ?? 'login') . '(' . ($input['arg0'] ?? '') . ',' . ($input['arg1'] ?? '') . ')';
+    $dateStr    = date('Y-m-d H:i:s');
+    $engine->log("{$dateStr} USER: anonymous | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: | STATUS: DISCONNECTED (REFUSAL: no session or credentials)");
     if ($view === 'msgs') {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['ok' => false, 'error' => 'Player not specified'], JSON_UNESCAPED_UNICODE);
@@ -261,6 +249,8 @@ $result = $engine->processCommand(
 );
 
 if (!empty($result['login_error'])) {
+    $dateStr = date('Y-m-d H:i:s');
+    $engine->log("{$dateStr} USER: {$playerName} | STATUS: DISCONNECTED (REFUSAL: {$result['login_error']})");
     unset(
         $_SESSION['dimx_player'],
         $_SESSION['dimx_authenticated'],
@@ -275,6 +265,8 @@ if (!empty($result['login_error'])) {
     }
     exit;
 }
+
+$result['is_new_login'] = (bool)$isNewLogin;
 
 $_SESSION['dimx_player']            = $playerName;
 $_SESSION['dimx_world']             = $worldId;

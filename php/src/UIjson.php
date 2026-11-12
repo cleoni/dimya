@@ -161,10 +161,11 @@ class UIjson extends UI
         bool $lockError
     ): array {
         $response = [
-            'success'    => !$lockError,
-            'status'     => $status,
-            'session_id' => session_id() !== '' ? session_id() : null,
-            'reset'      => !empty($context['reset']),
+            'success'      => !$lockError,
+            'status'       => $status,
+            'session_id'   => session_id() !== '' ? session_id() : null,
+            'is_new_login' => !empty($context['is_new_login']),
+            'reset'        => !empty($context['reset']),
             'logged_out' => $loggedOut,
             'lock_error' => $lockError,
             'world'      => [

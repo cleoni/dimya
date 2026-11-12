@@ -243,7 +243,9 @@ class GameEngine
             }
             $last = (int)($p->lastInteraction ?: $p->lastActive ?: $p->getProperty('lastInteraction') ?: $p->getProperty('lastActive') ?: 0);
             if ($last > 0 && ($now - $last) >= $this->playerTimeout) {
+                $dateStr = date('Y-m-d H:i:s');
                 $this->log("Pruning stale player {$p->name} ({$p->id}) - idle for " . ($now - $last) . "s");
+                $this->log("{$dateStr} USER: {$p->name} ({$p->id}) | IDLE TIMEOUT (" . ($now - $last) . "s >= {$this->playerTimeout}s) | STATUS: DISCONNECTED");
                 $p->die();
                 $world->removePlayer($p);
             }
@@ -576,7 +578,8 @@ class GameEngine
                         $roomStr = ($room !== null) ? ($room->name . ' (' . $room->id . ')') : '';
                         $commandStr = $cmd . '(' . $arg0 . ',' . $arg1 . ')';
                         $dateStr = date('Y-m-d H:i:s');
-                        $this->log("{$dateStr} USER: {$playerName} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: {$roomStr} | STATUS: DISCONNECTED");
+                        $reason = $isNpcCollision ? 'NPC name collision' : 'player name in use';
+                        $this->log("{$dateStr} USER: {$playerName} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: {$roomStr} | STATUS: DISCONNECTED (REFUSAL: {$reason})");
 
                         $world->tick();
                         $this->pm->saveWorld($world);
@@ -736,7 +739,8 @@ class GameEngine
                     $roomStr = ($room !== null) ? ($room->name . ' (' . $room->id . ')') : '';
                     $commandStr = $cmd . '(' . $arg0 . ',' . $arg1 . ')';
                     $dateStr = date('Y-m-d H:i:s');
-                    $this->log("{$dateStr} USER: {$playerName} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: {$roomStr} | STATUS: DISCONNECTED");
+                    $reason = $isNpcCollision ? 'NPC name collision' : 'player name in use';
+                    $this->log("{$dateStr} USER: {$playerName} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: {$roomStr} | STATUS: DISCONNECTED (REFUSAL: {$reason})");
 
                     $world->tick();
                     $this->pm->saveWorld($world);
