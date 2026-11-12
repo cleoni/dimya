@@ -79,12 +79,12 @@
 505 PRINT#CN, "J " + PT$
 510 V$ = ""
 515 GET#CN, A$
-517 IF A$ = CHR$(13) OR A$ = CHR$(10) OR A$ = CHR$(0) THEN GOTO 525
+517 IF (A$ = " " AND LEN(V$) = 0) OR A$ = CHR$(13) OR A$ = CHR$(10) OR A$ = CHR$(0) THEN GOTO 525
 520 V$ = V$ + A$
 525 IF ST AND 64 THEN GOTO 537
 530 IF ST AND 128 THEN V$ = "" : RETURN
 535 IF LEN(V$) < 250 THEN GOTO 515
-537 IF V$ = "G" OR (LEN(V$) <= 2 AND LEFT$(V$, 1) = "G") THEN V$ = ""
+537 IF V$ = "G" OR (LEN(V$) <= 2 AND (LEFT$(V$, 1) = "G" OR RIGHT$(V$, 1) = "G")) THEN V$ = ""
 538 IF V$ = "(N/A)" OR V$ = "null" THEN V$ = ""
 539 RETURN
 600 REM --- FULL-LINE INPUT (IL$) ---
@@ -127,17 +127,17 @@
 772 I = I + 1 : IF I < 10 THEN GOTO 755
 778 HD = 0 : I = 0
 780 PT$ = "/ROOM/OCCUPANTS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500
-782 IF V$ = "" OR V$ = "G" OR (LEN(V$) <= 2 AND LEFT$(V$, 1) = "G") THEN GOTO 790
+782 IF V$ = "" OR V$ = "G" OR LEN(V$) < 3 THEN GOTO 790
 784 IF HD = 0 THEN PRINT "{GRN}CHARACTERS HERE:" : HD = 1
 786 PRINT "{WHT}  * {GRN}"; V$
 788 I = I + 1 : IF I < 10 THEN GOTO 780
 790 HD = 0 : I = 0
 792 PT$ = "/ROOM/EXITS/" + MID$(STR$(I), 2) + "/DIRECTION" : GOSUB 500 : ED$ = V$
-793 IF ED$ = "" OR ED$ = "G" OR LEFT$(ED$, 1) = "G" THEN GOTO 798
+793 IF ED$ = "" OR ED$ = "G" OR RIGHT$(ED$, 1) = "G" OR LEFT$(ED$, 1) = "G" THEN GOTO 798
 794 PT$ = "/ROOM/EXITS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500 : EN$ = V$
-795 IF HD = 0 THEN PRINT "{WHT}EXITS:" : HD = 1
-796 PRINT "{CYN}  ["; ED$; "] {WHT}-> {CYN}"; EN$
-797 I = I + 1 : IF I < 10 THEN GOTO 792
+795 IF EN$ = "" OR EN$ = "G" OR RIGHT$(EN$, 1) = "G" OR LEFT$(EN$, 1) = "G" OR LEN(EN$) < 2 THEN GOTO 798
+796 IF HD = 0 THEN PRINT "{WHT}EXITS:" : HD = 1
+797 PRINT "{CYN}  ["; ED$; "] {WHT}-> {CYN}"; EN$ : I = I + 1 : IF I < 10 THEN GOTO 792
 798 PRINT "{WHT}----------------------------------------"
 799 RETURN
 800 REM --- READ STRINGS FROM HIGH MEMORY ---
