@@ -79,12 +79,14 @@
 505 PRINT#CN, "J " + PT$
 510 V$ = ""
 515 GET#CN, A$
+517 IF A$ = CHR$(13) OR A$ = CHR$(10) OR A$ = CHR$(0) THEN GOTO 525
 520 V$ = V$ + A$
 525 IF ST AND 64 THEN GOTO 537
-530 IF ST AND 128 THEN V$ = "(N/A)" : RETURN
+530 IF ST AND 128 THEN V$ = "" : RETURN
 535 IF LEN(V$) < 250 THEN GOTO 515
-537 IF V$ = "G" THEN V$ = ""
-538 RETURN
+537 IF V$ = "G" OR (LEN(V$) <= 2 AND LEFT$(V$, 1) = "G") THEN V$ = ""
+538 IF V$ = "(N/A)" OR V$ = "null" THEN V$ = ""
+539 RETURN
 600 REM --- FULL-LINE INPUT (IL$) ---
 605 IL$ = ""
 610 GET K$ : IF K$ = "" THEN GOTO 610
@@ -109,29 +111,29 @@
 700 REM --- RENDER GAME ENVIRONMENT & STATE ---
 705 PRINT "{WHT}----------------------------------------"
 710 PT$ = "/MESSAGES/0" : GOSUB 500
-715 IF V$ <> "(N/A)" AND V$ <> "" AND V$ <> "G" THEN PRINT "{YEL}[!] "; V$
+715 IF V$ <> "" AND V$ <> "(N/A)" AND V$ <> "G" AND (LEN(V$) > 2 OR LEFT$(V$, 1) <> "G") THEN PRINT "{YEL}[!] "; V$
 720 PT$ = "/CHAT/0/TEXT" : GOSUB 500
-725 IF V$ <> "(N/A)" AND V$ <> "" AND V$ <> "G" THEN TX$ = V$ : PT$ = "/CHAT/0/SENDER" : GOSUB 500 : PRINT "{CYN}<"; V$; "> "; TX$
+725 IF V$ <> "" AND V$ <> "(N/A)" AND V$ <> "G" AND (LEN(V$) > 2 OR LEFT$(V$, 1) <> "G") THEN TX$ = V$ : PT$ = "/CHAT/0/SENDER" : GOSUB 500 : PRINT "{CYN}<"; V$; "> "; TX$
 730 PT$ = "/ROOM/NAME" : GOSUB 500 : RN$ = V$
 735 PT$ = "/FACING" : GOSUB 500 : FC$ = V$
 740 PRINT "{WHT}=== "; RN$; " ["; FC$; "] ==="
 745 PT$ = "/ROOM/DESCRIPTION" : GOSUB 500
-750 IF V$ <> "(N/A)" AND V$ <> "" AND V$ <> "G" THEN PRINT "{CYN}"; V$
+750 IF V$ <> "" AND V$ <> "(N/A)" AND V$ <> "G" AND (LEN(V$) > 2 OR LEFT$(V$, 1) <> "G") THEN PRINT "{CYN}"; V$
 752 HD = 0 : I = 0
 755 PT$ = "/ROOM/ITEMS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500
-760 IF V$ = "" OR V$ = "(N/A)" OR V$ = "G" THEN GOTO 778
+760 IF V$ = "" OR V$ = "G" OR LEN(V$) < 3 THEN GOTO 778
 765 IF HD = 0 THEN PRINT "{YEL}ITEMS HERE:" : HD = 1
 770 PRINT "{WHT}  * {YEL}"; V$
 772 I = I + 1 : IF I < 10 THEN GOTO 755
 778 HD = 0 : I = 0
 780 PT$ = "/ROOM/OCCUPANTS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500
-782 IF V$ = "" OR V$ = "(N/A)" OR V$ = "G" THEN GOTO 790
+782 IF V$ = "" OR V$ = "G" OR (LEN(V$) <= 2 AND LEFT$(V$, 1) = "G") THEN GOTO 790
 784 IF HD = 0 THEN PRINT "{GRN}CHARACTERS HERE:" : HD = 1
 786 PRINT "{WHT}  * {GRN}"; V$
 788 I = I + 1 : IF I < 10 THEN GOTO 780
 790 HD = 0 : I = 0
 792 PT$ = "/ROOM/EXITS/" + MID$(STR$(I), 2) + "/DIRECTION" : GOSUB 500 : ED$ = V$
-793 IF ED$ = "" OR ED$ = "(N/A)" OR ED$ = "G" THEN GOTO 798
+793 IF ED$ = "" OR ED$ = "G" OR LEFT$(ED$, 1) = "G" THEN GOTO 798
 794 PT$ = "/ROOM/EXITS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500 : EN$ = V$
 795 IF HD = 0 THEN PRINT "{WHT}EXITS:" : HD = 1
 796 PRINT "{CYN}  ["; ED$; "] {WHT}-> {CYN}"; EN$
