@@ -3,7 +3,7 @@
 3 REM TARGET: COMMODORE 64 WITH MEATLOAF DEVICE
 4 REM ========================================
 10 IF PEEK(55) <> 0 OR PEEK(56) <> 159 THEN POKE 55, 0 : POKE 56, 159 : CLR : GOTO 20
-20 CN = 1 : QU$ = CHR$(34) : SI$ = ""
+20 CN = 1 : QU$ = CHR$(34) : SI$ = "" : DIM MI$(5), MS$(5), MT$(5) : MC = 0
 30 POKE 53280, 0 : POKE 53281, 0 : POKE 646, 1
 40 PRINT CHR$(14) : REM LOWER/UPPERCASE MODE
 50 REM --- CHECK SAVED CREDENTIALS SIGNATURE ---
@@ -29,11 +29,19 @@
 230 IF IN$ = "" THEN CM$ = "LOOK" : P1$ = "" : P2$ = "" : GOTO 320
 240 IF IN$ = "/HELP" OR IN$ = "HELP" THEN GOSUB 850 : GOTO 210
 250 GOSUB 650 : REM PARSE COMMAND, PARAM, TARGET
+252 IF CM$ = "READ" AND P1$ = "" THEN GOSUB 880 : GOTO 210
+254 IF CM$ = "READ" AND P1$ <> "" THEN GOTO 310
 260 IF CM$ = "N" OR CM$ = "S" OR CM$ = "E" OR CM$ = "W" OR CM$ = "U" OR CM$ = "D" THEN P1$ = CM$ : CM$ = "GO"
 270 IF CM$ = "L" THEN CM$ = "LOOK"
 280 IF CM$ = "I" THEN CM$ = "INV"
 290 IF CM$ = "QUIT" THEN CM$ = "LOGOUT"
 300 IF CM$ = "LOGOUT" THEN GOTO 370
+305 GOTO 320
+310 N = VAL(P1$) : IF N < 1 OR N > MC THEN PRINT "{RED}INVALID! USE 1 TO "; MID$(STR$(MC), 2) : GOTO 210
+312 X = N - 1 : PRINT "{WHT}----------------------------------------"
+314 PRINT "{YEL}MSG #"; MID$(STR$(N), 2); " FROM: {CYN}"; MS$(X) : PRINT "{WHT}"; MT$(X) : PRINT "{WHT}----------------------------------------"
+316 PRINT "{GRN}DISMISSING MESSAGE..." : CM$ = "POPMSG" : P1$ = MI$(X) : IF P1$ = "" THEN P1$ = MID$(STR$(N), 2)
+318 P2$ = ""
 320 GOSUB 400 : REM SEND COMMAND PAYLOAD
 322 RL = 0
 324 IF ST$ = "503" THEN PRINT "{YEL}WORLD BUSY, RETRYING..." : FOR W = 1 TO 500 : NEXT W : GOSUB 400
@@ -112,8 +120,8 @@
 705 PRINT "{WHT}----------------------------------------"
 710 PT$ = "/MESSAGES/0" : GOSUB 500
 715 IF V$ <> "" AND V$ <> "(N/A)" AND V$ <> "G" AND (LEN(V$) > 2 OR LEFT$(V$, 1) <> "G") THEN PRINT "{YEL}[!] "; V$
-720 PT$ = "/CHAT/0/TEXT" : GOSUB 500
-725 IF V$ <> "" AND V$ <> "(N/A)" AND V$ <> "G" AND (LEN(V$) > 2 OR LEFT$(V$, 1) <> "G") THEN TX$ = V$ : PT$ = "/CHAT/0/SENDER" : GOSUB 500 : PRINT "{CYN}<"; V$; "> "; TX$
+720 GOSUB 870
+725 PRINT "{YEL}"; MID$(STR$(MC), 2); " MESSAGES"
 730 PT$ = "/ROOM/NAME" : GOSUB 500 : RN$ = V$
 735 PT$ = "/FACING" : GOSUB 500 : FC$ = V$
 740 PRINT "{WHT}=== "; RN$; " ["; FC$; "] ==="
@@ -162,10 +170,33 @@
 862 PRINT "{YEL}CONTAINERS : {WHT}OPEN <ID>, CLOSE <ID>"
 863 PRINT "{YEL}INTERACTION: {WHT}USE <ID>, USE2 <ID1> <ID2>"
 864 PRINT "{YEL}COMMUNICATION: {WHT}SAY <MESSAGE>"
-865 PRINT "{YEL}SEARCH/SAVE: {WHT}SEARCH, SAVE"
-866 PRINT "{YEL}QUIT GAME  : {WHT}LOGOUT (OR QUIT)"
-867 PRINT "{WHT}========================================"
-868 RETURN
+865 PRINT "{YEL}INBOX/READ : {WHT}READ, READ <1-5>"
+866 PRINT "{YEL}SEARCH/SAVE: {WHT}SEARCH, SAVE"
+867 PRINT "{YEL}QUIT GAME  : {WHT}LOGOUT (OR QUIT)"
+868 PRINT "{WHT}========================================"
+869 RETURN
+870 REM --- FETCH INBOX (UP TO 5 MESSAGES) ---
+871 MC = 0 : M = 0
+872 PT$ = "/CHAT/" + MID$(STR$(M), 2) + "/TEXT" : GOSUB 500
+873 IF V$ = "" OR V$ = "G" OR LEN(V$) < 2 THEN GOTO 878
+874 MT$(M) = V$
+875 PT$ = "/CHAT/" + MID$(STR$(M), 2) + "/SENDER" : GOSUB 500 : MS$(M) = V$
+876 PT$ = "/CHAT/" + MID$(STR$(M), 2) + "/ID" : GOSUB 500 : MI$(M) = V$
+877 MC = MC + 1 : M = M + 1 : IF M < 5 THEN GOTO 872
+878 RETURN
+880 REM --- LOCAL INBOX DISPLAY ---
+881 PRINT "{CLR}{WHT}========================================"
+882 PRINT "           INBOX ("; MID$(STR$(MC), 2); " MESSAGE"; : IF MC <> 1 THEN PRINT "S";
+883 PRINT ")            "
+884 PRINT "========================================"
+885 IF MC = 0 THEN PRINT "{YEL}NO MESSAGES IN INBOX." : GOTO 895
+886 FOR K = 0 TO MC - 1
+887 PRINT "{WHT}"; MID$(STR$(K + 1), 2); ". {CYN}<"; MS$(K); "> {WHT}"; MT$(K)
+888 NEXT K
+895 PRINT "{WHT}----------------------------------------"
+896 IF MC > 0 THEN PRINT "{YEL}TYPE: {WHT}READ <1-"; MID$(STR$(MC), 2); ">{YEL} TO READ & DISMISS"
+897 PRINT "{WHT}========================================"
+898 RETURN
 900 REM --- ERROR: NO CREDENTIALS ---
 905 PRINT "{CLR}{RED}========================================"
 910 PRINT "      ERROR: NO SAVED CREDENTIALS!      "

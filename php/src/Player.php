@@ -432,6 +432,21 @@ class Player extends Character
                 return $popped;
             }
         }
+        if (is_numeric($msgId)) {
+            $num = (int)$msgId;
+            if ($num >= 1 && $num <= count($this->messagesQueue)) {
+                $popped = $this->messagesQueue[$num - 1];
+                unset($this->messagesQueue[$num - 1]);
+                $this->messagesQueue = array_values($this->messagesQueue);
+                return $popped;
+            }
+            if ($num === 0 && count($this->messagesQueue) > 0) {
+                $popped = $this->messagesQueue[0];
+                unset($this->messagesQueue[0]);
+                $this->messagesQueue = array_values($this->messagesQueue);
+                return $popped;
+            }
+        }
         return null;
     }
 

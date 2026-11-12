@@ -66,6 +66,9 @@ class UIbot extends UIjson
         $payload = parent::buildResponsePayload($context, $world, $player, $room, $panel, $status, $loggedOut, $lockError);
 
         $commands = $payload['panel']['commands'] ?? ($panel?->getAvailableCommands() ?? []);
+        if (!in_array('popmsg', $commands, true)) {
+            $commands[] = 'popmsg';
+        }
 
         $botPayload = [];
         foreach ($payload as $key => $value) {
