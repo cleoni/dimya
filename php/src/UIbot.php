@@ -82,6 +82,10 @@ class UIbot extends UIjson
             } elseif ($key === 'player') {
                 $botPayload['stats'] = $this->buildPlayerStats($player);
                 $botPayload['facing'] = $player->facing ?? 'N';
+            } elseif ($key === 'messages' || $key === 'console') {
+                $botPayload['console'] = $value;
+            } elseif ($key === 'chat' || $key === 'msgs') {
+                $botPayload['msgs'] = $value;
             } else {
                 $botPayload[$key] = $value;
             }

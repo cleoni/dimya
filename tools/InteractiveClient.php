@@ -199,9 +199,9 @@ class InteractiveClient
 
         $newMessagesThisTurn = [];
 
-        // 1. Process server messages
-        if (!empty($data['messages'])) {
-            foreach ($data['messages'] as $msg) {
+        // 1. Process console output (#console)
+        if (!empty($data['console'])) {
+            foreach ($data['console'] as $msg) {
                 $clean = strip_tags($msg);
                 $hash  = md5("srv:" . $clean);
                 $entry = [
@@ -214,15 +214,15 @@ class InteractiveClient
             }
         }
 
-        // 2. Process chat / dialogue
-        if (!empty($data['chat'])) {
-            foreach ($data['chat'] as $chatMsg) {
+        // 2. Process incoming messages / dialogue (#msgs)
+        if (!empty($data['msgs'])) {
+            foreach ($data['msgs'] as $chatMsg) {
                 $sender = $chatMsg['sender'] ?? 'Chat';
                 $text   = $chatMsg['text'] ?? ($chatMsg['message'] ?? json_encode($chatMsg));
                 $line   = "<{$sender}> {$text}";
                 $hash   = md5("chat:" . $line);
 
-                // Chat array on UIbot may repeat past chat lines in the backlog
+                // Msgs array on UIbot may repeat past chat lines in the backlog
                 if (!isset($this->seenMessageHashes[$hash])) {
                     $this->seenMessageHashes[$hash] = true;
                     $entry = [

@@ -170,10 +170,10 @@ A standard UIbot response conforms to the following schema:
       }
     ]
   },
-  "messages": [                   // array<string>: Feedback produced during this specific turn
+  "console": [                    // array<string>: Console feedback produced during this specific turn (#console)
     "You picked up the brass key."
   ],
-  "chat": [                       // array<object>: Recent chat and dialog history
+  "msgs": [                       // array<object>: Recent incoming chat and dialog history (#msgs)
     {
       "sender": "the surfer",
       "text": "Cowabunga! Ready to catch some waves?"
@@ -208,8 +208,8 @@ Reference implementation based on `tools/InteractiveClient.php`.
 
 ### B. Response Display Order
 When rendering each turn to the player or console:
-1. **Turn Feedback**: Print all strings from `messages[]` (e.g., action results, script prints).
-2. **Incoming Dialogue**: Print new items from `chat[]`. (Maintain a hash table or set of seen messages to avoid printing backlog duplicates).
+1. **Turn Feedback**: Print all strings from `console[]` (e.g., action results, script prints).
+2. **Incoming Dialogue**: Print new items from `msgs[]`. (Maintain a hash table or set of seen messages to avoid printing backlog duplicates).
 3. **Location Banner**: `=== <room.name> [<room.id>] ===`
 4. **Description**: Display `room.description`.
 5. **Items List**: List `room.items[]` with ID and open/closed state.
@@ -224,7 +224,7 @@ When rendering each turn to the player or console:
 - To leave the vehicle, send `{"cmd": "exit"}`.
 
 ### D. Chat & Message Deduplication
-The server `chat` array returns the recent chat buffer. A client should track message hashes or IDs to only display new chat lines on subsequent turns.
+The server `msgs` array returns the recent chat buffer. A client should track message hashes or IDs to only display new chat lines on subsequent turns.
 
 ---
 
@@ -236,6 +236,6 @@ An AI agent implementing a client on a target architecture needs to fulfill:
 2. [ ] **Cookie persistence**: Store `PHPSESSID` from HTTP response headers and include it in request headers.
 3. [ ] **JSON Serialization / Deserialization**:
    - Send: `{"cmd": "...", "param": "...", "target": "..."}`
-   - Receive: Parse `success`, `status`, `messages`, `chat`, and `room` (`id`, `name`, `items`, `occupants`, `exits`).
+   - Receive: Parse `success`, `status`, `console`, `msgs`, and `room` (`id`, `name`, `items`, `occupants`, `exits`).
 4. [ ] **Retry on 503**: If status is 503 or `status === "lock_busy"`, pause 150ms and resend once.
 5. [ ] **Graceful exit**: Terminate loop when `logged_out === true` or on user logout command.

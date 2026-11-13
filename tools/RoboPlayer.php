@@ -350,17 +350,17 @@ class RoboPlayer
 
         $data = $resp['data'] ?? [];
 
-        if (!empty($data['messages'])) {
-            foreach ($data['messages'] as $msg) {
-                $this->log("  [Server Msg] {$msg}");
+        if (!empty($data['console'])) {
+            foreach ($data['console'] as $msg) {
+                $this->log("  [Console] {$msg}");
             }
         }
 
-        if (!empty($data['chat'])) {
-            foreach ($data['chat'] as $chatMsg) {
+        if (!empty($data['msgs'])) {
+            foreach ($data['msgs'] as $chatMsg) {
                 $sender = $chatMsg['sender'] ?? 'Chat';
                 $text   = $chatMsg['text'] ?? ($chatMsg['message'] ?? json_encode($chatMsg));
-                $this->log("  [Chat/Dialogue] <{$sender}> {$text}");
+                $this->log("  [Msgs/Dialogue] <{$sender}> {$text}");
             }
         }
 

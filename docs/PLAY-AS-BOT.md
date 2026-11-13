@@ -1,6 +1,6 @@
 # PLAY-AS-BOT.md: Guide to Exploring world3net via UIbot
 
-This guide provides instructions for connecting an external script, automated agent, or AI bot to the **DimensioneY** multiplayer engine (`world3net.dxw`) using the **UIbot** REST/JSON interface.
+This guide provides instructions for connecting an external script, automated agent, or AI bot to the **DimensioneY** multiplayer engine using the **UIbot** REST/JSON interface.
 
 The UIbot interface exposes a fair, structured JSON perspective of the world designed specifically for bots:
 - **Fair play**: Exits do not reveal the unseen destination room beforehand; other players and NPCs are uniform (`is_player` omitted); and internal object attributes (like volume or pickability) must be discovered through interaction.
@@ -98,10 +98,10 @@ A successful login returns HTTP status `200` with `"success": true` and `"status
       }
     ]
   },
-  "messages": [
+  "console": [
     "Welcome to The Beach v.2.30, BotExplorer!"
   ],
-  "chat": [],
+  "msgs": [],
   "command": {
     "cmd": "login",
     "param": "",
@@ -138,7 +138,7 @@ Every action within the world is sent as a `POST` request with a JSON payload co
 
 ### Command Reference
 
-The available commands for your character at any moment are provided in the `"commands"` array of each response.
+The available commands for your character at any moment are provided in the `"commands"` array of each response. Some commands listed in sections 1,2,3 below may not be available at a given game step, or other commands may be available. Take the three sections below like an example of most frequent situation.
 
 #### 1. Zero-Parameter Commands
 Commands that take no arguments (`"param"` and `"target"` can be omitted or empty string `""`):
@@ -231,10 +231,10 @@ Every step response contains the updated state of the world from your bot's pers
       }
     ]
   },
-  "messages": [                 // Game engine event logs, action results, and speech
+  "console": [                  // Game engine console logs and action results (#console)
     "You enter the teletransporter."
   ],
-  "chat": [],                   // Recent player chat messages
+  "msgs": [],                   // Recent incoming chat/dialogue messages (#msgs)
   "command": {                  // Echo of the executed command
     "cmd": "enter",
     "param": "tele1",
@@ -244,7 +244,7 @@ Every step response contains the updated state of the world from your bot's pers
 ```
 
 #### Key Rules When Interpreting Output:
-1. **Always read `messages`**: The `messages` array contains the direct consequence of your action (e.g. *"You picked up the screwdriver."*, *"The main control seems to be broken."*, or dialogue).
+1. **Always read `console` and often read `msgs`**: The `console` array contains the direct consequence of your action (e.g. *"You picked up the screwdriver."*, *"The main control seems to be broken."*), while `msgs` contains incoming speech and dialogue.
 2. **Vehicle Interiors**: When you enter a vehicle (e.g. `enter tele1`), `room.id` becomes the vehicle ID (`tele1`), `room.items` lists items inside the vehicle (e.g. `switch2`), and `room.exits` is empty. To exit back to the room, issue `{"cmd": "exit"}`.
 3. **Multi-Face Orientation**: If `room.has_several_faces` is `true`, forward movement via `go` follows the current `facing`. Use `rotl`, `rotr`, or `rev` to turn.
 
@@ -266,7 +266,7 @@ A successful logout response returns:
 - `"status": "logged_out"`
 - `"logged_out": true`
 - `"room": null`
-- `"messages": ["Your game was saved and you have safely left The Beach v.2.30."]`
+- `"console": ["Your game was saved and you have safely left The Beach v.2.30."]`
 
 The session is terminated and your character's position and inventory are persisted on the server.
 
@@ -357,8 +357,8 @@ class DimxBot:
 
         data = resp.json()
         print(f"\n>> [{cmd.upper()} {param} {target}]")
-        for msg in data.get("messages", []):
-            print(f"  [Msg] {msg}")
+        for msg in data.get("console", []):
+            print(f"  [Console] {msg}")
         return data
 
     def login(self) -> dict:

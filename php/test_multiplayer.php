@@ -808,25 +808,25 @@ $lookJson = runMultiplayer([
     'target'   => 'surfer',
 ]);
 $lookData = json_decode($lookJson, true);
-$lookMsg = implode(' ', $lookData['messages'] ?? []);
+$lookMsg = implode(' ', $lookData['console'] ?? []);
 assertTest(
     str_contains($lookMsg, "Walks up and down, I'd say he's got nothing to do."),
-    "Bot successfully looks at surfer: character description is in messages"
+    "Bot successfully looks at surfer: character description is in console"
 );
 assertTest(
     !str_contains($lookMsg, "staring at me") && !str_contains($lookMsg, "Please look elsewhere!"),
-    "surfer.onLook spoken message is NOT in room description / messages"
+    "surfer.onLook spoken message is NOT in room description / console"
 );
 
-// Verify surfer.onLook Speak output is delivered in chat messages
-$chatTexts = array_column($lookData['chat'] ?? [], 'text');
+// Verify surfer.onLook Speak output is delivered in msgs
+$chatTexts = array_column($lookData['msgs'] ?? [], 'text');
 $chatAll   = implode(' ', $chatTexts);
 assertTest(
     str_contains($chatAll, "staring at me") || str_contains($chatAll, "Please look elsewhere!"),
-    "surfer.onLook spoken message IS heard in chat messages: '{$chatAll}'"
+    "surfer.onLook spoken message IS heard in msgs: '{$chatAll}'"
 );
-$surferChat = array_filter($lookData['chat'] ?? [], fn($c) => ($c['sender'] ?? '') === 'a surfer');
-assertTest(!empty($surferChat), "surfer.onLook speech has sender 'a surfer' in chat");
+$surferChat = array_filter($lookData['msgs'] ?? [], fn($c) => ($c['sender'] ?? '') === 'a surfer');
+assertTest(!empty($surferChat), "surfer.onLook speech has sender 'a surfer' in msgs");
 $surferMsgItem = end($surferChat);
 assertTest(($surferMsgItem['recipient'] ?? null) === $botW2, "surfer speaks to \$AGENT ({$botW2}) when second parameter is missing");
 
@@ -838,7 +838,7 @@ $otherChatJson = runMultiplayer([
     'cmd'      => 'look',
 ]);
 $otherChatData = json_decode($otherChatJson, true);
-$otherChatTexts = array_column($otherChatData['chat'] ?? [], 'text');
+$otherChatTexts = array_column($otherChatData['msgs'] ?? [], 'text');
 $otherChatAll = implode(' ', $otherChatTexts);
 assertTest(
     !str_contains($otherChatAll, "staring at me") && !str_contains($otherChatAll, "Please look elsewhere!"),
@@ -854,7 +854,7 @@ $clickJson = runMultiplayer([
     'target'   => 'surfer',
 ]);
 $clickData = json_decode($clickJson, true);
-$clickMsg = implode(' ', $clickData['messages'] ?? []);
+$clickMsg = implode(' ', $clickData['console'] ?? []);
 assertTest(
     str_contains($clickMsg, "Walks up and down, I'd say he's got nothing to do."),
     "Bot successfully clicks on surfer in chat panel: '{$clickMsg}'"
@@ -869,7 +869,7 @@ $disallowedPickJson = runMultiplayer([
     'target'   => 'box',
 ]);
 $disallowedPickData = json_decode($disallowedPickJson, true);
-$disallowedPickMsg = implode(' ', $disallowedPickData['messages'] ?? []);
+$disallowedPickMsg = implode(' ', $disallowedPickData['console'] ?? []);
 assertTest(
     str_contains($disallowedPickMsg, "Command 'pick' is not allowed in current panel (chat)"),
     "Bot sending 'pick' is rejected in chat panel: '{$disallowedPickMsg}'"
@@ -1120,6 +1120,10 @@ assertTest(array_key_exists('name', $stdWorld), "Standard bot world section disp
 assertTest(array_key_exists('tick_length', $stdWorld), "Standard bot world section displays 'tick_length'");
 assertTest(!array_key_exists('id', $stdWorld), "Standard bot world section omits 'id'");
 assertTest(!array_key_exists('mode', $stdWorld), "Standard bot world section omits 'mode'");
+assertTest(array_key_exists('console', $standardBotData) && is_array($standardBotData['console']), "Standard bot receives 'console' array");
+assertTest(array_key_exists('msgs', $standardBotData) && is_array($standardBotData['msgs']), "Standard bot receives 'msgs' array");
+assertTest(!array_key_exists('messages', $standardBotData), "Standard bot omits legacy 'messages' key");
+assertTest(!array_key_exists('chat', $standardBotData), "Standard bot omits legacy 'chat' key");
 }
 
 // -------------------------------------------------------------

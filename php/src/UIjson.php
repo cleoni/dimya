@@ -180,8 +180,8 @@ class UIjson extends UI
             ],
             'player'     => $this->buildPlayerStatus($player),
             'room'       => $loggedOut ? null : $this->buildRoomSnapshot($room, $player),
-            'messages'   => $context['messages'] ?? [],
-            'chat'       => $context['chat'] ?? ($world->chatQueue ?? []),
+            'console'    => $context['messages'] ?? [],
+            'msgs'       => $context['chat'] ?? ($world->chatQueue ?? []),
             'command'    => [
                 'cmd'    => $context['cmd']    ?? null,
                 'arg0'   => $context['arg0']   ?? $context['param'] ?? null,
