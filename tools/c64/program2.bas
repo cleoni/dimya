@@ -118,34 +118,32 @@
 698 P1$ = MID$(IN$, S1 + 1, S2 - S1 - 1) : P2$ = MID$(IN$, S2 + 1) : RETURN
 700 REM --- RENDER GAME ENVIRONMENT & STATE ---
 705 PRINT "{WHT}----------------------------------------"
-710 PT$ = "/MESSAGES/0" : GOSUB 500
-715 IF V$ <> "" AND V$ <> "(N/A)" AND V$ <> "G" AND (LEN(V$) > 2 OR LEFT$(V$, 1) <> "G") THEN PRINT "{YEL}[!] "; V$
-720 GOSUB 870
-725 PRINT "{YEL}"; MID$(STR$(MC), 2); " MESSAGES"
-730 PT$ = "/ROOM/NAME" : GOSUB 500 : RN$ = V$
-735 PT$ = "/FACING" : GOSUB 500 : FC$ = V$
-740 PRINT "{WHT}=== "; RN$; " ["; FC$; "] ==="
-745 PT$ = "/ROOM/DESCRIPTION" : GOSUB 500
-750 IF V$ <> "" AND V$ <> "(N/A)" AND V$ <> "G" AND (LEN(V$) > 2 OR LEFT$(V$, 1) <> "G") THEN PRINT "{CYN}"; V$
-752 HD = 0 : I = 0
-755 PT$ = "/ROOM/ITEMS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500
-760 IF V$ = "" OR V$ = "G" OR LEN(V$) < 3 THEN GOTO 778
-765 IF HD = 0 THEN PRINT "{YEL}ITEMS HERE:" : HD = 1
-770 PRINT "{WHT}  * {YEL}"; V$
-772 I = I + 1 : IF I < 10 THEN GOTO 755
-778 HD = 0 : I = 0
-780 PT$ = "/ROOM/OCCUPANTS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500
-782 IF V$ = "" OR V$ = "G" OR LEN(V$) < 3 THEN GOTO 790
-784 IF HD = 0 THEN PRINT "{GRN}CHARACTERS HERE:" : HD = 1
-786 PRINT "{WHT}  * {GRN}"; V$
-788 I = I + 1 : IF I < 10 THEN GOTO 780
-790 HD = 0 : I = 0
-792 PT$ = "/ROOM/EXITS/" + MID$(STR$(I), 2) + "/DIRECTION" : GOSUB 500 : ED$ = V$
-793 IF ED$ = "" OR ED$ = "G" OR RIGHT$(ED$, 1) = "G" OR LEFT$(ED$, 1) = "G" THEN GOTO 798
-794 PT$ = "/ROOM/EXITS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500 : EN$ = V$
-795 IF EN$ = "" OR EN$ = "G" OR RIGHT$(EN$, 1) = "G" OR LEFT$(EN$, 1) = "G" OR LEN(EN$) < 2 THEN GOTO 798
-796 IF HD = 0 THEN PRINT "{WHT}EXITS:" : HD = 1
-797 PRINT "{CYN}  ["; ED$; "] {WHT}-> {CYN}"; EN$ : I = I + 1 : IF I < 10 THEN GOTO 792
+710 PT$ = "/ROOM/NAME" : GOSUB 500 : RN$ = V$
+712 PT$ = "/FACING" : GOSUB 500 : FC$ = V$
+714 PRINT "{WHT}=== "; RN$; " ["; FC$; "] ==="
+720 PT$ = "/ROOM/DESCRIPTION" : GOSUB 500
+722 IF V$ <> "" AND V$ <> "(N/A)" AND V$ <> "G" AND (LEN(V$) > 2 OR LEFT$(V$, 1) <> "G") THEN PRINT "{CYN}"; V$
+730 PT$ = "/MESSAGES/0" : GOSUB 500
+732 IF V$ <> "" AND V$ <> "(N/A)" AND V$ <> "G" AND (LEN(V$) > 2 OR LEFT$(V$, 1) <> "G") THEN PRINT "{YEL}"; V$
+740 GOSUB 870
+742 IF MC > 0 THEN PRINT "{YEL}"; MID$(STR$(MC), 2); " MESSAGES"
+750 HD = 0 : I = 0
+752 PT$ = "/ROOM/EXITS/" + MID$(STR$(I), 2) + "/DIRECTION" : GOSUB 500 : ED$ = V$
+754 IF ED$ = "" OR ED$ = "G" OR RIGHT$(ED$, 1) = "G" OR LEFT$(ED$, 1) = "G" THEN GOTO 770
+756 PT$ = "/ROOM/EXITS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500 : EN$ = V$
+758 IF EN$ = "" OR EN$ = "G" OR RIGHT$(EN$, 1) = "G" OR LEFT$(EN$, 1) = "G" OR LEN(EN$) < 2 THEN GOTO 770
+760 IF HD = 0 THEN PRINT "{WHT}EXITS:" : HD = 1
+762 PRINT "{CYN}  ["; ED$; "] {WHT}-> {CYN}"; EN$ : I = I + 1 : IF I < 10 THEN GOTO 752
+770 HD = 0 : I = 0
+772 PT$ = "/ROOM/OCCUPANTS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500
+774 IF V$ = "" OR V$ = "G" OR LEN(V$) < 3 THEN GOTO 784
+776 IF HD = 0 THEN PRINT "{GRN}CHARACTERS HERE:" : HD = 1
+778 PRINT "{WHT}  * {GRN}"; V$ : I = I + 1 : IF I < 10 THEN GOTO 772
+784 HD = 0 : I = 0
+786 PT$ = "/ROOM/ITEMS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500
+788 IF V$ = "" OR V$ = "G" OR LEN(V$) < 3 THEN GOTO 798
+790 IF HD = 0 THEN PRINT "{YEL}ITEMS HERE:" : HD = 1
+792 PRINT "{WHT}  * {YEL}"; V$ : I = I + 1 : IF I < 10 THEN GOTO 786
 798 PRINT "{WHT}----------------------------------------"
 799 RETURN
 800 REM --- READ STRINGS FROM HIGH MEMORY ---
