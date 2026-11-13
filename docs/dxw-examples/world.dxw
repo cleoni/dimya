@@ -1,0 +1,348 @@
+WORLD
+NAME Celestial Shrine
+AUTHOR DimensioneY Studio
+VERSION 1.3a
+IMAGESFOLDER_LOCAL /game1/assets
+IMAGESFOLDER_PUBLIC https://www.dimensionex.net/shrine/assets
+LOGOSRC img_world_logo.jpg
+SITE		https://www.dimensionex.net/shrine/
+
+
+GUI
+	SCENE SIZE 700x470
+	SCREEN SIZE 1024x768
+END_GUI
+
+ROOMS
+
+ROOM loc_shrine_entrance DEFAULT
+NAME Sacred Shrine Entrance
+DESCRIPTION A grand red torii gate marks the sacred threshold, framed by ancient stone lanterns and tranquil pine trees.
+IMAGE SHOWAREA -1,-1,90 img_loc_shrine_entrance.jpg
+
+ROOM loc_courtyard
+NAME Shrine Central Courtyard
+DESCRIPTION The central shrine courtyard spreads wide with raked white gravel, weathered stone paths, and wooden pavilions.
+IMAGE N SHOWAREA -1,-1,90 img_loc_courtyard_n.jpg
+IMAGE S SHOWAREA -1,-1,90 img_loc_courtyard_s.jpg
+
+ROOM loc_bamboo_grove
+NAME Whispering Bamboo Grove
+DESCRIPTION Towering jade bamboo stalks sway gracefully in the mountain breeze, casting shifting green emerald shadows.
+IMAGE E SHOWAREA -1,-1,90 img_loc_bamboo_grove.jpg
+IMAGE W SHOWAREA -1,-1,90 img_loc_bamboo_grove_w.jpg
+
+ROOM loc_hidden_glade
+NAME Sunlit Hidden Glade
+DESCRIPTION A secluded forest hollow bathed in dappled light, where an ancient moss-covered stone chest rests silently.
+IMAGE SHOWAREA 200,400,80 img_loc_hidden_glade.jpg
+
+ROOM loc_crystal_pond
+NAME Sunlit Crystal Pond
+DESCRIPTION A tranquil koi pond reflects the clear azure sky, surrounded by smooth stepping stones and blooming pink lilies.
+IMAGE SHOWAREA -1,-1,90 img_loc_crystal_pond.jpg
+
+ROOM loc_pavilion
+NAME Meditation Pavilion
+DESCRIPTION A serene open-air wooden pavilion with woven tatami mats and crimson silk banners fluttering in the wind.
+IMAGE SHOWAREA -1,-1,90 img_loc_pavilion.jpg
+
+ROOM loc_inner_sanctum
+NAME Sacred Inner Sanctum
+DESCRIPTION The sanctum whispers with sacred stillness, dimly illuminated by gentle golden lantern light and incense.
+IMAGE N SHOWAREA -1,-1,90 img_loc_inner_sanctum.jpg
+
+ROOM loc_bell_tower
+NAME Ancient Bell Tower
+DESCRIPTION A high wooden belfry overlooking the temple grounds, housing a massive resonant bronze temple bell.
+IMAGE SHOWAREA 600,650,80 img_loc_bell_tower.jpg
+
+ROOM loc_celestial_chamber
+NAME Celestial Chamber
+DESCRIPTION An ethereal vaulted shrine room adorned with constellations painted on indigo walls and celestial motifs.
+IMAGE SHOWAREA -1,-1,90 img_loc_celestial_chamber.jpg
+
+ROOM loc_relic_vault
+NAME Subterranean Relic Vault
+DESCRIPTION A subterranean chamber carved deep within living mountain stone, safeguarding divine historical treasures. An ancient inscriptions tells: "Not all that exists is obvious"
+IMAGE SHOWAREA -1,-1,90 img_loc_relic_vault.jpg
+
+END_ROOMS
+
+LINKS
+
+LINK link_entrance_courtyard loc_shrine_entrance-loc_courtyard N
+NAME Path to Courtyard
+DESCRIPTION A smooth stone pathway leading north toward the main courtyard.
+
+LINK sanctum_gates loc_courtyard-loc_inner_sanctum N
+ATTRLIST	open=0,locked=1
+ICON		icoDoor.gif
+NAME Inner Sanctum Gates
+DESCRIPTION Imposing cedar doors leading into the serene inner sanctuary.
+
+LINK link_courtyard_pond loc_courtyard-loc_crystal_pond W
+NAME West Garden Steps
+DESCRIPTION Stone stepping stones heading west toward the crystal koi pond.
+
+LINK link_courtyard_grove loc_courtyard-loc_bamboo_grove E
+NAME East Bamboo Path
+DESCRIPTION A winding pebble trail heading east into the verdant bamboo forest.
+
+LINK link_grove_glade loc_bamboo_grove-loc_hidden_glade E
+NAME Hidden Forest Trail
+DESCRIPTION A discreet path winding east toward an untamed sunlit glade.
+
+LINK link_pond_pavilion loc_crystal_pond-loc_pavilion N
+NAME Pavilion Footbridge
+DESCRIPTION A graceful wooden arched footbridge.
+
+LINK link_sanctum_tower loc_inner_sanctum-loc_bell_tower U
+NAME Belfry Stairway
+DESCRIPTION A narrow wooden spiral staircase ascending upward to the bell tower.
+
+LINK link_sanctum_chamber loc_inner_sanctum-loc_celestial_chamber W
+NAME Celestial Archway
+DESCRIPTION A glowing archway connects Inner Sanctum with the ethereal celestial chamber.
+
+LINK link_chamber_vault loc_celestial_chamber-loc_relic_vault D
+NAME Stone Vault Stairs
+DESCRIPTION Heavy granite steps descending downward into the subterranean vault.
+
+END_LINKS
+
+CHARACTERS
+
+CHARACTER char_miko_ayane
+NAME Shrine Maiden Ayane
+DESCRIPTION A gentle maiden of the shrine dressed in traditional red and white robes.
+POSITION loc_pavilion
+ACCEPTS silver_flute
+IMAGE 80x130 sprite_miko_ayane.png
+ICON ico_miko_ayane.png
+SHOW ONSCREEN
+
+END_CHARACTERS
+
+ITEMS
+
+ITEM stone_chest
+NAME Ancient Stone Chest
+DESCRIPTION A heavy carved stone chest adorned with protective spirit warding runes.
+POSITION loc_hidden_glade
+ATTRLIST open=0,openable=1,pickable=0
+CAPACITY 5
+VOLUME 5
+IMAGE 64x64 sprite_stone_chest.png
+ICON ico_stone_chest.png
+SHOW ONSCREEN
+
+ITEM silver_flute
+NAME Silver Flute
+DESCRIPTION An elegantly crafted silver flute engraved with celestial cloud patterns.
+POSITION stone_chest
+ATTRLIST pickable=1
+VOLUME 1
+IMAGE 48x48 sprite_silver_flute.png
+ICON ico_silver_flute.png
+SHOW ONSCREEN
+
+ITEM sanctum_key
+NAME Sanctum Key
+DESCRIPTION An ornate bronze key shaped like a shrine gate, radiating spirit energy.
+POSITION char_miko_ayane
+TYPE key
+ATTRLIST pickable
+IMAGE 48x48 sprite_sanctum_key.png
+ICON ico_sanctum_key.png
+SHOW ONSCREEN
+
+ITEM talisman
+NAME Ceremonial Talisman
+DESCRIPTION A sacred paper parchment talisman blessed with potent purification seals. An ancient inscription says "bring me with you".
+POSITION loc_bell_tower
+ATTRLIST pickable,hidden,type=talis
+IMAGE 48x48 sprite_talisman.png
+ICON ico_talisman.png
+SHOW ONSCREEN
+
+ITEM temple_bell
+NAME Great Temple Bell
+DESCRIPTION A colossal bronze bell suspended from ancient timber rafters of the tower.
+POSITION loc_bell_tower
+ATTRLIST pickable=0
+IMAGE 80x80 trasp.gif
+ICON ico_temple_bell.png
+SHOW ONSCREEN	470,220
+
+ITEM celestial_orb
+NAME Celestial Star Orb
+DESCRIPTION A mystical orb of glowing starlight pulsing with warm divine radiance.
+'POSITION loc_relic_vault
+ATTRLIST pickable,volume=2
+IMAGE 48x48 sprite_celestial_orb.png
+ICON ico_celestial_orb.png
+SHOW ONSCREEN
+
+END_ITEMS
+
+SCRIPTS
+
+EVENT onStart
+'PlayBackground "bgm_shrine_ambient.mp3", true
+END_EVENT
+
+EVENT onNew
+'PlayBackground "bgm_shrine_ambient.mp3"
+Speak "Welcome to the sacred Celestial Shrine, traveler. Seek the shrine maiden at the pavilion."
+END_EVENT
+
+EVENT loc_shrine_entrance.onReceive
+PlayBackground "bgm_shrine_ambient.mp3", true
+END_EVENT
+
+EVENT loc_courtyard.onReceive
+Display "You have reached <b>courtyard</b>"
+END_EVENT
+
+EVENT char_miko_ayane.onLook
+If sanctum_key.container <> char_miko_ayane
+Speak "May the celestial spirits guide your journey through the Inner Sanctum, brave traveler."
+Else
+Speak "Welcome to the sacred Celestial Pavilion, traveler of the floating realm.", "The mountain mist carries whispers of unrest... The Sanctum beyond has remained sealed for centuries.", "Long ago, the Sacred Silver Flute was lost in the bamboo thickets of the Hidden Glade.", "If you recover the Silver Flute and bring it to me, I shall grant you the Sanctum Key."
+End_If
+END_EVENT
+
+EVENT char_miko_ayane.onReceiveItem
+If $TARGET = silver_flute
+If sanctum_key.container = char_miko_ayane
+PlaySound "sfx_chime.ogg"
+Speak "Oh! The sacred Silver Flute! The spirits of the shrine can finally rest in peace. Please, take this Sanctum Key—you have earned passage to the celestial realm."
+Move sanctum_key, $AGENT
+Display "Ayane gracefully presents you with the ornate Sanctum Key."
+End_If
+End_If
+END_EVENT
+
+EVENT char_miko_ayane.whenGiven
+If $TARGET = silver_flute
+If sanctum_key.container = char_miko_ayane
+PlaySound "sfx_chime.ogg"
+Speak "Oh! The sacred Silver Flute! The spirits of the shrine can finally rest in peace. Please, take this Sanctum Key—you have earned passage to the celestial realm."
+Move sanctum_key, $AGENT
+Display "Ayane gracefully presents you with the ornate Sanctum Key."
+End_If
+End_If
+END_EVENT
+
+EVENT whenGiven
+If $TARGET = silver_flute
+If sanctum_key.container = char_miko_ayane
+PlaySound "sfx_chime.ogg"
+Speak char_miko_ayane, $OWNER, "Oh! The sacred Silver Flute! The spirits of the shrine can finally rest in peace. Please, take this Sanctum Key—you have earned passage to the celestial realm."
+Move sanctum_key, $OWNER
+Display $OWNER, "Ayane gracefully presents you with the ornate Sanctum Key."
+End_If
+End_If
+END_EVENT
+
+EVENT stone_chest.onOpen
+PlaySound "sfx_door_open.ogg"
+Display "The ancient stone lid grinds open with a resonant rumble, revealing the contents resting within."
+END_EVENT
+
+EVENT stone_chest.onClose
+PlaySound "sfx_door_open.ogg"
+Display "You heave the heavy stone lid back into place, sealing the ancient chest."
+END_EVENT
+
+EVENT temple_bell.onUse
+PlaySound "sfx_bell_ring.ogg"
+Display "You strike the ancient temple bell! A deep, resonant chime reverberates through the mountain valleys."
+If talisman.container=loc_bell_tower And talisman.hidden
+	talisman.hidden=false
+	Display "You have revealed something!"
+End_If
+END_EVENT
+
+EVENT loc_relic_vault.onReceive
+	Dim items=getItemsIn($AGENT)
+	If containsType(items,"talis",true) 
+		Move celestial_orb,loc_relic_vault
+		celestial_orb.hidden=false
+		Display "The talisman reveals there is something special here!"
+		PlaySound "sfx_chime.ogg"
+	End_If
+
+END_EVENT
+
+EVENT temple_bell.onLook
+PlaySound "sfx_bell_ring.ogg"
+END_EVENT
+
+EVENT silver_flute.onUse
+PlaySound "sfx_chime.ogg"
+Display "You play a haunting celestial melody on the silver flute. The shrine mists swirl gently to the ethereal music."
+END_EVENT
+
+EVENT silver_flute.whenPicked
+PlaySound "sfx_item_pickup.ogg"
+Display "You carefully lift the silver flute from the ancient chest."
+END_EVENT
+
+EVENT talisman.onUse
+PlaySound "sfx_chime.ogg"
+Display "You channel spiritual focus through the paper talisman. A protective ward shimmers warmly in the air."
+END_EVENT
+
+EVENT talisman.whenPicked
+PlaySound "sfx_item_pickup.ogg"
+END_EVENT
+
+EVENT sanctum_key.whenPicked
+PlaySound "sfx_item_pickup.ogg"
+END_EVENT
+
+EVENT celestial_orb.onUse
+	If celestial_orb.container<>loc_relic_vault
+		Return false
+	Else
+		PlaySound "sfx_chime.ogg"
+		Display "The celestial orb glows with blinding astral radiance, filling the ancient sanctuary with cosmic starlight!"
+		Goal
+		Move celestial_orb,loc_pavilion	'Hide it away
+		celestial_orb.hidden=true
+	End_If
+END_EVENT
+
+EVENT celestial_orb.whenPicked
+PlaySound "sfx_item_pickup.ogg"
+END_EVENT
+
+EVENT sanctum_key.onUseWith
+	If $TARGET=sanctum_gates
+		$TARGET.locked=0
+	End_If
+
+END_SCRIPTS
+
+' containsType
+' checks whether the specified container contains a specified object type
+' returns true or false
+Function containsType(container,type,recursive)
+	If SetLen(getObjectsType(container,type)) > 0
+		Return true
+	End_If
+	Dim res = False
+	If recursive ' another chance: look inside objects
+		Dim setobjects = getItemsIn(container)
+		Dim o
+		For Each o In setobjects
+			res = res Or containsType(o,type,true)
+		Next
+		Return res
+	End_If
+	Return res
+End_Function
+
+END_WORLD
