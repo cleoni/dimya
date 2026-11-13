@@ -737,6 +737,7 @@ class UIhtml extends UI
               margin-bottom: 4px;
             }
             .dimx-room-desc {
+              margin-bottom: 4px;
             }
             .dimx-section-title {
               font-size: 12px;
@@ -1438,12 +1439,13 @@ class UIhtml extends UI
 
                     <!-- Description / main messages output -->
                     <div class="dimx-console" id="consoleBox">
+                      <?php if ($activeContainer && !empty($activeContainer->evalDescription($player))): ?>
+                        <div class="dimx-room-desc"><?= nl2br($activeContainer->evalDescription($player)) ?></div>
+                      <?php endif; ?>
                       <?php if (!empty($consoleMessages)): ?>
                         <?php foreach ($consoleMessages as $line): ?>
                           <div class="dimx-console-line"><?= nl2br($line) ?></div>
                         <?php endforeach; ?>
-                      <?php elseif ($activeContainer && !empty($activeContainer->evalDescription($player))): ?>
-                        <div class="dimx-room-desc"><?= nl2br($activeContainer->evalDescription($player)) ?></div>
                       <?php endif; ?>
                     </div>
                     </td>

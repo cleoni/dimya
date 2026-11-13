@@ -3,7 +3,7 @@
 3 REM TARGET: COMMODORE 64 WITH MEATLOAF DEVICE
 4 REM ========================================
 10 IF PEEK(55) <> 0 OR PEEK(56) <> 159 THEN POKE 55, 0 : POKE 56, 159 : CLR : GOTO 20
-20 CN = 1 : QU$ = CHR$(34) : SI$ = "" : DIM MI$(5), MS$(5), MT$(5), II$(10) : MC = 0 : IC = 0
+20 CN = 1 : QU$ = CHR$(34) : SI$ = "" : DIM MI$(5), MS$(5), MT$(5), II$(10) : MC = 0 : IC = 0 : IB = 0
 30 POKE 53280, 0 : POKE 53281, 0 : POKE 646, 1
 40 PRINT CHR$(14) : REM LOWER/UPPERCASE MODE
 50 REM --- CHECK SAVED CREDENTIALS SIGNATURE ---
@@ -23,14 +23,15 @@
 170 REM ========================================
 180 REM MAIN GAME LOOP
 190 REM ========================================
-200 GOSUB 700 : REM RENDER CURRENT STATE / ROOM
+200 IB = 0 : GOSUB 700 : REM RENDER CURRENT STATE / ROOM
 210 PRINT "{YEL}> {WHT}"; : GOSUB 600
 220 IN$ = IL$
-230 IF IN$ = "" THEN CM$ = "LOOK" : P1$ = "" : P2$ = "" : GOTO 320
+230 IF IN$ = "" THEN IB = 0 : CM$ = "LOOK" : P1$ = "" : P2$ = "" : GOTO 320
 240 IF IN$ = "/HELP" OR IN$ = "HELP" THEN GOSUB 850 : GOTO 210
 250 GOSUB 650 : REM PARSE COMMAND, PARAM, TARGET
-252 IF CM$ = "READ" AND P1$ = "" THEN GOSUB 880 : GOTO 210
+252 IF CM$ = "READ" AND P1$ = "" THEN IB = 1 : GOSUB 880 : GOTO 210
 254 IF CM$ = "READ" AND P1$ <> "" THEN GOTO 310
+256 IB = 0
 260 IF CM$ = "N" OR CM$ = "S" OR CM$ = "E" OR CM$ = "W" OR CM$ = "U" OR CM$ = "D" THEN P1$ = CM$ : CM$ = "GO"
 270 IF CM$ = "L" THEN CM$ = "LOOK"
 280 IF CM$ = "I" THEN CM$ = "INV"
@@ -40,10 +41,11 @@
 290 IF CM$ = "QUIT" THEN CM$ = "LOGOUT"
 300 IF CM$ = "LOGOUT" THEN GOTO 370
 305 GOTO 320
-310 N = VAL(P1$) : IF N < 1 OR N > MC THEN PRINT "{RED}INVALID! USE 1 TO "; MID$(STR$(MC), 2) : GOTO 210
-312 X = N - 1 : PRINT "{WHT}----------------------------------------"
-314 PRINT "{YEL}MSG #"; MID$(STR$(N), 2); " FROM: {CYN}"; MS$(X) : PRINT "{WHT}"; MT$(X) : PRINT "{WHT}----------------------------------------"
-316 PRINT "{GRN}DISMISSING MESSAGE..." : CM$ = "POPMSG" : P1$ = MI$(X) : IF P1$ = "" THEN P1$ = MID$(STR$(N), 2)
+310 IF MC = 0 THEN PRINT "{RED}INBOX IS EMPTY!" : GOTO 210
+311 N = VAL(P1$) : IF N < 1 OR N > MC THEN PRINT "{RED}INVALID! USE 1 TO "; MID$(STR$(MC), 2) : GOTO 210
+312 IB = 1 : X = N - 1
+314 PRINT "{GRN}DISMISSING MESSAGE "; MID$(STR$(N), 2); "..."
+316 CM$ = "POPMSG" : P1$ = MI$(X) : IF P1$ = "" THEN P1$ = MID$(STR$(N), 2)
 318 P2$ = ""
 320 GOSUB 400 : REM SEND COMMAND PAYLOAD
 322 RL = 0
@@ -57,8 +59,9 @@
 338 CM$ = "LOGIN" : P1$ = "" : P2$ = "" : GOSUB 400
 340 PT$ = "/SESSION_ID" : GOSUB 500 : SI$ = V$ : IF SI$ = "(N/A)" THEN SI$ = ""
 342 IF SC$ <> "LOGIN" THEN CM$ = SC$ : P1$ = SP1$ : P2$ = SP2$ : GOSUB 400
-360 IF ST$ <> "200" AND ST$ <> "401" THEN PRINT "{RED}SERVER ERROR: "; ST$
-365 GOTO 200
+360 IF ST$ <> "200" AND ST$ <> "401" THEN PRINT "{RED}SERVER ERROR: "; ST$ : IB = 0 : GOTO 200
+365 IF IB = 1 THEN GOSUB 870 : GOSUB 880 : GOTO 210
+366 GOTO 200
 370 PRINT "{WHT}LOGGING OUT OF DIMENSIONEY..."
 380 CM$ = "LOGOUT" : P1$ = "" : P2$ = "" : GOSUB 400 : CLOSE CN
 390 PRINT "{GRN}SESSION TERMINATED. GOODBYE!"
@@ -192,17 +195,18 @@
 878 RETURN
 880 REM --- LOCAL INBOX DISPLAY ---
 881 PRINT "{CLR}{WHT}========================================"
-882 PRINT "           INBOX ("; MID$(STR$(MC), 2); " MESSAGE"; : IF MC <> 1 THEN PRINT "S";
-883 PRINT ")            "
+882 PRINT "       INBOX ("; MID$(STR$(MC), 2); " MESSAGE"; : IF MC <> 1 THEN PRINT "S";
+883 PRINT ")"
 884 PRINT "========================================"
 885 IF MC = 0 THEN PRINT "{YEL}NO MESSAGES IN INBOX." : GOTO 895
 886 FOR K = 0 TO MC - 1
 887 PRINT "{WHT}"; MID$(STR$(K + 1), 2); ". {CYN}<"; MS$(K); "> {WHT}"; MT$(K)
 888 NEXT K
 895 PRINT "{WHT}----------------------------------------"
-896 IF MC > 0 THEN PRINT "{YEL}TYPE: {WHT}READ <1-"; MID$(STR$(MC), 2); ">{YEL} TO READ & DISMISS"
-897 PRINT "{WHT}========================================"
-898 RETURN
+896 IF MC > 0 THEN PRINT "{YEL}TYPE: {WHT}READ <1-"; MID$(STR$(MC), 2); ">{YEL} TO DISMISS"
+897 PRINT "{CYN}(PRESS RETURN FOR ROOM VIEW)"
+898 PRINT "{WHT}========================================"
+899 RETURN
 900 REM --- ERROR: NO CREDENTIALS ---
 905 PRINT "{CLR}{RED}========================================"
 910 PRINT "      ERROR: NO SAVED CREDENTIALS!      "

@@ -920,9 +920,7 @@ class GameEngine
                         $player->focus = $targetObj;
                         $desc = $targetObj->evalDescription($player);
                         if ($targetObj->isaRoom()) {
-                            if (!empty($desc)) {
-                                $player->display($desc);
-                            }
+                            // Room description is rendered by UI / view
                         } else {
                             $msg = !empty($desc) ? $desc : "<b>{$targetObj->name}</b>";
                             $player->display($msg);
@@ -954,10 +952,6 @@ class GameEngine
                         : $currentRoom;
                     $player->focus = $activeCont;
                     if ($activeCont !== null) {
-                        $desc = $activeCont->evalDescription($player);
-                        if (!empty($desc)) {
-                            $player->display($desc);
-                        }
                         $world->fireEvent('onLook', $activeCont, $player, '', $inputData);
                     } else {
                         $player->display("You are in the void.");
@@ -973,13 +967,7 @@ class GameEngine
                         $linkName = $link->getDisplayName($currentRoom->id);
                         $player->display("{$linkName} is closed.");
                     } elseif ($player->go($dir)) {
-                        $newRoom = $player->getRoom();
-                        if ($newRoom !== null) {
-                            $desc = $newRoom->evalDescription($player);
-                            if ($desc !== '') {
-                                $player->display($desc);
-                            }
-                        }
+                        // Room traversal successful; description is rendered by UI / view
                     } else {
                         $player->display("You cannot go that way.");
                     }
@@ -1330,10 +1318,7 @@ class GameEngine
                 break;
 
             case 'login':
-                // Initial login / connection handshake: show current room description
-                if ($currentRoom !== null) {
-                    $player->display("<b>{$currentRoom->name}</b>: {$currentRoom->evalDescription($player)}");
-                }
+                // Initial login / connection handshake; room description is rendered by UI / view
                 break;
 
             case 'popmsg':

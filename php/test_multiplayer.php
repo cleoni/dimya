@@ -1938,7 +1938,7 @@ if (shouldRun(24)) {
     $roccaDesc = $pTrav->getRoom()->evalDescription($pTrav);
 
     assertTest(!str_contains(strtolower($roccaOutput), 'you travel to'), "Engine output does NOT contain 'You travel to'");
-    assertTest(str_contains($roccaOutput, $roccaDesc), "Engine output upon room arrival contains room description ('{$roccaDesc}')");
+    assertTest(!str_contains($roccaOutput, $roccaDesc), "Engine console output upon room arrival does NOT echo room description");
 
     // Render in UIhtml and verify console box displays room description and omits 'You travel to'
     ob_start();
@@ -1964,7 +1964,7 @@ if (shouldRun(24)) {
     $bungalowDesc = $pTrav->getRoom()->evalDescription($pTrav);
 
     assertTest(!str_contains(strtolower($bungalowOutput), 'you travel to'), "Engine output does NOT contain 'You travel to' for bungalow");
-    assertTest(str_contains($bungalowOutput, $bungalowDesc), "Engine output upon arrival in bungalow contains description ('{$bungalowDesc}')");
+    assertTest(!str_contains($bungalowOutput, $bungalowDesc), "Engine console output upon arrival in bungalow does NOT echo description");
 
     ob_start();
     $htmlUiTrav->render([
