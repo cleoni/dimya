@@ -456,6 +456,13 @@ class GameEngine
             } elseif ($ui instanceof UI) {
                 $ui->setMusic($player->music || $player->musicSupport);
             }
+            if ($ui instanceof UIbot && $player->ui instanceof UIbot) {
+                if ($ui->getExplicitHtmlTolerant() !== null) {
+                    $player->ui->setHtmlTolerant($ui->isHtmlTolerant(), false);
+                } elseif (!isset($_SESSION['dimx_html_tolerant'])) {
+                    $ui->setHtmlTolerant($player->ui->isHtmlTolerant(), false);
+                }
+            }
             if ($chosenSkin !== null) {
                 $player->setSkin($chosenSkin);
             } elseif ($player->skin === null) {

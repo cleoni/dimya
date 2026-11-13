@@ -1082,6 +1082,22 @@ assertTest(array_key_exists('console', $standardBotData) && is_array($standardBo
 assertTest(array_key_exists('msgs', $standardBotData) && is_array($standardBotData['msgs']), "Standard bot receives 'msgs' array");
 assertTest(!array_key_exists('messages', $standardBotData), "Standard bot omits legacy 'messages' key");
 assertTest(!array_key_exists('chat', $standardBotData), "Standard bot omits legacy 'chat' key");
+
+// Test UIbot HTML tolerance (default false -> strips HTML tags in console; true -> preserves HTML tags)
+assertTest($uiBot->isHtmlTolerant() === false, "UIbot htmlTolerant defaults to false");
+$stdConsoleJoined = implode(' ', $standardBotData['console'] ?? []);
+assertTest(!str_contains($stdConsoleJoined, '<b>'), "UIbot strips HTML tags from console by default: '{$stdConsoleJoined}'");
+
+$htmlBotName = 'HtmlTolerantBot_' . rand(100, 999);
+$htmlOnResp = json_decode(runMultiplayer([
+    'bot'      => '1',
+    'username' => $htmlBotName,
+    'password' => 'html123',
+    'cmd'      => 'html',
+    'param'    => 'on',
+]), true);
+assertTest(($htmlOnResp['status'] ?? '') === 'ok', "UIbot intercepts 'html on' call with status 'ok'");
+assertTest(str_contains(implode(' ', $htmlOnResp['console'] ?? []), 'ON'), "UIbot 'html on' confirms ON in console");
 }
 
 // -------------------------------------------------------------

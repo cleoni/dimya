@@ -1124,6 +1124,47 @@ assertTest(array_key_exists('console', $standardBotData) && is_array($standardBo
 assertTest(array_key_exists('msgs', $standardBotData) && is_array($standardBotData['msgs']), "Standard bot receives 'msgs' array");
 assertTest(!array_key_exists('messages', $standardBotData), "Standard bot omits legacy 'messages' key");
 assertTest(!array_key_exists('chat', $standardBotData), "Standard bot omits legacy 'chat' key");
+
+// Test UIbot HTML tolerance (default false -> strips HTML tags in console; true -> preserves HTML tags)
+assertTest($uiBot->isHtmlTolerant() === false, "UIbot htmlTolerant defaults to false");
+$stdConsoleJoined = implode(' ', $standardBotData['console'] ?? []);
+assertTest(!str_contains($stdConsoleJoined, '<b>'), "UIbot strips HTML tags from console by default: '{$stdConsoleJoined}'");
+
+$htmlBotName = 'HtmlTolerantBot_' . rand(100, 999);
+$htmlOnResp = json_decode(runMultiplayer([
+    'bot'      => '1',
+    'username' => $htmlBotName,
+    'password' => 'html123',
+    'cmd'      => 'html',
+    'param'    => 'on',
+]), true);
+assertTest(($htmlOnResp['status'] ?? '') === 'ok', "UIbot intercepts 'html on' call with status 'ok'");
+assertTest(str_contains(implode(' ', $htmlOnResp['console'] ?? []), 'ON'), "UIbot 'html on' confirms ON in console");
+
+// Verify subsequent console output preserves HTML tags when htmlTolerant is ON
+$uiBotTolerant = new UIbot();
+$uiBotTolerant->setHtmlTolerant(true);
+assertTest($uiBotTolerant->isHtmlTolerant() === true, "UIbot setHtmlTolerant(true) sets htmlTolerant to true");
+ob_start();
+$uiBotTolerant->render([
+    'world'    => $w,
+    'player'   => $observerPlayer,
+    'room'     => $mockRoom,
+    'messages' => ['You have reached <b>courtyard</b>'],
+]);
+$tolerantOut = json_decode((string)ob_get_clean(), true);
+assertTest(($tolerantOut['console'][0] ?? '') === 'You have reached <b>courtyard</b>', "UIbot preserves HTML tags in console when htmlTolerant is true");
+
+$uiBotTolerant->setHtmlTolerant(false);
+ob_start();
+$uiBotTolerant->render([
+    'world'    => $w,
+    'player'   => $observerPlayer,
+    'room'     => $mockRoom,
+    'messages' => ['You have reached <b>courtyard</b>'],
+]);
+$strippedOut = json_decode((string)ob_get_clean(), true);
+assertTest(($strippedOut['console'][0] ?? '') === 'You have reached courtyard', "UIbot strips HTML tags in console when htmlTolerant is false");
 }
 
 // -------------------------------------------------------------

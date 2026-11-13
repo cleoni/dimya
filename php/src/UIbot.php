@@ -21,10 +21,175 @@ namespace Dimx;
  */
 class UIbot extends UIjson
 {
+    /**
+     * Whether this UIbot instance is HTML-tolerant.
+     * When false (default), HTML tags are stripped from #console output before sending to the client.
+     * When true, HTML tags in #console output are preserved.
+     */
+    protected bool $htmlTolerant = false;
+
+    /** @var bool|null Tracks whether htmlTolerant was explicitly modified during the current request */
+    protected ?bool $explicitHtmlTolerant = null;
+
     public function __construct(?Player $player = null, ?GameEngine $engine = null)
     {
         parent::__construct($player, $engine);
         $this->type = 'bot';
+        if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['dimx_html_tolerant'])) {
+            $this->htmlTolerant = (bool)$_SESSION['dimx_html_tolerant'];
+        }
+    }
+
+    public function __sleep(): array
+    {
+        return array_merge(parent::__sleep(), ['htmlTolerant']);
+    }
+
+    public function isHtmlTolerant(): bool
+    {
+        return $this->htmlTolerant;
+    }
+
+    public function getExplicitHtmlTolerant(): ?bool
+    {
+        return $this->explicitHtmlTolerant;
+    }
+
+    public function setHtmlTolerant(bool $htmlTolerant, bool $explicit = true): void
+    {
+        $this->htmlTolerant = $htmlTolerant;
+        if ($explicit) {
+            $this->explicitHtmlTolerant = $htmlTolerant;
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                $_SESSION['dimx_html_tolerant'] = $htmlTolerant;
+            }
+        }
+        if ($this->player !== null && $this->player->ui instanceof self && $this->player->ui !== $this) {
+            $this->player->ui->htmlTolerant = $htmlTolerant;
+        }
+    }
+
+    /**
+     * Parse a mixed value ('on', 'off', '1', '0', 'true', 'false', bool) into a boolean or null.
+     */
+    public static function parseHtmlTolerantFlag(mixed $val): ?bool
+    {
+        if (is_bool($val)) {
+            return $val;
+        }
+        if (is_int($val)) {
+            return $val !== 0;
+        }
+        if (is_string($val)) {
+            $v = strtolower(trim($val));
+            if (in_array($v, ['1', 'true', 'on', 'yes', 'enable', 'enabled'], true)) {
+                return true;
+            }
+            if (in_array($v, ['0', 'false', 'off', 'no', 'disable', 'disabled'], true)) {
+                return false;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Intercept UIbot-specific calls (such as toggling htmlTolerant on or off)
+     * before dispatching to GameEngine.
+     *
+     * Supported command calls:
+     *   - {"cmd": "html", "param": "on"|"off"|"1"|"0"|"true"|"false"|"toggle"}
+     *   - {"cmd": "html_tolerant", "param": "on"|"off"|...}
+     *   - {"cmd": "/html", "param": "on"|"off"|...}
+     * Also supports inline payload flag:
+     *   - {"html_tolerant": true|false}
+     *
+     * @param array<string, mixed> $input Normalized input from UI::parseInput()
+     * @return bool True if the request was a standalone UIbot call and was fully handled/rendered
+     */
+    public function interceptCall(
+        array $input,
+        ?GameEngine $engine = null,
+        ?string $playerName = null,
+        ?int $numericId = null,
+        ?string $sessionEngineId = null
+    ): bool {
+        $raw = is_array($input['raw'] ?? null) ? $input['raw'] : $input;
+
+        if (array_key_exists('html_tolerant', $raw) || array_key_exists('htmlTolerant', $raw)) {
+            $rawVal = $raw['html_tolerant'] ?? $raw['htmlTolerant'];
+            $parsed = self::parseHtmlTolerantFlag($rawVal);
+            if ($parsed !== null) {
+                $this->setHtmlTolerant($parsed, true);
+            }
+        }
+
+        $cmd  = strtolower(trim((string)($input['cmd'] ?? '')));
+        $arg0 = strtolower(trim((string)($input['arg0'] ?? $input['param'] ?? '')));
+        $arg1 = trim((string)($input['arg1'] ?? $input['target'] ?? ''));
+
+        if (!in_array($cmd, ['html', '/html', 'html_tolerant', 'htmltolerant'], true)) {
+            return false;
+        }
+
+        $engine = $engine ?? $this->engine;
+        $world  = $engine !== null ? $engine->loadOrSeedWorld(false) : new World('main', 'DimensioneX');
+        $player = null;
+
+        if ($engine !== null && $playerName !== null && $playerName !== '') {
+            $player = $engine->ensurePlayer(
+                $world,
+                $playerName,
+                $this,
+                $numericId,
+                true,
+                false,
+                $sessionEngineId
+            );
+        } elseif ($this->player !== null) {
+            $player = $this->player;
+        } else {
+            $player = new Player($world, $playerName ?: 'Bot', 'p_bot');
+        }
+
+        $parsed = self::parseHtmlTolerantFlag($arg0);
+        if ($arg0 === 'toggle') {
+            $parsed = !$this->htmlTolerant;
+        }
+
+        if ($parsed !== null) {
+            $this->setHtmlTolerant($parsed, true);
+            $statusStr = $this->htmlTolerant ? 'ON' : 'OFF';
+            $msg = "UIbot HTML tolerance set to {$statusStr}.";
+        } else {
+            $statusStr = $this->htmlTolerant ? 'ON' : 'OFF';
+            $msg = "UIbot HTML tolerance is currently {$statusStr}. Use 'html on' or 'html off'.";
+        }
+
+        $player->setUI($this);
+        $this->setPlayer($player);
+
+        if ($engine !== null && $engine->pm !== null) {
+            $engine->pm->saveWorld($world);
+        }
+
+        $this->render([
+            'world'        => $world,
+            'player'       => $player,
+            'room'         => $player->getRoom(),
+            'messages'     => [$msg],
+            'chat'         => $player->getMessages(),
+            'cmd'          => 'html',
+            'arg0'         => $arg0,
+            'arg1'         => $arg1,
+            'param'        => $arg0,
+            'target'       => $arg1,
+            'logged_out'   => false,
+            'lockError'    => false,
+            'is_new_login' => false,
+            'reset'        => false,
+        ]);
+
+        return true;
     }
 
     /**
@@ -69,6 +234,9 @@ class UIbot extends UIjson
         if (!in_array('popmsg', $commands, true)) {
             $commands[] = 'popmsg';
         }
+        if (!in_array('html', $commands, true)) {
+            $commands[] = 'html';
+        }
 
         $botPayload = [];
         foreach ($payload as $key => $value) {
@@ -83,7 +251,14 @@ class UIbot extends UIjson
                 $botPayload['stats'] = $this->buildPlayerStats($player);
                 $botPayload['facing'] = $player->facing ?? 'N';
             } elseif ($key === 'messages' || $key === 'console') {
-                $botPayload['console'] = $value;
+                $console = is_array($value) ? $value : [];
+                if (!$this->htmlTolerant) {
+                    $console = array_values(array_map(
+                        static fn($msg): string => strip_tags((string)$msg),
+                        $console
+                    ));
+                }
+                $botPayload['console'] = $console;
             } elseif ($key === 'chat' || $key === 'msgs') {
                 $botPayload['msgs'] = $value;
             } else {

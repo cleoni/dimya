@@ -107,6 +107,7 @@ All subsequent gameplay actions are sent as JSON POST payloads to the same endpo
 | **Vehicle Exit** | `exit` | `""` | `""` | Disembark from the current vehicle back to the room. | `{"cmd": "exit"}` |
 | **Speech** | `say` | `[message]` | `""` | Say something to everyone present in the room. | `{"cmd": "say", "param": "Hello!"}` |
 | **Save State** | `save` | `""` | `""` | Explicitly persist player location and inventory. | `{"cmd": "save"}` |
+| **HTML Tolerance** | `html` | `"on"` or `"off"` | `""` | Toggle whether UIbot preserves (`on`) or strips (`off`, default) HTML tags in `console` output. | `{"cmd": "html", "param": "on"}` |
 | **Disconnect** | `logout` | `""` | `""` | Gracefully save and end the session. | `{"cmd": "logout"}` |
 
 > **Dynamic Permission List**: Each server response contains a `"commands"` array listing the exact verbs permitted in the current world state. Clients can query this array to adapt command availability dynamically.

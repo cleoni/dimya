@@ -82,7 +82,8 @@ if ($resetWorld) {
         $_SESSION['dimx_is_bot'],
         $_SESSION['dimx_engine_player_id'],
         $_SESSION['dimx_skin'],
-        $_SESSION['dimx_world_obj']
+        $_SESSION['dimx_world_obj'],
+        $_SESSION['dimx_html_tolerant']
     );
 } elseif ($activeResetToken !== '' && (!isset($_SESSION['dimx_world_reset_token']) || $_SESSION['dimx_world_reset_token'] !== $activeResetToken)) {
     unset(
@@ -92,7 +93,8 @@ if ($resetWorld) {
         $_SESSION['dimx_is_bot'],
         $_SESSION['dimx_engine_player_id'],
         $_SESSION['dimx_skin'],
-        $_SESSION['dimx_world_obj']
+        $_SESSION['dimx_world_obj'],
+        $_SESSION['dimx_html_tolerant']
     );
 }
 
@@ -230,6 +232,20 @@ if ($clientType === 'json') {
     $ui->setEngine($engine);
 }
 
+// Intercept UIbot-specific calls (e.g. toggling HTML tolerance via 'html on' / 'html off')
+if ($ui instanceof UIbot && $ui->interceptCall($input, $engine, $playerName, $numericId ? (int)$numericId : null, $sessionEngineId)) {
+    $_SESSION['dimx_player']            = $playerName;
+    $_SESSION['dimx_world']             = $worldId;
+    $_SESSION['dimx_authenticated']     = true;
+    $_SESSION['dimx_numeric_id']        = $numericId;
+    $_SESSION['dimx_is_bot']            = $isBot;
+    $_SESSION['dimx_world_reset_token'] = $activeResetToken;
+    if ($ui->getPlayer() instanceof Dimx\Player) {
+        $_SESSION['dimx_engine_player_id'] = $ui->getPlayer()->id;
+    }
+    exit;
+}
+
 // 8. Process player command inside concurrency critical section
 $result = $engine->processCommand(
     $playerName,
@@ -288,7 +304,8 @@ if (!empty($result['logged_out']) || !empty($result['reset'])) {
         $_SESSION['dimx_numeric_id'],
         $_SESSION['dimx_is_bot'],
         $_SESSION['dimx_engine_player_id'],
-        $_SESSION['dimx_skin']
+        $_SESSION['dimx_skin'],
+        $_SESSION['dimx_html_tolerant']
     );
 }
 

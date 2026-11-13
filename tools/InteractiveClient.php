@@ -178,6 +178,12 @@ class InteractiveClient
             ];
         }
 
+        // Normalize /html command so it is sent to UIbot
+        if ($cmdLower === '/html') {
+            $cmd      = 'html';
+            $cmdLower = 'html';
+        }
+
         // Normalize direction parameters when using explicit "go" (e.g. "go north" -> "go n")
         if ($cmdLower === 'go' && isset($directions[$paramLower])) {
             $param = $directions[$paramLower];
@@ -202,15 +208,15 @@ class InteractiveClient
         // 1. Process console output (#console)
         if (!empty($data['console'])) {
             foreach ($data['console'] as $msg) {
-                $clean = strip_tags($msg);
-                $hash  = md5("srv:" . $clean);
+                $text = (string)$msg;
+                $hash = md5("srv:" . $text);
                 $entry = [
                     'time' => date('H:i:s'),
                     'type' => 'SERVER',
-                    'text' => $clean
+                    'text' => $text
                 ];
                 $this->messageHistory[] = $entry;
-                $newMessagesThisTurn[] = "[!] {$clean}";
+                $newMessagesThisTurn[] = "[!] {$text}";
             }
         }
 
@@ -326,6 +332,9 @@ class InteractiveClient
         echo "  /debug on            - Enable raw backend response printout\n";
         echo "  /debug off           - Disable raw backend response printout\n";
         echo "  /help                - Show this help summary\n\n";
+
+        echo "UIbot Configuration Commands:\n";
+        echo "  html on | html off   - Enable or disable HTML tags in #console output (also /html on|off)\n\n";
 
         echo "Game Engine Commands (Permitted in this world):\n";
         if (!empty($this->availableEngineCommands)) {
