@@ -194,14 +194,16 @@ A standard UIbot response conforms to the following schema:
 Reference implementation based on `tools/InteractiveClient.php`.
 
 ### A. Terminal / Input Processing Loop
-1. **Tokenization**:
+1. **Tokenization & Shorthands**:
    Split user input string by spaces into a maximum of 3 tokens:
    - Token 0: `cmd`
    - Token 1: `param` (or empty)
    - Token 2: `target` (or empty)
+   - Directional shorthands (`n`, `s`, `e`, `w`, `u`, `d`, `ne`, `nw`, `se`, `sw`) automatically expand to `cmd: 'go'`, `param: <dir>`.
 2. **Local Client Commands**:
    - `/help`: Display engine commands and local commands.
    - `/m`: Display accumulated server messages and chat log.
+   - `/debug on` / `/debug off`: Toggle raw backend HTTP response output.
    - `logout` or `exit`: Initiate clean disconnect.
 
 ### B. Response Display Order

@@ -1,7 +1,8 @@
 <?php
 /**
  * InteractiveClient.php - CLI Terminal Client for DimensioneY (UIbot)
- * Updated with accumulated message history (/m) and dynamic help (/help).
+ * Updated with accumulated message history (/m), dynamic help (/help),
+ * directional shorthands (n, s, e, w, u, d), and raw backend debug logging (/debug on|off).
  */
 
 declare(strict_types=1);
@@ -22,9 +23,15 @@ class InteractiveClient
     // Latest commands permitted by the game server
     private array $availableEngineCommands = [];
 
-    public function __construct(string $endpoint = 'https://test.dimensionex.net/dimya/php/multiplayer.php')
-    {
+    // Debug flag to print raw backend responses
+    private bool $debug = false;
+
+    public function __construct(
+        string $endpoint = 'https://test.dimensionex.net/dimya/php/multiplayer.php',
+        bool $debug = false
+    ) {
         $this->endpoint   = $endpoint;
+        $this->debug      = $debug;
         $this->cookieFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'dxclient_cookie_' . uniqid() . '.txt';
     }
 
@@ -66,7 +73,7 @@ class InteractiveClient
         }
 
         echo "[+] Successfully logged in as '{$username}'!\n";
-        echo "Tip: Type /help for available commands or /m to review message history.\n";
+        echo "Tip: Type /help for available commands, /m for message history, or /debug on for raw responses.\n";
 
         $this->recordAndRenderState($loginResp);
 
@@ -88,6 +95,21 @@ class InteractiveClient
 
             if ($cmdLower === '/help') {
                 $this->showHelp();
+                continue;
+            }
+
+            if (str_starts_with($cmdLower, '/debug')) {
+                if (preg_match('/^\/debug\s+on$/i', $input)) {
+                    $this->debug = true;
+                    echo "[*] Debug mode enabled (ON). Raw backend responses will be displayed.\n";
+                } elseif (preg_match('/^\/debug\s+off$/i', $input)) {
+                    $this->debug = false;
+                    echo "[*] Debug mode disabled (OFF).\n";
+                } elseif (trim($cmdLower) === '/debug') {
+                    echo "[*] Debug mode is currently " . ($this->debug ? "ON" : "OFF") . ". Use '/debug on' or '/debug off'.\n";
+                } else {
+                    echo "Invalid syntax. Usage: /debug on | /debug off\n";
+                }
                 continue;
             }
 
@@ -119,6 +141,47 @@ class InteractiveClient
         $cmd    = $tokens[0] ?? '';
         $param  = $tokens[1] ?? '';
         $target = $tokens[2] ?? '';
+
+        $cmdLower   = strtolower($cmd);
+        $paramLower = strtolower($param);
+
+        // Direction shorthands and mappings
+        $directions = [
+            'n'         => 'n',
+            's'         => 's',
+            'e'         => 'e',
+            'w'         => 'w',
+            'u'         => 'u',
+            'd'         => 'd',
+            'ne'        => 'ne',
+            'nw'        => 'nw',
+            'se'        => 'se',
+            'sw'        => 'sw',
+            'north'     => 'n',
+            'south'     => 's',
+            'east'      => 'e',
+            'west'      => 'w',
+            'up'        => 'u',
+            'down'      => 'd',
+            'northeast' => 'ne',
+            'northwest' => 'nw',
+            'southeast' => 'se',
+            'southwest' => 'sw',
+        ];
+
+        // Standalone directional shorthands (e.g., "n", "s", "e", "w", "u", "d") expand to "go <dir>"
+        if ($param === '' && $target === '' && isset($directions[$cmdLower])) {
+            return [
+                'cmd'    => 'go',
+                'param'  => $directions[$cmdLower],
+                'target' => ''
+            ];
+        }
+
+        // Normalize direction parameters when using explicit "go" (e.g. "go north" -> "go n")
+        if ($cmdLower === 'go' && isset($directions[$paramLower])) {
+            $param = $directions[$paramLower];
+        }
 
         return [
             'cmd'    => $cmd,
@@ -260,6 +323,8 @@ class InteractiveClient
 
         echo "Client Local Commands:\n";
         echo "  /m                   - List all messages and dialogue history recorded\n";
+        echo "  /debug on            - Enable raw backend response printout\n";
+        echo "  /debug off           - Disable raw backend response printout\n";
         echo "  /help                - Show this help summary\n\n";
 
         echo "Game Engine Commands (Permitted in this world):\n";
@@ -276,6 +341,7 @@ class InteractiveClient
         echo "  <cmd>                (e.g., look, inv, search, logout)\n";
         echo "  <cmd> <param>        (e.g., go N, look switch1, use switch1, open bag, say hello)\n";
         echo "  <cmd> <param> <target> (e.g., use2 screwd switch2, give apple tommy)\n";
+        echo "  n, s, e, w, u, d     (shorthand for go n, go s, go e, etc.)\n";
         echo str_repeat('=', 65) . "\n";
     }
 
@@ -320,12 +386,22 @@ class InteractiveClient
         ]);
 
         $rawResponse = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
         curl_close($ch);
 
         if (is_string($rawResponse) && preg_match('/document\.cookie\s*=\s*["\']([^=]+)=([^;\'"]+)["\']/', $rawResponse, $m)) {
             $this->extraCookies[$m[1]] = $m[2];
             return $this->httpPostJson($data);
+        }
+
+        if ($this->debug) {
+            echo "\n" . str_repeat('-', 25) . " [BACKEND RAW RESPONSE (HTTP {$httpCode})] " . str_repeat('-', 25) . "\n";
+            if ($curlErr !== '') {
+                echo "[CURL ERROR: {$curlErr}]\n";
+            }
+            echo ($rawResponse !== false && $rawResponse !== '') ? (string)$rawResponse : '<empty response>';
+            echo "\n" . str_repeat('-', 78) . "\n";
         }
 
         $decoded = is_string($rawResponse) ? json_decode($rawResponse, true) : null;
@@ -344,8 +420,16 @@ class InteractiveClient
     }
 }
 
-if (php_sapi_name() === 'cli') {
-    $endpoint = $argv[1] ?? 'https://test.dimensionex.net/dimya/php/multiplayer.php';
-    $client = new InteractiveClient(endpoint: $endpoint);
+if (php_sapi_name() === 'cli' && isset($argv[0]) && realpath($argv[0]) === realpath(__FILE__)) {
+    $endpoint = 'https://test.dimensionex.net/dimya/php/multiplayer.php';
+    $debug = false;
+    foreach (array_slice($argv, 1) as $arg) {
+        if ($arg === '--debug') {
+            $debug = true;
+        } elseif (!str_starts_with($arg, '--')) {
+            $endpoint = $arg;
+        }
+    }
+    $client = new InteractiveClient(endpoint: $endpoint, debug: $debug);
     $client->start();
 }
