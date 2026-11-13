@@ -1241,13 +1241,11 @@ class GameEngine
                         $world->postChatMessage($player->name, "@{$targetObj->name}: " . $arg0, $targetObj->name, $currentRoom?->id);
                         $world->fireEvent('onHear', $targetObj, $player, $arg0);
                     } else {
+						//Spoken message shows on speaker's console
+						$player->display("- " . htmlspecialchars($arg0));
                         // Broadcast aloud to all players in the room (target is '*' or speaking aloud)
                         $world->postChatMessage($player->name, $arg0, null, $currentRoom?->id);
-                        foreach ($world->players as $p) {
-                            if ($p->getRoom() === $currentRoom) {
-                                $p->display("<b>{$player->name}</b> says: " . htmlspecialchars($arg0));
-                            }
-                        }
+                        
                         // Fire onHear only on other Players in the same room (computer controlled characters excluded)
                         if ($currentRoom !== null) {
                             foreach ($currentRoom->getOccupants() as $occ) {
