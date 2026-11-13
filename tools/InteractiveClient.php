@@ -20,6 +20,10 @@ class InteractiveClient
     private array $messageHistory = [];
     private array $seenMessageHashes = [];
 
+    // Inbox holding up to 5 messages (#msgs)
+    protected array $inbox = [];
+    protected array $dismissedMessageIds = [];
+
     // Latest commands permitted by the game server
     private array $availableEngineCommands = [];
 
@@ -73,7 +77,7 @@ class InteractiveClient
         }
 
         echo "[+] Successfully logged in as '{$username}'!\n";
-        echo "Tip: Type /help for available commands, /m for message history, or /debug on for raw responses.\n";
+        echo "Tip: Type /help for available commands, 'read' for inbox, or /debug on for raw responses.\n";
 
         $this->recordAndRenderState($loginResp);
 
@@ -95,6 +99,11 @@ class InteractiveClient
 
             if ($cmdLower === '/help') {
                 $this->showHelp();
+                continue;
+            }
+
+            if ($cmdLower === 'read' || str_starts_with($cmdLower, 'read ') || $cmdLower === '/read' || str_starts_with($cmdLower, '/read ')) {
+                $this->handleReadCommand($input);
                 continue;
             }
 
@@ -203,88 +212,119 @@ class InteractiveClient
             $this->availableEngineCommands = $data['commands'];
         }
 
-        $newMessagesThisTurn = [];
+        // 1. Process incoming messages into inbox (holds up to 5 messages)
+        if (!empty($data['msgs']) && is_array($data['msgs'])) {
+            foreach ($data['msgs'] as $chatMsg) {
+                if (!is_array($chatMsg)) {
+                    continue;
+                }
+                $sender = (string)($chatMsg['sender'] ?? 'Chat');
+                $text   = (string)($chatMsg['text'] ?? ($chatMsg['message'] ?? ''));
+                $time   = (string)($chatMsg['time'] ?? date('H:i:s'));
+                $msgId  = (string)($chatMsg['id'] ?? md5($sender . ':' . $text . ':' . $time));
 
-        // 1. Process console output (#console)
-        if (!empty($data['console'])) {
-            foreach ($data['console'] as $msg) {
-                $text = (string)$msg;
-                $hash = md5("srv:" . $text);
-                $entry = [
+                if (isset($this->dismissedMessageIds[$msgId])) {
+                    continue;
+                }
+
+                $exists = false;
+                foreach ($this->inbox as $m) {
+                    if ((string)($m['id'] ?? '') === $msgId) {
+                        $exists = true;
+                        break;
+                    }
+                }
+
+                if (!$exists) {
+                    $entry = [
+                        'id'        => $msgId,
+                        'sender'    => $sender,
+                        'recipient' => (string)($chatMsg['recipient'] ?? ''),
+                        'text'      => $text,
+                        'time'      => $time,
+                    ];
+                    $this->inbox[] = $entry;
+
+                    $line = "<{$sender}> {$text}";
+                    $hash = md5("chat:" . $line);
+                    if (!isset($this->seenMessageHashes[$hash])) {
+                        $this->seenMessageHashes[$hash] = true;
+                        $this->messageHistory[] = [
+                            'time'   => $time,
+                            'type'   => 'CHAT',
+                            'sender' => $sender,
+                            'text'   => $text
+                        ];
+                    }
+                }
+            }
+
+            // Keep only the most recent 5 messages in inbox
+            while (count($this->inbox) > 5) {
+                array_shift($this->inbox);
+            }
+        }
+
+        // 2. Record console output to messageHistory for /m
+        if (!empty($data['console']) && is_array($data['console'])) {
+            foreach ($data['console'] as $cMsg) {
+                $text = (string)$cMsg;
+                $this->messageHistory[] = [
                     'time' => date('H:i:s'),
                     'type' => 'SERVER',
                     'text' => $text
                 ];
-                $this->messageHistory[] = $entry;
-                $newMessagesThisTurn[] = "[!] {$text}";
-            }
-        }
-
-        // 2. Process incoming messages / dialogue (#msgs)
-        if (!empty($data['msgs'])) {
-            foreach ($data['msgs'] as $chatMsg) {
-                $sender = $chatMsg['sender'] ?? 'Chat';
-                $text   = $chatMsg['text'] ?? ($chatMsg['message'] ?? json_encode($chatMsg));
-                $line   = "<{$sender}> {$text}";
-                $hash   = md5("chat:" . $line);
-
-                // Msgs array on UIbot may repeat past chat lines in the backlog
-                if (!isset($this->seenMessageHashes[$hash])) {
-                    $this->seenMessageHashes[$hash] = true;
-                    $entry = [
-                        'time'   => date('H:i:s'),
-                        'type'   => 'CHAT',
-                        'sender' => $sender,
-                        'text'   => $text
-                    ];
-                    $this->messageHistory[] = $entry;
-                    $newMessagesThisTurn[] = "  {$line}";
-                }
             }
         }
 
         echo "\n" . str_repeat('-', 65) . "\n";
 
-        // Print incoming messages received this turn
-        if (!empty($newMessagesThisTurn)) {
-            foreach ($newMessagesThisTurn as $msgLine) {
-                echo "{$msgLine}\n";
-            }
-        }
-
         $room = $data['room'] ?? null;
         if (!$room) {
+            if (!empty($data['console']) && is_array($data['console'])) {
+                foreach ($data['console'] as $cMsg) {
+                    $t = trim((string)$cMsg);
+                    if ($t !== '') {
+                        echo "[!] {$t}\n";
+                    }
+                }
+            }
             echo str_repeat('-', 65) . "\n";
             return;
         }
 
-        // 3. Room details
+        // 1. First, Room Name
         $roomName = $room['name'] ?? 'Unknown Area';
+        $facing   = $room['facing'] ?? ($data['facing'] ?? '');
         $roomId   = $room['id'] ?? '';
-        echo "\n=== {$roomName} [{$roomId}] ===\n";
+        $tag      = ($facing !== '') ? $facing : $roomId;
+        $tagStr   = ($tag !== '') ? " [{$tag}]" : '';
+        echo "=== {$roomName}{$tagStr} ===\n";
 
+        // 2. Second, Room description
         if (!empty($room['description'])) {
-            echo wordwrap(trim($room['description']), 65) . "\n";
+            echo wordwrap(trim((string)$room['description']), 65) . "\n";
         }
 
-        // 4. Visible items
-        if (!empty($room['items'])) {
-            echo "\nItems here:\n";
-            foreach ($room['items'] as $item) {
-                $status = isset($item['open']) ? ($item['open'] ? ' (open)' : ' (closed)') : '';
-                echo "  * [{$item['id']}] {$item['name']}{$status}\n";
+        // 3. Third, the #console
+        if (!empty($data['console']) && is_array($data['console'])) {
+            echo "\n";
+            foreach ($data['console'] as $cMsg) {
+                $text = trim((string)$cMsg);
+                if ($text !== '') {
+                    echo "[!] {$text}\n";
+                }
             }
         }
 
-        // 5. Present characters
-        if (!empty($room['occupants'])) {
-            echo "\nPresent characters:\n";
-            foreach ($room['occupants'] as $occ) {
-                echo "  * [{$occ['id']}] {$occ['name']}\n";
-            }
+        // 4. Fourth, number of messages. If zero don't print anything (no 0 messages)
+        $inboxCount = count($this->inbox);
+        if ($inboxCount > 0) {
+            $msgLabel = ($inboxCount === 1) ? 'message' : 'messages';
+            echo "\nInbox: {$inboxCount} {$msgLabel}\n";
         }
 
-        // 6. Available exits
+        // 5. Fifth, Exits
         if (!empty($room['exits'])) {
             echo "\nExits:\n";
             foreach ($room['exits'] as $exit) {
@@ -296,7 +336,130 @@ class InteractiveClient
             }
         }
 
+        // 6. Sixth, Characters, if any
+        if (!empty($room['occupants'])) {
+            echo "\nPresent characters:\n";
+            foreach ($room['occupants'] as $occ) {
+                echo "  * [{$occ['id']}] {$occ['name']}\n";
+            }
+        }
+
+        // 7. Seventh, Items, if any
+        if (!empty($room['items'])) {
+            echo "\nItems here:\n";
+            foreach ($room['items'] as $item) {
+                $status = isset($item['open']) ? ($item['open'] ? ' (open)' : ' (closed)') : '';
+                echo "  * [{$item['id']}] {$item['name']}{$status}\n";
+            }
+        }
+
         echo str_repeat('-', 65) . "\n";
+    }
+
+    private function handleReadCommand(string $input): void
+    {
+        $parts = preg_split('/\s+/', trim($input));
+        $targetIndex = null;
+        if (isset($parts[1]) && is_numeric($parts[1])) {
+            $targetIndex = (int)$parts[1];
+        }
+
+        if ($targetIndex !== null) {
+            $this->executeReadMessage($targetIndex);
+            return;
+        }
+
+        // Pass onto inbox mode
+        $this->enterInboxMode();
+    }
+
+    private function enterInboxMode(): void
+    {
+        $count = count($this->inbox);
+        if ($count === 0) {
+            echo "\nYour inbox is empty (no messages).\n";
+            return;
+        }
+
+        echo "\n" . str_repeat('=', 65) . "\n";
+        echo "                       INBOX (" . $count . " " . ($count === 1 ? 'message' : 'messages') . ")\n";
+        echo str_repeat('=', 65) . "\n";
+        foreach ($this->inbox as $idx => $msg) {
+            $num     = $idx + 1;
+            $sender  = $msg['sender'] ?? 'Unknown';
+            $time    = $msg['time'] ?? '';
+            $text    = $msg['text'] ?? '';
+            $preview = (mb_strlen($text) > 42) ? (mb_substr($text, 0, 39) . '...') : $text;
+            echo "  [{$num}] <{$sender}> ({$time}): {$preview}\n";
+        }
+        echo str_repeat('-', 65) . "\n";
+        echo "Enter message number (1-{$count}) to read and dismiss, or press Enter to return:\n";
+
+        $choice = $this->prompt("inbox> ");
+        $choice = trim($choice);
+
+        if ($choice === '' || in_array(strtolower($choice), ['q', 'exit', 'cancel', 'back'], true)) {
+            echo "Exited inbox mode.\n";
+            return;
+        }
+
+        if (preg_match('/^(?:read\s+)?(\d+)$/i', $choice, $m)) {
+            $num = (int)$m[1];
+            $this->executeReadMessage($num);
+        } else {
+            echo "Invalid selection. Exited inbox mode.\n";
+        }
+    }
+
+    private function executeReadMessage(int $num): void
+    {
+        $count = count($this->inbox);
+        if ($count === 0) {
+            echo "\nYour inbox is empty.\n";
+            return;
+        }
+
+        if ($num < 1 || $num > $count) {
+            echo "\nInvalid message number [{$num}]. Inbox has {$count} " . ($count === 1 ? 'message' : 'messages') . " (1-{$count}).\n";
+            return;
+        }
+
+        $msgIndex = $num - 1;
+        $msg      = $this->inbox[$msgIndex];
+        $msgId    = (string)($msg['id'] ?? '');
+
+        // 1. Printout message
+        echo "\n" . str_repeat('=', 65) . "\n";
+        echo "MESSAGE [{$num}] FROM <{$msg['sender']}> ({$msg['time']})\n";
+        if (!empty($msg['recipient'])) {
+            echo "To: {$msg['recipient']}\n";
+        }
+        echo str_repeat('-', 65) . "\n";
+        echo wordwrap($msg['text'], 65) . "\n";
+        echo str_repeat('=', 65) . "\n";
+        echo "[Message dismissed]\n";
+
+        // 2. Dismiss message locally
+        if ($msgId !== '') {
+            $this->dismissedMessageIds[$msgId] = true;
+        }
+        array_splice($this->inbox, $msgIndex, 1);
+        $this->inbox = array_values($this->inbox);
+
+        // 3. Dismiss on game server using popmsg command
+        $this->sendPayload([
+            'cmd'    => 'popmsg',
+            'param'  => ($msgId !== '' ? $msgId : (string)$num),
+            'target' => ''
+        ]);
+
+        // 4. Return to normal mode as if had performed a plain look command
+        $state = $this->sendPayload([
+            'cmd'    => 'look',
+            'param'  => '',
+            'target' => ''
+        ]);
+        $this->recordAndRenderState($state);
     }
 
     private function showMessages(): void
@@ -328,6 +491,8 @@ class InteractiveClient
         echo str_repeat('=', 65) . "\n";
 
         echo "Client Local Commands:\n";
+        echo "  read                 - Enter inbox mode to view and read messages\n";
+        echo "  read <1-5>           - Read and dismiss message N from inbox (returns to normal mode)\n";
         echo "  /m                   - List all messages and dialogue history recorded\n";
         echo "  /debug on            - Enable raw backend response printout\n";
         echo "  /debug off           - Disable raw backend response printout\n";
@@ -354,7 +519,7 @@ class InteractiveClient
         echo str_repeat('=', 65) . "\n";
     }
 
-    private function sendPayload(array $payload): array
+    protected function sendPayload(array $payload): array
     {
         $resp = $this->httpPostJson($payload);
 
@@ -366,7 +531,7 @@ class InteractiveClient
         return $resp['data'] ?? [];
     }
 
-    private function httpPostJson(array $data): array
+    protected function httpPostJson(array $data): array
     {
         $ch = curl_init($this->endpoint);
         $json = json_encode($data);
