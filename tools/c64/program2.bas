@@ -34,12 +34,12 @@
 253 IF CM$ = "READ" AND P1$ = "" THEN IB = 1 : GOSUB 880 : GOTO 210
 254 IF CM$ = "READ" AND P1$ <> "" THEN GOTO 310
 256 IB = 0
-260 IF CM$ = "N" THEN PRINT "{CYN}n --> go north" : P1$ = "N" : CM$ = "GO"
-261 IF CM$ = "S" THEN PRINT "{CYN}s --> go south" : P1$ = "S" : CM$ = "GO"
-262 IF CM$ = "E" THEN PRINT "{CYN}e --> go east" : P1$ = "E" : CM$ = "GO"
-263 IF CM$ = "W" THEN PRINT "{CYN}w --> go west" : P1$ = "W" : CM$ = "GO"
-264 IF CM$ = "U" THEN PRINT "{CYN}u --> go up" : P1$ = "U" : CM$ = "GO"
-265 IF CM$ = "D" THEN PRINT "{CYN}d --> go down" : P1$ = "D" : CM$ = "GO"
+260 IF CM$ = "N" THEN PRINT "go north" : P1$ = "N" : CM$ = "GO"
+261 IF CM$ = "S" THEN PRINT "go south" : P1$ = "S" : CM$ = "GO"
+262 IF CM$ = "E" THEN PRINT "go east" : P1$ = "E" : CM$ = "GO"
+263 IF CM$ = "W" THEN PRINT "go west" : P1$ = "W" : CM$ = "GO"
+264 IF CM$ = "U" THEN PRINT "go up" : P1$ = "U" : CM$ = "GO"
+265 IF CM$ = "D" THEN PRINT "go down" : P1$ = "D" : CM$ = "GO"
 270 IF CM$ = "L" THEN CM$ = "LOOK"
 280 IF CM$ = "I" THEN CM$ = "INV"
 282 IF CM$ = "SAY" OR IC = 0 THEN GOTO 290

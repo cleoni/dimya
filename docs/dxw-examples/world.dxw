@@ -1,7 +1,7 @@
 WORLD
 NAME Celestial Shrine
 AUTHOR DimensioneY Studio
-VERSION 1.3a
+VERSION 1.4
 IMAGESFOLDER_LOCAL /game1/assets
 IMAGESFOLDER_PUBLIC https://www.dimensionex.net/shrine/assets
 LOGOSRC img_world_logo.jpg
@@ -18,7 +18,7 @@ ROOMS
 ROOM loc_shrine_entrance DEFAULT
 NAME Sacred Shrine Entrance
 DESCRIPTION A grand red torii gate marks the sacred threshold, framed by ancient stone lanterns and tranquil pine trees.
-IMAGE SHOWAREA -1,-1,90 img_loc_shrine_entrance.jpg
+IMAGE SHOWAREA 203,444,65 img_loc_shrine_entrance.jpg
 
 ROOM loc_courtyard
 NAME Shrine Central Courtyard
