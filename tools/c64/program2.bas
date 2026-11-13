@@ -27,12 +27,19 @@
 210 PRINT "{YEL}> {WHT}"; : GOSUB 600
 220 IN$ = IL$
 230 IF IN$ = "" THEN IB = 0 : CM$ = "LOOK" : P1$ = "" : P2$ = "" : GOTO 320
+235 IF IB = 1 AND (VAL(IN$) > 0 OR LEFT$(IN$, 1) = "0") THEN P1$ = IN$ : GOTO 310
 240 IF IN$ = "/HELP" OR IN$ = "HELP" THEN GOSUB 850 : GOTO 210
 250 GOSUB 650 : REM PARSE COMMAND, PARAM, TARGET
-252 IF CM$ = "READ" AND P1$ = "" THEN IB = 1 : GOSUB 880 : GOTO 210
+252 IF CM$ = "READ" AND P1$ = "" AND MC = 0 THEN GOTO 200
+253 IF CM$ = "READ" AND P1$ = "" THEN IB = 1 : GOSUB 880 : GOTO 210
 254 IF CM$ = "READ" AND P1$ <> "" THEN GOTO 310
 256 IB = 0
-260 IF CM$ = "N" OR CM$ = "S" OR CM$ = "E" OR CM$ = "W" OR CM$ = "U" OR CM$ = "D" THEN P1$ = CM$ : CM$ = "GO"
+260 IF CM$ = "N" THEN PRINT "{CYN}n --> go north" : P1$ = "N" : CM$ = "GO"
+261 IF CM$ = "S" THEN PRINT "{CYN}s --> go south" : P1$ = "S" : CM$ = "GO"
+262 IF CM$ = "E" THEN PRINT "{CYN}e --> go east" : P1$ = "E" : CM$ = "GO"
+263 IF CM$ = "W" THEN PRINT "{CYN}w --> go west" : P1$ = "W" : CM$ = "GO"
+264 IF CM$ = "U" THEN PRINT "{CYN}u --> go up" : P1$ = "U" : CM$ = "GO"
+265 IF CM$ = "D" THEN PRINT "{CYN}d --> go down" : P1$ = "D" : CM$ = "GO"
 270 IF CM$ = "L" THEN CM$ = "LOOK"
 280 IF CM$ = "I" THEN CM$ = "INV"
 282 IF CM$ = "SAY" OR IC = 0 THEN GOTO 290
@@ -41,7 +48,7 @@
 290 IF CM$ = "QUIT" THEN CM$ = "LOGOUT"
 300 IF CM$ = "LOGOUT" THEN GOTO 370
 305 GOTO 320
-310 IF MC = 0 THEN PRINT "{RED}INBOX IS EMPTY!" : GOTO 210
+310 IF MC = 0 THEN GOTO 200
 311 N = VAL(P1$) : IF N < 1 OR N > MC THEN PRINT "{RED}INVALID! USE 1 TO "; MID$(STR$(MC), 2) : GOTO 210
 312 IB = 1 : X = N - 1
 314 PRINT "{GRN}DISMISSING MESSAGE "; MID$(STR$(N), 2); "..."
@@ -60,11 +67,12 @@
 340 PT$ = "/SESSION_ID" : GOSUB 500 : SI$ = V$ : IF SI$ = "(N/A)" THEN SI$ = ""
 342 IF SC$ <> "LOGIN" THEN CM$ = SC$ : P1$ = SP1$ : P2$ = SP2$ : GOSUB 400
 360 IF ST$ <> "200" AND ST$ <> "401" THEN PRINT "{RED}SERVER ERROR: "; ST$ : IB = 0 : GOTO 200
-365 IF IB = 1 THEN GOSUB 870 : GOSUB 880 : GOTO 210
+365 IF IB = 1 THEN GOSUB 870 : IF MC > 0 THEN GOSUB 880 : GOTO 210
 366 GOTO 200
-370 PRINT "{WHT}LOGGING OUT OF DIMENSIONEY..."
+370 PRINT "{WHT}LOGGING OUT..."
 380 CM$ = "LOGOUT" : P1$ = "" : P2$ = "" : GOSUB 400 : CLOSE CN
-390 PRINT "{GRN}SESSION TERMINATED. GOODBYE!"
+390 PRINT "{GRN}SESSION TERMINATED. GOODBYE!":PRINT
+392 PRINT "{WHT}LOAD"QU$"HTTPS://ML.VIC20RELOADED.COM/MULTIPLAYER/C64/"QU$",8"
 395 END
 400 REM --- SEND COMMAND PAYLOAD SUBROUTINE ---
 405 CLOSE CN
@@ -134,7 +142,7 @@
 732 IF LEN(V$) < 3 OR V$ = "G" OR RIGHT$(V$, 1) = "G" OR LEFT$(V$, 1) = "G" THEN GOTO 740
 734 PRINT "{YEL}"; V$
 740 GOSUB 870
-742 IF MC > 0 THEN PRINT "{YEL}"; MID$(STR$(MC), 2); " MESSAGES"
+742 IF MC > 0 THEN PRINT "{GRN}"; MID$(STR$(MC), 2); " MESSAGES"
 750 HD = 0 : I = 0
 752 PT$ = "/ROOM/EXITS/" + MID$(STR$(I), 2) + "/DIRECTION" : GOSUB 500 : ED$ = V$
 754 IF ED$ = "" OR ED$ = "G" OR RIGHT$(ED$, 1) = "G" OR LEFT$(ED$, 1) = "G" THEN GOTO 770
@@ -153,8 +161,10 @@
 790 IF HD = 0 THEN PRINT "{YEL}ITEMS HERE:" : HD = 1
 791 NM$ = V$ : PT$ = "/ROOM/ITEMS/" + MID$(STR$(I), 2) + "/ID" : GOSUB 500 : II$(I) = V$
 792 IF II$(I) = "" OR II$(I) = "G" THEN II$(I) = NM$
-793 PRINT "{WHT}  "; MID$(STR$(I + 1), 2); ". {YEL}"; NM$
-794 I = I + 1 : IC = I : IF I < 10 THEN GOTO 786
+793 PT$ = "/ROOM/ITEMS/" + MID$(STR$(I), 2) + "/OPEN" : GOSUB 500
+794 IF LEFT$(V$, 1) = "t" OR LEFT$(V$, 1) = "T" OR V$ = "1" THEN NM$ = NM$ + " (open)"
+795 PRINT "{WHT}  "; MID$(STR$(I + 1), 2); ". {YEL}"; NM$
+796 I = I + 1 : IC = I : IF I < 10 THEN GOTO 786
 798 PRINT "{WHT}----------------------------------------"
 799 RETURN
 800 REM --- READ STRINGS FROM HIGH MEMORY ---
@@ -194,16 +204,16 @@
 877 MC = MC + 1 : M = M + 1 : IF M < 5 THEN GOTO 872
 878 RETURN
 880 REM --- LOCAL INBOX DISPLAY ---
-881 PRINT "{CLR}{WHT}========================================"
-882 PRINT "       INBOX ("; MID$(STR$(MC), 2); " MESSAGE"; : IF MC <> 1 THEN PRINT "S";
-883 PRINT ")"
-884 PRINT "========================================"
-885 IF MC = 0 THEN PRINT "{YEL}NO MESSAGES IN INBOX." : GOTO 895
+881 IF MC = 0 THEN RETURN
+882 PRINT "{CLR}{WHT}========================================"
+883 PRINT "       INBOX ("; MID$(STR$(MC), 2); " MESSAGE"; : IF MC <> 1 THEN PRINT "S";
+884 PRINT ")"
+885 PRINT "========================================"
 886 FOR K = 0 TO MC - 1
 887 PRINT "{WHT}"; MID$(STR$(K + 1), 2); ". {CYN}<"; MS$(K); "> {WHT}"; MT$(K)
 888 NEXT K
 895 PRINT "{WHT}----------------------------------------"
-896 IF MC > 0 THEN PRINT "{YEL}TYPE: {WHT}READ <1-"; MID$(STR$(MC), 2); ">{YEL} TO DISMISS"
+896 PRINT "{YEL}TYPE: <1-"; MID$(STR$(MC), 2); "> TO READ & DISMISS"
 897 PRINT "{CYN}(PRESS RETURN FOR ROOM VIEW)"
 898 PRINT "{WHT}========================================"
 899 RETURN
