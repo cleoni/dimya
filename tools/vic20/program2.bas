@@ -1,0 +1,228 @@
+1 REM ========================================
+2 REM DIMENSIONEY VIC-20 CLIENT - PROGRAM 2 (GAME)
+3 REM TARGET: COMMODORE VIC-20 WITH MEATLOAF DEVICE (24K EXPANDED)
+4 REM ========================================
+10 IF PEEK(55) <> 0 OR PEEK(56) <> 127 THEN POKE 55, 0 : POKE 56, 127 : CLR : GOTO 20
+20 CN = 1 : QU$ = CHR$(34) : SI$ = "" : DIM MI$(5), MS$(5), MT$(5), II$(10) : MC = 0 : IC = 0 : IB = 0
+30 POKE 36879, 8 : POKE 646, 1
+40 PRINT CHR$(14) : REM LOWER/UPPERCASE MODE
+50 REM --- CHECK SAVED CREDENTIALS SIGNATURE ---
+60 IF PEEK(32512) <> 68 OR PEEK(32513) <> 89 OR PEEK(32514) <> 88 THEN GOTO 900
+70 GOSUB 800 : REM LOAD CREDENTIALS FROM HIGH RAM
+80 PRINT "{CLR}{WHT}========================================"
+90 PRINT "       DIMENSIONEY GAME CLIENT          "
+100 PRINT "========================================"
+110 PRINT "{WHT}LOGGING IN AS: {YEL}" + U$ + "{WHT}..."
+120 CM$ = "LOGIN" : P1$ = "" : P2$ = "" : GOSUB 400
+130 IF ST$ <> "200" THEN PRINT "{RED}HTTP ERROR: "; ST$ : CLOSE CN : END
+140 PT$ = "/STATUS" : GOSUB 500
+150 IF V$ <> "OK" THEN PRINT "{RED}LOGIN FAILED! STATUS: "; V$ : CLOSE CN : END
+152 PT$ = "/SESSION_ID" : GOSUB 500 : SI$ = V$
+154 IF SI$ = "(N/A)" THEN SI$ = ""
+160 PRINT "{GRN}CONNECTED TO: " + UR$
+170 REM ========================================
+180 REM MAIN GAME LOOP
+190 REM ========================================
+200 IB = 0 : GOSUB 700 : REM RENDER CURRENT STATE / ROOM
+210 PRINT "{YEL}> {WHT}"; : GOSUB 600
+220 IN$ = IL$
+230 IF IN$ = "" THEN IB = 0 : CM$ = "LOOK" : P1$ = "" : P2$ = "" : GOTO 320
+235 IF IB = 1 AND (VAL(IN$) > 0 OR LEFT$(IN$, 1) = "0") THEN P1$ = IN$ : GOTO 310
+240 IF IN$ = "/HELP" OR IN$ = "HELP" THEN GOSUB 850 : GOTO 210
+250 GOSUB 650 : REM PARSE COMMAND, PARAM, TARGET
+252 IF CM$ = "READ" AND P1$ = "" AND MC = 0 THEN GOTO 200
+253 IF CM$ = "READ" AND P1$ = "" THEN IB = 1 : GOSUB 880 : GOTO 210
+254 IF CM$ = "READ" AND P1$ <> "" THEN GOTO 310
+256 IB = 0
+260 IF CM$ = "N" THEN PRINT "go north" : P1$ = "N" : CM$ = "GO"
+261 IF CM$ = "S" THEN PRINT "go south" : P1$ = "S" : CM$ = "GO"
+262 IF CM$ = "E" THEN PRINT "go east" : P1$ = "E" : CM$ = "GO"
+263 IF CM$ = "W" THEN PRINT "go west" : P1$ = "W" : CM$ = "GO"
+264 IF CM$ = "U" THEN PRINT "go up" : P1$ = "U" : CM$ = "GO"
+265 IF CM$ = "D" THEN PRINT "go down" : P1$ = "D" : CM$ = "GO"
+270 IF CM$ = "L" THEN CM$ = "LOOK"
+280 IF CM$ = "I" THEN CM$ = "INV"
+282 IF CM$ = "SAY" OR IC = 0 THEN GOTO 290
+284 N = VAL(P1$) : IF N >= 1 AND N <= IC THEN P1$ = II$(N - 1)
+286 N = VAL(P2$) : IF N >= 1 AND N <= IC THEN P2$ = II$(N - 1)
+290 IF CM$ = "QUIT" THEN CM$ = "LOGOUT"
+300 IF CM$ = "LOGOUT" THEN GOTO 370
+305 GOTO 320
+310 IF MC = 0 THEN GOTO 200
+311 N = VAL(P1$) : IF N < 1 OR N > MC THEN PRINT "{RED}INVALID! USE 1 TO "; MID$(STR$(MC), 2) : GOTO 210
+312 IB = 1 : X = N - 1
+314 PRINT "{GRN}DISMISSING MESSAGE "; MID$(STR$(N), 2); "..."
+316 CM$ = "POPMSG" : P1$ = MI$(X) : IF P1$ = "" THEN P1$ = MID$(STR$(N), 2)
+318 P2$ = ""
+320 GOSUB 400 : REM SEND COMMAND PAYLOAD
+322 RL = 0
+324 IF ST$ = "503" THEN PRINT "{YEL}WORLD BUSY, RETRYING..." : FOR W = 1 TO 500 : NEXT W : GOSUB 400
+326 IF ST$ = "401" THEN RL = 1
+328 PT$ = "/STATUS" : GOSUB 500 : IF V$ = "LOGIN_REQUIRED" THEN RL = 1
+330 PT$ = "/IS_NEW_LOGIN" : GOSUB 500 : IF V$ = "TRUE" AND CM$ <> "LOGIN" THEN RL = 1
+332 IF RL = 0 THEN GOTO 360
+334 PRINT "{RED}NOT CONNECTED - RE-LOGGING IN"
+336 SC$ = CM$ : SP1$ = P1$ : SP2$ = P2$
+338 CM$ = "LOGIN" : P1$ = "" : P2$ = "" : GOSUB 400
+340 PT$ = "/SESSION_ID" : GOSUB 500 : SI$ = V$ : IF SI$ = "(N/A)" THEN SI$ = ""
+342 IF SC$ <> "LOGIN" THEN CM$ = SC$ : P1$ = SP1$ : P2$ = SP2$ : GOSUB 400
+360 IF ST$ <> "200" AND ST$ <> "401" THEN PRINT "{RED}SERVER ERROR: "; ST$ : IB = 0 : GOTO 200
+365 IF IB = 1 THEN GOSUB 870 : IF MC > 0 THEN GOSUB 880 : GOTO 210
+366 GOTO 200
+370 PRINT "{WHT}LOGGING OUT..."
+380 CM$ = "LOGOUT" : P1$ = "" : P2$ = "" : GOSUB 400 : CLOSE CN
+390 PRINT "{GRN}SESSION TERMINATED. GOODBYE!":PRINT
+392 PRINT "{WHT}LOAD"QU$"HTTPS://ML.VIC20RELOADED.COM/MULTIPLAYER/VIC20/"QU$",8"
+395 END
+400 REM --- SEND COMMAND PAYLOAD SUBROUTINE ---
+405 CLOSE CN
+410 BD$ = "{" + QU$ + "CMD" + QU$ + ":" + QU$ + CM$ + QU$
+415 IF P1$ <> "" THEN BD$ = BD$ + "," + QU$ + "PARAM" + QU$ + ":" + QU$ + P1$ + QU$
+420 IF P2$ <> "" THEN BD$ = BD$ + "," + QU$ + "TARGET" + QU$ + ":" + QU$ + P2$ + QU$
+422 IF SI$ <> "" THEN BD$ = BD$ + "," + QU$ + "SESSION_ID" + QU$ + ":" + QU$ + SI$ + QU$
+425 BD$ = BD$ + "," + QU$ + "USERNAME" + QU$ + ":" + QU$ + U$ + QU$ + "," + QU$ + "PASSWORD" + QU$ + ":" + QU$ + P$ + QU$ + "}"
+430 OPEN CN, 8, 2, UR$
+435 PRINT#CN, "M POST"
+440 PRINT#CN, "H CONTENT-TYPE: APPLICATION/JSON"
+445 PRINT#CN, "H ACCEPT: APPLICATION/JSON"
+450 PRINT#CN, "H USER-AGENT: MEATLOAF/1.0 (COMMODORE VIC-20; MEATLOAF-FIRMWARE)"
+452 IF SI$ <> "" THEN PRINT#CN, "H COOKIE: PHPSESSID=" + SI$
+455 PRINT#CN, "B " + BD$
+460 PRINT#CN, "S"
+465 PRINT#CN, "STATUS"
+470 ST$ = ""
+475 GET#CN, A$
+480 IF ST AND 64 THEN RETURN
+485 IF ST AND 128 THEN ST$ = "-1" : RETURN
+490 IF A$ = CHR$(13) THEN RETURN
+495 ST$ = ST$ + A$
+498 GOTO 475
+500 REM --- JSON PATH QUERY (PT$) -> V$ ---
+505 PRINT#CN, "J " + PT$
+510 V$ = ""
+515 GET#CN, A$
+517 IF (A$ = " " AND LEN(V$) = 0) OR A$ = CHR$(13) OR A$ = CHR$(10) OR A$ = CHR$(0) THEN GOTO 525
+520 V$ = V$ + A$
+525 IF ST AND 64 THEN GOTO 537
+530 IF ST AND 128 THEN V$ = "" : RETURN
+535 IF LEN(V$) < 250 THEN GOTO 515
+537 IF V$ = "G" OR (LEN(V$) <= 2 AND (LEFT$(V$, 1) = "G" OR RIGHT$(V$, 1) = "G")) THEN V$ = ""
+538 IF V$ = "(N/A)" OR V$ = "null" THEN V$ = ""
+539 RETURN
+600 REM --- FULL-LINE INPUT (IL$) ---
+605 IL$ = ""
+610 GET K$ : IF K$ = "" THEN GOTO 610
+615 IF K$ = CHR$(13) THEN PRINT : RETURN
+620 IF K$ = CHR$(20) AND LEN(IL$) > 0 THEN IL$ = LEFT$(IL$, LEN(IL$) - 1) : PRINT CHR$(20); : GOTO 610
+622 IF K$ = CHR$(20) THEN GOTO 610
+625 IF LEN(IL$) < 60 AND ASC(K$) >= 32 THEN IL$ = IL$ + K$ : PRINT K$;
+630 GOTO 610
+650 REM --- PARSE IN$ INTO CM$, P1$, P2$ ---
+655 CM$ = "" : P1$ = "" : P2$ = "" : S1 = 0 : S2 = 0
+660 L = LEN(IN$) : IF L = 0 THEN RETURN
+665 FOR J = 1 TO L
+670 C$ = MID$(IN$, J, 1)
+675 IF C$ = " " AND S1 = 0 THEN S1 = J : GOTO 685
+680 IF C$ = " " AND S1 > 0 AND S2 = 0 THEN S2 = J
+685 NEXT J
+690 IF S1 = 0 THEN CM$ = IN$ : RETURN
+695 CM$ = LEFT$(IN$, S1 - 1)
+696 IF CM$ = "SAY" THEN P1$ = MID$(IN$, S1 + 1) : P2$ = "" : RETURN
+697 IF S2 = 0 THEN P1$ = MID$(IN$, S1 + 1) : RETURN
+698 P1$ = MID$(IN$, S1 + 1, S2 - S1 - 1) : P2$ = MID$(IN$, S2 + 1) : RETURN
+700 REM --- RENDER GAME ENVIRONMENT & STATE ---
+705 PRINT "{WHT}----------------------------------------"
+710 PT$ = "/ROOM/NAME" : GOSUB 500 : RN$ = V$
+712 PT$ = "/FACING" : GOSUB 500 : FC$ = V$
+714 PRINT "{WHT}=== "; RN$; " ["; FC$; "] ==="
+720 PT$ = "/ROOM/DESCRIPTION" : GOSUB 500
+722 IF LEN(V$) < 3 OR V$ = "G" OR RIGHT$(V$, 1) = "G" THEN GOTO 730
+724 PRINT "{CYN}"; V$
+730 PT$ = "/CONSOLE/0" : GOSUB 500
+732 IF LEN(V$) < 3 OR V$ = "G" OR RIGHT$(V$, 1) = "G" OR LEFT$(V$, 1) = "G" THEN GOTO 740
+734 PRINT "{YEL}"; V$
+740 GOSUB 870
+742 IF MC > 0 THEN PRINT "{GRN}"; MID$(STR$(MC), 2); " MESSAGES"
+750 HD = 0 : I = 0
+752 PT$ = "/ROOM/EXITS/" + MID$(STR$(I), 2) + "/DIRECTION" : GOSUB 500 : ED$ = V$
+754 IF ED$ = "" OR ED$ = "G" OR RIGHT$(ED$, 1) = "G" OR LEFT$(ED$, 1) = "G" THEN GOTO 770
+756 PT$ = "/ROOM/EXITS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500 : EN$ = V$
+758 IF EN$ = "" OR EN$ = "G" OR RIGHT$(EN$, 1) = "G" OR LEFT$(EN$, 1) = "G" OR LEN(EN$) < 2 THEN GOTO 770
+760 IF HD = 0 THEN PRINT "{WHT}EXITS:" : HD = 1
+762 PRINT "{CYN}  ["; ED$; "] {WHT}-> {CYN}"; EN$ : I = I + 1 : IF I < 10 THEN GOTO 752
+770 HD = 0 : I = 0
+772 PT$ = "/ROOM/OCCUPANTS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500
+774 IF V$ = "" OR V$ = "G" OR LEN(V$) < 3 THEN GOTO 784
+776 IF HD = 0 THEN PRINT "{GRN}CHARACTERS HERE:" : HD = 1
+778 PRINT "{WHT}  * {GRN}"; V$ : I = I + 1 : IF I < 10 THEN GOTO 772
+784 HD = 0 : I = 0 : IC = 0
+786 PT$ = "/ROOM/ITEMS/" + MID$(STR$(I), 2) + "/NAME" : GOSUB 500
+788 IF LEN(V$) < 3 OR V$ = "G" OR RIGHT$(V$, 1) = "G" THEN GOTO 798
+790 IF HD = 0 THEN PRINT "{YEL}ITEMS HERE:" : HD = 1
+791 NM$ = V$ : PT$ = "/ROOM/ITEMS/" + MID$(STR$(I), 2) + "/ID" : GOSUB 500 : II$(I) = V$
+792 IF II$(I) = "" OR II$(I) = "G" THEN II$(I) = NM$
+793 PT$ = "/ROOM/ITEMS/" + MID$(STR$(I), 2) + "/OPEN" : GOSUB 500
+794 IF LEFT$(V$, 1) = "t" OR LEFT$(V$, 1) = "T" OR V$ = "1" THEN NM$ = NM$ + " (open)"
+795 PRINT "{WHT}  "; MID$(STR$(I + 1), 2); ". {YEL}"; NM$
+796 I = I + 1 : IC = I : IF I < 10 THEN GOTO 786
+798 PRINT "{WHT}----------------------------------------"
+799 RETURN
+800 REM --- READ STRINGS FROM HIGH MEMORY ---
+805 UR$ = "" : AD = 32515
+810 B = PEEK(AD) : IF B = 0 THEN GOTO 820
+815 UR$ = UR$ + CHR$(B) : AD = AD + 1 : GOTO 810
+820 U$ = "" : AD = 32716
+825 B = PEEK(AD) : IF B = 0 THEN GOTO 835
+830 U$ = U$ + CHR$(B) : AD = AD + 1 : GOTO 825
+835 P$ = "" : AD = 32727
+840 B = PEEK(AD) : IF B = 0 THEN GOTO 849
+845 P$ = P$ + CHR$(B) : AD = AD + 1 : GOTO 840
+849 RETURN
+850 REM --- HELP DISPLAY ---
+855 PRINT "{WHT}========================================"
+856 PRINT "       DIMENSIONEY COMMANDS HELP        "
+857 PRINT "========================================"
+858 PRINT "{YEL}DIRECTIONS : {WHT}N, S, E, W, U, D (OR GO <D>)"
+859 PRINT "{YEL}LOOK/INSPECT: {WHT}LOOK (OR L), LOOK <OBJ>"
+860 PRINT "{YEL}INVENTORY  : {WHT}INV (OR I)"
+861 PRINT "{YEL}ITEMS      : {WHT}PICK/DROP/OPEN <#|ID>"
+862 PRINT "{YEL}INTERACTION: {WHT}USE <#|ID>, USE2 <#1> <#2>"
+863 PRINT "{YEL}LOOK/INSPECT: {WHT}LOOK (OR L), LOOK <#|ID>"
+864 PRINT "{YEL}COMMUNICATION: {WHT}SAY <MESSAGE>"
+865 PRINT "{YEL}INBOX/READ : {WHT}READ, READ <1-5>"
+866 PRINT "{YEL}SEARCH/SAVE: {WHT}SEARCH, SAVE"
+867 PRINT "{YEL}QUIT GAME  : {WHT}LOGOUT (OR QUIT)"
+868 PRINT "{WHT}========================================"
+869 RETURN
+870 REM --- FETCH INBOX (UP TO 5 MESSAGES) ---
+871 MC = 0 : M = 0
+872 PT$ = "/MSGS/" + MID$(STR$(M), 2) + "/TEXT" : GOSUB 500
+873 IF LEN(V$) < 3 OR V$ = "G" OR RIGHT$(V$, 1) = "G" OR LEFT$(V$, 1) = "G" THEN GOTO 878
+874 MT$(M) = V$
+875 PT$ = "/MSGS/" + MID$(STR$(M), 2) + "/SENDER" : GOSUB 500 : MS$(M) = V$
+876 PT$ = "/MSGS/" + MID$(STR$(M), 2) + "/ID" : GOSUB 500 : MI$(M) = V$
+877 MC = MC + 1 : M = M + 1 : IF M < 5 THEN GOTO 872
+878 RETURN
+880 REM --- LOCAL INBOX DISPLAY ---
+881 IF MC = 0 THEN RETURN
+882 PRINT "{CLR}{WHT}========================================"
+883 PRINT "       INBOX ("; MID$(STR$(MC), 2); " MESSAGE"; : IF MC <> 1 THEN PRINT "S";
+884 PRINT ")"
+885 PRINT "========================================"
+886 FOR K = 0 TO MC - 1
+887 PRINT "{WHT}"; MID$(STR$(K + 1), 2); ". {CYN}<"; MS$(K); "> {WHT}"; MT$(K)
+888 NEXT K
+895 PRINT "{WHT}----------------------------------------"
+896 PRINT "{YEL}TYPE: <1-"; MID$(STR$(MC), 2); "> TO READ & DISMISS"
+897 PRINT "{CYN}(PRESS RETURN FOR ROOM VIEW)"
+898 PRINT "{WHT}========================================"
+899 RETURN
+900 REM --- ERROR: NO CREDENTIALS ---
+905 PRINT "{CLR}{RED}========================================"
+910 PRINT "      ERROR: NO SAVED CREDENTIALS!      "
+915 PRINT "========================================"
+920 PRINT "{WHT}NO CREDENTIALS FOUND IN HIGH MEMORY."
+925 PRINT "PLEASE LOAD AND RUN {YEL}PROGRAM 1{WHT} FIRST:"
+930 PRINT "  LOAD" + QU$ + "PROGRAM1" + QU$ + ",8"
+935 PRINT "  RUN"
+940 END
