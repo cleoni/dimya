@@ -205,7 +205,7 @@ End_EVENT
 
 ### 3.4.4 Example & HOOKS
 
-> **[DimY: partial]** `HOOKS` is stored only as the world property `hooks`; mapping HTTP commands to script functions is not yet implemented in DimY. `getCharactersIn` used below is also not implemented.
+> **[DimY: partial]** `HOOKS` is stored only as the world property `hooks`; mapping HTTP commands to script functions is not yet implemented in DimY. `getCharactersIn` is implemented.
 
 DimensioneX supports `HOOKS` to accept external HTTP commands and trigger event handlers:
 
@@ -1071,7 +1071,7 @@ Returns runtime settings and paths of the game engine server.
 
 ### 3.10.9 getCharactersIn( object )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns an associative set of all character objects (NPCs and players) contained inside the specified container/room or world.
 
 Returns a `SET` of all `CHARACTER` objects (NPCs and players) contained inside the specified container/room.
 
@@ -1085,7 +1085,7 @@ Returns a `SET` of all `CHARACTER` objects (NPCs and players) contained inside t
 
 ### 3.10.10 getLinksFrom( rooms )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns an associative set of all exit links originating from the specified room(s) or world.
 
 Returns a `SET` of all exit links originating from the specified room or collection of rooms.
 
@@ -1115,7 +1115,7 @@ Returns a `SET` of all `ITEM` objects directly contained in the specified contai
 
 ### 3.10.12 getObject( id )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Finds and returns a reference to the game entity with identifier `id`, or `NULL` if not found.
 
 Finds and returns a reference to the game object with identifier `id`. If `id` is already an object reference, returns it unchanged. Returns `NULL` if not found.
 
@@ -1157,7 +1157,7 @@ Searches for items inside `container` (or within an array/collection of items) b
 
 ### 3.10.15 getPlayerProperties( user_name )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Retrieves persisted or active account properties of the specified user as an associative set.
 
 Retrieves the persisted account properties of the specified user from the database.
 
@@ -1168,7 +1168,7 @@ Retrieves the persisted account properties of the specified user from the databa
 
 ### 3.10.16 getPlayersIn( object )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns an associative set of connected player characters inside the specified room, container, or world.
 
 Returns a `SET` of connected player characters inside the specified room or vehicle.
 
@@ -1178,7 +1178,7 @@ Returns a `SET` of connected player characters inside the specified room or vehi
 
 ### 3.10.17 getRooms( [setExclusions] )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns an associative set containing all `ROOM` objects in the virtual world, optionally omitting rooms specified in `setExclusions`.
 
 Returns a `SET` containing all `ROOM` objects in the virtual world, optionally omitting rooms specified in `setExclusions`.
 
@@ -1188,7 +1188,7 @@ Returns a `SET` containing all `ROOM` objects in the virtual world, optionally o
 
 ### 3.10.18 getRoomsFrom( room )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns an associative set of all rooms reachable via open exits directly accessible from `room`.
 
 Returns a `SET` of all rooms reachable via exits directly accessible from `room`.
 
@@ -1264,7 +1264,7 @@ Truncates number `n` to its integer part (does not round up).
 
 ### 3.10.25 IsCharacter( object )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Tests whether the object argument is a character entity (NPC or player). Returns 1 or 0.
 
 Tests whether the object argument is a character entity (NPC or player).
 
@@ -1275,7 +1275,7 @@ Tests whether the object argument is a character entity (NPC or player).
 
 ### 3.10.26 IsPlayer( object )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Tests whether the object argument is a connected human player. Returns 1 or 0.
 
 Tests whether the object argument is a connected human player.
 
@@ -1286,7 +1286,7 @@ Tests whether the object argument is a connected human player.
 
 ### 3.10.27 IsRoom( object )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Tests whether the object argument is a `ROOM`. Returns 1 or 0.
 
 Tests whether the object argument is a `ROOM`.
 
@@ -1337,7 +1337,7 @@ Returns the natural logarithm (base $e$) of `number`.
 
 ### 3.10.32 MainType( object )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns the primary type prefix of an item's `TYPE` attribute (e.g. for `weapon.knife`, returns `"weapon"`), or the canonical type.
 
 Returns the primary type prefix of an item's `TYPE` attribute (e.g. for `weapon.knife`, returns `"weapon"`).
 
@@ -1367,12 +1367,10 @@ Instantiates a sequential indexed `ARRAY` collection.
 
 ### 3.10.35 NewCharacter( room, name, description, image, attributes )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
-Dynamically creates an NPC character in the specified room.
+> **[DimY: implemented]** Dynamically creates an NPC character in the specified room.
 
 - **Syntax**: `char = NewCharacter( room, name, description, image, attributes )`
-- **Returns**: Reference to the newly created character.
+- **Returns**: ID string of the newly created character.
 
 ---
 
@@ -1397,12 +1395,11 @@ Dynamically creates an NPC character in the specified room.
 
 ### 3.10.37 NewLink( from, to, orientation, bidirectional, name, description, image, attributes )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
-Dynamically creates a navigational exit link between two rooms.
+> **[DimY: implemented]** Dynamically creates a navigational exit link between two rooms.
 
 - **Syntax**: `link = NewLink( from, to, orientation, bidirectional, name, description, image, attributes )`
 - **Orientation**: `"N"`, `"S"`, `"E"`, `"W"`, `"U"`, `"D"`.
+- **Returns**: ID string of the newly created link.
 
 ---
 

@@ -1,0 +1,41 @@
+WORLD test_dynamic_entities
+	NAME		Dynamic Entities Creation Test World
+	VERSION		1.0
+	AUTHOR  	Test Suite
+
+ROOMS
+
+ROOM room_a
+	NAME		Room Alpha
+	DESCRIPTION	First laboratory room.
+
+ROOM room_b
+	NAME		Room Beta
+	DESCRIPTION	Second laboratory room.
+
+END_ROOMS
+
+SCRIPTS
+
+EVENT onStart
+	' 1. Create a dynamic NPC character in room_a
+	Dim merlinId = NewCharacter(room_a, "Merlin", "A wise ancient wizard", "wizard.png", "speed=3, living=true")
+	res_merlin_id = merlinId
+	res_merlin_name = merlinId.name
+	res_merlin_descr = merlinId.description
+	res_merlin_speed = merlinId.speed
+	res_merlin_living = merlinId.living
+	res_merlin_room = merlinId.container.name
+
+	' 2. Create a dynamic navigational link between room_a and room_b
+	Dim doorId = NewLink(room_a, room_b, "E", true, "Oak Door", "A heavy oak door", "door.png", "open=true")
+	res_door_id = doorId
+	res_door_name = doorId.name
+	res_door_dir = doorId.direction
+	res_door_open = doorId.open
+	res_door_descr = doorId.description
+END_EVENT
+
+END_SCRIPTS
+
+END_WORLD

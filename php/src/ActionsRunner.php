@@ -815,6 +815,8 @@ class ActionsRunner
             'REFRESHVIEW'         => $this->actRefreshView($args),
             'SENDCMD'             => $this->actSendCmd($args),
             'NEWITEM'             => $this->actNewItem($args),
+            'NEWCHARACTER'        => $this->actNewCharacter($args),
+            'NEWLINK'             => $this->actNewLink($args),
             'RESET'      => $this->actReset($args),
             'GIVE'       => $this->actGive($args),
             'DEBUG'      => $this->actDebug($args),
@@ -931,6 +933,41 @@ class ActionsRunner
     }
 
     /**
+     * NewCharacter instruction (SmallBasic 3.10.35):
+     * Dynamically creates a new character inside room/container.
+     */
+    protected function actNewCharacter(array $args): bool
+    {
+        $this->createNewCharacter(
+            $args[0] ?? '',
+            $args[1] ?? '',
+            $args[2] ?? '',
+            $args[3] ?? '',
+            $args[4] ?? ''
+        );
+        return true;
+    }
+
+    /**
+     * NewLink instruction (SmallBasic 3.10.37):
+     * Dynamically creates a navigational link between two rooms.
+     */
+    protected function actNewLink(array $args): bool
+    {
+        $this->createNewLink(
+            $args[0] ?? '',
+            $args[1] ?? '',
+            $args[2] ?? '',
+            $args[3] ?? '',
+            $args[4] ?? '',
+            $args[5] ?? '',
+            $args[6] ?? '',
+            $args[7] ?? ''
+        );
+        return true;
+    }
+
+    /**
      * Create a new dynamic item in a container.
      * NewItem( container, name, descr, image, attributes ) (SmallBasic 3.10.39)
      */
@@ -1000,6 +1037,210 @@ class ActionsRunner
         }
 
         return $item->id;
+    }
+
+    /**
+     * Create a new dynamic NPC character in a room.
+     * NewCharacter( room, name, descr, image, attributes ) (SmallBasic 3.10.35)
+     */
+    public function createNewCharacter(
+        mixed $rawRoom,
+        mixed $rawName,
+        mixed $rawDescr,
+        mixed $rawImage,
+        mixed $rawAttrs
+    ): ?string {
+        $evalRoom = is_string($rawRoom) ? $this->evalValue($rawRoom) : $rawRoom;
+        $opos = null;
+        if ($evalRoom instanceof AdvObject) {
+            $opos = $evalRoom;
+        } elseif (is_string($evalRoom) && $evalRoom !== '') {
+            $opos = $this->resolveObject($evalRoom) ?? $this->world?->getRoom($evalRoom) ?? $this->world?->getObjectExt($evalRoom);
+        }
+
+        $evalName = is_string($rawName) ? $this->evalValue($rawName) : $rawName;
+        $name = is_string($evalName) ? trim($evalName, "\"'") : (string)$evalName;
+
+        $evalDescr = ($rawDescr === null || strcasecmp(trim((string)$rawDescr), 'null') === 0)
+            ? ''
+            : (is_string($rawDescr) ? $this->evalValue($rawDescr) : $rawDescr);
+        $descr = ($evalDescr !== null && strcasecmp((string)$evalDescr, 'null') !== 0)
+            ? (is_string($evalDescr) ? trim($evalDescr, "\"'") : (string)$evalDescr)
+            : '';
+
+        $evalImg = ($rawImage === null || strcasecmp(trim((string)$rawImage), 'null') === 0)
+            ? null
+            : (is_string($rawImage) ? $this->evalValue($rawImage) : $rawImage);
+        $image = null;
+        if ($evalImg instanceof Image) {
+            $image = $evalImg;
+        } elseif (is_string($evalImg) && $evalImg !== '' && strcasecmp($evalImg, 'null') !== 0) {
+            $imgSrc = trim($evalImg, "\"'");
+            if ($this->world !== null && !empty($this->world->imagesFolder)
+                && !str_starts_with($imgSrc, 'http://') && !str_starts_with($imgSrc, 'https://') && !str_starts_with($imgSrc, '/')) {
+                $imgSrc = rtrim($this->world->imagesFolder, '/') . '/' . ltrim($imgSrc, '/');
+            }
+            $image = new Image($imgSrc, 0, 0);
+        }
+
+        $evalAttrs = ($rawAttrs === null || strcasecmp(trim((string)$rawAttrs), 'null') === 0)
+            ? ''
+            : (is_string($rawAttrs) ? $this->evalValue($rawAttrs) : $rawAttrs);
+        if (is_string($evalAttrs)) {
+            $evalAttrs = trim($evalAttrs, "\"'");
+        }
+
+        $posId = $opos?->id ?? (is_string($evalRoom) ? $evalRoom : '');
+        $id = $this->world?->getNextId() ?? ('_char' . uniqid());
+
+        $capacity = $this->world?->defaultCharacter?->capacity ?? 5;
+        $volume = 10;
+        $char = new Character($this->world, $name, $id, $descr, null, $evalAttrs, $capacity, $volume, $posId);
+        if ($image !== null) {
+            $char->setImage('N', $image);
+            $char->image = $image;
+        }
+
+        if ($this->world !== null) {
+            $this->world->addCharacter($char);
+        }
+
+        if ($opos instanceof AdvObject) {
+            $char->move($opos, false);
+            $opos->sendCmd('refresh!scene');
+        }
+
+        return $char->id;
+    }
+
+    /**
+     * Create a new dynamic navigational link between rooms.
+     * NewLink( from, to, orientation, bidirectional, name, description, image, attributes ) (SmallBasic 3.10.37)
+     */
+    public function createNewLink(
+        mixed $rawFrom,
+        mixed $rawTo,
+        mixed $rawDir,
+        mixed $rawBidi,
+        mixed $rawName,
+        mixed $rawDescr,
+        mixed $rawImage,
+        mixed $rawAttrs
+    ): ?string {
+        $evalFrom = is_string($rawFrom) ? $this->evalValue($rawFrom) : $rawFrom;
+        $fromRoom = null;
+        if ($evalFrom instanceof Room) {
+            $fromRoom = $evalFrom;
+        } elseif ($evalFrom instanceof AdvObject) {
+            $fromRoom = $evalFrom->getRoom() ?? $evalFrom;
+        } elseif (is_string($evalFrom) && $evalFrom !== '') {
+            $obj = $this->resolveObject($evalFrom) ?? $this->world?->getRoom($evalFrom) ?? $this->world?->getObjectExt($evalFrom);
+            if ($obj instanceof Room) {
+                $fromRoom = $obj;
+            } elseif ($obj instanceof AdvObject) {
+                $fromRoom = $obj->getRoom() ?? $obj;
+            }
+        }
+
+        $evalTo = is_string($rawTo) ? $this->evalValue($rawTo) : $rawTo;
+        $toRoom = null;
+        if ($evalTo instanceof Room) {
+            $toRoom = $evalTo;
+        } elseif ($evalTo instanceof AdvObject) {
+            $toRoom = $evalTo->getRoom() ?? $evalTo;
+        } elseif (is_string($evalTo) && $evalTo !== '') {
+            $obj = $this->resolveObject($evalTo) ?? $this->world?->getRoom($evalTo) ?? $this->world?->getObjectExt($evalTo);
+            if ($obj instanceof Room) {
+                $toRoom = $obj;
+            } elseif ($obj instanceof AdvObject) {
+                $toRoom = $obj->getRoom() ?? $obj;
+            }
+        }
+
+        $evalDir = is_string($rawDir) ? $this->evalValue($rawDir) : $rawDir;
+        $direction = is_string($evalDir) ? strtoupper(trim($evalDir, "\"' \t")) : 'N';
+        if ($direction === '') {
+            $direction = 'N';
+        }
+
+        $evalBidi = is_string($rawBidi) ? $this->evalValue($rawBidi) : $rawBidi;
+        if (is_bool($evalBidi)) {
+            $bidirectional = $evalBidi;
+        } elseif (is_numeric($evalBidi)) {
+            $bidirectional = ((int)$evalBidi !== 0);
+        } else {
+            $bStr = strtolower(trim((string)$evalBidi, "\"' \t"));
+            $bidirectional = ($bStr === 'true' || $bStr === '1' || $bStr === 'yes');
+        }
+
+        $evalName = ($rawName === null || strcasecmp(trim((string)$rawName), 'null') === 0)
+            ? '*'
+            : (is_string($rawName) ? $this->evalValue($rawName) : $rawName);
+        $name = is_string($evalName) ? trim($evalName, "\"'") : (string)$evalName;
+        if ($name === '' || $name === '*') {
+            $name = '*';
+        }
+
+        $evalDescr = ($rawDescr === null || strcasecmp(trim((string)$rawDescr), 'null') === 0)
+            ? ''
+            : (is_string($rawDescr) ? $this->evalValue($rawDescr) : $rawDescr);
+        $descr = ($evalDescr !== null && strcasecmp((string)$evalDescr, 'null') !== 0)
+            ? (is_string($evalDescr) ? trim($evalDescr, "\"'") : (string)$evalDescr)
+            : '';
+
+        $evalImg = ($rawImage === null || strcasecmp(trim((string)$rawImage), 'null') === 0)
+            ? null
+            : (is_string($rawImage) ? $this->evalValue($rawImage) : $rawImage);
+        $image = null;
+        if ($evalImg instanceof Image) {
+            $image = $evalImg;
+        } elseif (is_string($evalImg) && $evalImg !== '' && strcasecmp($evalImg, 'null') !== 0) {
+            $imgSrc = trim($evalImg, "\"'");
+            if ($this->world !== null && !empty($this->world->imagesFolder)
+                && !str_starts_with($imgSrc, 'http://') && !str_starts_with($imgSrc, 'https://') && !str_starts_with($imgSrc, '/')) {
+                $imgSrc = rtrim($this->world->imagesFolder, '/') . '/' . ltrim($imgSrc, '/');
+            }
+            $image = new Image($imgSrc, 0, 0);
+        }
+
+        $evalAttrs = ($rawAttrs === null || strcasecmp(trim((string)$rawAttrs), 'null') === 0)
+            ? ''
+            : (is_string($rawAttrs) ? $this->evalValue($rawAttrs) : $rawAttrs);
+        if (is_string($evalAttrs)) {
+            $evalAttrs = trim($evalAttrs, "\"'");
+        }
+
+        $id = $this->world?->getNextId() ?? ('_link' . uniqid());
+
+        $link = new Link(
+            $this->world,
+            $name,
+            $id,
+            $fromRoom,
+            $toRoom,
+            $bidirectional,
+            $direction,
+            $descr,
+            null,
+            $evalAttrs
+        );
+        if ($image !== null) {
+            $link->setImage('N', $image);
+            $link->image = $image;
+        }
+
+        if ($this->world !== null) {
+            $this->world->addLink($link);
+        }
+
+        if ($fromRoom instanceof AdvObject) {
+            $fromRoom->sendCmd('refresh!scene');
+        }
+        if ($toRoom instanceof AdvObject) {
+            $toRoom->sendCmd('refresh!scene');
+        }
+
+        return $link->id;
     }
 
     public function actOpen(array $args): bool
@@ -1908,6 +2149,158 @@ class ActionsRunner
     }
 
     /**
+     * Traverses container/world/array and collects contained Character objects.
+     * Matches DimensioneX DimxParser.funGetCharactersIn().
+     *
+     * @param mixed $o
+     * @param array<string, Character> &$newSet
+     */
+    protected function innerGetCharactersIn(mixed $o, array &$newSet): void
+    {
+        if ($o === null) {
+            return;
+        }
+        if (is_array($o)) {
+            foreach ($o as $sub) {
+                $this->innerGetCharactersIn($sub, $newSet);
+            }
+            return;
+        }
+        if (is_string($o)) {
+            $t = trim($o);
+            if ($t === '') {
+                return;
+            }
+            $resolved = $this->resolveObject($t);
+            if ($resolved === null && $this->world !== null) {
+                $resolved = $this->world->getObjectExt($t);
+            }
+            $o = $resolved;
+            if ($o === null) {
+                return;
+            }
+        }
+        if ($o instanceof World) {
+            $contents = $o->getContents();
+            foreach ($contents as $dxo) {
+                if ($dxo instanceof Character || (is_object($dxo) && method_exists($dxo, 'isaCharacter') && $dxo->isaCharacter())) {
+                    $newSet[$dxo->id] = $dxo;
+                }
+            }
+            return;
+        }
+        if ($o instanceof AdvObject) {
+            $contents = $o->getContents();
+            foreach ($contents as $dxo) {
+                if ($dxo instanceof Character || (is_object($dxo) && method_exists($dxo, 'isaCharacter') && $dxo->isaCharacter())) {
+                    $newSet[$dxo->id] = $dxo;
+                }
+            }
+        }
+    }
+
+    /**
+     * Traverses container/world/array and collects contained Player objects.
+     * Matches DimensioneX DimxParser.funGetPlayersIn().
+     *
+     * @param mixed $o
+     * @param array<string, Player> &$newSet
+     */
+    protected function innerGetPlayersIn(mixed $o, array &$newSet): void
+    {
+        if ($o === null) {
+            return;
+        }
+        if (is_array($o)) {
+            foreach ($o as $sub) {
+                $this->innerGetPlayersIn($sub, $newSet);
+            }
+            return;
+        }
+        if (is_string($o)) {
+            $t = trim($o);
+            if ($t === '') {
+                return;
+            }
+            $resolved = $this->resolveObject($t);
+            if ($resolved === null && $this->world !== null) {
+                $resolved = $this->world->getObjectExt($t);
+            }
+            $o = $resolved;
+            if ($o === null) {
+                return;
+            }
+        }
+        if ($o instanceof World) {
+            $contents = $o->getContents();
+            foreach ($contents as $dxo) {
+                if ($dxo instanceof Player || (is_object($dxo) && method_exists($dxo, 'isPlayer') && $dxo->isPlayer())) {
+                    $newSet[$dxo->id] = $dxo;
+                }
+            }
+            return;
+        }
+        if ($o instanceof AdvObject) {
+            $contents = $o->getContents();
+            foreach ($contents as $dxo) {
+                if ($dxo instanceof Player || (is_object($dxo) && method_exists($dxo, 'isPlayer') && $dxo->isPlayer())) {
+                    $newSet[$dxo->id] = $dxo;
+                }
+            }
+        }
+    }
+
+    /**
+     * Traverses room(s) or world and collects exiting Link objects.
+     * Matches DimensioneX DimxParser.funGetLinksFrom().
+     *
+     * @param mixed $o
+     * @param array<string, Link> &$newSet
+     */
+    protected function innerGetLinksFrom(mixed $o, array &$newSet): void
+    {
+        if ($o === null) {
+            return;
+        }
+        if (is_array($o)) {
+            foreach ($o as $sub) {
+                $this->innerGetLinksFrom($sub, $newSet);
+            }
+            return;
+        }
+        if (is_string($o)) {
+            $t = trim($o);
+            if ($t === '') {
+                return;
+            }
+            $resolved = $this->resolveObject($t);
+            if ($resolved === null && $this->world !== null) {
+                $resolved = $this->world->getObjectExt($t);
+            }
+            $o = $resolved;
+            if ($o === null) {
+                return;
+            }
+        }
+        if ($o instanceof World) {
+            if (isset($o->rooms) && is_array($o->rooms)) {
+                foreach ($o->rooms as $room) {
+                    $this->innerGetLinksFrom($room, $newSet);
+                }
+            }
+            return;
+        }
+        if ($o instanceof Room || (is_object($o) && method_exists($o, 'isaRoom') && $o->isaRoom())) {
+            $ways = method_exists($o, 'getLinks') ? $o->getLinks() : ($o->ways ?? []);
+            foreach ($ways as $link) {
+                if ($link instanceof Link || (is_object($link) && method_exists($link, 'isLink') && $link->isLink())) {
+                    $newSet[$link->id] = $link;
+                }
+            }
+        }
+    }
+
+    /**
      * Searches for objects inside container by primary type prefix or subtype.
      * Matches DimensioneX funGetObjectsType (§3.10.14).
      *
@@ -2285,7 +2678,13 @@ class ActionsRunner
         }
 
         if ($left === null || $right === null) {
-            return $left === $right;
+            if ($left === null && $right === null) {
+                return true;
+            }
+            if (($left === null && $right === '') || ($right === null && $left === '')) {
+                return true;
+            }
+            return false;
         }
 
         // Both are DimxObjects
@@ -2918,6 +3317,33 @@ class ActionsRunner
                 );
             }
 
+            // Built-in NewCharacter( room, name, descr, image, attributes )
+            if (strcasecmp($fn, 'NewCharacter') === 0) {
+                $ncArgs = $this->parseArguments($argStr, false);
+                return $this->createNewCharacter(
+                    $ncArgs[0] ?? '',
+                    $ncArgs[1] ?? '',
+                    $ncArgs[2] ?? '',
+                    $ncArgs[3] ?? '',
+                    $ncArgs[4] ?? ''
+                );
+            }
+
+            // Built-in NewLink( from, to, orientation, bidirectional, name, description, image, attributes )
+            if (strcasecmp($fn, 'NewLink') === 0) {
+                $nlArgs = $this->parseArguments($argStr, false);
+                return $this->createNewLink(
+                    $nlArgs[0] ?? '',
+                    $nlArgs[1] ?? '',
+                    $nlArgs[2] ?? '',
+                    $nlArgs[3] ?? '',
+                    $nlArgs[4] ?? '',
+                    $nlArgs[5] ?? '',
+                    $nlArgs[6] ?? '',
+                    $nlArgs[7] ?? ''
+                );
+            }
+
             // Built-in getItemsIn( object_or_collection )
             if (strcasecmp($fn, 'getItemsIn') === 0) {
                 if ($argStr === '') {
@@ -2964,6 +3390,323 @@ class ActionsRunner
                 return $this->funGetObjectsType($contVal, $typeFilter, $isSubtype);
             }
 
+            // Built-in getCharactersIn( object_or_collection )
+            if (strcasecmp($fn, 'getCharactersIn') === 0) {
+                if ($argStr === '') {
+                    return [];
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $argVal = $this->evalValue($targetExpr);
+                if (!is_array($argVal)) {
+                    $arr = $this->getVariable($targetExpr);
+                    if (is_array($arr)) {
+                        $argVal = $arr;
+                    }
+                }
+                $newSet = [];
+                if (is_array($argVal)) {
+                    foreach ($argVal as $elem) {
+                        $this->innerGetCharactersIn($elem, $newSet);
+                    }
+                } else {
+                    $this->innerGetCharactersIn($argVal, $newSet);
+                }
+                return $newSet;
+            }
+
+            // Built-in getPlayersIn( object_or_collection )
+            if (strcasecmp($fn, 'getPlayersIn') === 0) {
+                if ($argStr === '') {
+                    return [];
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $argVal = $this->evalValue($targetExpr);
+                if (!is_array($argVal)) {
+                    $arr = $this->getVariable($targetExpr);
+                    if (is_array($arr)) {
+                        $argVal = $arr;
+                    }
+                }
+                $newSet = [];
+                if (is_array($argVal)) {
+                    foreach ($argVal as $elem) {
+                        $this->innerGetPlayersIn($elem, $newSet);
+                    }
+                } else {
+                    $this->innerGetPlayersIn($argVal, $newSet);
+                }
+                return $newSet;
+            }
+
+            // Built-in getLinksFrom( rooms )
+            if (strcasecmp($fn, 'getLinksFrom') === 0) {
+                if ($argStr === '') {
+                    return [];
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $argVal = $this->evalValue($targetExpr);
+                if (!is_array($argVal)) {
+                    $arr = $this->getVariable($targetExpr);
+                    if (is_array($arr)) {
+                        $argVal = $arr;
+                    }
+                }
+                $newSet = [];
+                if (is_array($argVal)) {
+                    foreach ($argVal as $elem) {
+                        $this->innerGetLinksFrom($elem, $newSet);
+                    }
+                } else {
+                    $this->innerGetLinksFrom($argVal, $newSet);
+                }
+                return $newSet;
+            }
+
+            // Built-in getObject( id )
+            if (strcasecmp($fn, 'getObject') === 0) {
+                if ($argStr === '') {
+                    return null;
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $argVal = $this->evalValue($targetExpr);
+                if (is_object($argVal) && ($argVal instanceof DimxObject || $argVal instanceof AdvObject)) {
+                    return $argVal;
+                }
+                if (is_string($argVal)) {
+                    $id = trim($argVal);
+                    if ($id === '') {
+                        return null;
+                    }
+                    $obj = $this->resolveObject($id);
+                    if ($obj === null && $this->world !== null) {
+                        $obj = $this->world->getObjectExt($id);
+                    }
+                    return $obj;
+                }
+                return null;
+            }
+
+            // Built-in getPlayerProperties( user_name )
+            if (strcasecmp($fn, 'getPlayerProperties') === 0) {
+                if ($argStr === '') {
+                    return [];
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $targetVal = $this->evalValue($targetExpr);
+                if ($targetVal instanceof Player || $targetVal instanceof Character) {
+                    return $targetVal->properties;
+                }
+                $uname = trim((string)$targetVal);
+                $props = [];
+                if ($this->world !== null && $uname !== '') {
+                    $player = $this->world->getPlayer($uname);
+                    if ($player instanceof Player) {
+                        return $player->properties;
+                    }
+                    $pm = $this->world->persistence ?? GameEngine::$activeInstance?->pm;
+                    if ($pm !== null) {
+                        $pAccount = $pm->getPlayerAccount($this->world->id, $uname);
+                        if ($pAccount !== null) {
+                            $dummyPlayer = new Player($this->world, $uname, $pAccount['name'] ?? $uname);
+                            $dummyPlayer->numericId = $pAccount['id'] ?? null;
+                            if ($pm->loadPlayerProfile($this->world, $dummyPlayer)) {
+                                return $dummyPlayer->properties;
+                            }
+                        }
+                    }
+                    $setting = (string)$this->world->getSetting($uname . '_properties', '');
+                    if ($setting !== '') {
+                        if (str_starts_with($setting, '{')) {
+                            $json = json_decode($setting, true);
+                            if (is_array($json)) {
+                                return $json;
+                            }
+                        }
+                        $pairs = explode(',', $setting);
+                        foreach ($pairs as $pair) {
+                            $kv = explode('=', $pair, 2);
+                            if (count($kv) === 2) {
+                                $props[trim($kv[0])] = trim($kv[1]);
+                            }
+                        }
+                        return $props;
+                    }
+                }
+                return $props;
+            }
+
+            // Built-in getRooms( [setExclusions] )
+            if (strcasecmp($fn, 'getRooms') === 0) {
+                $exclusions = [];
+                if ($argStr !== '') {
+                    $rawArgs = $this->parseArguments($argStr);
+                    if (isset($rawArgs[0]) && trim($rawArgs[0]) !== '') {
+                        $exclVal = $this->evalValue($rawArgs[0]);
+                        if (!is_array($exclVal)) {
+                            $arr = $this->getVariable($rawArgs[0]);
+                            if (is_array($arr)) {
+                                $exclVal = $arr;
+                            }
+                        }
+                        if (is_array($exclVal)) {
+                            foreach ($exclVal as $k => $item) {
+                                if ($item instanceof Room) {
+                                    $exclusions[$item->id] = true;
+                                } elseif (is_string($k) && !is_numeric($k)) {
+                                    $exclusions[$k] = true;
+                                } elseif (is_string($item)) {
+                                    $exclusions[$item] = true;
+                                }
+                            }
+                        } elseif (is_string($exclVal) && trim($exclVal) !== '') {
+                            foreach (explode(',', $exclVal) as $exId) {
+                                $exId = trim($exId);
+                                if ($exId !== '') {
+                                    $exclusions[$exId] = true;
+                                }
+                            }
+                        } elseif ($exclVal instanceof Room) {
+                            $exclusions[$exclVal->id] = true;
+                        }
+                    }
+                }
+                $rooms = [];
+                if ($this->world !== null) {
+                    foreach ($this->world->rooms as $id => $room) {
+                        if (!isset($exclusions[$id])) {
+                            $rooms[$id] = $room;
+                        }
+                    }
+                }
+                return $rooms;
+            }
+
+            // Built-in getRoomsFrom( room )
+            if (strcasecmp($fn, 'getRoomsFrom') === 0) {
+                if ($argStr === '') {
+                    return [];
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $roomObj = $this->evalValue($targetExpr);
+                if (is_string($roomObj)) {
+                    $roomObj = $this->resolveObject($roomObj) ?? ($this->world?->getObjectExt($roomObj));
+                }
+                $resRooms = [];
+                if ($roomObj instanceof Room || (is_object($roomObj) && method_exists($roomObj, 'isaRoom') && $roomObj->isaRoom())) {
+                    $ways = method_exists($roomObj, 'getLinks') ? $roomObj->getLinks() : ($roomObj->ways ?? []);
+                    foreach ($ways as $w) {
+                        if ($w instanceof Link) {
+                            if ($w->isOpen()) {
+                                $targetRoom = $w->getTarget($roomObj->id);
+                                if ($targetRoom instanceof Room) {
+                                    $resRooms[$targetRoom->id] = $targetRoom;
+                                }
+                            }
+                        }
+                    }
+                }
+                return $resRooms;
+            }
+
+            // Built-in IsCharacter( object )
+            if (strcasecmp($fn, 'IsCharacter') === 0) {
+                if ($argStr === '') {
+                    return 0;
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $val = $this->evalValue($targetExpr);
+                if (is_string($val)) {
+                    $val = $this->resolveObject($val) ?? ($this->world?->getObjectExt($val));
+                }
+                if ($val instanceof Character || (is_object($val) && method_exists($val, 'isaCharacter') && $val->isaCharacter())) {
+                    return 1;
+                }
+                return 0;
+            }
+
+            // Built-in IsPlayer( object )
+            if (strcasecmp($fn, 'IsPlayer') === 0) {
+                if ($argStr === '') {
+                    return 0;
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $val = $this->evalValue($targetExpr);
+                if (is_string($val)) {
+                    $val = $this->resolveObject($val) ?? ($this->world?->getObjectExt($val));
+                }
+                if ($val instanceof Player || (is_object($val) && method_exists($val, 'isPlayer') && $val->isPlayer())) {
+                    return 1;
+                }
+                return 0;
+            }
+
+            // Built-in IsRoom( object )
+            if (strcasecmp($fn, 'IsRoom') === 0) {
+                if ($argStr === '') {
+                    return 0;
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $val = $this->evalValue($targetExpr);
+                if (is_string($val)) {
+                    $val = $this->resolveObject($val) ?? ($this->world?->getObjectExt($val));
+                }
+                if ($val instanceof Room || (is_object($val) && method_exists($val, 'isaRoom') && $val->isaRoom())) {
+                    return 1;
+                }
+                return 0;
+            }
+
+            // Built-in MainType( object )
+            if (strcasecmp($fn, 'MainType') === 0) {
+                if ($argStr === '') {
+                    return '';
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $val = $this->evalValue($targetExpr);
+                if (is_string($val)) {
+                    $val = $this->resolveObject($val) ?? ($this->world?->getObjectExt($val));
+                }
+                if ($val instanceof DimxObject) {
+                    $typeVal = (string)($val->getProperty('type') ?? (property_exists($val, 'type') ? $val->type : ''));
+                    if ($typeVal !== '') {
+                        $dotPos = strpos($typeVal, '.');
+                        if ($dotPos !== false) {
+                            return substr($typeVal, 0, $dotPos);
+                        }
+                        return $typeVal;
+                    }
+                    if ($val instanceof Room || (method_exists($val, 'isaRoom') && $val->isaRoom())) {
+                        return 'room';
+                    }
+                    if ($val instanceof Player || (method_exists($val, 'isPlayer') && $val->isPlayer())) {
+                        return 'player';
+                    }
+                    if ($val instanceof Character || (method_exists($val, 'isaCharacter') && $val->isaCharacter())) {
+                        return 'character';
+                    }
+                    if ($val instanceof Item || (method_exists($val, 'isanItem') && $val->isanItem())) {
+                        return 'item';
+                    }
+                    if ($val instanceof Link || (method_exists($val, 'isLink') && $val->isLink())) {
+                        return 'link';
+                    }
+                    if ($val instanceof World) {
+                        return 'world';
+                    }
+                }
+                return '';
+            }
+
             // Check if $fn is an array / set
             $arr = $this->getVariable($fn);
             if (is_array($arr)) {
@@ -3000,8 +3743,8 @@ class ActionsRunner
             throw new \RuntimeException("Unknown Function or Array: {$fn}");
         }
 
-        // Property access e.g. "$WORLD.mode", "$OWNER.Health", "box.open", "x.name", "players(nowplays).name"
-        if (preg_match('/^(\$?[A-Za-z0-9_]+(?:\([^\)]*\))?)\.([A-Za-z0-9_]+)$/', $val, $m)) {
+        // Property access e.g. "$WORLD.mode", "$OWNER.Health", "box.open", "x.name", "players(nowplays).name", "a.b.c"
+        if (preg_match('/^(\$?[A-Za-z0-9_.]+(?:\([^\)]*\))?)\.([A-Za-z0-9_]+)$/', $val, $m)) {
             $targetExpr = $m[1];
             $prop = $m[2];
             $obj = $this->resolveObject($targetExpr);

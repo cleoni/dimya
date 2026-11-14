@@ -1,0 +1,116 @@
+WORLD test_world_inspection
+	NAME		World Objects and Inspection Queries Test World
+	VERSION		1.0
+	AUTHOR  	Test Suite
+
+ROOMS
+
+ROOM room_hall
+	NAME		Grand Hall
+	DESCRIPTION	A vast entrance hall with marble pillars.
+
+ROOM room_garden
+	NAME		Royal Garden
+	DESCRIPTION	A lush courtyard with flowers.
+
+END_ROOMS
+
+LINKS
+
+LINK hall_door room_hall-room_garden E
+	NAME		Oak Door
+	DESCRIPTION	A heavy oak door.
+	OPEN		1
+
+END_LINKS
+
+CHARACTERS
+
+CHARACTER guard
+	NAME		Castle Guard
+	POSITION	room_hall
+	DESCRIPTION	An alert guard in iron plate armor.
+
+END_CHARACTERS
+
+ITEMS
+
+ITEM magic_sword
+	NAME		Magic Sword
+	POSITION	room_hall
+	TYPE		weapon.sword
+
+ITEM gold_coin
+	NAME		Gold Coin
+	POSITION	room_hall
+	TYPE		treasure
+
+END_ITEMS
+
+SCRIPTS
+
+EVENT onStart
+	' 1. getCharactersIn
+	Dim charsInHall = getCharactersIn(room_hall)
+	res_chars_count = SetLen(charsInHall)
+	res_has_guard = SetIndexOf(charsInHall, "guard")
+
+	' 2. getLinksFrom
+	Dim linksHall = getLinksFrom(room_hall)
+	res_links_count = SetLen(linksHall)
+	res_has_door = SetIndexOf(linksHall, "hall_door")
+
+	' 3. getObject
+	Dim objHall = getObject("room_hall")
+	res_obj_hall_name = objHall.name
+	Dim objGuard = getObject("guard")
+	res_obj_guard_name = objGuard.name
+	Dim objMissing = getObject("no_such_object")
+	If objMissing = ""
+		res_obj_missing = 1
+	Else
+		res_obj_missing = 0
+	End_If
+
+	' 4. getPlayerProperties
+	Dim pProps = getPlayerProperties("hero")
+	res_hero_gold = pProps("gold")
+	res_hero_class = pProps("class")
+
+	' 5. getPlayersIn
+	Dim playersInHall = getPlayersIn(room_hall)
+	res_players_count = SetLen(playersInHall)
+
+	' 6. getRooms
+	Dim allRooms = getRooms()
+	res_all_rooms_count = SetLen(allRooms)
+	Dim exclRooms = getRooms("room_garden")
+	res_excl_rooms_count = SetLen(exclRooms)
+	res_excl_has_hall = SetIndexOf(exclRooms, "room_hall")
+
+	' 7. getRoomsFrom
+	Dim reachable = getRoomsFrom(room_hall)
+	res_reachable_count = SetLen(reachable)
+	res_has_garden = SetIndexOf(reachable, "room_garden")
+
+	' 8. IsCharacter
+	res_is_char_guard = IsCharacter(guard)
+	res_is_char_hall = IsCharacter(room_hall)
+
+	' 9. IsPlayer
+	res_is_player_guard = IsPlayer(guard)
+
+	' 10. IsRoom
+	res_is_room_hall = IsRoom(room_hall)
+	res_is_room_guard = IsRoom(guard)
+
+	' 11. MainType
+	res_type_sword = MainType(magic_sword)
+	res_type_coin = MainType(gold_coin)
+	res_type_hall = MainType(room_hall)
+	res_type_guard = MainType(guard)
+END_EVENT
+
+END_SCRIPTS
+
+END_WORLD

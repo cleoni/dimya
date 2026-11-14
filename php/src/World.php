@@ -843,6 +843,36 @@ class World extends DimxObject
     }
 
     /**
+     * Retrieves a persisted setting by key.
+     * Matches DimensioneX World.getSetting().
+     */
+    public function getSetting(string $key, mixed $default = null): mixed
+    {
+        $pm = $this->persistence ?? GameEngine::$activeInstance?->pm;
+        if ($pm !== null) {
+            $val = $pm->getSetting($this->id, $key, null);
+            if ($val !== null) {
+                return $val;
+            }
+        }
+        return $this->properties[$key] ?? $default;
+    }
+
+    /**
+     * Persists a setting by key.
+     * Matches DimensioneX World.saveSetting().
+     */
+    public function saveSetting(string $key, mixed $value): bool
+    {
+        $pm = $this->persistence ?? GameEngine::$activeInstance?->pm;
+        if ($pm !== null) {
+            return $pm->saveSetting($this->id, $key, $value);
+        }
+        $this->properties[$key] = $value;
+        return true;
+    }
+
+    /**
      * Generate complete HTML snapshot of the world and engine state.
      */
     public function htmlAdminSnapshot(): string

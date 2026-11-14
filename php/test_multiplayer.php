@@ -74,6 +74,8 @@ $sections = [
     71 => ['title' => 'Testing SmallBasic String Functions (Asc, Chr, LCase, UCase, Left, Right, Mid, Replace, Format, InStr, InStrCount) & test_string_functions.dxw...', 'keywords' => ['asc', 'chr', 'lcase', 'ucase', 'left', 'right', 'mid', 'replace', 'format', 'instr', 'instrcount', 'string', 'test_string_functions.dxw']],
     72 => ['title' => 'Testing SmallBasic Math Functions (Abs, Int, Log, Rnd, Round, Sqr) & test_math_functions.dxw...', 'keywords' => ['abs', 'int', 'log', 'rnd', 'round', 'sqr', 'math', 'test_math_functions.dxw']],
     73 => ['title' => 'Testing SmallBasic Sets & Arrays Functions (Copy, NewSet, SetIndexOf, SetKey, SetKeys) & test_set_array_functions.dxw...', 'keywords' => ['copy', 'newset', 'setindexof', 'setkey', 'setkeys', 'sets', 'arrays', 'test_set_array_functions.dxw']],
+    74 => ['title' => 'Testing SmallBasic Dynamic World Entities (NewCharacter, NewLink) & test_dynamic_entities.dxw...', 'keywords' => ['newcharacter', 'newlink', 'character', 'link', 'dynamic', 'test_dynamic_entities.dxw']],
+    75 => ['title' => 'Testing SmallBasic World Objects & Inspection Queries & test_world_inspection.dxw...', 'keywords' => ['inspection', 'getcharactersin', 'getlinksfrom', 'getobject', 'getplayerproperties', 'getplayersin', 'getrooms', 'getroomsfrom', 'ischaracter', 'isplayer', 'isroom', 'maintype', 'test_world_inspection.dxw']],
 ];
 
 // CLI Options parsing
@@ -4876,6 +4878,261 @@ if (shouldRun(73)) {
 
     // Clean up
     @$pm->resetWorld($sec73WorldId);
+}
+
+if (shouldRun(74)) {
+    echo "\n--- Section 74: Testing SmallBasic Dynamic World Entities (NewCharacter, NewLink) & test_dynamic_entities.dxw ---\n";
+
+    // 1. Unit tests via ActionsRunner
+    $sec74World = new \Dimx\World('sec74_world');
+    $room1 = new \Dimx\Room($sec74World, 'Chamber 1', 'chamber1', 'First testing chamber');
+    $room2 = new \Dimx\Room($sec74World, 'Chamber 2', 'chamber2', 'Second testing chamber');
+    $sec74World->addRoom($room1);
+    $sec74World->addRoom($room2);
+    $runner74 = new \Dimx\ActionsRunner($sec74World, null, null, null);
+
+    // NewCharacter
+    $runner74->run('Dim charId = NewCharacter(chamber1, "Goblin", "A sneaky little goblin", "goblin.png", "speed=4, hp=50")');
+    $charId = $runner74->getLocalVar('charId');
+    assertTest(is_string($charId) && !empty($charId), "NewCharacter returns non-empty ID: {$charId}");
+    $createdChar = $sec74World->getCharacter($charId);
+    assertTest($createdChar instanceof \Dimx\Character, "World contains newly created Character");
+    assertTest($createdChar->name === 'Goblin', "Character name is 'Goblin'");
+    assertTest($createdChar->description === 'A sneaky little goblin', "Character description is correct");
+    assertTest($createdChar->container === $room1, "Character is positioned inside chamber1");
+    assertTest((int)$createdChar->getProperty('speed') === 4, "Character custom attribute speed is 4");
+    assertTest((int)$createdChar->getProperty('hp') === 50, "Character custom attribute hp is 50");
+
+    // NewLink
+    $runner74->run('Dim linkId = NewLink(chamber1, chamber2, "N", true, "Portcullis", "An iron portcullis", "gate.png", "open=true")');
+    $linkId = $runner74->getLocalVar('linkId');
+    assertTest(is_string($linkId) && !empty($linkId), "NewLink returns non-empty ID: {$linkId}");
+    $createdLink = $sec74World->getLink($linkId);
+    assertTest($createdLink instanceof \Dimx\Link, "World contains newly created Link");
+    assertTest($createdLink->name === 'Portcullis', "Link name is 'Portcullis'");
+    assertTest($createdLink->direction === 'N', "Link direction is 'N'");
+    assertTest($createdLink->isBidirectional === true, "Link is bidirectional");
+    assertTest($createdLink->open === true, "Link is open");
+
+    // Verify room navigation exits
+    $linkFrom1 = $room1->getLinkByDirection('N');
+    assertTest($linkFrom1 === $createdLink, "chamber1 has link exiting N to chamber2");
+    assertTest($linkFrom1->getTarget('chamber1') === $room2, "chamber1 N exit leads to chamber2");
+
+    $linkFrom2 = $room2->getLinkByDirection('S');
+    assertTest($linkFrom2 === $createdLink, "chamber2 has reverse link exiting S to chamber1");
+    assertTest($linkFrom2->getTarget('chamber2') === $room1, "chamber2 S exit leads to chamber1");
+
+    // 2. Integration test: Load test_dynamic_entities.dxw with GameEngine and execute onStart
+    $sec74WorldId = 'test_w_sec74_' . uniqid();
+    $sec74DxwPath = dirname(__DIR__) . '/docs/dxw-examples/test_dynamic_entities.dxw';
+    $engine74 = new \Dimx\GameEngine($pm, $sec74WorldId, $sec74DxwPath);
+    $w74 = $engine74->loadOrSeedWorld();
+
+    assertTest($w74 instanceof \Dimx\World, "loadOrSeedWorld seeded world from test_dynamic_entities.dxw");
+    $merlinId = (string)$w74->getProperty('res_merlin_id');
+    assertTest(!empty($merlinId), "DXW onStart returned non-empty res_merlin_id: {$merlinId}");
+    $merlin = $w74->getCharacter($merlinId);
+    assertTest($merlin instanceof \Dimx\Character, "Merlin exists in world characters collection");
+    assertTest($w74->getProperty('res_merlin_name') === 'Merlin', "DXW onStart executed res_merlin_name -> 'Merlin'");
+    assertTest($w74->getProperty('res_merlin_descr') === 'A wise ancient wizard', "DXW onStart executed res_merlin_descr -> 'A wise ancient wizard'");
+    assertTest((int)$w74->getProperty('res_merlin_speed') === 3, "DXW onStart executed res_merlin_speed -> 3");
+    assertTest($w74->getProperty('res_merlin_living') === true, "DXW onStart executed res_merlin_living -> true");
+    assertTest($w74->getProperty('res_merlin_room') === 'Room Alpha', "DXW onStart executed res_merlin_room -> 'Room Alpha'");
+
+    $doorId = (string)$w74->getProperty('res_door_id');
+    assertTest(!empty($doorId), "DXW onStart returned non-empty res_door_id: {$doorId}");
+    $door = $w74->getLink($doorId);
+    assertTest($door instanceof \Dimx\Link, "Door exists in world links collection");
+    assertTest($w74->getProperty('res_door_name') === 'Oak Door', "DXW onStart executed res_door_name -> 'Oak Door'");
+    assertTest($w74->getProperty('res_door_dir') === 'E', "DXW onStart executed res_door_dir -> 'E'");
+    assertTest($w74->getProperty('res_door_open') === true, "DXW onStart executed res_door_open -> true");
+    assertTest($w74->getProperty('res_door_descr') === 'A heavy oak door', "DXW onStart executed res_door_descr -> 'A heavy oak door'");
+
+    // 3. Traversal test: Player navigates through the newly created dynamic link
+    $testPlayer = new \Dimx\Player($w74, 'Explorer', 'p_test_explorer');
+    $w74->addPlayer($testPlayer);
+    $roomA = $w74->getRoom('room_a');
+    $roomB = $w74->getRoom('room_b');
+    $testPlayer->container = $roomA;
+
+    assertTest($testPlayer->getRoom() === $roomA, "Player starts in room_a");
+    $engine74->executeCommandAction($w74, $testPlayer, 'go', 'E', '');
+    assertTest($testPlayer->getRoom() === $roomB, "Player successfully moved East through dynamic Oak Door into room_b");
+    $engine74->executeCommandAction($w74, $testPlayer, 'go', 'W', '');
+    assertTest($testPlayer->getRoom() === $roomA, "Player successfully moved West back through dynamic Oak Door into room_a");
+
+    // Clean up
+    @$pm->resetWorld($sec74WorldId);
+}
+
+if (shouldRun(75)) {
+    echo "\n--- Section 75: Testing SmallBasic World Objects & Inspection Queries & test_world_inspection.dxw ---\n";
+
+    // 1. Unit tests via ActionsRunner
+    $sec75World = new \Dimx\World('sec75_world');
+    $rHall = new \Dimx\Room($sec75World, 'Hall', 'rhall', 'Grand hall');
+    $rYard = new \Dimx\Room($sec75World, 'Yard', 'ryard', 'Outer courtyard');
+    $sec75World->addRoom($rHall);
+    $sec75World->addRoom($rYard);
+
+    $linkGate = new \Dimx\Link($sec75World, 'Iron Gate', 'lgate', $rHall, $rYard, true, 'N', 'A heavy gate');
+    $sec75World->addLink($linkGate);
+
+    $guardNpc = new \Dimx\Character($sec75World, 'Guard', 'cguard');
+    $guardNpc->container = $rHall;
+    $rHall->addObject($guardNpc);
+    $sec75World->addCharacter($guardNpc);
+
+    $swordItem = new \Dimx\Item($sec75World, 'Broadsword', 'isword');
+    $swordItem->setProperty('type', 'weapon.sword');
+    $swordItem->container = $rHall;
+    $rHall->addObject($swordItem);
+    $sec75World->addItem($swordItem);
+
+    $pAlice = new \Dimx\Player($sec75World, 'Alice', 'palice');
+    $pAlice->setProperty('gold', 100);
+    $pAlice->setProperty('rank', 'Knight');
+    $pAlice->container = $rHall;
+    $rHall->addObject($pAlice);
+    $sec75World->addPlayer($pAlice);
+
+    $runner75 = new \Dimx\ActionsRunner($sec75World, null, null, null);
+
+    // getCharactersIn: should include guardNpc and pAlice (Player is a Character)
+    $runner75->run('Dim charsHall = getCharactersIn(rhall)');
+    $charsHall = $runner75->getLocalVar('charsHall');
+    assertTest(is_array($charsHall) && count($charsHall) === 2, "getCharactersIn(rhall) returns 2 characters (NPC + Player)");
+    assertTest(isset($charsHall['cguard']), "getCharactersIn includes cguard");
+    assertTest(isset($charsHall['palice']), "getCharactersIn includes palice");
+
+    // getPlayersIn: should only include pAlice
+    $runner75->run('Dim playersHall = getPlayersIn(rhall)');
+    $playersHall = $runner75->getLocalVar('playersHall');
+    assertTest(is_array($playersHall) && count($playersHall) === 1, "getPlayersIn(rhall) returns 1 player");
+    assertTest(isset($playersHall['palice']), "getPlayersIn includes palice");
+    assertTest(!isset($playersHall['cguard']), "getPlayersIn does not include NPC cguard");
+
+    // getLinksFrom
+    $runner75->run('Dim linksHall = getLinksFrom(rhall)');
+    $linksHall = $runner75->getLocalVar('linksHall');
+    assertTest(is_array($linksHall) && count($linksHall) === 1, "getLinksFrom(rhall) returns 1 link");
+    assertTest(isset($linksHall['lgate']), "getLinksFrom includes lgate");
+
+    // getObject
+    $runner75->run('Dim resolvedHall = getObject("rhall")');
+    $resolvedHall = $runner75->getLocalVar('resolvedHall');
+    assertTest($resolvedHall === $rHall, "getObject resolves 'rhall' to Room instance");
+    $runner75->run('Dim resolvedGuard = getObject("cguard")');
+    $resolvedGuard = $runner75->getLocalVar('resolvedGuard');
+    assertTest($resolvedGuard === $guardNpc, "getObject resolves 'cguard' to Character instance");
+    $runner75->run('Dim resolvedMissing = getObject("missing_id")');
+    $resolvedMissing = $runner75->getLocalVar('resolvedMissing');
+    assertTest($resolvedMissing === null || $resolvedMissing === '', "getObject returns null/empty for non-existent ID");
+
+    // getPlayerProperties
+    $runner75->run('Dim aliceProps = getPlayerProperties("palice")');
+    $aliceProps = $runner75->getLocalVar('aliceProps');
+    assertTest(is_array($aliceProps) && (int)($aliceProps['gold'] ?? 0) === 100, "getPlayerProperties retrieves active player gold = 100");
+    assertTest(($aliceProps['rank'] ?? '') === 'Knight', "getPlayerProperties retrieves rank = 'Knight'");
+
+    // getRooms
+    $runner75->run('Dim allRooms = getRooms()');
+    $allRooms = $runner75->getLocalVar('allRooms');
+    assertTest(is_array($allRooms) && count($allRooms) === 2, "getRooms() returns all 2 world rooms");
+    $runner75->run('Dim exclRooms = getRooms("ryard")');
+    $exclRooms = $runner75->getLocalVar('exclRooms');
+    assertTest(is_array($exclRooms) && count($exclRooms) === 1 && isset($exclRooms['rhall']), "getRooms with exclusion returns only rhall");
+
+    // getRoomsFrom
+    $runner75->run('Dim roomsFromHall = getRoomsFrom(rhall)');
+    $roomsFromHall = $runner75->getLocalVar('roomsFromHall');
+    assertTest(is_array($roomsFromHall) && count($roomsFromHall) === 1 && isset($roomsFromHall['ryard']), "getRoomsFrom(rhall) returns ryard when gate is open");
+    // Close gate and test
+    $linkGate->open = false;
+    $runner75->run('Dim roomsFromClosed = getRoomsFrom(rhall)');
+    $roomsFromClosed = $runner75->getLocalVar('roomsFromClosed');
+    assertTest(is_array($roomsFromClosed) && count($roomsFromClosed) === 0, "getRoomsFrom(rhall) returns empty set when gate is closed");
+    $linkGate->open = true;
+
+    // IsCharacter
+    $runner75->run('Dim isCharGuard = IsCharacter(cguard)');
+    assertTest((int)$runner75->getLocalVar('isCharGuard') === 1, "IsCharacter(cguard) returns 1");
+    $runner75->run('Dim isCharAlice = IsCharacter(palice)');
+    assertTest((int)$runner75->getLocalVar('isCharAlice') === 1, "IsCharacter(palice) returns 1");
+    $runner75->run('Dim isCharHall = IsCharacter(rhall)');
+    assertTest((int)$runner75->getLocalVar('isCharHall') === 0, "IsCharacter(rhall) returns 0");
+
+    // IsPlayer
+    $runner75->run('Dim isPlayerAlice = IsPlayer(palice)');
+    assertTest((int)$runner75->getLocalVar('isPlayerAlice') === 1, "IsPlayer(palice) returns 1");
+    $runner75->run('Dim isPlayerGuard = IsPlayer(cguard)');
+    assertTest((int)$runner75->getLocalVar('isPlayerGuard') === 0, "IsPlayer(cguard) returns 0");
+    $runner75->run('Dim isPlayerHall = IsPlayer(rhall)');
+    assertTest((int)$runner75->getLocalVar('isPlayerHall') === 0, "IsPlayer(rhall) returns 0");
+
+    // IsRoom
+    $runner75->run('Dim isRoomHall = IsRoom(rhall)');
+    assertTest((int)$runner75->getLocalVar('isRoomHall') === 1, "IsRoom(rhall) returns 1");
+    $runner75->run('Dim isRoomGuard = IsRoom(cguard)');
+    assertTest((int)$runner75->getLocalVar('isRoomGuard') === 0, "IsRoom(cguard) returns 0");
+
+    // MainType
+    $runner75->run('Dim typeSword = MainType(isword)');
+    assertTest($runner75->getLocalVar('typeSword') === 'weapon', "MainType(weapon.sword) returns 'weapon'");
+    $runner75->run('Dim typeHall = MainType(rhall)');
+    assertTest($runner75->getLocalVar('typeHall') === 'room', "MainType(rhall) returns 'room'");
+    $runner75->run('Dim typeGuard = MainType(cguard)');
+    assertTest($runner75->getLocalVar('typeGuard') === 'character', "MainType(cguard) returns 'character'");
+    $runner75->run('Dim typeAlice = MainType(palice)');
+    assertTest($runner75->getLocalVar('typeAlice') === 'player', "MainType(palice) returns 'player'");
+
+    // 2. Integration test: Load test_world_inspection.dxw with GameEngine and verify onStart execution
+    $sec75WorldId = 'test_w_sec75_' . uniqid();
+    $sec75DxwPath = dirname(__DIR__) . '/docs/dxw-examples/test_world_inspection.dxw';
+    $engine75 = new \Dimx\GameEngine($pm, $sec75WorldId, $sec75DxwPath);
+
+    // Save hero_properties setting before loading world
+    $pm->saveSetting($sec75WorldId, 'hero_properties', 'gold=250,class=warrior');
+
+    $w75 = $engine75->loadOrSeedWorld();
+    assertTest($w75 instanceof \Dimx\World, "loadOrSeedWorld seeded world from test_world_inspection.dxw");
+
+    assertTest((int)$w75->getProperty('res_chars_count') === 1, "DXW onStart getCharactersIn count is 1");
+    assertTest($w75->getProperty('res_has_guard') !== false && (string)$w75->getProperty('res_has_guard') !== '-1', "DXW onStart guard found in room_hall characters");
+
+    assertTest((int)$w75->getProperty('res_links_count') === 1, "DXW onStart getLinksFrom count is 1");
+    assertTest($w75->getProperty('res_has_door') !== false && (string)$w75->getProperty('res_has_door') !== '-1', "DXW onStart hall_door found in links");
+
+    assertTest($w75->getProperty('res_obj_hall_name') === 'Grand Hall', "DXW onStart getObject('room_hall').name -> 'Grand Hall'");
+    assertTest($w75->getProperty('res_obj_guard_name') === 'Castle Guard', "DXW onStart getObject('guard').name -> 'Castle Guard'");
+    assertTest($w75->getProperty('res_obj_missing') == 1, "DXW onStart getObject('no_such_object') -> empty");
+
+    assertTest((string)$w75->getProperty('res_hero_gold') === '250', "DXW onStart getPlayerProperties('hero') gold -> 250");
+    assertTest($w75->getProperty('res_hero_class') === 'warrior', "DXW onStart getPlayerProperties('hero') class -> 'warrior'");
+
+    assertTest((int)$w75->getProperty('res_players_count') === 0, "DXW onStart getPlayersIn count is 0");
+
+    assertTest((int)$w75->getProperty('res_all_rooms_count') === 2, "DXW onStart getRooms count is 2");
+    assertTest((int)$w75->getProperty('res_excl_rooms_count') === 1, "DXW onStart getRooms with exclusion count is 1");
+    assertTest($w75->getProperty('res_excl_has_hall') !== false && (string)$w75->getProperty('res_excl_has_hall') !== '-1', "DXW onStart exclRooms has room_hall");
+
+    assertTest((int)$w75->getProperty('res_reachable_count') === 1, "DXW onStart getRoomsFrom count is 1");
+    assertTest($w75->getProperty('res_has_garden') !== false && (string)$w75->getProperty('res_has_garden') !== '-1', "DXW onStart reachable has room_garden");
+
+    assertTest((int)$w75->getProperty('res_is_char_guard') === 1, "DXW onStart IsCharacter(guard) -> 1");
+    assertTest((int)$w75->getProperty('res_is_char_hall') === 0, "DXW onStart IsCharacter(room_hall) -> 0");
+    assertTest((int)$w75->getProperty('res_is_player_guard') === 0, "DXW onStart IsPlayer(guard) -> 0");
+    assertTest((int)$w75->getProperty('res_is_room_hall') === 1, "DXW onStart IsRoom(room_hall) -> 1");
+    assertTest((int)$w75->getProperty('res_is_room_guard') === 0, "DXW onStart IsRoom(guard) -> 0");
+
+    assertTest($w75->getProperty('res_type_sword') === 'weapon', "DXW onStart MainType(magic_sword) -> 'weapon'");
+    assertTest($w75->getProperty('res_type_coin') === 'treasure', "DXW onStart MainType(gold_coin) -> 'treasure'");
+    assertTest($w75->getProperty('res_type_hall') === 'room', "DXW onStart MainType(room_hall) -> 'room'");
+    assertTest($w75->getProperty('res_type_guard') === 'character', "DXW onStart MainType(guard) -> 'character'");
+
+    // Clean up
+    @$pm->resetWorld($sec75WorldId);
 }
 
 // Clean up test worlds
