@@ -188,6 +188,47 @@ class ActionsRunner
         $this->localVars[$name][$key] = $val;
     }
 
+    public function setSetElement(string $name, string $key, mixed $val): void
+    {
+        if (array_key_exists($name, $this->localVars)) {
+            if (!is_array($this->localVars[$name])) {
+                $this->localVars[$name] = [];
+            }
+            $targetKey = $key;
+            foreach (array_keys($this->localVars[$name]) as $k) {
+                if (strcasecmp((string)$k, $key) === 0) {
+                    $targetKey = $k;
+                    break;
+                }
+            }
+            $this->localVars[$name][$targetKey] = $val;
+            return;
+        }
+
+        if ($this->world !== null) {
+            $arr = $this->world->sets[$name] ?? $this->world->getProperty($name);
+            if (!is_array($arr)) {
+                $arr = [];
+            }
+            $targetKey = $key;
+            foreach (array_keys($arr) as $k) {
+                if (strcasecmp((string)$k, $key) === 0) {
+                    $targetKey = $k;
+                    break;
+                }
+            }
+            $arr[$targetKey] = $val;
+            $this->world->sets[$name] = $arr;
+            $this->world->setProperty($name, $arr);
+            return;
+        }
+
+        if (!isset($this->localVars[$name]) || !is_array($this->localVars[$name])) {
+            $this->localVars[$name] = [];
+        }
+        $this->localVars[$name][$key] = $val;
+    }
+
     public function getArrayElement(string $name, int $index): mixed
     {
         $arr = $this->getVariable($name);
@@ -702,12 +743,17 @@ class ActionsRunner
             return true;
         }
 
-        // 1c. Array element assignment e.g. "score(i) = 0" or "players(i) = person"
+        // 1c. Array/Set element assignment e.g. "score(i) = 0" or "s('key') = val"
         if (preg_match('/^([A-Za-z0-9_]+)\s*\(\s*(.+?)\s*\)\s*=\s*(.*)$/', $line, $m) && !str_contains($m[1], '.')) {
             $arrName = $m[1];
-            $idx = (int)$this->evalValue($m[2]);
+            $rawKey = $this->evalValue($m[2]);
             $val = $this->evalValue($m[3]);
-            $this->setArrayElement($arrName, $idx, $val);
+            if (is_int($rawKey) || ctype_digit((string)$rawKey)) {
+                $this->setArrayElement($arrName, (int)$rawKey, $val);
+            } else {
+                $strKey = is_string($rawKey) ? trim($rawKey, "\"'") : (string)$rawKey;
+                $this->setSetElement($arrName, $strKey, $val);
+            }
             return true;
         }
 
@@ -2678,6 +2724,129 @@ class ActionsRunner
                 return $res;
             }
 
+            // Built-in Copy( array_or_set )
+            if (strcasecmp($fn, 'Copy') === 0) {
+                $rawVal = $this->evalValue($argStr);
+                if (!is_array($rawVal)) {
+                    $arr = $this->getVariable($argStr);
+                    if (is_array($arr)) {
+                        $rawVal = $arr;
+                    }
+                }
+                if (!is_array($rawVal)) {
+                    return $rawVal;
+                }
+                $deepCopy = function(array $in) use (&$deepCopy): array {
+                    $out = [];
+                    foreach ($in as $k => $v) {
+                        $out[$k] = is_array($v) ? $deepCopy($v) : $v;
+                    }
+                    return $out;
+                };
+                return $deepCopy($rawVal);
+            }
+
+            // Built-in NewSet( [string] )
+            if (strcasecmp($fn, 'NewSet') === 0) {
+                if ($argStr === '' || $argStr === '""' || $argStr === "''") {
+                    return [];
+                }
+                $raw = $this->evalValue($argStr);
+                $str = is_string($raw) ? trim($raw, "\"'") : (string)$raw;
+                if ($str === '') {
+                    return [];
+                }
+                $parts = explode(',', $str);
+                $res = [];
+                foreach ($parts as $part) {
+                    if ($part === '') {
+                        continue;
+                    }
+                    if (str_contains($part, '=')) {
+                        [$k, $v] = explode('=', $part, 2);
+                        $k = str_replace(['!1!', '!2!'], [',', '='], trim($k));
+                        $v = str_replace(['!1!', '!2!'], [',', '='], trim($v));
+                        if (is_numeric($v)) {
+                            $v = str_contains($v, '.') ? (float)$v : (int)$v;
+                        }
+                        $res[$k] = $v;
+                    } else {
+                        $k = str_replace(['!1!', '!2!'], [',', '='], trim($part));
+                        $res[$k] = '';
+                    }
+                }
+                uksort($res, 'strcasecmp');
+                return $res;
+            }
+
+            // Built-in SetIndexOf( setarray, value )
+            if (strcasecmp($fn, 'SetIndexOf') === 0) {
+                $args = $this->parseArguments($argStr);
+                $rawColl = isset($args[0]) ? $this->evalValue($args[0]) : null;
+                if (!is_array($rawColl) && isset($args[0])) {
+                    $arr = $this->getVariable($args[0]);
+                    if (is_array($arr)) {
+                        $rawColl = $arr;
+                    }
+                }
+                if (!is_array($rawColl)) {
+                    return 0;
+                }
+                $searchVal = isset($args[1]) ? $this->evalValue($args[1]) : null;
+                $searchStr = ($searchVal instanceof DimxObject) ? (string)$searchVal->id : (string)$searchVal;
+                $idx = 1;
+                foreach ($rawColl as $elem) {
+                    $elemStr = ($elem instanceof DimxObject) ? (string)$elem->id : (string)$elem;
+                    if (strcasecmp($searchStr, $elemStr) === 0) {
+                        return $idx;
+                    }
+                    $idx++;
+                }
+                return 0;
+            }
+
+            // Built-in SetKey( set, n )
+            if (strcasecmp($fn, 'SetKey') === 0) {
+                $args = $this->parseArguments($argStr);
+                $rawSet = isset($args[0]) ? $this->evalValue($args[0]) : null;
+                if (!is_array($rawSet) && isset($args[0])) {
+                    $arr = $this->getVariable($args[0]);
+                    if (is_array($arr)) {
+                        $rawSet = $arr;
+                    }
+                }
+                if (!is_array($rawSet)) {
+                    return '';
+                }
+                $n = isset($args[1]) ? (int)$this->evalValue($args[1]) : 0;
+                $keys = array_keys($rawSet);
+                if ($n >= 1 && $n <= count($keys)) {
+                    return (string)$keys[$n - 1];
+                }
+                return '';
+            }
+
+            // Built-in SetKeys( set )
+            if (strcasecmp($fn, 'SetKeys') === 0) {
+                $rawSet = $this->evalValue($argStr);
+                if (!is_array($rawSet)) {
+                    $arr = $this->getVariable($argStr);
+                    if (is_array($arr)) {
+                        $rawSet = $arr;
+                    }
+                }
+                if (!is_array($rawSet)) {
+                    return [];
+                }
+                $keys = array_keys($rawSet);
+                $res = [];
+                $idx = 1;
+                foreach ($keys as $k) {
+                    $res[$idx++] = (string)$k;
+                }
+                return $res;
+            }
+
             // Built-in Exists
             if (strcasecmp($fn, 'Exists') === 0) {
                 $targetObj = $this->evalValue($argStr);
@@ -2802,7 +2971,16 @@ class ActionsRunner
                 if (is_int($evalKey) || ctype_digit((string)$evalKey)) {
                     return $this->getArrayElement($fn, (int)$evalKey);
                 }
-                return $arr[(string)$evalKey] ?? null;
+                $keyStr = (string)$evalKey;
+                if (array_key_exists($keyStr, $arr)) {
+                    return $arr[$keyStr];
+                }
+                foreach ($arr as $k => $v) {
+                    if (strcasecmp((string)$k, $keyStr) === 0) {
+                        return $v;
+                    }
+                }
+                return null;
             }
 
             // Check if $fn is a custom script Function/Sub in world events

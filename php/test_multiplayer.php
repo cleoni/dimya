@@ -73,6 +73,7 @@ $sections = [
     70 => ['title' => 'Testing Character::give() Standard DimX Events (whenPicked, onReceiveItem, onLooseItem, No whenGiven/whenReceived)...', 'keywords' => ['give', 'whenpicked', 'onreceiveitem', 'onlooseitem', 'whengiven', 'whenreceived', 'itemgive', 'character']],
     71 => ['title' => 'Testing SmallBasic String Functions (Asc, Chr, LCase, UCase, Left, Right, Mid, Replace, Format, InStr, InStrCount) & test_string_functions.dxw...', 'keywords' => ['asc', 'chr', 'lcase', 'ucase', 'left', 'right', 'mid', 'replace', 'format', 'instr', 'instrcount', 'string', 'test_string_functions.dxw']],
     72 => ['title' => 'Testing SmallBasic Math Functions (Abs, Int, Log, Rnd, Round, Sqr) & test_math_functions.dxw...', 'keywords' => ['abs', 'int', 'log', 'rnd', 'round', 'sqr', 'math', 'test_math_functions.dxw']],
+    73 => ['title' => 'Testing SmallBasic Sets & Arrays Functions (Copy, NewSet, SetIndexOf, SetKey, SetKeys) & test_set_array_functions.dxw...', 'keywords' => ['copy', 'newset', 'setindexof', 'setkey', 'setkeys', 'sets', 'arrays', 'test_set_array_functions.dxw']],
 ];
 
 // CLI Options parsing
@@ -4750,6 +4751,131 @@ if (shouldRun(72)) {
 
     // Clean up
     @$pm->resetWorld($sec72WorldId);
+}
+
+if (shouldRun(73)) {
+    echo "\n--- Section 73: Testing SmallBasic Sets & Arrays Functions (Copy, NewSet, SetIndexOf, SetKey, SetKeys) & test_set_array_functions.dxw ---\n";
+
+    // 1. Unit tests via ActionsRunner
+    $sec73World = new \Dimx\World('sec73_world');
+    $runner = new \Dimx\ActionsRunner($sec73World, null, null, null);
+
+    // NewSet()
+    $runner->run('Dim s0 = NewSet()');
+    $s0 = $runner->getLocalVar('s0');
+    assertTest(is_array($s0) && empty($s0), "NewSet() returns empty array");
+
+    $runner->run('Dim s1 = NewSet("alpha=10, beta=20, gamma=30")');
+    $s1 = $runner->getLocalVar('s1');
+    assertTest(is_array($s1) && count($s1) === 3, "NewSet(\"alpha=10, beta=20, gamma=30\") creates 3-element set");
+    $runner->run('Dim vAlpha = s1("alpha")');
+    assertTest($runner->getLocalVar('vAlpha') === 10, "s1('alpha') returns 10");
+    $runner->run('Dim vBeta = s1("beta")');
+    assertTest($runner->getLocalVar('vBeta') === 20, "s1('beta') returns 20");
+    $runner->run('Dim vGamma = s1("gamma")');
+    assertTest($runner->getLocalVar('vGamma') === 30, "s1('gamma') returns 30");
+    $runner->run('Dim vCase = s1("BETA")');
+    assertTest($runner->getLocalVar('vCase') === 20, "s1('BETA') case-insensitive lookup returns 20");
+
+    // NewSet escaping !1! (,) and !2! (=)
+    $runner->run('Dim sEsc = NewSet("comma=!1!, equal=!2!")');
+    $runner->run('Dim vComma = sEsc("comma")');
+    $runner->run('Dim vEqual = sEsc("equal")');
+    assertTest($runner->getLocalVar('vComma') === ',', "NewSet unescapes !1! to comma (',')");
+    assertTest($runner->getLocalVar('vEqual') === '=', "NewSet unescapes !2! to equal ('=')");
+
+    // SetKey()
+    $runner->run('Dim k1 = SetKey(s1, 1)');
+    assertTest($runner->getLocalVar('k1') === 'alpha', "SetKey(s1, 1) returns first sorted key 'alpha'");
+    $runner->run('Dim k2 = SetKey(s1, 2)');
+    assertTest($runner->getLocalVar('k2') === 'beta', "SetKey(s1, 2) returns second key 'beta'");
+    $runner->run('Dim k3 = SetKey(s1, 3)');
+    assertTest($runner->getLocalVar('k3') === 'gamma', "SetKey(s1, 3) returns third key 'gamma'");
+    $runner->run('Dim kOut = SetKey(s1, 99)');
+    assertTest($runner->getLocalVar('kOut') === '', "SetKey(s1, 99) out of bounds returns empty string");
+
+    // SetKeys()
+    $runner->run('Dim allKeys = SetKeys(s1)');
+    $runner->run('Dim keysCount = SetLen(allKeys)');
+    assertTest($runner->getLocalVar('keysCount') === 3, "SetLen(SetKeys(s1)) returns 3");
+    $runner->run('Dim keyElem1 = allKeys(1)');
+    assertTest($runner->getLocalVar('keyElem1') === 'alpha', "allKeys(1) returns 'alpha'");
+    $runner->run('Dim keyElem2 = allKeys(2)');
+    assertTest($runner->getLocalVar('keyElem2') === 'beta', "allKeys(2) returns 'beta'");
+    $runner->run('Dim keyElem3 = allKeys(3)');
+    assertTest($runner->getLocalVar('keyElem3') === 'gamma', "allKeys(3) returns 'gamma'");
+
+    // SetIndexOf() on Array
+    $runner->run('Dim arr = NewArray("cat, dog, bird")');
+    $runner->run('Dim idxFound = SetIndexOf(arr, "dog")');
+    assertTest($runner->getLocalVar('idxFound') === 2, "SetIndexOf(arr, 'dog') returns 2");
+    $runner->run('Dim idxCase = SetIndexOf(arr, "DOG")');
+    assertTest($runner->getLocalVar('idxCase') === 2, "SetIndexOf(arr, 'DOG') case-insensitive returns 2");
+    $runner->run('Dim idxNotFound = SetIndexOf(arr, "fish")');
+    assertTest($runner->getLocalVar('idxNotFound') === 0, "SetIndexOf(arr, 'fish') not found returns 0");
+
+    // SetIndexOf() on Set
+    $runner->run('Dim idxSetFound = SetIndexOf(s1, 20)');
+    assertTest($runner->getLocalVar('idxSetFound') === 2, "SetIndexOf(s1, 20) returns 2");
+    $runner->run('Dim idxSetNotFound = SetIndexOf(s1, 999)');
+    assertTest($runner->getLocalVar('idxSetNotFound') === 0, "SetIndexOf(s1, 999) not found returns 0");
+
+    // Copy() on Array
+    $runner->run('Dim arrClone = Copy(arr)');
+    $runner->run('Dim cloneLen = SetLen(arrClone)');
+    assertTest($runner->getLocalVar('cloneLen') === 3, "Copy(arr) produces 3-element clone");
+    $runner->run('arrClone(2) = "wolf"');
+    $runner->run('Dim origElem = arr(2)');
+    $runner->run('Dim cloneElem = arrClone(2)');
+    assertTest($runner->getLocalVar('origElem') === 'dog', "Mutating clone does not affect original array: arr(2) is 'dog'");
+    assertTest($runner->getLocalVar('cloneElem') === 'wolf', "Mutating clone updates clone array: arrClone(2) is 'wolf'");
+
+    // Copy() on Set
+    $runner->run('Dim sClone = Copy(s1)');
+    $runner->run('Dim sCloneLen = SetLen(sClone)');
+    assertTest($runner->getLocalVar('sCloneLen') === 3, "Copy(s1) produces 3-element set clone");
+    $runner->run('sClone("beta") = 999');
+    $runner->run('Dim origSetBeta = s1("beta")');
+    $runner->run('Dim cloneSetBeta = sClone("beta")');
+    assertTest($runner->getLocalVar('origSetBeta') === 20, "Mutating set clone does not affect original set: s1('beta') is 20");
+    assertTest($runner->getLocalVar('cloneSetBeta') === 999, "Mutating set clone updates clone: sClone('beta') is 999");
+
+    // 2. Integration test: Load test_set_array_functions.dxw with GameEngine and execute onStart
+    $sec73WorldId = 'test_w_sec73_' . uniqid();
+    $sec73DxwPath = dirname(__DIR__) . '/docs/dxw-examples/test_set_array_functions.dxw';
+    $engine73 = new \Dimx\GameEngine($pm, $sec73WorldId, $sec73DxwPath);
+    $w73 = $engine73->loadOrSeedWorld();
+
+    assertTest($w73 instanceof \Dimx\World, "loadOrSeedWorld seeded world from test_set_array_functions.dxw");
+    assertTest((int)$w73->getProperty('res_newset_empty_len') === 0, "DXW onStart executed res_newset_empty_len -> 0");
+    assertTest((int)$w73->getProperty('res_newset_len') === 3, "DXW onStart executed res_newset_len -> 3");
+    assertTest((int)$w73->getProperty('res_newset_val_alpha') === 10, "DXW onStart executed res_newset_val_alpha -> 10");
+    assertTest((int)$w73->getProperty('res_newset_val_beta') === 20, "DXW onStart executed res_newset_val_beta -> 20");
+    assertTest((int)$w73->getProperty('res_newset_case') === 20, "DXW onStart executed res_newset_case -> 20");
+    assertTest($w73->getProperty('res_esc_comma') === ',', "DXW onStart executed res_esc_comma -> ','");
+    assertTest($w73->getProperty('res_esc_equal') === '=', "DXW onStart executed res_esc_equal -> '='");
+    assertTest($w73->getProperty('res_setkey_1') === 'alpha', "DXW onStart executed res_setkey_1 -> 'alpha'");
+    assertTest($w73->getProperty('res_setkey_2') === 'beta', "DXW onStart executed res_setkey_2 -> 'beta'");
+    assertTest($w73->getProperty('res_setkey_3') === 'gamma', "DXW onStart executed res_setkey_3 -> 'gamma'");
+    assertTest($w73->getProperty('res_setkey_out') === '', "DXW onStart executed res_setkey_out -> ''");
+    assertTest((int)$w73->getProperty('res_setkeys_len') === 3, "DXW onStart executed res_setkeys_len -> 3");
+    assertTest($w73->getProperty('res_setkeys_1') === 'alpha', "DXW onStart executed res_setkeys_1 -> 'alpha'");
+    assertTest($w73->getProperty('res_setkeys_2') === 'beta', "DXW onStart executed res_setkeys_2 -> 'beta'");
+    assertTest($w73->getProperty('res_setkeys_3') === 'gamma', "DXW onStart executed res_setkeys_3 -> 'gamma'");
+    assertTest((int)$w73->getProperty('res_indexof_arr_found') === 2, "DXW onStart executed res_indexof_arr_found -> 2");
+    assertTest((int)$w73->getProperty('res_indexof_arr_case') === 2, "DXW onStart executed res_indexof_arr_case -> 2");
+    assertTest((int)$w73->getProperty('res_indexof_arr_notfound') === 0, "DXW onStart executed res_indexof_arr_notfound -> 0");
+    assertTest((int)$w73->getProperty('res_indexof_set_found') === 2, "DXW onStart executed res_indexof_set_found -> 2");
+    assertTest((int)$w73->getProperty('res_indexof_set_notfound') === 0, "DXW onStart executed res_indexof_set_notfound -> 0");
+    assertTest((int)$w73->getProperty('res_copy_arr_len') === 3, "DXW onStart executed res_copy_arr_len -> 3");
+    assertTest($w73->getProperty('res_orig_arr_val') === 'dog', "DXW onStart executed res_orig_arr_val -> 'dog'");
+    assertTest($w73->getProperty('res_copy_arr_val') === 'wolf', "DXW onStart executed res_copy_arr_val -> 'wolf'");
+    assertTest((int)$w73->getProperty('res_copy_set_len') === 3, "DXW onStart executed res_copy_set_len -> 3");
+    assertTest((int)$w73->getProperty('res_orig_set_val') === 20, "DXW onStart executed res_orig_set_val -> 20");
+    assertTest((int)$w73->getProperty('res_copy_set_val') === 999, "DXW onStart executed res_copy_set_val -> 999");
+
+    // Clean up
+    @$pm->resetWorld($sec73WorldId);
 }
 
 // Clean up test worlds

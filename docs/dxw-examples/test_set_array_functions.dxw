@@ -1,0 +1,72 @@
+WORLD test_set_array_functions
+	NAME		Sets and Arrays Functions Test World
+	VERSION		1.0
+	AUTHOR  	Test Suite
+
+ROOM start
+	NAME		Laboratory
+	DESCRIPTION	A laboratory for evaluating sets and arrays functions.
+END_ROOMS
+
+SCRIPTS
+
+EVENT onStart
+	' 1. NewSet
+	Dim s0 = NewSet()
+	res_newset_empty_len = SetLen(s0)
+
+	Dim s1 = NewSet("alpha=10, beta=20, gamma=30")
+	res_newset_len = SetLen(s1)
+	res_newset_val_alpha = s1("alpha")
+	res_newset_val_beta = s1("beta")
+	res_newset_case = s1("BETA")
+
+	' Escaped characters in NewSet: !1! is comma, !2! is equals
+	Dim s_esc = NewSet("comma=!1!, equal=!2!")
+	res_esc_comma = s_esc("comma")
+	res_esc_equal = s_esc("equal")
+
+	' 2. SetKey
+	' Keys in Set are sorted alphabetically: alpha, beta, gamma
+	res_setkey_1 = SetKey(s1, 1)
+	res_setkey_2 = SetKey(s1, 2)
+	res_setkey_3 = SetKey(s1, 3)
+	res_setkey_out = SetKey(s1, 99)
+
+	' 3. SetKeys
+	Dim keys = SetKeys(s1)
+	res_setkeys_len = SetLen(keys)
+	res_setkeys_1 = keys(1)
+	res_setkeys_2 = keys(2)
+	res_setkeys_3 = keys(3)
+
+	' 4. SetIndexOf
+	' On Array
+	Dim arr = NewArray("cat, dog, bird")
+	res_indexof_arr_found = SetIndexOf(arr, "dog")
+	res_indexof_arr_case = SetIndexOf(arr, "DOG")
+	res_indexof_arr_notfound = SetIndexOf(arr, "fish")
+
+	' On Set (values: alpha=10, beta=20, gamma=30)
+	res_indexof_set_found = SetIndexOf(s1, 20)
+	res_indexof_set_notfound = SetIndexOf(s1, 999)
+
+	' 5. Copy
+	' On Array
+	Dim arr2 = Copy(arr)
+	res_copy_arr_len = SetLen(arr2)
+	arr2(2) = "wolf"
+	res_orig_arr_val = arr(2)
+	res_copy_arr_val = arr2(2)
+
+	' On Set
+	Dim s2 = Copy(s1)
+	res_copy_set_len = SetLen(s2)
+	s2("beta") = 999
+	res_orig_set_val = s1("beta")
+	res_copy_set_val = s2("beta")
+END_EVENT
+
+END_SCRIPTS
+
+END_WORLD

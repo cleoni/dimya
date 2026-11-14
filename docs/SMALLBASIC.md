@@ -1007,9 +1007,7 @@ Returns the character corresponding to ASCII code `n` ($0 \le n \le 255$).
 
 ### 3.10.4 Copy( array_or_set )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
-Produces a deep, independent copy of an `ARRAY` or `SET` collection.
+> **[DimY: implemented]** Produces a deep, independent copy of an `ARRAY` or `SET` collection.
 
 - **Syntax**: `newCollection = Copy( array_or_set )`
 - **Notes**: In SmallBasic, simple assignment `myCopy = myArr` copies the *reference* so mutations affect both. `Copy()` clones the elements individually.
@@ -1410,9 +1408,7 @@ Dynamically creates a navigational exit link between two rooms.
 
 ### 3.10.38 NewSet( [string] )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
-Creates a key-sorted `SET` dictionary.
+> **[DimY: implemented]** Creates a key-sorted `SET` dictionary.
 
 - **Syntax**: `set = NewSet( ["key1=val1, key2=val2"] )`
 - **Escape sequences**: `!1!` for comma (`,`), `!2!` for equals (`=`).
@@ -1532,9 +1528,7 @@ Checks if `set` (or array/dictionary) contains an entry with key `key` (case-ins
 
 ### 3.10.49 SetIndexOf( setarray, value )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
-Searches a set or array for `value` (case-insensitive) and returns its 1-based index, or `0` if not found.
+> **[DimY: implemented]** Searches a set or array for `value` (case-insensitive) and returns its 1-based index, or `0` if not found.
 
 - **Syntax**: `idx = SetIndexOf( setarray, value )`
 
@@ -1542,9 +1536,7 @@ Searches a set or array for `value` (case-insensitive) and returns its 1-based i
 
 ### 3.10.50 SetKey( set, n )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
-Returns the key name at 1-based index position `n` within `set`.
+> **[DimY: implemented]** Returns the key name at 1-based index position `n` within `set`.
 
 - **Syntax**: `keyName = SetKey( set, n )`
 
@@ -1552,9 +1544,7 @@ Returns the key name at 1-based index position `n` within `set`.
 
 ### 3.10.51 SetKeys( set )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
-
-Returns an `ARRAY` containing all the key names in `set`.
+> **[DimY: implemented]** Returns an `ARRAY` containing all the key names in `set`.
 
 - **Syntax**: `keysArr = SetKeys( set )`
 
