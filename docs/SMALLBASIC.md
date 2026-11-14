@@ -1016,7 +1016,7 @@ Returns the character corresponding to ASCII code `n` ($0 \le n \le 255$).
 
 ### 3.10.5 Exists( objectID )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Checks if an adventure object with the specified identifier exists in the current world. Returns 1 if exists, 0 otherwise.
 
 Checks if an adventure object with the specified identifier exists in the current world.
 
@@ -1027,7 +1027,7 @@ Checks if an adventure object with the specified identifier exists in the curren
 
 ### 3.10.6 ExistScript( scriptID )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Checks if a custom Sub, Function, or EVENT exists with the given name. Returns 1 if defined, 0 otherwise.
 
 Checks if a custom `Sub`, `Function`, or `EVENT` exists with the given name.
 
@@ -1053,7 +1053,7 @@ Formats a number according to a format pattern string (following standard `Strin
 
 ### 3.10.8 gameInfo( variable )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns runtime metadata and paths of the game engine server ("site", "imagesfolder", "navigator", "version", "worldname", "playercount").
 
 Returns runtime settings and paths of the game engine server.
 
@@ -1198,7 +1198,7 @@ Returns a `SET` of all rooms reachable via exits directly accessible from `room`
 
 ### 3.10.19 getSetting( key [, default] )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Retrieves a persisted key-value setting previously stored by `SaveSetting`, or falls back to `default`.
 
 Retrieves a persisted key-value setting previously stored by `SaveSetting`.
 
@@ -1209,7 +1209,7 @@ Retrieves a persisted key-value setting previously stored by `SaveSetting`.
 
 ### 3.10.20 getTime( format )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns the current server date/time formatted according to pattern `format` (e.g. "HH:mm", "yyyy-MM-dd HH:mm:ss").
 
 Returns the current server date/time formatted according to pattern `format`.
 
@@ -1223,7 +1223,7 @@ Returns the current server date/time formatted according to pattern `format`.
 
 ### 3.10.21 HttpFetch( url )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Fetches content from an external HTTP/HTTPS URL and returns the response body as a string.
 
 Fetches content from an external HTTP/HTTPS URL and returns the response body as a string.
 
@@ -1357,7 +1357,7 @@ Extracts a substring of `nchars` characters starting from 1-based position `star
 
 ### 3.10.34 NewArray( [string] )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Instantiates a sequential indexed `ARRAY` collection.
 
 Instantiates a sequential indexed `ARRAY` collection.
 
@@ -1435,7 +1435,7 @@ Logical negation of a boolean or numeric expression.
 
 ### 3.10.41 PanelHtml( panel )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Renders the specified panel's controls as HTML markup (used for building custom UI layouts and context menus).
 
 Renders the specified panel's controls as HTML markup (used for building context menus).
 

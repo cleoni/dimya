@@ -1,0 +1,48 @@
+WORLD test_system_env
+	NAME		System and Environment Test World
+	VERSION		1.0
+	AUTHOR  	Test Suite
+	SITE		http://www.dimensione-x.net
+
+ROOMS
+
+ROOM room_nexus
+	NAME		The Nexus
+	DESCRIPTION	A luminous chamber with pulsing data streams.
+
+END_ROOMS
+
+SCRIPTS
+
+SUB customSub
+	res_sub_ran = 1
+END_SUB
+
+EVENT onStart
+	' 1. ExistScript
+	res_has_onstart = ExistScript("onStart")
+	res_has_customsub = ExistScript("customSub")
+	res_has_fake = ExistScript("nonExistentScript")
+
+	' 2. getTime
+	res_year = getTime("yyyy")
+	res_time_hhmm = getTime("HH:mm")
+
+	' 3. HttpFetch
+	res_invalid_url = HttpFetch("ftp://example.com/test")
+
+	' 4. PanelHtml
+	res_panel_html = PanelHtml("default")
+	res_fake_panel = PanelHtml("fake_panel_id")
+
+	' 5. getSetting
+	res_setting_def = getSetting("custom_motd", "Welcome Adventurer")
+
+	' 6. gameInfo
+	res_info_worldname = gameInfo("worldname")
+	res_info_site = gameInfo("site")
+END_EVENT
+
+END_SCRIPTS
+
+END_WORLD

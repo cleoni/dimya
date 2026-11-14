@@ -76,6 +76,7 @@ $sections = [
     73 => ['title' => 'Testing SmallBasic Sets & Arrays Functions (Copy, NewSet, SetIndexOf, SetKey, SetKeys) & test_set_array_functions.dxw...', 'keywords' => ['copy', 'newset', 'setindexof', 'setkey', 'setkeys', 'sets', 'arrays', 'test_set_array_functions.dxw']],
     74 => ['title' => 'Testing SmallBasic Dynamic World Entities (NewCharacter, NewLink) & test_dynamic_entities.dxw...', 'keywords' => ['newcharacter', 'newlink', 'character', 'link', 'dynamic', 'test_dynamic_entities.dxw']],
     75 => ['title' => 'Testing SmallBasic World Objects & Inspection Queries & test_world_inspection.dxw...', 'keywords' => ['inspection', 'getcharactersin', 'getlinksfrom', 'getobject', 'getplayerproperties', 'getplayersin', 'getrooms', 'getroomsfrom', 'ischaracter', 'isplayer', 'isroom', 'maintype', 'test_world_inspection.dxw']],
+    76 => ['title' => 'Testing SmallBasic System, Scripting & Environment Functions & test_system_env.dxw...', 'keywords' => ['system', 'scripting', 'existscript', 'gettime', 'httpfetch', 'panelhtml', 'getsetting', 'gameinfo', 'test_system_env.dxw']],
 ];
 
 // CLI Options parsing
@@ -5133,6 +5134,109 @@ if (shouldRun(75)) {
 
     // Clean up
     @$pm->resetWorld($sec75WorldId);
+}
+
+if (shouldRun(76)) {
+    echo "\n--- Section 76: Testing SmallBasic System, Scripting & Environment Functions & test_system_env.dxw ---\n";
+
+    // 1. Unit tests via ActionsRunner
+    $sec76World = new \Dimx\World('sec76_world', 'Matrix Realm');
+    $sec76World->site = 'http://matrix.dimensione-x.net';
+    $sec76World->setProperty('version', '2.5');
+    $sec76World->imagesFolderPublic = 'http://matrix.dimensione-x.net/images';
+    $sec76World->baseUrl = 'http://matrix.dimensione-x.net/game';
+
+    // Register test event
+    $sec76World->registerEvent(new \Dimx\Event('teleportAction', "Display \$WORLD, 'Teleporting!'"));
+
+    // Register test panel
+    $testPanel = new \Dimx\Panel('tactical_panel');
+    $testPanel->addButton(new \Dimx\Ctrl('scan', \Dimx\Ctrl::TYPE_BUTTON, 'Scan Area'));
+    $sec76World->addPanel($testPanel);
+
+    // Set setting
+    $pm->saveSetting('sec76_world', 'motd', 'Welcome to the Matrix');
+
+    $runner76 = new \Dimx\ActionsRunner($sec76World, null, null, null);
+
+    // ExistScript
+    $runner76->run('Dim hasTeleport = ExistScript("teleportAction")');
+    assertTest((int)$runner76->getLocalVar('hasTeleport') === 1, "ExistScript('teleportAction') returns 1");
+    $runner76->run('Dim hasMissing = ExistScript("missingScript")');
+    assertTest((int)$runner76->getLocalVar('hasMissing') === 0, "ExistScript('missingScript') returns 0");
+
+    // getTime
+    $runner76->run('Dim yr = getTime("yyyy")');
+    assertTest((string)$runner76->getLocalVar('yr') === date('Y'), "getTime('yyyy') returns current year: " . date('Y'));
+    $runner76->run('Dim mon = getTime("MM")');
+    assertTest((string)$runner76->getLocalVar('mon') === date('m'), "getTime('MM') returns current month: " . date('m'));
+    $runner76->run('Dim day = getTime("dd")');
+    assertTest((string)$runner76->getLocalVar('day') === date('d'), "getTime('dd') returns current day: " . date('d'));
+    $runner76->run('Dim timeHhMm = getTime("HH:mm")');
+    assertTest((string)$runner76->getLocalVar('timeHhMm') === date('H:i'), "getTime('HH:mm') returns current time: " . date('H:i'));
+
+    // HttpFetch
+    $runner76->run('Dim fetchBad1 = HttpFetch("ftp://example.com/file")');
+    assertTest($runner76->getLocalVar('fetchBad1') === '', "HttpFetch with ftp:// returns empty string");
+    $runner76->run('Dim fetchBad2 = HttpFetch("not_a_valid_url")');
+    assertTest($runner76->getLocalVar('fetchBad2') === '', "HttpFetch with invalid URL returns empty string");
+
+    // PanelHtml
+    $runner76->run('Dim panelHtmlOutput = PanelHtml("tactical_panel")');
+    $htmlOut = (string)$runner76->getLocalVar('panelHtmlOutput');
+    assertTest(str_contains($htmlOut, 'dimx-panel'), "PanelHtml output contains 'dimx-panel' class");
+    assertTest(str_contains($htmlOut, 'panel_tactical_panel'), "PanelHtml output contains panel ID selector");
+    assertTest(str_contains($htmlOut, 'Scan Area'), "PanelHtml output contains control button caption");
+    $runner76->run('Dim fakePanelHtml = PanelHtml("unexistent_panel")');
+    assertTest($runner76->getLocalVar('fakePanelHtml') === '', "PanelHtml for unexistent panel returns empty string");
+
+    // getSetting
+    $runner76->run('Dim motdSetting = getSetting("motd", "Default MOTD")');
+    assertTest($runner76->getLocalVar('motdSetting') === 'Welcome to the Matrix', "getSetting('motd') retrieves persisted setting");
+    $runner76->run('Dim defSetting = getSetting("non_existent_key", "Fallback Value")');
+    assertTest($runner76->getLocalVar('defSetting') === 'Fallback Value', "getSetting returns fallback default value");
+
+    // gameInfo
+    $runner76->run('Dim gWorldName = gameInfo("worldname")');
+    assertTest($runner76->getLocalVar('gWorldName') === 'Matrix Realm', "gameInfo('worldname') returns 'Matrix Realm'");
+    $runner76->run('Dim gSite = gameInfo("site")');
+    assertTest($runner76->getLocalVar('gSite') === 'http://matrix.dimensione-x.net', "gameInfo('site') returns world site");
+    $runner76->run('Dim gImages = gameInfo("imagesfolder")');
+    assertTest($runner76->getLocalVar('gImages') === 'http://matrix.dimensione-x.net/images', "gameInfo('imagesfolder') returns images folder URL");
+    $runner76->run('Dim gNavigator = gameInfo("navigator")');
+    assertTest($runner76->getLocalVar('gNavigator') === 'http://matrix.dimensione-x.net/game', "gameInfo('navigator') returns base URL");
+    $runner76->run('Dim gVersion = gameInfo("version")');
+    assertTest($runner76->getLocalVar('gVersion') === '2.5', "gameInfo('version') returns world version");
+
+    // 2. Integration test: Load test_system_env.dxw with GameEngine and verify onStart execution
+    $sec76WorldId = 'test_w_sec76_' . uniqid();
+    $sec76DxwPath = dirname(__DIR__) . '/docs/dxw-examples/test_system_env.dxw';
+    $engine76 = new \Dimx\GameEngine($pm, $sec76WorldId, $sec76DxwPath);
+
+    $w76 = $engine76->loadOrSeedWorld();
+    assertTest($w76 instanceof \Dimx\World, "loadOrSeedWorld seeded world from test_system_env.dxw");
+
+    assertTest((int)$w76->getProperty('res_has_onstart') === 1, "DXW onStart ExistScript('onStart') -> 1");
+    assertTest((int)$w76->getProperty('res_has_customsub') === 1, "DXW onStart ExistScript('customSub') -> 1");
+    assertTest((int)$w76->getProperty('res_has_fake') === 0, "DXW onStart ExistScript('nonExistentScript') -> 0");
+
+    assertTest((string)$w76->getProperty('res_year') === date('Y'), "DXW onStart getTime('yyyy') matches date('Y')");
+    assertTest((string)$w76->getProperty('res_time_hhmm') === date('H:i'), "DXW onStart getTime('HH:mm') matches date('H:i')");
+
+    assertTest($w76->getProperty('res_invalid_url') === '', "DXW onStart HttpFetch with ftp:// returns empty string");
+
+    $dxwPanelHtml = (string)$w76->getProperty('res_panel_html');
+    assertTest(str_contains($dxwPanelHtml, 'dimx-panel'), "DXW onStart PanelHtml('default') contains 'dimx-panel'");
+    assertTest(str_contains($dxwPanelHtml, 'panel_default'), "DXW onStart PanelHtml('default') contains 'panel_default'");
+    assertTest($w76->getProperty('res_fake_panel') === '', "DXW onStart PanelHtml('fake_panel_id') returns empty string");
+
+    assertTest($w76->getProperty('res_setting_def') === 'Welcome Adventurer', "DXW onStart getSetting('custom_motd', 'Welcome Adventurer') -> 'Welcome Adventurer'");
+
+    assertTest($w76->getProperty('res_info_worldname') === 'System and Environment Test World', "DXW onStart gameInfo('worldname') -> 'System and Environment Test World'");
+    assertTest($w76->getProperty('res_info_site') === 'http://www.dimensione-x.net', "DXW onStart gameInfo('site') -> 'http://www.dimensione-x.net'");
+
+    // Clean up
+    @$pm->resetWorld($sec76WorldId);
 }
 
 // Clean up test worlds

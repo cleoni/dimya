@@ -2149,6 +2149,36 @@ class ActionsRunner
     }
 
     /**
+     * Converts a Java SimpleDateFormat pattern into a PHP date() format string.
+     */
+    protected function convertJavaDateFormatToPhp(string $javaFormat): string
+    {
+        if ($javaFormat === '') {
+            return 'Y-m-d H:i:s';
+        }
+        $map = [
+            'yyyy' => 'Y',
+            'yy'   => 'y',
+            'MMMM' => 'F',
+            'MMM'  => 'M',
+            'MM'   => 'm',
+            'dd'   => 'd',
+            'HH'   => 'H',
+            'hh'   => 'h',
+            'mm'   => 'i',
+            'ss'   => 's',
+            'EEEE' => 'l',
+            'EEE'  => 'D',
+            'E'    => 'D',
+            'a'    => 'A',
+        ];
+        $pattern = '/(' . implode('|', array_map('preg_quote', array_keys($map))) . ')/';
+        return preg_replace_callback($pattern, function($matches) use ($map) {
+            return $map[$matches[1]] ?? $matches[1];
+        }, $javaFormat);
+    }
+
+    /**
      * Traverses container/world/array and collects contained Character objects.
      * Matches DimensioneX DimxParser.funGetCharactersIn().
      *
@@ -3702,6 +3732,132 @@ class ActionsRunner
                     }
                     if ($val instanceof World) {
                         return 'world';
+                    }
+                }
+                return '';
+            }
+
+            // Built-in ExistScript( scriptID )
+            if (strcasecmp($fn, 'ExistScript') === 0) {
+                if ($argStr === '') {
+                    return 0;
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $scriptId = trim((string)$this->evalValue($rawArgs[0] ?? $argStr));
+                if ($this->world !== null && $scriptId !== '') {
+                    $ev = $this->world->getEvent($scriptId);
+                    if ($ev !== null) {
+                        return 1;
+                    }
+                }
+                return 0;
+            }
+
+            // Built-in getTime( format )
+            if (strcasecmp($fn, 'getTime') === 0) {
+                $rawArgs = $this->parseArguments($argStr);
+                $formatStr = isset($rawArgs[0]) ? (string)$this->evalValue($rawArgs[0]) : '';
+                $phpFormat = $this->convertJavaDateFormatToPhp($formatStr);
+                return date($phpFormat);
+            }
+
+            // Built-in HttpFetch( url )
+            if (strcasecmp($fn, 'HttpFetch') === 0) {
+                if ($argStr === '') {
+                    return '';
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $url = trim((string)$this->evalValue($rawArgs[0] ?? $argStr));
+                if (!str_starts_with($url, 'http://') && !str_starts_with($url, 'https://')) {
+                    $this->displayError("HttpFetch: Must specify an http:// or https:// URL");
+                    return '';
+                }
+                try {
+                    if (function_exists('curl_init')) {
+                        $ch = curl_init($url);
+                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+                        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                        $response = curl_exec($ch);
+                        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                        curl_close($ch);
+                        if ($response === false || $httpCode >= 400) {
+                            return ($httpCode === 404) ? '404 Not Found exception' : '';
+                        }
+                        return (string)$response;
+                    } else {
+                        $ctx = stream_context_create([
+                            'http' => ['timeout' => 5, 'ignore_errors' => true],
+                            'ssl'  => ['verify_peer' => false, 'verify_peer_name' => false]
+                        ]);
+                        $res = @file_get_contents($url, false, $ctx);
+                        return ($res !== false) ? (string)$res : '';
+                    }
+                } catch (\Throwable $e) {
+                    return $e->getMessage();
+                }
+            }
+
+            // Built-in PanelHtml( panel )
+            if (strcasecmp($fn, 'PanelHtml') === 0) {
+                if ($argStr === '') {
+                    return '';
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $panelArg = $this->evalValue($rawArgs[0] ?? $argStr);
+                $panelObj = null;
+                if ($panelArg instanceof Panel) {
+                    $panelObj = $panelArg;
+                } elseif (is_string($panelArg) && $this->world !== null) {
+                    $panelObj = $this->world->getPanel($panelArg);
+                }
+                if ($panelObj instanceof Panel) {
+                    $skin = ($this->world !== null) ? $this->world->getSkin(null) : null;
+                    return $panelObj->toHtml($skin);
+                }
+                return '';
+            }
+
+            // Built-in getSetting( key [, default] )
+            if (strcasecmp($fn, 'getSetting') === 0) {
+                if ($argStr === '') {
+                    return '';
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $key = trim((string)$this->evalValue($rawArgs[0] ?? ''));
+                $default = isset($rawArgs[1]) ? $this->evalValue($rawArgs[1]) : '';
+                if ($this->world !== null && $key !== '') {
+                    return $this->world->getSetting($key, $default);
+                }
+                return $default;
+            }
+
+            // Built-in gameInfo( variable )
+            if (strcasecmp($fn, 'gameInfo') === 0) {
+                if ($argStr === '') {
+                    return '';
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $varName = strtolower(trim((string)$this->evalValue($rawArgs[0] ?? '')));
+                if ($this->world !== null) {
+                    if ($varName === 'site') {
+                        return (string)($this->world->site ?? $this->world->getProperty('site') ?? '');
+                    }
+                    if ($varName === 'imagesfolder') {
+                        return (string)($this->world->imagesFolderPublic ?? $this->world->imagesFolderLocal ?? '');
+                    }
+                    if ($varName === 'navigator') {
+                        return (string)($this->world->baseUrl ?? '');
+                    }
+                    if ($varName === 'version') {
+                        return (string)($this->world->getProperty('version') ?? GameEngine::ENGINE_VERSION);
+                    }
+                    if ($varName === 'worldname') {
+                        return (string)$this->world->name;
+                    }
+                    if ($varName === 'playercount') {
+                        return count($this->world->players);
                     }
                 }
                 return '';
