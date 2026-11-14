@@ -18,9 +18,9 @@
             <Keywords name="Operators1">= &lt; &gt; &lt;= &gt;= &lt;&gt; + - * / ( ) , . :</Keywords>
             <Keywords name="Operators2">AND OR NOT MOD</Keywords>
             <!-- Code folding blocks -->
-            <Keywords name="Folders in code1, open">ROOMS LINKS ITEMS CHARACTERS SETS SOUNDS IMAGES SCRIPTS EVENTS HOOKS GUI EVENT SUB FUNCTION IF "FOR EACH" FOR</Keywords>
+            <Keywords name="Folders in code1, open">GUI ROOMS LINKS ITEMS CHARACTERS SETS SOUNDS IMAGES SCRIPTS EVENTS HOOKS EVENT SUB FUNCTION IF FOR</Keywords>
             <Keywords name="Folders in code1, middle">ELSE</Keywords>
-            <Keywords name="Folders in code1, close">END_ROOMS END_LINKS END_ITEMS END_CHARACTERS END_SETS END_SOUNDS END_IMAGES END_SCRIPTS END_EVENTS END_HOOKS END_GUI END_EVENT END_SUB END_FUNCTION END_IF NEXT</Keywords>
+            <Keywords name="Folders in code1, close">END_GUI &quot;END GUI&quot; END_ROOMS &quot;END ROOMS&quot; END_LINKS &quot;END LINKS&quot; END_ITEMS &quot;END ITEMS&quot; END_CHARACTERS &quot;END CHARACTERS&quot; END_SETS &quot;END SETS&quot; END_SOUNDS &quot;END SOUNDS&quot; END_IMAGES &quot;END IMAGES&quot; END_SCRIPTS &quot;END SCRIPTS&quot; END_EVENTS &quot;END EVENTS&quot; END_HOOKS &quot;END HOOKS&quot; END_EVENT &quot;END EVENT&quot; END_SUB &quot;END SUB&quot; END_FUNCTION &quot;END FUNCTION&quot; END_IF &quot;END IF&quot; NEXT</Keywords>
             <Keywords name="Folders in code2, open"></Keywords>
             <Keywords name="Folders in code2, middle"></Keywords>
             <Keywords name="Folders in code2, close"></Keywords>
@@ -28,17 +28,17 @@
             <Keywords name="Folders in comment, middle"></Keywords>
             <Keywords name="Folders in comment, close"></Keywords>
             <!-- Keywords 1: World Structure & Section Declarations -->
-            <Keywords name="Keywords1">WORLD END_WORLD GUI END_GUI ROOMS END_ROOMS LINKS END_LINKS ITEMS END_ITEMS CHARACTERS END_CHARACTERS SETS END_SETS SOUNDS END_SOUNDS IMAGES END_IMAGES SCRIPTS END_SCRIPTS EVENTS END_EVENTS HOOKS END_HOOKS ROOM LINK ITEM CHARACTER SET EVENT END_EVENT SUB END_SUB FUNCTION END_FUNCTION DEFAULT</Keywords>
+            <Keywords name="Keywords1">WORLD END_WORLD &quot;END WORLD&quot; GUI END_GUI &quot;END GUI&quot; ROOMS END_ROOMS &quot;END ROOMS&quot; LINKS END_LINKS &quot;END LINKS&quot; ITEMS END_ITEMS &quot;END ITEMS&quot; CHARACTERS END_CHARACTERS &quot;END CHARACTERS&quot; SETS END_SETS &quot;END SETS&quot; SOUNDS END_SOUNDS &quot;END SOUNDS&quot; IMAGES END_IMAGES &quot;END IMAGES&quot; SCRIPTS END_SCRIPTS &quot;END SCRIPTS&quot; EVENTS END_EVENTS &quot;END EVENTS&quot; HOOKS END_HOOKS &quot;END HOOKS&quot; ROOM LINK ITEM CHARACTER SET EVENT END_EVENT &quot;END EVENT&quot; SUB END_SUB &quot;END SUB&quot; FUNCTION END_FUNCTION &quot;END FUNCTION&quot; DEFAULT</Keywords>
             <!-- Keywords 2: Object Properties & Layout Directives -->
             <Keywords name="Keywords2">NAME DESCRIPTION IMAGE ICON POSITION TYPE ATTRLIST SHOW SHOWAREA ONSCORE ONSCREEN SIZE SCENE SCREEN AUTOLOOK AUTHOR VERSION IMAGESFOLDER_LOCAL IMAGESFOLDER_PUBLIC LOGOSRC SITE MAP INVENTORY TITLE BGCOLOR TEXTCOLOR LINKCOLOR ALINKCOLOR VLINKCOLOR FONT UNDERLINE_LINKS STYLE</Keywords>
             <!-- Keywords 3: SmallBasic Statements & Built-in Actions -->
             <Keywords name="Keywords3">Speak Display Move PlaySound BroadcastSound PlayBackground BroadcastBackground Print PrintRight Debug DropItems Goal Reset RefreshView SendCmd SetPanel Dim AttachEvent Ban Kill NewRoom SaveSetting SetAdd SetRemove SendPage Journal MoveOutside Broadcast Open Close Search Give</Keywords>
             <!-- Keywords 4: Flow Control & Language Keywords -->
-            <Keywords name="Keywords4">If Then Else End_If For To Step Next Each In Return Call Include REM End</Keywords>
+            <Keywords name="Keywords4">If Then Else End_If &quot;End If&quot; For To Step Next Each In Return Call Include REM End</Keywords>
             <!-- Keywords 5: Special Engine Variables & Booleans -->
             <Keywords name="Keywords5">$OWNER $AGENT $TARGET $WORLD true false null TRUE FALSE NULL</Keywords>
             <!-- Keywords 6: Built-in Engine Events -->
-            <Keywords name="Keywords6">onStart onNew onReceive onLook onReceiveItem onLooseItem onLoose onOpen onClose onLock onUnlock onUse onUseWith onEnter onExit onDrop onTake onEat onDrink onRead onPush onPull onTurn onWear onRemove onAttack onSearch onSpeak Living whenGiven beforeOpen beforeClose beforeLock beforeUnlock</Keywords>
+            <Keywords name="Keywords6">onStart onNew onReceive onLook onReceiveItem onLooseItem onLoose onOpen onClose onLock onUnlock onUse onUseWith onEnter onExit onDrop onTake onEat onDrink onRead onPush onPull onTurn onWear onRemove onAttack onSearch onSpeak Living beforeOpen beforeClose beforeLock beforeUnlock</Keywords>
             <!-- Keywords 7: SmallBasic Built-in Functions (55 functions) -->
             <Keywords name="Keywords7">Abs Asc Atn CBool CByte CDate CDbl Chr CInt CLng Cos CSng CStr Date Day Exp Fix FormatDateTime Hex Hour InStr Int IsArray IsDate IsEmpty IsNull IsNumeric IsObject LCase Left Len Log LTrim Mid Minute Month MonthName Now Oct Replace Right Rnd RndInt RndSet Round RTrim Second Sgn Sin Space Sqr StrComp String Tan Time Timer TimeValue Trim TypeName UCase Weekday WeekdayName Year</Keywords>
             <!-- Keywords 8: Compass Directions & Common Engine Attributes -->

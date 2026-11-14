@@ -556,8 +556,6 @@ class Character extends AdvObject
             if ($origCont !== null) {
                 $this->world->fireEvent('onLooseItem', $origCont, $this, $item);
             }
-            $this->world->fireEvent('whenGiven', $this, $recipient, $item);
-            $this->world->fireEvent('whenReceived', $recipient, $this, $item);
             $this->world->fireEvent('whenPicked', $item, $this, $recipient);
             $this->world->fireEvent('onReceiveItem', $recipient, $this, $item);
         }
@@ -574,7 +572,7 @@ class Character extends AdvObject
      */
     public function itemGive(string|AdvObject $item, string|Character $recipient): bool
     {
-        $itemObj = is_string($item) ? ($this->world?->getObject($item) ?? $this->world?->contents[$item] ?? null) : $item;
+        $itemObj = is_string($item) ? ($this->world?->getItem($item) ?? $this->world?->getObjectExt($item) ?? $this->world?->contents[$item] ?? null) : $item;
         $recipObj = is_string($recipient) ? ($this->world?->getCharacter($recipient) ?? $this->world?->contents[$recipient] ?? null) : $recipient;
         if (!($itemObj instanceof AdvObject) || !($recipObj instanceof Character)) {
             $this->display("The selected item does not exist anymore.");

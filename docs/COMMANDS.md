@@ -19,7 +19,7 @@ This document defines the authoritative command catalog and execution model for 
 | `go` aliases `walk`, `move`; `look` alias `l`; `put` alias `insert`; `use2` alias `combine` | **DimX only - not yet implemented in DimY** | Only `take`, `get`, `usewith`, `board`, `leave`, `disembark`, `inv`/`inventory` exist |
 | `look`: `onLook` cancel / `$TARGET` | **DimY: partial** | Fired after the description is shown; result ignored (not cancellable); `$TARGET` is `null` |
 | `pick` / `drop` | **DimY: partial** | Fire only `whenPicked` / `whenDropped`; `onLooseItem`, `onReceiveItem`, `onReceive`, `onLoose` are not fired for plain moves (only for `give` / vehicles), and return values of `whenPicked`/`whenDropped` don't cancel |
-| `whenGiven` / `whenReceived` / `onReceiveItem` / `onLooseItem` | **DimY: partial** | Fired by `give`; return values are not used to cancel |
+| `give` events | **DimY: partial** | Fires `onLooseItem`, `whenPicked`, `onReceiveItem`; return values are not used to cancel |
 | `onUse` / `onUseWith` | **DimY: partial** | Fired, but `$OWNER`/`$TARGET` fallbacks differ from DimX (use2 fires on both objects) |
 | `logout` events | **DimY: partial** | `onQuit`, `onExit` fired; cancellation not honoured |
 | `Cluster` / clustering | **dropped in DimY** | Intentionally removed |
@@ -78,7 +78,7 @@ Every command cycle follows this processing pipeline:
 | **`search`** | - | - | Reveals hidden objects in container (`visible = 1`) | `onSearch` |
 | **`hide`** **[DimX only - not yet implemented in DimY]** | `target` | - | Conceals an object (`visible = 0`) | `onHide` |
 | **`put`** | `item`, `dest` | `insert` | Puts an item into a destination container | `onLooseItem`, `onEnter`, `onReceiveItem` |
-| **`give`** | `item`, `character`| - | Offers an item to an NPC or another player | `whenGiven`, `whenReceived` |
+| **`give`** | `item`, `character`| - | Offers an item to an NPC or another player | `onLooseItem`, `whenPicked`, `onReceiveItem` |
 | **`enter`** | `vehicle` | `board` | Enters a vehicle item | `onEnterVehicle` |
 | **`exit`** | - | `leave`, `disembark` | Disembarks vehicle into the surrounding room | `onExitVehicle` |
 | **`say`** | `text`, `[target]` | - | Speaks aloud to room/world, or directly to a specific person if target provided | `onHear` |
@@ -168,7 +168,7 @@ Every command cycle follows this processing pipeline:
 ### 11. `give (object), (character)`
 * **Intent**: Handing an item to an NPC or another player in the room.
 * **Checks**: Character must accept the item per its `accepts` filter rule.
-* **Events**: Fires `whenGiven` on giver, `whenReceived` on recipient.
+* **Events**: Fires `onLooseItem` on origin container, `whenPicked` on item, and `onReceiveItem` on recipient character.
 
 ### 12. `enter (object)` & `exit`
 * **Intent**: Boarding and disembarking vehicles.

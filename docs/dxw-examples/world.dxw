@@ -224,28 +224,6 @@ End_If
 End_If
 END_EVENT
 
-EVENT char_miko_ayane.whenGiven
-If $TARGET = silver_flute
-If sanctum_key.container = char_miko_ayane
-PlaySound "sfx_chime.ogg"
-Speak "Oh! The sacred Silver Flute! The spirits of the shrine can finally rest in peace. Please, take this Sanctum Key—you have earned passage to the celestial realm."
-Move sanctum_key, $AGENT
-Display "Ayane gracefully presents you with the ornate Sanctum Key."
-End_If
-End_If
-END_EVENT
-
-EVENT whenGiven
-If $TARGET = silver_flute
-If sanctum_key.container = char_miko_ayane
-PlaySound "sfx_chime.ogg"
-Speak char_miko_ayane, $OWNER, "Oh! The sacred Silver Flute! The spirits of the shrine can finally rest in peace. Please, take this Sanctum Key—you have earned passage to the celestial realm."
-Move sanctum_key, $OWNER
-Display $OWNER, "Ayane gracefully presents you with the ornate Sanctum Key."
-End_If
-End_If
-END_EVENT
-
 EVENT stone_chest.onOpen
 PlaySound "sfx_door_open.ogg"
 Display "The ancient stone lid grinds open with a resonant rumble, revealing the contents resting within."

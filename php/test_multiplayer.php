@@ -70,6 +70,7 @@ $sections = [
     67 => ['title' => 'Testing SmallBasic getItemsIn Function (Objects, Sets, Arrays, $WORLD, $AGENT & loc_relic_vault in world.dxw)...', 'keywords' => ['getitemsin', 'items', 'smallbasic', 'world.dxw', 'loc_relic_vault', 'inventory', 'actionsrunner']],
     68 => ['title' => 'Testing SmallBasic SetContainsKey Function (Sets, Dictionaries, Arrays, Case-Insensitivity, Objects, & loc_relic_vault in world.dxw)...', 'keywords' => ['setcontainskey', 'smallbasic', 'set', 'contains', 'talisman', 'loc_relic_vault', 'world.dxw', 'actionsrunner']],
     69 => ['title' => 'Testing SmallBasic Expression Error Handling & Custom Functions/Subs (getObjectsType, containsType in world.dxw)...', 'keywords' => ['syntax', 'error', 'function', 'sub', 'custom', 'containstype', 'getobjectstype', 'world.dxw', 'actionsrunner']],
+    70 => ['title' => 'Testing Character::give() Standard DimX Events (whenPicked, onReceiveItem, onLooseItem, No whenGiven/whenReceived)...', 'keywords' => ['give', 'whenpicked', 'onreceiveitem', 'onlooseitem', 'whengiven', 'whenreceived', 'itemgive', 'character']],
 ];
 
 // CLI Options parsing
@@ -4407,6 +4408,73 @@ if (shouldRun(69)) {
         // Clean up
         @$pm->resetWorld($sec69WorldId);
     }
+}
+
+// -------------------------------------------------------------
+// Section 70: Testing Character::give() Standard DimX Events
+// -------------------------------------------------------------
+if (shouldRun(70)) {
+    echo "\n--- Section 70: Testing Character::give() Standard DimX Events (whenPicked, onReceiveItem, onLooseItem, No whenGiven/whenReceived) ---\n";
+
+    $sec70WorldId = 'test_w_sec70_' . uniqid();
+    $w70 = new \Dimx\World($sec70WorldId, 'Sec70 World');
+    $room70 = new \Dimx\Room($w70, 'Room 70', 'r70');
+    $w70->addRoom($room70);
+
+    $giver = new \Dimx\Character($w70, 'Alice', 'char_alice');
+    $receiver = new \Dimx\Character($w70, 'Bob', 'char_bob');
+    $receiver->accepts = '*';
+    $gift = new \Dimx\Item($w70, 'Magic Wand', 'wand');
+    $gift->pickable = true;
+
+    $w70->addCharacter($giver);
+    $w70->addCharacter($receiver);
+    $w70->addItem($gift);
+
+    $giver->move($room70);
+    $receiver->move($room70);
+    $gift->move($giver);
+
+    // Track all events fired via an event recording subclass or world event handlers
+    $firedEvents = [];
+    $recordEvent = function (string $evtName) use (&$firedEvents) {
+        $firedEvents[] = $evtName;
+        return true;
+    };
+
+    $w70->registerEvent(new \Dimx\Event('onLooseItem', 'EVENT', function () use ($recordEvent) {
+        return $recordEvent('onLooseItem');
+    }));
+    $w70->registerEvent(new \Dimx\Event('whenPicked', 'EVENT', function () use ($recordEvent) {
+        return $recordEvent('whenPicked');
+    }));
+    $w70->registerEvent(new \Dimx\Event('onReceiveItem', 'EVENT', function () use ($recordEvent) {
+        return $recordEvent('onReceiveItem');
+    }));
+    $w70->registerEvent(new \Dimx\Event('whenGiven', 'EVENT', function () use ($recordEvent) {
+        return $recordEvent('whenGiven');
+    }));
+    $w70->registerEvent(new \Dimx\Event('whenReceived', 'EVENT', function () use ($recordEvent) {
+        return $recordEvent('whenReceived');
+    }));
+
+    $giveSuccess = $giver->actGive($gift, $receiver);
+    assertTest($giveSuccess === true, "giver->actGive() returned true");
+    assertTest($gift->container === $receiver, "Item container is now the recipient character");
+    assertTest(in_array('onLooseItem', $firedEvents, true), "Fired standard onLooseItem event");
+    assertTest(in_array('whenPicked', $firedEvents, true), "Fired standard whenPicked event");
+    assertTest(in_array('onReceiveItem', $firedEvents, true), "Fired standard onReceiveItem event");
+    assertTest(!in_array('whenGiven', $firedEvents, true), "Did NOT fire non-standard whenGiven event");
+    assertTest(!in_array('whenReceived', $firedEvents, true), "Did NOT fire non-standard whenReceived event");
+
+    // Test giving back via itemGive() alias
+    $giver->accepts = '*';
+    $firedEvents = [];
+    $giveBack = $receiver->itemGive('wand', 'char_alice');
+    assertTest($giveBack === true, "receiver->itemGive('wand', 'char_alice') returned true");
+    assertTest($gift->container === $giver, "Item returned to giver");
+    assertTest(in_array('whenPicked', $firedEvents, true) && in_array('onReceiveItem', $firedEvents, true), "Fired whenPicked and onReceiveItem on give back");
+    assertTest(!in_array('whenGiven', $firedEvents, true) && !in_array('whenReceived', $firedEvents, true), "Did NOT fire whenGiven/whenReceived on give back");
 }
 
 // Clean up test worlds

@@ -17,7 +17,7 @@ Comprehensive technical documentation and formal specifications reside in the [`
 - [**docs/UIBOT.md**](docs/UIBOT.md) — **UIbot API & Client Specification**. Formal REST/JSON protocol reference and implementation blueprint for AI agents and automated/interactive clients.
 - [**docs/PLAY-AS-BOT.md**](docs/PLAY-AS-BOT.md) — **Bot & AI Player API Guide**. Instructions for connecting external scripts or AI agents to the multiplayer engine via the `UIbot` JSON interface.
 - [**docs/CLASS_HIERARCHY.md**](docs/CLASS_HIERARCHY.md) — Class hierarchy of **DimensioneY (this PHP implementation)**, same structure as the DimX one for comparison.
-- [**docs/dimx_udl_notepadpp.xml**](docs/dimx_udl_notepadpp.xml) / [**docs/dimx_udl_notepadpp_dark.xml**](docs/dimx_udl_notepadpp_dark.xml) — **Notepad++ Syntax Highlighters** (UDL 2.1) for `.dxw` and `.dxs` world definition and skin files with SmallBasic code folding, keyword, event, and function styling (light and dark mode).
+- [**tools/notepadpp-syntax-highlighter/**](tools/notepadpp-syntax-highlighter/) — **Notepad++ Syntax Highlighters** (UDL 2.1) for `.dxw` and `.dxs` world definition and skin files with SmallBasic code folding, keyword, event, and function styling (light and dark mode). See [instructions](tools/notepadpp-syntax-highlighter/README.md).
 - [**docs/dxw-examples/**](docs/dxw-examples/) — Reference `.dxw` world definition files:
   - `world1.dxw` — Minimal introductory world
   - `world2.dxw` — Minimal adventure with linked rooms, 1 character, events
