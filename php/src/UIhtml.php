@@ -1883,7 +1883,7 @@ class UIhtml extends UI
                     <div id="msg_<?= htmlspecialchars((string)($chatMsg['id'] ?? '')) ?>" class="chat-line">
                       <a href="javascript:void(0)" class="chat-pop-btn" onclick="popMsg('<?= htmlspecialchars((string)($chatMsg['id'] ?? '')) ?>')" title="Dismiss message">✕</a>
                       <span class="chat-line-sender"><?= htmlspecialchars($chatMsg['sender'] ?? '') ?>:</span>
-                      <?= htmlspecialchars($chatMsg['text'] ?? '') ?>
+                      <?= ($chatMsg['text'] ?? '') ?>
                     </div>
                   <?php endforeach; ?>
                 </div>
@@ -2598,7 +2598,7 @@ class UIhtml extends UI
               div.className = 'chat-line';
               div.innerHTML = '<a href="javascript:void(0)" class="chat-pop-btn" onclick="popMsg(\'' + escHtml(msg.id) + '\')" title="Dismiss message">✕</a> '
                             + '<span class="chat-line-sender">' + escHtml(msg.sender) + ':</span> '
-                            + escHtml(msg.text);
+                            + (msg.text || '');
               return div;
             }
 
@@ -2683,7 +2683,7 @@ class UIhtml extends UI
                     newHtml += '<div id="msg_' + escHtml(msg.id) + '" class="chat-line">'
                              + '<a href="javascript:void(0)" class="chat-pop-btn" onclick="popMsg(\'' + escHtml(msg.id) + '\')" title="Dismiss message">✕</a> '
                              + '<span class="chat-line-sender">' + escHtml(msg.sender) + ':</span> '
-                             + escHtml(msg.text)
+                             + (msg.text || '')
                              + '</div>';
                   }
 

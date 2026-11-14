@@ -2399,6 +2399,202 @@ class ActionsRunner
             $fn = $fm[1];
             $argStr = trim($fm[2]);
 
+            // Built-in Asc( c )
+            if (strcasecmp($fn, 'Asc') === 0) {
+                $args = $this->parseArguments($argStr);
+                $s = isset($args[0]) ? self::formatValue($this->evalValue($args[0])) : '';
+                return ($s !== '') ? ord($s[0]) : -1;
+            }
+
+            // Built-in Chr( n )
+            if (strcasecmp($fn, 'Chr') === 0) {
+                $args = $this->parseArguments($argStr);
+                $n = isset($args[0]) ? (int)$this->evalValue($args[0]) : 0;
+                return chr($n & 0xFF);
+            }
+
+            // Built-in LCase( string )
+            if (strcasecmp($fn, 'LCase') === 0) {
+                $args = $this->parseArguments($argStr);
+                $s = isset($args[0]) ? self::formatValue($this->evalValue($args[0])) : '';
+                return strtolower($s);
+            }
+
+            // Built-in UCase( string )
+            if (strcasecmp($fn, 'UCase') === 0) {
+                $args = $this->parseArguments($argStr);
+                $s = isset($args[0]) ? self::formatValue($this->evalValue($args[0])) : '';
+                return strtoupper($s);
+            }
+
+            // Built-in Left( string, nchars )
+            if (strcasecmp($fn, 'Left') === 0) {
+                $args = $this->parseArguments($argStr);
+                $s = isset($args[0]) ? self::formatValue($this->evalValue($args[0])) : '';
+                $len = isset($args[1]) ? (int)$this->evalValue($args[1]) : 0;
+                if ($len <= 0) {
+                    return '';
+                }
+                if ($len >= strlen($s)) {
+                    return $s;
+                }
+                return substr($s, 0, $len);
+            }
+
+            // Built-in Right( string, nchars )
+            if (strcasecmp($fn, 'Right') === 0) {
+                $args = $this->parseArguments($argStr);
+                $s = isset($args[0]) ? self::formatValue($this->evalValue($args[0])) : '';
+                $len = isset($args[1]) ? (int)$this->evalValue($args[1]) : 0;
+                if ($len <= 0) {
+                    return '';
+                }
+                if ($len >= strlen($s)) {
+                    return $s;
+                }
+                return substr($s, -$len);
+            }
+
+            // Built-in Mid( string, start [, nchars] )
+            if (strcasecmp($fn, 'Mid') === 0) {
+                $args = $this->parseArguments($argStr);
+                $s = isset($args[0]) ? self::formatValue($this->evalValue($args[0])) : '';
+                $start = isset($args[1]) ? (int)$this->evalValue($args[1]) : 1;
+                $startIdx = $start - 1; // 1-based index in SmallBasic
+                if ($startIdx < 0) {
+                    $startIdx = 0;
+                }
+                if ($startIdx >= strlen($s)) {
+                    return '';
+                }
+                if (isset($args[2])) {
+                    $nchars = (int)$this->evalValue($args[2]);
+                    if ($nchars <= 0) {
+                        return '';
+                    }
+                    return substr($s, $startIdx, $nchars);
+                }
+                return substr($s, $startIdx);
+            }
+
+            // Built-in Replace( haystack, needle, replacement )
+            if (strcasecmp($fn, 'Replace') === 0) {
+                $args = $this->parseArguments($argStr);
+                $haystack = isset($args[0]) ? self::formatValue($this->evalValue($args[0])) : '';
+                $arg1 = isset($args[1]) ? $this->evalValue($args[1]) : '';
+                if (is_array($arg1)) {
+                    foreach ($arg1 as $search => $replace) {
+                        if ((string)$search !== '') {
+                            $haystack = str_ireplace((string)$search, self::formatValue($replace), $haystack);
+                        }
+                    }
+                    return $haystack;
+                }
+                $needle = self::formatValue($arg1);
+                $replacement = isset($args[2]) ? self::formatValue($this->evalValue($args[2])) : '';
+                if ($needle === '') {
+                    return $haystack;
+                }
+                // DimensioneX funReplace uses case-insensitive string replacement (Utils.stringReplace ignorecase=true)
+                return str_ireplace($needle, $replacement, $haystack);
+            }
+
+            // Built-in Format( number, strFormat )
+            if (strcasecmp($fn, 'Format') === 0) {
+                $args = $this->parseArguments($argStr);
+                $num = isset($args[0]) ? $this->evalValue($args[0]) : 0;
+                $fmt = isset($args[1]) ? (string)$this->evalValue($args[1]) : '';
+                if ($fmt === '') {
+                    return (string)$num;
+                }
+                try {
+                    return sprintf($fmt, $num);
+                } catch (\Throwable $e) {
+                    return (string)$num;
+                }
+            }
+
+            // Built-in InStr( haystack, needle [, startpos] )
+            if (strcasecmp($fn, 'InStr') === 0) {
+                $args = $this->parseArguments($argStr);
+                $haystack = isset($args[0]) ? self::formatValue($this->evalValue($args[0])) : '';
+                $needle = isset($args[1]) ? self::formatValue($this->evalValue($args[1])) : '';
+                if ($needle === '') {
+                    return 0;
+                }
+                $startPos = isset($args[2]) ? (int)$this->evalValue($args[2]) : 1;
+                $startIdx = $startPos - 1; // 1-based index in SmallBasic
+                if ($startIdx < 0) {
+                    $startIdx = 0;
+                }
+                if ($startIdx >= strlen($haystack)) {
+                    return 0;
+                }
+                $pos = stripos($haystack, $needle, $startIdx);
+                return ($pos !== false) ? ($pos + 1) : 0;
+            }
+
+            // Built-in InStrCount( haystack, needle )
+            if (strcasecmp($fn, 'InStrCount') === 0) {
+                $args = $this->parseArguments($argStr);
+                $haystack = isset($args[0]) ? self::formatValue($this->evalValue($args[0])) : '';
+                $needle = isset($args[1]) ? self::formatValue($this->evalValue($args[1])) : '';
+                $tl = strlen($haystack);
+                $sl = strlen($needle);
+                if ($sl === 0 || $tl < $sl) {
+                    return 0;
+                }
+                $count = 0;
+                for ($i = 0; $i <= $tl - $sl; $i++) {
+                    if (strcasecmp(substr($haystack, $i, $sl), $needle) === 0) {
+                        $count++;
+                    }
+                }
+                return $count;
+            }
+
+            // Built-in Abs( n )
+            if (strcasecmp($fn, 'Abs') === 0) {
+                $args = $this->parseArguments($argStr);
+                $n = isset($args[0]) ? $this->evalValue($args[0]) : 0;
+                return is_numeric($n) ? abs($n + 0) : 0;
+            }
+
+            // Built-in Int( n )
+            if (strcasecmp($fn, 'Int') === 0) {
+                $args = $this->parseArguments($argStr);
+                $n = isset($args[0]) ? $this->evalValue($args[0]) : 0;
+                return (int)$n;
+            }
+
+            // Built-in Log( number )
+            if (strcasecmp($fn, 'Log') === 0) {
+                $args = $this->parseArguments($argStr);
+                $n = isset($args[0]) ? (float)$this->evalValue($args[0]) : 0.0;
+                return ($n > 0) ? log($n) : 0.0;
+            }
+
+            // Built-in Rnd()
+            if (strcasecmp($fn, 'Rnd') === 0) {
+                return (float)mt_rand() / (float)mt_getrandmax();
+            }
+
+            // Built-in Round( number [, decimals] )
+            if (strcasecmp($fn, 'Round') === 0) {
+                $args = $this->parseArguments($argStr);
+                $n = isset($args[0]) ? (float)$this->evalValue($args[0]) : 0.0;
+                $decimals = isset($args[1]) ? (int)$this->evalValue($args[1]) : 0;
+                $res = round($n, $decimals);
+                return ($decimals <= 0) ? (int)$res : $res;
+            }
+
+            // Built-in Sqr( x )
+            if (strcasecmp($fn, 'Sqr') === 0) {
+                $args = $this->parseArguments($argStr);
+                $n = isset($args[0]) ? (float)$this->evalValue($args[0]) : 0.0;
+                return ($n >= 0) ? sqrt($n) : 0.0;
+            }
+
             // Built-in SetLen( collection )
             if (strcasecmp($fn, 'SetLen') === 0) {
                 $argVal = $this->evalValue($argStr);

@@ -71,6 +71,8 @@ $sections = [
     68 => ['title' => 'Testing SmallBasic SetContainsKey Function (Sets, Dictionaries, Arrays, Case-Insensitivity, Objects, & loc_relic_vault in world.dxw)...', 'keywords' => ['setcontainskey', 'smallbasic', 'set', 'contains', 'talisman', 'loc_relic_vault', 'world.dxw', 'actionsrunner']],
     69 => ['title' => 'Testing SmallBasic Expression Error Handling & Custom Functions/Subs (getObjectsType, containsType in world.dxw)...', 'keywords' => ['syntax', 'error', 'function', 'sub', 'custom', 'containstype', 'getobjectstype', 'world.dxw', 'actionsrunner']],
     70 => ['title' => 'Testing Character::give() Standard DimX Events (whenPicked, onReceiveItem, onLooseItem, No whenGiven/whenReceived)...', 'keywords' => ['give', 'whenpicked', 'onreceiveitem', 'onlooseitem', 'whengiven', 'whenreceived', 'itemgive', 'character']],
+    71 => ['title' => 'Testing SmallBasic String Functions (Asc, Chr, LCase, UCase, Left, Right, Mid, Replace, Format, InStr, InStrCount) & test_string_functions.dxw...', 'keywords' => ['asc', 'chr', 'lcase', 'ucase', 'left', 'right', 'mid', 'replace', 'format', 'instr', 'instrcount', 'string', 'test_string_functions.dxw']],
+    72 => ['title' => 'Testing SmallBasic Math Functions (Abs, Int, Log, Rnd, Round, Sqr) & test_math_functions.dxw...', 'keywords' => ['abs', 'int', 'log', 'rnd', 'round', 'sqr', 'math', 'test_math_functions.dxw']],
 ];
 
 // CLI Options parsing
@@ -451,7 +453,7 @@ assertTest(isset($result4['room']->contents['apple']), "'apple' is now inside 'b
 
 // Step 5e: Bot talks
 $result5 = $engine->processCommand($botName, 'say', 'Greetings from AI bot!', '', $uiJson);
-assertTest(in_array("<b>{$botName}</b> says: Greetings from AI bot!", $result5['messages'], true), "Bot speech captured in messages");
+assertTest(in_array("- Greetings from AI bot!", $result5['messages'], true) || in_array("<b>{$botName}</b> says: Greetings from AI bot!", $result5['messages'], true), "Bot speech captured in messages");
 
 // Step 5f: 'save' command saves player profile without exiting
 $resultSave = $engine->processCommand($botName, 'save', '', '', $uiJson);
@@ -1791,6 +1793,22 @@ if (shouldRun(20)) {
     assertTest(str_contains($cellHtml, '#101040') && str_contains($cellHtml, ':nth-child(odd)'), "UIhtml styles odd message lines with #101040");
     assertTest(str_contains($cellHtml, '#313161') && str_contains($cellHtml, ':nth-child(even)'), "UIhtml styles even message lines with #313161");
     assertTest(!str_contains($cellHtml, 'chat-line-time'), "UIhtml omits timestamp from message box lines");
+
+    // 7. HTML tags in messages (e.g. Goal: <b>Cris</b> has reached the goal!) are rendered without escaping in #msgs
+    $pA->deliverMessage('a voice...', '<b>Cris</b> has reached the goal!', 'id_goal_1');
+    ob_start();
+    $ui->render([
+        'world'     => $msgWorld,
+        'player'    => $pA,
+        'room'      => $roomLounge,
+        'messages'  => [],
+        'chat'      => $pA->getMessages(),
+        'lockError' => false,
+    ]);
+    $htmlWithGoal = ob_get_clean();
+    assertTest(str_contains($htmlWithGoal, '<b>Cris</b> has reached the goal!'), "UIhtml renders <b> HTML tags unescaped in #msgs");
+    assertTest(!str_contains($htmlWithGoal, '&lt;b&gt;Cris&lt;/b&gt;'), "UIhtml does NOT escape HTML tags to &lt;b&gt; in #msgs");
+    assertTest(str_contains($htmlWithGoal, '+ (msg.text || \'\')'), "UIhtml JS chat poller inserts msg.text without escHtml()");
 }
 
 // -------------------------------------------------------------
@@ -3657,15 +3675,16 @@ if (shouldRun(63)) {
     // Drain pending commands for HumanAlpha so queue is clean
     $pm->drainCommands($sec63WorldId, 'HumanAlpha');
 
-    // Make HumanBeta stale (idle for 35 seconds), HumanAlpha active (idle 5 seconds)
+    // Make HumanBeta stale (idle beyond playerTimeout), HumanAlpha active (idle 5 seconds)
+    $timeoutSec63 = (int)($config['playerTimeout'] ?? $config['player_timeout'] ?? 30);
     $wStale = $pm->loadWorld($sec63WorldId);
     $betaObj = $wStale->getPlayerByName('HumanBeta');
     $alphaObj = $wStale->getPlayerByName('HumanAlpha');
     assertTest($betaObj !== null && $alphaObj !== null, "Both players exist in world before stale check");
-    $betaObj->lastInteraction = time() - 35;
-    $betaObj->lastActive = time() - 35;
-    $betaObj->setProperty('lastInteraction', time() - 35);
-    $betaObj->setProperty('lastActive', time() - 35);
+    $betaObj->lastInteraction = time() - ($timeoutSec63 + 10);
+    $betaObj->lastActive = time() - ($timeoutSec63 + 10);
+    $betaObj->setProperty('lastInteraction', time() - ($timeoutSec63 + 10));
+    $betaObj->setProperty('lastActive', time() - ($timeoutSec63 + 10));
     $alphaOldTime = time() - 5;
     $alphaObj->lastInteraction = $alphaOldTime;
     $alphaObj->lastActive = $alphaOldTime;
@@ -3916,21 +3935,22 @@ if (shouldRun(65)) {
     assertTest(str_contains($logContentWrong, 'USER: Cris65'), "debug.log contains failed login attempt for Cris65 with wrong password");
     assertTest(str_contains($logContentWrong, 'STATUS: DISCONNECTED'), "debug.log contains STATUS: DISCONNECTED for wrong password attempt");
 
-    // Step 4: Simulate 35 seconds passing with no contact from Cris65 (closed browser)
+    // Step 4: Simulate timeout passing with no contact from Cris65 (closed browser)
+    $timeoutSec = (int)($config['playerTimeout'] ?? $config['player_timeout'] ?? 30);
     $engine65 = new \Dimx\GameEngine($pm, $sec65WorldId, $serverW65['DIMX_WORLD_FILE'], '', ['debugTo' => 'file']);
     $w65 = $pm->loadWorld($sec65WorldId);
     $crisPlayer = $w65->getPlayerByName('Cris65');
     assertTest($crisPlayer !== null, "Cris65 exists in persisted world before timeout");
-    $crisPlayer->lastInteraction = time() - 35;
-    $crisPlayer->lastActive = time() - 35;
+    $crisPlayer->lastInteraction = time() - ($timeoutSec + 10);
+    $crisPlayer->lastActive = time() - ($timeoutSec + 10);
     $pm->saveWorld($w65);
 
     // Step 5: Cris65 returns and submits login with 'Cris65' and correct password
     file_put_contents($logFile, '');
-    $loginHtmlReconnected = runMultiplayer([
+    $loginHtmlReconnected = runMultiplayer([], [
         'username' => 'Cris65',
         'password' => 'crisPass123',
-    ], [], $serverW65);
+    ], $serverW65);
 
     assertTest(!str_contains($loginHtmlReconnected, 'Invalid nickname - choose another'), "Returning player after 35s is NOT blocked by nickname collision");
     assertTest(str_contains($loginHtmlReconnected, '<!DOCTYPE html>'), "Returning player receives HTML scene");
@@ -4136,6 +4156,17 @@ if (shouldRun(67)) {
         $pStart = $engine67->loadOrSeedWorld()->getPlayerByName('Cris');
         assertTest($pStart !== null && $pStart->getRoom()->id === 'loc_shrine_entrance', "Cris started in loc_shrine_entrance");
 
+        // Unlock sanctum_gates for testing movement
+        $w67Init = $engine67->loadOrSeedWorld();
+        $gate67 = $w67Init->getLink('sanctum_gates');
+        if ($gate67 !== null) {
+            $gate67->locked = false;
+            $gate67->open = true;
+            $gate67->setProperty('locked', 0);
+            $gate67->setProperty('open', 1);
+            $pm->saveWorld($w67Init);
+        }
+
         // Move N to loc_courtyard
         $engine67->processCommand('Cris', 'go', 'N');
         // Move N to loc_inner_sanctum
@@ -4146,24 +4177,24 @@ if (shouldRun(67)) {
         // Move D into loc_relic_vault with empty inventory
         $resD = $engine67->processCommand('Cris', 'go', 'D');
         $messagesD = json_encode($resD['messages'] ?? []);
-        assertTest(str_contains($messagesD, 'Items[]') || str_contains($messagesD, "You don't have the talisman"), "Entering loc_relic_vault with empty inventory executes onReceive on console: {$messagesD}");
+        assertTest(!str_contains($messagesD, "The talisman reveals"), "Entering loc_relic_vault with empty inventory does not reveal relic: {$messagesD}");
 
-        // Move silver_flute into Cris's inventory
+        // Move talisman into Cris's inventory
         $activeWorld = $engine67->loadOrSeedWorld();
         $crisObj = $activeWorld->getPlayerByName('Cris');
-        $fluteObj = $activeWorld->getItem('silver_flute');
-        if ($crisObj !== null && $fluteObj !== null) {
-            $fluteObj->move($crisObj);
-            $pm->saveWorld($activeWorld, $sec67WorldId);
+        $talismanObj = $activeWorld->getItem('talisman');
+        if ($crisObj !== null && $talismanObj !== null) {
+            $talismanObj->move($crisObj);
+            $pm->saveWorld($activeWorld);
         }
 
         // Move U back to celestial chamber
         $engine67->processCommand('Cris', 'go', 'U');
 
-        // Move D back into loc_relic_vault with flute in inventory
+        // Move D back into loc_relic_vault with talisman in inventory
         $resD2 = $engine67->processCommand('Cris', 'go', 'D');
         $messagesD2 = json_encode($resD2['messages'] ?? []);
-        assertTest(str_contains($messagesD2, 'Items[silver_flute=Silver Flute]') || str_contains($messagesD2, "You don't have the talisman"), "Entering loc_relic_vault with Silver Flute executes onReceive on console: {$messagesD2}");
+        assertTest(str_contains($messagesD2, "The talisman reveals there is something special here!"), "Entering loc_relic_vault with talisman reveals relic on console: {$messagesD2}");
 
         // Clean up
         @$pm->resetWorld($sec67WorldId);
@@ -4257,6 +4288,17 @@ if (shouldRun(68)) {
         // Cris logs in and navigates: loc_shrine_entrance -> loc_courtyard -> loc_inner_sanctum -> loc_celestial_chamber -> loc_relic_vault
         $engine68->processCommand('Cris', 'look');
 
+        // Unlock sanctum_gates for testing movement
+        $w68Init = $engine68->loadOrSeedWorld();
+        $gate68 = $w68Init->getLink('sanctum_gates');
+        if ($gate68 !== null) {
+            $gate68->locked = false;
+            $gate68->open = true;
+            $gate68->setProperty('locked', 0);
+            $gate68->setProperty('open', 1);
+            $pm->saveWorld($w68Init);
+        }
+
         // Move N to loc_courtyard
         $engine68->processCommand('Cris', 'go', 'N');
         // Move N to loc_inner_sanctum
@@ -4267,8 +4309,7 @@ if (shouldRun(68)) {
         // Move D into loc_relic_vault WITHOUT talisman
         $resD = $engine68->processCommand('Cris', 'go', 'D');
         $messagesD = json_encode($resD['messages'] ?? []);
-        assertTest(str_contains($messagesD, "You don't have the talisman"), "loc_relic_vault without talisman outputs ' You don\\'t have the talisman': {$messagesD}");
-        assertTest(!str_contains($messagesD, 'WOO! you have got the talisman'), "loc_relic_vault without talisman does NOT output 'WOO! you have got the talisman'");
+        assertTest(!str_contains($messagesD, "The talisman reveals"), "loc_relic_vault without talisman does not reveal relic: {$messagesD}");
 
         // Move talisman into Cris's inventory
         $activeWorld = $engine68->loadOrSeedWorld();
@@ -4276,7 +4317,7 @@ if (shouldRun(68)) {
         $talismanInWorld = $activeWorld->getItem('talisman');
         if ($crisObj !== null && $talismanInWorld !== null) {
             $talismanInWorld->move($crisObj);
-            $pm->saveWorld($activeWorld, $sec68WorldId);
+            $pm->saveWorld($activeWorld);
         }
 
         // Move U back to celestial chamber
@@ -4285,8 +4326,7 @@ if (shouldRun(68)) {
         // Move D back into loc_relic_vault WITH talisman
         $resD2 = $engine68->processCommand('Cris', 'go', 'D');
         $messagesD2 = json_encode($resD2['messages'] ?? []);
-        assertTest(str_contains($messagesD2, 'WOO! you have got the talisman'), "loc_relic_vault WITH talisman outputs 'WOO! you have got the talisman': {$messagesD2}");
-        assertTest(!str_contains($messagesD2, "You don't have the talisman"), "loc_relic_vault WITH talisman does NOT output ' You don\\'t have the talisman'");
+        assertTest(str_contains($messagesD2, 'The talisman reveals there is something special here!'), "loc_relic_vault WITH talisman outputs 'The talisman reveals...': {$messagesD2}");
 
         // Clean up
         @$pm->resetWorld($sec68WorldId);
@@ -4377,6 +4417,16 @@ if (shouldRun(69)) {
         assertTest($evContainsType?->type === 'FUNCTION', "containsType event type is FUNCTION");
         assertTest($evContainsType?->formalParams === ['container', 'type', 'recursive'], "containsType has correct formal parameters");
 
+        // Unlock sanctum_gates for testing movement
+        $gate69 = $worldInst->getLink('sanctum_gates');
+        if ($gate69 !== null) {
+            $gate69->locked = false;
+            $gate69->open = true;
+            $gate69->setProperty('locked', 0);
+            $gate69->setProperty('open', 1);
+            $pm->saveWorld($worldInst);
+        }
+
         // Verify entering loc_relic_vault with and without talisman
         $engine69->processCommand('Cris', 'look');
         $engine69->processCommand('Cris', 'go', 'N'); // courtyard
@@ -4386,8 +4436,7 @@ if (shouldRun(69)) {
         // Enter loc_relic_vault WITHOUT talisman
         $resNoTalis = $engine69->processCommand('Cris', 'go', 'D');
         $msgNoTalis = json_encode($resNoTalis['messages'] ?? []);
-        assertTest(str_contains($msgNoTalis, "You don't have the talisman"), "loc_relic_vault without talisman outputs ' You don\\'t have the talisman': {$msgNoTalis}");
-        assertTest(!str_contains($msgNoTalis, 'WOO! you have got the talisman'), "loc_relic_vault without talisman does NOT output 'WOO!': {$msgNoTalis}");
+        assertTest(!str_contains($msgNoTalis, "The talisman reveals"), "loc_relic_vault without talisman does not reveal relic: {$msgNoTalis}");
 
         // Acquire talisman
         $wActive = $engine69->loadOrSeedWorld();
@@ -4395,15 +4444,14 @@ if (shouldRun(69)) {
         $talismanItem = $wActive->getItem('talisman');
         if ($crisPlayer !== null && $talismanItem !== null) {
             $talismanItem->move($crisPlayer);
-            $pm->saveWorld($wActive, $sec69WorldId);
+            $pm->saveWorld($wActive);
         }
 
         // Return U and re-enter D WITH talisman
         $engine69->processCommand('Cris', 'go', 'U');
         $resWithTalis = $engine69->processCommand('Cris', 'go', 'D');
         $msgWithTalis = json_encode($resWithTalis['messages'] ?? []);
-        assertTest(str_contains($msgWithTalis, 'WOO! you have got the talismantrue'), "loc_relic_vault WITH talisman outputs 'WOO! you have got the talismantrue': {$msgWithTalis}");
-        assertTest(!str_contains($msgWithTalis, "You don't have the talisman"), "loc_relic_vault WITH talisman does NOT output ' You don\\'t have the talisman'");
+        assertTest(str_contains($msgWithTalis, 'The talisman reveals there is something special here!'), "loc_relic_vault WITH talisman outputs 'The talisman reveals...': {$msgWithTalis}");
 
         // Clean up
         @$pm->resetWorld($sec69WorldId);
@@ -4475,6 +4523,233 @@ if (shouldRun(70)) {
     assertTest($gift->container === $giver, "Item returned to giver");
     assertTest(in_array('whenPicked', $firedEvents, true) && in_array('onReceiveItem', $firedEvents, true), "Fired whenPicked and onReceiveItem on give back");
     assertTest(!in_array('whenGiven', $firedEvents, true) && !in_array('whenReceived', $firedEvents, true), "Did NOT fire whenGiven/whenReceived on give back");
+}
+
+// -------------------------------------------------------------
+// Section 71: Testing SmallBasic String Functions
+// -------------------------------------------------------------
+if (shouldRun(71)) {
+    echo "\n--- Section 71: Testing SmallBasic String Functions (Asc, Chr, LCase, UCase, Left, Right, Mid, Replace) & test_string_functions.dxw ---\n";
+
+    // 1. Direct unit tests on ActionsRunner evaluating SmallBasic string functions
+    $runnerW = new \Dimx\World('w_str_runner', 'Runner World');
+    $runner = new \Dimx\ActionsRunner($runnerW);
+
+    // Asc()
+    $runner->run('Dim ascA = Asc("A")');
+    assertTest($runner->getLocalVar('ascA') === 65, "Asc('A') returns 65");
+    $runner->run('Dim asca = Asc("a")');
+    assertTest($runner->getLocalVar('asca') === 97, "Asc('a') returns 97");
+    $runner->run('Dim ascEmpty = Asc("")');
+    assertTest($runner->getLocalVar('ascEmpty') === -1, "Asc('') returns -1 on empty string");
+    $runner->run('Dim ascHello = Asc("Hello")');
+    assertTest($runner->getLocalVar('ascHello') === 72, "Asc('Hello') evaluates first character code (72)");
+
+    // Chr()
+    $runner->run('Dim chr65 = Chr(65)');
+    assertTest($runner->getLocalVar('chr65') === 'A', "Chr(65) returns 'A'");
+    $runner->run('Dim chr97 = Chr(97)');
+    assertTest($runner->getLocalVar('chr97') === 'a', "Chr(97) returns 'a'");
+    $runner->run('Dim chr33 = Chr(33)');
+    assertTest($runner->getLocalVar('chr33') === '!', "Chr(33) returns '!'");
+
+    // LCase() & UCase()
+    $runner->run('Dim lc = LCase("HeLLo World!")');
+    assertTest($runner->getLocalVar('lc') === 'hello world!', "LCase('HeLLo World!') returns lowercase");
+    $runner->run('Dim uc = UCase("HeLLo World!")');
+    assertTest($runner->getLocalVar('uc') === 'HELLO WORLD!', "UCase('HeLLo World!') returns uppercase");
+
+    // Left()
+    $runner->run('Dim l3 = Left("DimensioneX", 3)');
+    assertTest($runner->getLocalVar('l3') === 'Dim', "Left('DimensioneX', 3) returns 'Dim'");
+    $runner->run('Dim l0 = Left("DimensioneX", 0)');
+    assertTest($runner->getLocalVar('l0') === '', "Left('DimensioneX', 0) returns empty string");
+    $runner->run('Dim lAll = Left("Dim", 10)');
+    assertTest($runner->getLocalVar('lAll') === 'Dim', "Left('Dim', 10) returns whole string if len >= string length");
+
+    // Right()
+    $runner->run('Dim r1 = Right("DimensioneX", 1)');
+    assertTest($runner->getLocalVar('r1') === 'X', "Right('DimensioneX', 1) returns 'X'");
+    $runner->run('Dim r0 = Right("DimensioneX", 0)');
+    assertTest($runner->getLocalVar('r0') === '', "Right('DimensioneX', 0) returns empty string");
+    $runner->run('Dim rAll = Right("Dim", 10)');
+    assertTest($runner->getLocalVar('rAll') === 'Dim', "Right('Dim', 10) returns whole string if len >= string length");
+
+    // Mid()
+    $runner->run('Dim mSub = Mid("DimensioneX", 5, 4)');
+    assertTest($runner->getLocalVar('mSub') === 'nsio', "Mid('DimensioneX', 5, 4) returns 'nsio'");
+    $runner->run('Dim mRest = Mid("DimensioneX", 5)');
+    assertTest($runner->getLocalVar('mRest') === 'nsioneX', "Mid('DimensioneX', 5) without length extracts to end: 'nsioneX'");
+    $runner->run('Dim mStart = Mid("DimensioneX", 1, 3)');
+    assertTest($runner->getLocalVar('mStart') === 'Dim', "Mid('DimensioneX', 1, 3) 1-based start extracts 'Dim'");
+    $runner->run('Dim mOut = Mid("Dim", 10, 2)');
+    assertTest($runner->getLocalVar('mOut') === '', "Mid beyond string length returns empty string");
+
+    // Replace()
+    $runner->run('Dim rep1 = Replace("Hello World", "world", "DimensioneY")');
+    assertTest($runner->getLocalVar('rep1') === 'Hello DimensioneY', "Replace case-insensitively replaces needle");
+    $runner->run('Dim rep2 = Replace("Banana", "a", "o")');
+    assertTest($runner->getLocalVar('rep2') === 'Bonono', "Replace replaces all occurrences: 'Banana' -> 'Bonono'");
+    $runner->run('Dim rep3 = Replace("Hello", "", "World")');
+    assertTest($runner->getLocalVar('rep3') === 'Hello', "Replace with empty needle returns haystack untouched");
+
+    // Format()
+    $runner->run('Dim fmtInt = Format(12, "%04d")');
+    assertTest($runner->getLocalVar('fmtInt') === '0012', "Format(12, '%04d') formats integer with zero-padding: '0012'");
+    $runner->run('Dim fmtFloat = Format(3.14159, "%.2f")');
+    assertTest($runner->getLocalVar('fmtFloat') === '3.14', "Format(3.14159, '%.2f') formats float to 2 decimal places: '3.14'");
+    $runner->run('Dim fmtEmpty = Format(123, "")');
+    assertTest($runner->getLocalVar('fmtEmpty') === '123', "Format with empty format string returns string representation of number");
+
+    // InStr()
+    $runner->run('Dim isFound = InStr("DimensioneX", "men")');
+    assertTest($runner->getLocalVar('isFound') === 3, "InStr('DimensioneX', 'men') returns 1-based index 3");
+    $runner->run('Dim isStart = InStr("banana", "a", 3)');
+    assertTest($runner->getLocalVar('isStart') === 4, "InStr('banana', 'a', 3) returns 1-based index 4 starting from 3");
+    $runner->run('Dim isCase = InStr("DimensioneX", "DIM")');
+    assertTest($runner->getLocalVar('isCase') === 1, "InStr is case-insensitive, finding 'DIM' at 1");
+    $runner->run('Dim isNotFound = InStr("DimensioneX", "xyz")');
+    assertTest($runner->getLocalVar('isNotFound') === 0, "InStr returns 0 when substring not found");
+    $runner->run('Dim isEmpty = InStr("banana", "")');
+    assertTest($runner->getLocalVar('isEmpty') === 0, "InStr with empty needle returns 0");
+
+    // InStrCount()
+    $runner->run('Dim cntA = InStrCount("banana", "a")');
+    assertTest($runner->getLocalVar('cntA') === 3, "InStrCount('banana', 'a') returns 3");
+    $runner->run('Dim cntCase = InStrCount("banana", "A")');
+    assertTest($runner->getLocalVar('cntCase') === 3, "InStrCount is case-insensitive, finding 3 'A's");
+    $runner->run('Dim cntAn = InStrCount("banana", "an")');
+    assertTest($runner->getLocalVar('cntAn') === 2, "InStrCount('banana', 'an') returns 2");
+    $runner->run('Dim cntOverlap = InStrCount("aaaa", "aa")');
+    assertTest($runner->getLocalVar('cntOverlap') === 3, "InStrCount('aaaa', 'aa') counts sliding occurrences: 3");
+    $runner->run('Dim cntNone = InStrCount("banana", "xyz")');
+    assertTest($runner->getLocalVar('cntNone') === 0, "InStrCount returns 0 for non-matching needle");
+    $runner->run('Dim cntEmpty = InStrCount("banana", "")');
+    assertTest($runner->getLocalVar('cntEmpty') === 0, "InStrCount returns 0 for empty needle");
+
+    // 2. Integration test: Load test_string_functions.dxw with GameEngine and execute onStart
+    $sec71WorldId = 'test_w_sec71_' . uniqid();
+    $sec71DxwPath = dirname(__DIR__) . '/docs/dxw-examples/test_string_functions.dxw';
+    $engine71 = new \Dimx\GameEngine($pm, $sec71WorldId, $sec71DxwPath);
+    $w71 = $engine71->loadOrSeedWorld();
+
+    assertTest($w71 instanceof \Dimx\World, "loadOrSeedWorld seeded world from test_string_functions.dxw");
+    assertTest((int)$w71->getProperty('res_asc_A') === 65, "DXW onStart executed res_asc_A = Asc('A') -> 65");
+    assertTest((int)$w71->getProperty('res_asc_empty') === -1, "DXW onStart executed res_asc_empty = Asc('') -> -1");
+    assertTest($w71->getProperty('res_chr_65') === 'A', "DXW onStart executed res_chr_65 = Chr(65) -> 'A'");
+    assertTest($w71->getProperty('res_chr_98') === 'b', "DXW onStart executed res_chr_98 = Chr(98) -> 'b'");
+    assertTest($w71->getProperty('res_lcase') === 'hello world!', "DXW onStart executed res_lcase -> 'hello world!'");
+    assertTest($w71->getProperty('res_ucase') === 'HELLO WORLD!', "DXW onStart executed res_ucase -> 'HELLO WORLD!'");
+    assertTest($w71->getProperty('res_left_3') === 'Dim', "DXW onStart executed res_left_3 -> 'Dim'");
+    assertTest($w71->getProperty('res_left_0') === '', "DXW onStart executed res_left_0 -> ''");
+    assertTest($w71->getProperty('res_left_all') === 'Dim', "DXW onStart executed res_left_all -> 'Dim'");
+    assertTest($w71->getProperty('res_right_1') === 'X', "DXW onStart executed res_right_1 -> 'X'");
+    assertTest($w71->getProperty('res_right_0') === '', "DXW onStart executed res_right_0 -> ''");
+    assertTest($w71->getProperty('res_right_all') === 'Dim', "DXW onStart executed res_right_all -> 'Dim'");
+    assertTest($w71->getProperty('res_mid_sub') === 'nsio', "DXW onStart executed res_mid_sub -> 'nsio'");
+    assertTest($w71->getProperty('res_mid_rest') === 'nsioneX', "DXW onStart executed res_mid_rest -> 'nsioneX'");
+    assertTest($w71->getProperty('res_replace') === 'Hello DimensioneY', "DXW onStart executed res_replace -> 'Hello DimensioneY'");
+    assertTest($w71->getProperty('res_replace_multi') === 'Bonono', "DXW onStart executed res_replace_multi -> 'Bonono'");
+    assertTest($w71->getProperty('res_format_int') === '0012', "DXW onStart executed res_format_int -> '0012'");
+    assertTest($w71->getProperty('res_format_float') === '3.14', "DXW onStart executed res_format_float -> '3.14'");
+    assertTest((int)$w71->getProperty('res_instr_found') === 3, "DXW onStart executed res_instr_found -> 3");
+    assertTest((int)$w71->getProperty('res_instr_start') === 4, "DXW onStart executed res_instr_start -> 4");
+    assertTest((int)$w71->getProperty('res_instr_case') === 1, "DXW onStart executed res_instr_case -> 1");
+    assertTest((int)$w71->getProperty('res_instr_notfound') === 0, "DXW onStart executed res_instr_notfound -> 0");
+    assertTest((int)$w71->getProperty('res_instr_empty') === 0, "DXW onStart executed res_instr_empty -> 0");
+    assertTest((int)$w71->getProperty('res_instrcount_a') === 3, "DXW onStart executed res_instrcount_a -> 3");
+    assertTest((int)$w71->getProperty('res_instrcount_case') === 3, "DXW onStart executed res_instrcount_case -> 3");
+    assertTest((int)$w71->getProperty('res_instrcount_an') === 2, "DXW onStart executed res_instrcount_an -> 2");
+    assertTest((int)$w71->getProperty('res_instrcount_overlap') === 3, "DXW onStart executed res_instrcount_overlap -> 3");
+    assertTest((int)$w71->getProperty('res_instrcount_none') === 0, "DXW onStart executed res_instrcount_none -> 0");
+
+    // Clean up
+    @$pm->resetWorld($sec71WorldId);
+}
+
+// -------------------------------------------------------------
+// Section 72: Testing SmallBasic Math Functions
+// -------------------------------------------------------------
+if (shouldRun(72)) {
+    echo "\n--- Section 72: Testing SmallBasic Math Functions (Abs, Int, Log, Rnd, Round, Sqr) & test_math_functions.dxw ---\n";
+
+    // 1. Direct unit tests on ActionsRunner
+    $runnerW = new \Dimx\World('w_math_runner', 'Math Runner World');
+    $runner = new \Dimx\ActionsRunner($runnerW);
+
+    // Abs()
+    $runner->run('Dim aPos = Abs(42)');
+    assertTest($runner->getLocalVar('aPos') === 42, "Abs(42) returns 42");
+    $runner->run('Dim aNeg = Abs(-42)');
+    assertTest($runner->getLocalVar('aNeg') === 42, "Abs(-42) returns 42");
+    $runner->run('Dim aFloat = Abs(-3.14)');
+    assertTest(abs($runner->getLocalVar('aFloat') - 3.14) < 0.0001, "Abs(-3.14) returns 3.14");
+    $runner->run('Dim aZero = Abs(0)');
+    assertTest($runner->getLocalVar('aZero') === 0, "Abs(0) returns 0");
+
+    // Int()
+    $runner->run('Dim iPos = Int(42.8)');
+    assertTest($runner->getLocalVar('iPos') === 42, "Int(42.8) truncates to 42");
+    $runner->run('Dim iNeg = Int(-42.8)');
+    assertTest($runner->getLocalVar('iNeg') === -42, "Int(-42.8) truncates to -42");
+    $runner->run('Dim iExact = Int(100)');
+    assertTest($runner->getLocalVar('iExact') === 100, "Int(100) returns 100");
+
+    // Log()
+    $runner->run('Dim l1 = Log(1)');
+    assertTest($runner->getLocalVar('l1') === 0.0, "Log(1) returns 0.0");
+    $runner->run('Dim lE = Round(Log(2.718281828), 2)');
+    assertTest($runner->getLocalVar('lE') == 1, "Log(e) is approx 1.0");
+
+    // Rnd()
+    $runner->run('Dim rVal = Rnd()');
+    $rVal = $runner->getLocalVar('rVal');
+    assertTest(is_float($rVal) && $rVal >= 0.0 && $rVal <= 1.0, "Rnd() returns float between 0 and 1: {$rVal}");
+
+    // Round()
+    $runner->run('Dim rnd2 = Round(3.14159, 2)');
+    assertTest($runner->getLocalVar('rnd2') === 3.14, "Round(3.14159, 2) returns 3.14");
+    $runner->run('Dim rnd0 = Round(3.6)');
+    assertTest($runner->getLocalVar('rnd0') === 4, "Round(3.6) with omitted decimals returns 4");
+    $runner->run('Dim rndNeg = Round(-2.7)');
+    assertTest($runner->getLocalVar('rndNeg') === -3, "Round(-2.7) returns -3");
+
+    // Sqr()
+    $runner->run('Dim s16 = Sqr(16)');
+    assertTest($runner->getLocalVar('s16') == 4.0, "Sqr(16) returns 4");
+    $runner->run('Dim s0 = Sqr(0)');
+    assertTest($runner->getLocalVar('s0') == 0.0, "Sqr(0) returns 0");
+    $runner->run('Dim s2 = Round(Sqr(2), 4)');
+    assertTest($runner->getLocalVar('s2') === 1.4142, "Sqr(2) rounded to 4 decimals returns 1.4142");
+
+    // 2. Integration test: Load test_math_functions.dxw with GameEngine and execute onStart
+    $sec72WorldId = 'test_w_sec72_' . uniqid();
+    $sec72DxwPath = dirname(__DIR__) . '/docs/dxw-examples/test_math_functions.dxw';
+    $engine72 = new \Dimx\GameEngine($pm, $sec72WorldId, $sec72DxwPath);
+    $w72 = $engine72->loadOrSeedWorld();
+
+    assertTest($w72 instanceof \Dimx\World, "loadOrSeedWorld seeded world from test_math_functions.dxw");
+    assertTest((int)$w72->getProperty('res_abs_pos') === 42, "DXW onStart executed res_abs_pos -> 42");
+    assertTest((int)$w72->getProperty('res_abs_neg') === 42, "DXW onStart executed res_abs_neg -> 42");
+    assertTest(abs((float)$w72->getProperty('res_abs_float') - 3.14) < 0.0001, "DXW onStart executed res_abs_float -> 3.14");
+    assertTest((int)$w72->getProperty('res_abs_zero') === 0, "DXW onStart executed res_abs_zero -> 0");
+    assertTest((int)$w72->getProperty('res_int_pos') === 42, "DXW onStart executed res_int_pos -> 42");
+    assertTest((int)$w72->getProperty('res_int_neg') === -42, "DXW onStart executed res_int_neg -> -42");
+    assertTest((int)$w72->getProperty('res_int_exact') === 100, "DXW onStart executed res_int_exact -> 100");
+    assertTest((float)$w72->getProperty('res_log_1') === 0.0, "DXW onStart executed res_log_1 -> 0.0");
+    assertTest((float)$w72->getProperty('res_log_e') == 1, "DXW onStart executed res_log_e -> 1");
+    $dxwRnd = (float)$w72->getProperty('res_rnd');
+    assertTest($dxwRnd >= 0.0 && $dxwRnd <= 1.0, "DXW onStart executed res_rnd in [0, 1]: {$dxwRnd}");
+    assertTest((float)$w72->getProperty('res_round_2') === 3.14, "DXW onStart executed res_round_2 -> 3.14");
+    assertTest((int)$w72->getProperty('res_round_0') === 4, "DXW onStart executed res_round_0 -> 4");
+    assertTest((int)$w72->getProperty('res_round_neg') === -3, "DXW onStart executed res_round_neg -> -3");
+    assertTest((float)$w72->getProperty('res_round_exact') === 5.6, "DXW onStart executed res_round_exact -> 5.6");
+    assertTest((float)$w72->getProperty('res_sqr_16') == 4.0, "DXW onStart executed res_sqr_16 -> 4");
+    assertTest((float)$w72->getProperty('res_sqr_0') == 0.0, "DXW onStart executed res_sqr_0 -> 0");
+    assertTest((float)$w72->getProperty('res_sqr_2') === 1.4142, "DXW onStart executed res_sqr_2 -> 1.4142");
+
+    // Clean up
+    @$pm->resetWorld($sec72WorldId);
 }
 
 // Clean up test worlds

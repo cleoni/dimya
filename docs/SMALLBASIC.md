@@ -971,7 +971,7 @@ Below is the complete catalog of all 55 built-in SmallBasic functions (3.10.1 to
 
 ### 3.10.1 Abs( n )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns the absolute value of numeric expression `n`.
 
 Returns the absolute value of numeric expression `n`.
 
@@ -983,7 +983,7 @@ Returns the absolute value of numeric expression `n`.
 
 ### 3.10.2 Asc( c )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns the ASCII integer code of the first character, or `-1` if the string is empty.
 
 Returns the ASCII code of character `c`. If a string is provided, evaluates the first character.
 
@@ -995,7 +995,7 @@ Returns the ASCII code of character `c`. If a string is provided, evaluates the 
 
 ### 3.10.3 Chr( n )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns the character string corresponding to ASCII code `n`.
 
 Returns the character corresponding to ASCII code `n` ($0 \le n \le 255$).
 
@@ -1041,7 +1041,7 @@ Checks if a custom `Sub`, `Function`, or `EVENT` exists with the given name.
 
 ### 3.10.7 Format( number, strFormat )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Formats a number according to a printf-style format pattern string.
 
 Formats a number according to a format pattern string (following standard `String.format` / `printf` formatting).
 
@@ -1235,7 +1235,7 @@ Fetches content from an external HTTP/HTTPS URL and returns the response body as
 
 ### 3.10.22 InStr( haystack, needle [, startpos] )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Searches for substring `needle` within `haystack` (case-insensitive). Returns 1-based index of first occurrence, or `0` if not found.
 
 Searches for substring `needle` within `haystack`. Case-insensitive.
 
@@ -1246,7 +1246,7 @@ Searches for substring `needle` within `haystack`. Case-insensitive.
 
 ### 3.10.23 InStrCount( haystack, needle )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Counts occurrences of `needle` within `haystack` (case-insensitive, sliding window).
 
 Counts the total number of occurrences of `needle` within `haystack`. Case-insensitive.
 
@@ -1256,7 +1256,7 @@ Counts the total number of occurrences of `needle` within `haystack`. Case-insen
 
 ### 3.10.24 Int( n )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Truncates number `n` to its integer part.
 
 Truncates number `n` to its integer part (does not round up).
 
@@ -1299,7 +1299,7 @@ Tests whether the object argument is a `ROOM`.
 
 ### 3.10.28 LCase( string )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Converts a string to lowercase.
 
 Converts a string to lowercase.
 
@@ -1309,7 +1309,7 @@ Converts a string to lowercase.
 
 ### 3.10.29 Left( string, nchars )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns the leftmost `nchars` characters of `string`.
 
 Returns the leftmost `nchars` characters of `string`.
 
@@ -1329,7 +1329,7 @@ Returns the character length of `string`.
 
 ### 3.10.31 Log( number )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns the natural logarithm (base $e$) of `number`.
 
 Returns the natural logarithm (base $e$) of `number`.
 
@@ -1349,7 +1349,7 @@ Returns the primary type prefix of an item's `TYPE` attribute (e.g. for `weapon.
 
 ### 3.10.33 Mid( string, start [, nchars] )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Extracts a substring of `nchars` characters starting from 1-based position `start`. If `nchars` is omitted, extracts to the end of string.
 
 Extracts a substring of `nchars` characters starting from 1-based position `start`.
 
@@ -1452,9 +1452,9 @@ Renders the specified panel's controls as HTML markup (used for building context
 
 ### 3.10.42 Replace( haystack, needle, replacement )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Replaces all occurrences of `needle` with `replacement` in `haystack`. Case-insensitive (matching DimX behavior).
 
-Replaces all occurrences of `needle` with `replacement` in `haystack`. Case-sensitive.
+Replaces all occurrences of `needle` with `replacement` in `haystack`. Case-insensitive.
 
 - **Syntax**: `res = Replace( haystack, needle, replacement )`
 
@@ -1462,7 +1462,7 @@ Replaces all occurrences of `needle` with `replacement` in `haystack`. Case-sens
 
 ### 3.10.43 Right( string, nchars )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns the rightmost `nchars` characters of `string`.
 
 Returns the rightmost `nchars` characters of `string`.
 
@@ -1482,7 +1482,7 @@ Returns a pseudo-random integer between $1$ and $N$ inclusive ($N \ge 1$).
 
 ### 3.10.45 Rnd()
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns a pseudo-random floating-point number in the range $[0.0, 1.0)$.
 
 Returns a pseudo-random floating-point number in the range $[0.0, 1.0)$.
 
@@ -1502,7 +1502,7 @@ Selects and returns a random element from a `SET` or `ARRAY`.
 
 ### 3.10.47 Round( number, decimals )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Rounds `number` to the specified number of decimal digits (defaults to 0 if omitted).
 
 Rounds `number` to the specified number of decimal digits.
 
@@ -1583,7 +1583,7 @@ Splits `valuestring` by delimiter `separatorstring` into an `ARRAY`.
 
 ### 3.10.54 Sqr( x )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns the square root of `x` ($\sqrt{x}$).
 
 Returns the square root of `x` ($\sqrt{x}$).
 
@@ -1593,7 +1593,7 @@ Returns the square root of `x` ($\sqrt{x}$).
 
 ### 3.10.55 UCase( string )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Converts a string to uppercase.
 
 Converts a string to uppercase.
 

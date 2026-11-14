@@ -1,0 +1,63 @@
+WORLD test_string_functions
+	NAME		Test String Functions World
+	VERSION		1.0
+	AUTHOR  	Test Suite
+
+ROOM start
+	NAME		Start Room
+	DESCRIPTION	A testing room.
+END_ROOMS
+
+SCRIPTS
+
+EVENT onStart
+	' Asc
+	res_asc_A = Asc("A")
+	res_asc_empty = Asc("")
+
+	' Chr
+	res_chr_65 = Chr(65)
+	res_chr_98 = Chr(98)
+
+	' LCase and UCase
+	res_lcase = LCase("Hello World!")
+	res_ucase = UCase("Hello World!")
+
+	' Left and Right
+	res_left_3 = Left("DimensioneX", 3)
+	res_left_0 = Left("DimensioneX", 0)
+	res_left_all = Left("Dim", 10)
+	res_right_1 = Right("DimensioneX", 1)
+	res_right_0 = Right("DimensioneX", 0)
+	res_right_all = Right("Dim", 10)
+
+	' Mid
+	res_mid_sub = Mid("DimensioneX", 5, 4)
+	res_mid_rest = Mid("DimensioneX", 5)
+
+	' Replace
+	res_replace = Replace("Hello World", "world", "DimensioneY")
+	res_replace_multi = Replace("Banana", "a", "o")
+
+	' Format
+	res_format_int = Format(12, "%04d")
+	res_format_float = Format(3.14159, "%.2f")
+
+	' InStr
+	res_instr_found = InStr("DimensioneX", "men")
+	res_instr_start = InStr("banana", "a", 3)
+	res_instr_case = InStr("DimensioneX", "DIM")
+	res_instr_notfound = InStr("DimensioneX", "xyz")
+	res_instr_empty = InStr("banana", "")
+
+	' InStrCount
+	res_instrcount_a = InStrCount("banana", "a")
+	res_instrcount_case = InStrCount("banana", "A")
+	res_instrcount_an = InStrCount("banana", "an")
+	res_instrcount_overlap = InStrCount("aaaa", "aa")
+	res_instrcount_none = InStrCount("banana", "xyz")
+END_EVENT
+
+END_SCRIPTS
+
+END_WORLD
