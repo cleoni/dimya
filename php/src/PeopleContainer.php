@@ -40,6 +40,13 @@ class PeopleContainer extends AdvObject
         $res = parent::addObject($obj);
         if ($res) {
             $this->sendCmd('refresh!scene');
+            if ($obj instanceof Player) {
+                $panelIds = $obj->getPanelIds();
+                if (strcasecmp($panelIds, (string)$obj->prevPanelId) !== 0) {
+                    $obj->prevPanelId = $panelIds;
+                    $obj->sendCmd('refresh!ctrls');
+                }
+            }
         }
         return $res;
     }
@@ -185,7 +192,11 @@ class PeopleContainer extends AdvObject
         $this->world?->log("Setting panel: {$panelId} in: {$this->id}");
 
         if (is_string($panel)) {
-            $panel = $this->world?->getPanel($panel);
+            if ($panel === '' || strcasecmp($panel, 'default') === 0) {
+                $panel = null;
+            } else {
+                $panel = $this->world?->getPanel($panel);
+            }
         }
         $this->panel = $panel;
         return true;

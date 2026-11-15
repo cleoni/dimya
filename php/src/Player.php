@@ -493,6 +493,20 @@ class Player extends Character
     }
 
     /**
+     * Returns the combined panel IDs string for this player and their container,
+     * matching DimensioneX Client.getPanelIds() ("_<playerPanelId>+_<containerPanelId>").
+     */
+    public function getPanelIds(): string
+    {
+        $id0 = $this->panel?->id ?? '';
+        $container = $this->container;
+        $id1 = ($container instanceof PeopleContainer && $container->panel !== null)
+            ? $container->panel->id
+            : '';
+        return '_' . $id0 . '+_' . $id1;
+    }
+
+    /**
      * Set player's active command panel.
      */
     public function setPanel(string|Panel|null $panel): bool
@@ -501,9 +515,21 @@ class Player extends Character
         $this->world?->log("Setting panel: {$panelId} for player: {$this->id}");
 
         if (is_string($panel)) {
-            $panel = $this->world?->getPanel($panel);
+            if ($panel === '' || strcasecmp($panel, 'default') === 0) {
+                $panel = null;
+            } else {
+                $panel = $this->world?->getPanel($panel);
+            }
+        } elseif ($panel instanceof Panel && strcasecmp($panel->id, 'default') === 0) {
+            $panel = null;
         }
         $this->panel = $panel;
+
+        $panelIds = $this->getPanelIds();
+        if (strcasecmp($panelIds, (string)$this->prevPanelId) !== 0) {
+            $this->prevPanelId = $panelIds;
+            $this->sendCmd('refresh!ctrls');
+        }
         return true;
     }
 

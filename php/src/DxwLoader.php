@@ -720,7 +720,7 @@ class DxwLoader
                             } elseif ($subDir === 'ATTRLIST') {
                                 $room->setAttrList(trim(substr($subLine, strlen($subTokens[0]))));
                             } elseif ($subDir === 'PANEL') {
-                                $room->setProperty('panel', trim(substr($subLine, strlen($subTokens[0]))));
+                                $room->setPanel(trim(substr($subLine, strlen($subTokens[0]))));
                             } elseif ($subDir === 'IMAGE') {
                                 $rest = trim(substr($subLine, strlen($subTokens[0])));
                                 $imgTokens = preg_split('/\s+/', $rest);

@@ -2637,6 +2637,9 @@ class UIhtml extends UI
                 }
                 refreshScene();
               } else if (what === 'refresh!ctrls' || what === 'refresh #ctrls') {
+                if (Date.now() - lastSceneRenderTime < 1500) {
+                  return; // Player just rendered the scene and controls; avoid redundant refresh right after
+                }
                 refreshScene();
               } else if (what === 'silence') {
                 const $bg = $('#bgplayer');

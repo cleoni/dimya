@@ -5826,6 +5826,40 @@ DXW;
         assertTest($roomPre1a instanceof \Dimx\Room, "it_underworld.dxw: ROOM pre1a is loaded");
         $pre1aDesc = $roomPre1a->evalDescription();
         assertTest(str_contains($pre1aDesc, 'Informativa') && !str_contains($pre1aDesc, '@privacy()'), "it_underworld.dxw: ROOM pre1a DESCRIPTION @privacy() evaluates privacy() at runtime");
+
+        // Verify ROOM PANEL binding and automatic panel switching + refresh!ctrls when moving between rooms
+        $roomPre1 = $uwWorld->getRoom('pre1');
+        $roomPre2 = $uwWorld->getRoom('pre2');
+        $roomStart = $uwWorld->getRoom('start');
+        assertTest($roomPre1?->getPanel()?->id === 'initial', "it_underworld.dxw: ROOM pre1 has panel 'initial'");
+        assertTest($roomPre2?->getPanel()?->id === 'initchoice', "it_underworld.dxw: ROOM pre2 has panel 'initchoice'");
+        assertTest($roomStart?->getPanel() === null, "it_underworld.dxw: ROOM start has default (null) panel");
+
+        $panelTester = new \Dimx\Player($uwWorld, 'PanelTester', 'p_panel_tester');
+        $panelTester->move($roomPre1);
+        assertTest($panelTester->getPanel()?->id === 'initial', "Entering pre1 switches effective panel to 'initial'");
+        assertTest($panelTester->prevPanelId === '_+_initial', "Entering pre1 sets prevPanelId to '_+_initial'");
+        $cmdsPre1 = $panelTester->drainCommands();
+        assertTest(str_contains($cmdsPre1, 'refresh!ctrls'), "Entering pre1 queues refresh!ctrls command");
+
+        // Moving to pre1a (same panel 'initial') should NOT queue refresh!ctrls
+        $panelTester->move($roomPre1a);
+        $cmdsPre1a = $panelTester->drainCommands();
+        assertTest(!str_contains($cmdsPre1a, 'refresh!ctrls'), "Moving from pre1 to pre1a (same panel 'initial') does NOT queue refresh!ctrls");
+
+        // Moving to pre2 (panel 'initchoice') should switch panel and queue refresh!ctrls
+        $panelTester->move($roomPre2);
+        assertTest($panelTester->getPanel()?->id === 'initchoice', "Entering pre2 switches effective panel to 'initchoice'");
+        assertTest($panelTester->prevPanelId === '_+_initchoice', "Entering pre2 updates prevPanelId to '_+_initchoice'");
+        $cmdsPre2 = $panelTester->drainCommands();
+        assertTest(str_contains($cmdsPre2, 'refresh!ctrls'), "Entering pre2 queues refresh!ctrls command");
+
+        // Moving to start (no room panel) should fall back to 'default' and queue refresh!ctrls
+        $panelTester->move($roomStart);
+        assertTest($panelTester->getPanel()?->id === 'default', "Entering start falls back to 'default' panel");
+        assertTest($panelTester->prevPanelId === '_+_', "Entering start updates prevPanelId to '_+_'");
+        $cmdsStart = $panelTester->drainCommands();
+        assertTest(str_contains($cmdsStart, 'refresh!ctrls'), "Entering start queues refresh!ctrls command");
     }
 
     // Unit test for LABEL "@expr()" in standalone world

@@ -846,7 +846,7 @@ class Character extends AdvObject
             $sb .= "<li>sound support: {$soundSupport}</li>\n";
             $sb .= "<li>music support: {$musicSupport}</li>\n";
             $sb .= "<li>" . count($this->messagesQueue) . " messages</li>\n";
-            $sb .= "<li>panel: " . htmlspecialchars($this->panel?->id ?? 'default', ENT_QUOTES, 'UTF-8') . "</li>\n";
+            $sb .= "<li>panel: " . htmlspecialchars($this->getPanel()?->id ?? 'default', ENT_QUOTES, 'UTF-8') . "</li>\n";
             $sb .= "<li>prevpanelids: " . htmlspecialchars((string)($this->prevPanelId ?? ''), ENT_QUOTES, 'UTF-8') . "</li>\n";
         }
 
