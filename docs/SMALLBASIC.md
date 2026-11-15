@@ -454,7 +454,7 @@ Instructions are presented here in numerical order (3.9.1 to 3.9.29):
 
 ### 3.9.1 AttachEvent
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+> **[DimY: implemented]**
 
 Attaches an event-management script dynamically to an object.
 

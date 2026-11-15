@@ -34,6 +34,9 @@ class AdvObject extends DimxObject
     public int $showY = -1;
     public ?string $showFor = null;
 
+    /** @var array<string, string> Map of dynamically attached eventId => sourceEventId */
+    public array $attachedEvents = [];
+
     public function __construct(
         ?World $world = null,
         string $name = '',
@@ -678,5 +681,84 @@ class AdvObject extends DimxObject
     public function sendCmd(string $cmd): bool
     {
         return false;
+    }
+
+    /**
+     * Dynamically attaches or detaches an event script on this object.
+     * Matches DimensioneX Java AdvObject.attachEvent().
+     *
+     * @param string $eventId Unqualified event ID to respond to (e.g. 'onEnter', 'whenPicked')
+     * @param string $copyFromId Source event ID (or '' to detach/cancel)
+     * @param Event|null $sourceEvent Source Event object (or null when detaching)
+     * @return bool
+     */
+    public function attachEvent(string $eventId, string $copyFromId, ?Event $sourceEvent = null): bool
+    {
+        $eventId = trim($eventId);
+        if ($eventId === '') {
+            throw new \RuntimeException("Event ID is missing");
+        }
+
+        // If caller passed a qualified eventId matching this->id, strip prefix
+        if (str_contains($eventId, '.')) {
+            $parts = explode('.', $eventId, 2);
+            if (strcasecmp($parts[0], $this->id) === 0) {
+                $eventId = $parts[1];
+            }
+        }
+
+        $qualifiedId = "{$this->id}.{$eventId}";
+
+        if ($copyFromId === '' && $sourceEvent === null) {
+            // Detach / cancel event
+            if ($this->world !== null) {
+                unset($this->world->events[$qualifiedId]);
+                foreach (array_keys($this->world->events) as $k) {
+                    if (strcasecmp((string)$k, $qualifiedId) === 0) {
+                        unset($this->world->events[$k]);
+                    }
+                }
+            }
+            unset($this->attachedEvents[$eventId]);
+            foreach (array_keys($this->attachedEvents) as $ak) {
+                if (strcasecmp((string)$ak, $eventId) === 0) {
+                    unset($this->attachedEvents[$ak]);
+                }
+            }
+            return true;
+        }
+
+        if ($sourceEvent === null) {
+            throw new \RuntimeException("This is not a valid event: {$copyFromId}");
+        }
+
+        $newEvent = new Event(
+            $qualifiedId,
+            'EVENT',
+            null,
+            $sourceEvent->formalParams,
+            $sourceEvent->fileName,
+            $sourceEvent->fileShort,
+            $sourceEvent->actionsStartLine
+        );
+        $newEvent->actions = $sourceEvent->actions;
+        $newEvent->attachedEventsId = $copyFromId;
+
+        if ($this->world !== null) {
+            foreach (array_keys($this->world->events) as $k) {
+                if (strcasecmp((string)$k, $qualifiedId) === 0 && $k !== $qualifiedId) {
+                    unset($this->world->events[$k]);
+                }
+            }
+            $this->world->registerEvent($newEvent);
+        }
+
+        foreach (array_keys($this->attachedEvents) as $ak) {
+            if (strcasecmp((string)$ak, $eventId) === 0 && $ak !== $eventId) {
+                unset($this->attachedEvents[$ak]);
+            }
+        }
+        $this->attachedEvents[$eventId] = $copyFromId;
+        return true;
     }
 }

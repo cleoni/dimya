@@ -79,6 +79,7 @@ $sections = [
     76 => ['title' => 'Testing SmallBasic System, Scripting & Environment Functions & test_system_env.dxw...', 'keywords' => ['system', 'scripting', 'existscript', 'gettime', 'httpfetch', 'panelhtml', 'getsetting', 'gameinfo', 'test_system_env.dxw']],
     77 => ['title' => 'Testing SmallBasic Kill Instruction (Items, NPCs, Players, Rooms, Default $AGENT) & test_kill.dxw...', 'keywords' => ['kill', 'die', 'removepeople', 'removeroom', 'limbo', 'test_kill.dxw']],
     78 => ['title' => 'Testing SmallBasic SetAdd & SetRemove Instructions (Sets, Arrays, World Sets, Object Properties) & test_set_array_functions.dxw...', 'keywords' => ['setadd', 'setremove', 'set', 'array', 'test_set_array_functions.dxw']],
+    79 => ['title' => 'Testing SmallBasic AttachEvent Instruction (Attach, Detach, Player Restrictions, Items/NPCs) & test_attachevent.dxw...', 'keywords' => ['attachevent', 'event', 'detach', 'vampire', 'test_attachevent.dxw']],
 ];
 
 // CLI Options parsing
@@ -5410,6 +5411,89 @@ if (shouldRun(78)) {
     assertTest($w78->getProperty('res_arrremove_2') === 'third', "DXW SetRemove on Array: res_arrremove_2 === 'third'");
 
     @$pm->resetWorld($sec78WorldId);
+}
+
+if (shouldRun(79)) {
+    echo "\n--- Section 79: Testing SmallBasic AttachEvent Instruction & test_attachevent.dxw ---\n";
+
+    // 1. Unit tests via ActionsRunner
+    $sec79World = new \Dimx\World('sec79_world');
+    $rCrypt = new \Dimx\Room($sec79World, 'Crypt', 'r_crypt', 'Dark crypt');
+    $rSun   = new \Dimx\Room($sec79World, 'Sunlight', 'r_sun', 'Bright sunlight');
+    $sec79World->addRoom($rCrypt);
+    $sec79World->addRoom($rSun);
+
+    $npc = new \Dimx\Character($sec79World, 'Count', 'c_count');
+    $npc->move($rCrypt);
+    $npc->setProperty('burns', 0);
+    $sec79World->addCharacter($npc);
+
+    $player = new \Dimx\Player($sec79World, 'VanHelsing', 'p_vanhelsing');
+    $player->move($rCrypt);
+    $player->setProperty('burns', 0);
+    $sec79World->addPlayer($player);
+
+    // Register a WORLD event and an object-specific event
+    $evVampire = new \Dimx\Event('onEnter_Vampire', 'EVENT');
+    $evVampire->actions = "\$OWNER.burns = \$OWNER.burns + 1\n";
+    $sec79World->registerEvent($evVampire);
+
+    $evSpecific = new \Dimx\Event('c_count.onCustom', 'EVENT');
+    $evSpecific->actions = "\$OWNER.burns = 99\n";
+    $sec79World->registerEvent($evSpecific);
+
+    $runner79 = new \Dimx\ActionsRunner($sec79World, $rCrypt, $player, null);
+
+    // 1a. AttachEvent on NPC
+    $runner79->run('AttachEvent c_count, "onEnter", "onEnter_Vampire"');
+    $attachedEv = $sec79World->getEvent('c_count.onEnter');
+    assertTest($attachedEv instanceof \Dimx\Event, "AttachEvent creates 'c_count.onEnter' in world events");
+    assertTest($attachedEv?->attachedEventsId === 'onEnter_Vampire', "Attached Event records attachedEventsId = 'onEnter_Vampire'");
+    assertTest(($npc->attachedEvents['onEnter'] ?? '') === 'onEnter_Vampire', "AdvObject::attachedEvents tracks 'onEnter' => 'onEnter_Vampire'");
+
+    // Trigger onEnter via Move
+    $runner79->run('Move c_count, r_sun');
+    assertTest((int)$npc->getProperty('burns') === 1, "Moving c_count to r_sun triggers attached onEnter_Vampire (burns === 1)");
+
+    // 1b. Cancel / detach event via empty string ""
+    $runner79->run('AttachEvent c_count, "onEnter", ""');
+    assertTest($sec79World->getEvent('c_count.onEnter') === null, "AttachEvent with '' removes 'c_count.onEnter' from world events");
+    assertTest(!isset($npc->attachedEvents['onEnter']), "AttachEvent with '' removes 'onEnter' from AdvObject::attachedEvents");
+
+    $runner79->run('Move c_count, r_crypt');
+    $runner79->run('Move c_count, r_sun');
+    assertTest((int)$npc->getProperty('burns') === 1, "Moving c_count after detaching onEnter does not increment burns (still 1)");
+
+    // 1c. Attach WORLD event to a Player -> allowed
+    $runner79->run('AttachEvent p_vanhelsing, "onEnter", "onEnter_Vampire"');
+    assertTest($sec79World->getEvent('p_vanhelsing.onEnter') instanceof \Dimx\Event, "Attaching a WORLD event to a Player succeeds");
+    $runner79->run('Move p_vanhelsing, r_sun');
+    assertTest((int)$player->getProperty('burns') === 1, "Moving Player triggers attached WORLD event (burns === 1)");
+
+    // 1d. Attempting to attach an object-specific event (c_count.onCustom) to a Player -> logs error and does not attach
+    $runner79->run('AttachEvent p_vanhelsing, "onLook", "c_count.onCustom"');
+    assertTest($sec79World->getEvent('p_vanhelsing.onLook') === null, "Attaching object-specific event 'c_count.onCustom' to Player is rejected");
+
+    // 1e. Attempting to attach to $WORLD -> rejected (must be AdvObject)
+    $runner79->run('AttachEvent $WORLD, "onTick", "onEnter_Vampire"');
+    assertTest($sec79World->getEvent('$WORLD.onTick') === null && $sec79World->getEvent('sec79_world.onTick') === null, 'Attaching event to $WORLD is rejected');
+
+    // 2. Integration test: Load test_attachevent.dxw with GameEngine
+    $sec79WorldId = 'test_w_sec79_' . uniqid();
+    $sec79DxwPath = dirname(__DIR__) . '/docs/dxw-examples/test_attachevent.dxw';
+    $engine79 = new \Dimx\GameEngine($pm, $sec79WorldId, $sec79DxwPath);
+    $w79 = $engine79->loadOrSeedWorld();
+
+    assertTest($w79 instanceof \Dimx\World, "loadOrSeedWorld seeded world from test_attachevent.dxw");
+    assertTest((bool)$w79->getProperty('res_pre_exist') === false, "DXW pre-AttachEvent: ExistScript('villager.onEnter') is false");
+    assertTest((bool)$w79->getProperty('res_attached_exist') === true, "DXW post-AttachEvent: ExistScript('villager.onEnter') is true");
+    assertTest((int)$w79->getProperty('res_hits_after_attach') === 1, "DXW attached onEnter fired when villager moved to room_sunlit (vampire_hits === 1)");
+    assertTest($w79->getProperty('last_vampire_owner') === 'villager', 'DXW attached onEnter had $OWNER.id === villager');
+    assertTest((bool)$w79->getProperty('res_detached_exist') === false, "DXW post-detach: ExistScript('villager.onEnter') is false");
+    assertTest((int)$w79->getProperty('res_hits_after_detach') === 1, "DXW detached onEnter did not fire on subsequent move (vampire_hits === 1)");
+    assertTest((int)$w79->getProperty('res_amulet_cursed') === 1, "DXW attached whenPicked fired when amulet moved to villager (cursed_count === 1)");
+
+    @$pm->resetWorld($sec79WorldId);
 }
 
 // Clean up test worlds

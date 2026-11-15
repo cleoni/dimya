@@ -787,7 +787,7 @@ class ActionsRunner
         // Also handle verb followed immediately by '(' e.g. "Debug("test")"
         if (preg_match('/^([A-Za-z0-9_]+)\s*\((.*)\)$/s', $line, $vm) && !str_contains($vm[1], '.')) {
             $verbCandidate = strtoupper($vm[1]);
-            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET', 'GOAL', 'KILL', 'SETADD', 'SETREMOVE'], true)) {
+            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET', 'GOAL', 'KILL', 'SETADD', 'SETREMOVE', 'ATTACHEVENT'], true)) {
                 $verb = $verbCandidate;
                 $argString = $vm[2];
             } elseif ($this->world?->getEvent($vm[1]) !== null) {
@@ -801,6 +801,7 @@ class ActionsRunner
         $args = $this->parseArguments($argString);
 
         return match ($verb) {
+            'ATTACHEVENT'         => $this->actAttachEvent($args),
             'SETPANEL'   => $this->actSetPanel($args),
             'SPEAK'      => $this->actSpeak($args),
             'DISPLAY',
@@ -1896,9 +1897,18 @@ class ActionsRunner
 
         if ($whatObj instanceof AdvObject && $whereObj instanceof AdvObject) {
             $moved = $whatObj->move($whereObj, false);
-            if ($moved && $this->world !== null && ($whatObj instanceof Character || $whatObj->isVehicle())) {
-                $this->world->fireEvent('onEnter', $whatObj, $this->agent ?? $whatObj, $whereObj);
-                $this->world->fireEvent('onReceive', $whereObj, $this->agent ?? $whatObj, $whatObj);
+            if ($moved && $this->world !== null) {
+                $agentArg = $this->agent ?? $whatObj;
+                if ($whereObj->isaCharacter()) {
+                    $this->world->fireEvent('whenPicked', $whatObj, $agentArg, $whereObj);
+                } else {
+                    $this->world->fireEvent('onEnter', $whatObj, $agentArg, $whereObj);
+                }
+                if ($whatObj->isanItem()) {
+                    $this->world->fireEvent('onReceiveItem', $whereObj, $agentArg, $whatObj);
+                } else {
+                    $this->world->fireEvent('onReceive', $whereObj, $agentArg, $whatObj);
+                }
             }
             return $moved;
         }
@@ -2237,6 +2247,63 @@ class ActionsRunner
         } else {
             $this->localVars[$targetExpr] = $arr;
         }
+    }
+
+    /**
+     * AttachEvent dest, "eventID", "attachedEventID" (SmallBasic 3.9.1)
+     * Dynamically attaches (or detaches when attachedEventID is "") an event script to a game object.
+     * Matches DimensioneX ActionsRunner.actAttachEvent(Dict params).
+     */
+    protected function actAttachEvent(array $args): bool
+    {
+        if (count($args) < 3) {
+            throw new \RuntimeException("AttachEvent: missing arguments (expected: dest, eventID, attachedEventID)");
+        }
+
+        $destExpr = trim((string)$args[0]);
+        $targetObj = $this->resolveObject($destExpr);
+        if ($targetObj === null) {
+            $evalDest = $this->evalValue($destExpr);
+            if ($evalDest instanceof DimxObject) {
+                $targetObj = $evalDest;
+            } elseif (is_string($evalDest) && trim($evalDest) !== '') {
+                $targetObj = $this->resolveObject(trim($evalDest))
+                    ?? ($this->world?->getObjectExt(trim($evalDest)));
+            }
+        }
+
+        if (!($targetObj instanceof AdvObject)) {
+            throw new \RuntimeException("Unexistent target object: {$destExpr}");
+        }
+
+        $rawEventId = $this->evalValue(trim((string)$args[1]));
+        $eventId = trim((string)self::formatValue($rawEventId), " \t\n\r\0\x0B\"'");
+        if ($eventId === '') {
+            throw new \RuntimeException("Event ID is missing");
+        }
+
+        $rawCopyFrom = $this->evalValue(trim((string)$args[2]));
+        $copyFromId = trim((string)self::formatValue($rawCopyFrom), " \t\n\r\0\x0B\"'");
+
+        if ($copyFromId === '') {
+            return $targetObj->attachEvent($eventId, '', null);
+        }
+
+        $sourceEvent = $this->world?->getEvent($copyFromId);
+        if (!($sourceEvent instanceof Event)) {
+            throw new \RuntimeException("This is not a valid event: {$copyFromId}");
+        }
+
+        // Enforce DimensioneX rule: attaching object-specific events to players is not allowed
+        if ($targetObj->isPlayer() && str_contains($sourceEvent->id, '.')) {
+            $parts = explode('.', $sourceEvent->id, 2);
+            $ownerPrefix = strtolower(trim($parts[0]));
+            if ($ownerPrefix !== 'world' && $ownerPrefix !== '$world') {
+                throw new \RuntimeException("Attaching events of specific object to players is not allowed. Please define and attach a WORLD's event");
+            }
+        }
+
+        return $targetObj->attachEvent($eventId, $copyFromId, $sourceEvent);
     }
 
     /**

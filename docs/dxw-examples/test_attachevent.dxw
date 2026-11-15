@@ -1,0 +1,76 @@
+WORLD test_attachevent
+	NAME		AttachEvent Instruction Test World
+	VERSION		1.0
+	AUTHOR  	Test Suite
+
+ROOMS
+ROOM room_crypt
+	NAME		Dark Crypt
+	DESCRIPTION	A shadowy underground crypt.
+
+ROOM room_sunlit
+	NAME		Sunlit Courtyard
+	DESCRIPTION	A bright courtyard bathed in sunlight.
+END_ROOMS
+
+CHARACTERS
+CHARACTER villager
+	NAME		Villager
+	DESCRIPTION	A town villager.
+	POSITION	room_crypt
+	ATTRLIST	vampire_hits=0
+END_CHARACTERS
+
+ITEMS
+ITEM amulet
+	NAME		Strange Amulet
+	DESCRIPTION	An ancient amulet.
+	POSITION	room_crypt
+	ATTRLIST	pickable=1,cursed_count=0
+END_ITEMS
+
+SCRIPTS
+
+EVENT onEnter_Vampire
+	If $TARGET = room_sunlit
+		$OWNER.vampire_hits = $OWNER.vampire_hits + 1
+		last_vampire_owner = $OWNER.id
+		last_vampire_target = $TARGET
+	EndIf
+END_EVENT
+
+EVENT whenPicked_Cursed
+	$OWNER.cursed_count = $OWNER.cursed_count + 1
+	last_cursed_picker = $TARGET
+END_EVENT
+
+EVENT onStart
+	' 1. Initially villager has no onEnter event
+	res_pre_exist = ExistScript("villager.onEnter")
+
+	' 2. Dynamically attach onEnter_Vampire to villager
+	AttachEvent villager, "onEnter", "onEnter_Vampire"
+	res_attached_exist = ExistScript("villager.onEnter")
+
+	' Move villager into room_sunlit -> triggers attached onEnter
+	Move villager, room_sunlit
+	res_hits_after_attach = villager.vampire_hits
+
+	' 3. Detach / cancel onEnter on villager using empty string ""
+	AttachEvent villager, "onEnter", ""
+	res_detached_exist = ExistScript("villager.onEnter")
+
+	' Move villager back to crypt and into sunlit courtyard again -> should NOT increment vampire_hits
+	Move villager, room_crypt
+	Move villager, room_sunlit
+	res_hits_after_detach = villager.vampire_hits
+
+	' 4. Dynamically attach whenPicked_Cursed to amulet item
+	AttachEvent amulet, "whenPicked", "whenPicked_Cursed"
+	Move amulet, villager
+	res_amulet_cursed = amulet.cursed_count
+END_EVENT
+
+END_SCRIPTS
+
+END_WORLD
