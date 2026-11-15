@@ -5880,6 +5880,26 @@ DXW;
         assertTest(str_contains($initChoiceHtml, 'width="32" height="32"'), "PANEL initchoice warrior IMAGE renders 32x32 dimensions");
         $pextractHtml = $uwWorld->getPanel('pextract')->toHtml($uwSkin, $uwWorld, $panelTester, $panelTester);
         assertTest(str_contains($pextractHtml, '/dimx/skins/bloody/pangather.gif') && !str_contains($pextractHtml, 'uwpics/pangather.gif'), "PANEL pextract gather ICON renders with skinFolder path (/dimx/skins/bloody/pangather.gif)");
+
+        // Verify Skin STYLESHEET resolution and UIhtml <head> <link rel="stylesheet" ...> output
+        $cssSkin = new \Dimx\Skin('bloody', 'Bloody', '/dimx/skins/bloody/');
+        $cssSkin->rawStylesheet = 'stylesheet.css';
+        $cssSkin->setSkinFolder('/dimx/skins/bloody/');
+        assertTest($cssSkin->stylesheet === '/dimx/skins/bloody/stylesheet.css', "Skin resolves relative STYLESHEET against skinFolder");
+        $panelTester->skin = $cssSkin;
+        ob_start();
+        (new \Dimx\UIhtml($panelTester))->render([
+            'world'     => $uwWorld,
+            'player'    => $panelTester,
+            'room'      => $roomPre1,
+            'messages'  => [],
+            'lockError' => false,
+        ]);
+        $renderedSkinHtml = ob_get_clean();
+        assertTest(
+            str_contains($renderedSkinHtml, '<link rel="stylesheet" type="text/css" href="/dimx/skins/bloody/stylesheet.css" />'),
+            "UIhtml <head> includes <link rel=\"stylesheet\" type=\"text/css\" href=\"/dimx/skins/bloody/stylesheet.css\" />"
+        );
     }
 
     // Unit test for LABEL "@expr()" in standalone world

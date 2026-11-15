@@ -533,6 +533,9 @@ class UIhtml extends UI
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title><?= htmlspecialchars($world->name) ?> — DimensioneX</title>
+          <?php if (!empty($skin->stylesheet)): ?>
+            <link rel="stylesheet" type="text/css" href="<?= htmlspecialchars($skin->stylesheet, ENT_QUOTES, 'UTF-8') ?>" />
+          <?php endif; ?>
           <style>
             <?= $skin->getCss() ?>
             <?php
@@ -776,10 +779,13 @@ class UIhtml extends UI
             #ctrls .dimx-panel {
               background: transparent;
               padding: 0;
-              display: flex;
-              flex-wrap: wrap;
-              gap: 6px;
-              align-items: center;
+              display: block;
+            }
+            #ctrls .dimx-panel .dimx-btn,
+            #ctrls .dimx-panel .dimx-img-btn,
+            #ctrls .dimx-panel .dimx-dropdown {
+              margin: 2px 3px;
+              vertical-align: middle;
             }
             #ctrls .dimx-textbox {
               width: 100%;

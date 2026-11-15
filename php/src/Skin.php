@@ -53,6 +53,7 @@ class Skin
     public string $titleStyle = '{font-size: 10pt;font-family: Tahoma;color:#FFFF10;background-color:#000090;}';
     public string $rawTitleStyle = '{font-size: 10pt;font-family: Tahoma;color:#FFFF10;background-color:#000090;}';
     public string $stylesheet = '';
+    public string $rawStylesheet = '';
     public string $sndNewmsg = '';
     public ?Image $picPlayer = null;
     public ?Image $picSpacer = null;
@@ -128,6 +129,10 @@ class Skin
             $this->panelBackground = $this->resolveMediaUrl($this->rawPanelBackground);
         } else {
             $this->panelBackground = '';
+        }
+
+        if ($this->rawStylesheet !== '') {
+            $this->stylesheet = $this->resolveMediaUrl($this->rawStylesheet);
         }
 
         if ($this->rawTitleStyle !== '') {
@@ -372,6 +377,7 @@ class Skin
             $skin->rawTitleStyle = $rawTitleStyle;
         }
         if ($stylesheet !== null) {
+            $skin->rawStylesheet = $stylesheet;
             $skin->stylesheet = $stylesheet;
         }
 
