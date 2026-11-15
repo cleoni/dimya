@@ -844,7 +844,6 @@ class UIhtml extends UI
               border-collapse: separate;
               border-spacing: 2px;
               margin: 0 auto 10px auto;
-              background-color: <?= htmlspecialchars($skin->panelBgColor ?: 'SILVER') ?>;
               border: 1px solid #94a3b8;
               padding: 2px;
               border-radius: 4px;
@@ -855,7 +854,6 @@ class UIhtml extends UI
               padding: 0;
               text-align: center;
               vertical-align: middle;
-              background-color: <?= htmlspecialchars($skin->panelBgColor ?: 'SILVER') ?>;
             }
             .dimx-nav-btn {
               display: inline-flex;
@@ -1552,7 +1550,7 @@ class UIhtml extends UI
                           $otherLinks = array_values($otherLinks);
                       }
                     ?>
-                    <table id="navpad" border="0" cellpadding="2" cellspacing="0">
+                    <table id="navpad" border="0" cellpadding="2" cellspacing="0" style="background-color: <?= htmlspecialchars($skin->panelBgColor ?: 'SILVER') ?>;" bgcolor="<?= htmlspecialchars($skin->panelBgColor ?: 'SILVER') ?>">
                       <tbody>
                         <!-- Row 1: Cells 1, 2, 3 -->
                         <tr>

@@ -578,6 +578,8 @@ assertTest(str_contains($htmlOutput, 'id="chatBox"'), "HTML output includes chat
 assertTest(str_contains($htmlOutput, 'name="arg0"') && str_contains($htmlOutput, 'id="arg0Input"'), "UIhtml form includes arg0 input");
 assertTest(str_contains($htmlOutput, 'name="arg1"') && str_contains($htmlOutput, 'id="arg1Input"'), "UIhtml form includes arg1 input");
 assertTest(!str_contains($htmlOutput, 'id="paramInput"') && !str_contains($htmlOutput, 'id="targetInput"'), "UIhtml form does NOT include legacy paramInput or targetInput");
+assertTest(!preg_match('/#navpad\s+td\s*\{[^}]*background-color/i', $htmlOutput), "#navpad td in <head> <style> does NOT contain background-color");
+assertTest(preg_match('/<table[^>]+id="navpad"[^>]+style="[^"]*background-color:\s*[^;"]+/i', $htmlOutput) === 1, "#navpad <table> tag has inline style with background-color");
 }
 
 // -------------------------------------------------------------
