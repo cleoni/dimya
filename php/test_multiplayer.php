@@ -81,6 +81,7 @@ $sections = [
     78 => ['title' => 'Testing SmallBasic SetAdd & SetRemove Instructions (Sets, Arrays, World Sets, Object Properties) & test_set_array_functions.dxw...', 'keywords' => ['setadd', 'setremove', 'set', 'array', 'test_set_array_functions.dxw']],
     79 => ['title' => 'Testing SmallBasic AttachEvent Instruction (Attach, Detach, Player Restrictions, Items/NPCs) & test_attachevent.dxw...', 'keywords' => ['attachevent', 'event', 'detach', 'vampire', 'test_attachevent.dxw']],
     80 => ['title' => 'Testing SmallBasic NOT(), IsItem(), and Urlencode() Functions & test_not_isitem_urlencode.dxw...', 'keywords' => ['not', 'isitem', 'urlencode', 'test_not_isitem_urlencode.dxw']],
+    81 => ['title' => 'Testing DxwLoader Include Directive (.dxl DimensioneX Libraries, Parallel Line Counting, Panels & it_underworld.dxw)...', 'keywords' => ['include', 'dxl', 'library', 'it_underworld', 'it_uwpanels', 'it_commons', 'initchoice', 'initial', 'dxwloader']],
 ];
 
 // CLI Options parsing
@@ -5645,6 +5646,133 @@ if (shouldRun(80, ['not', 'isitem', 'urlencode', 'test_not_isitem_urlencode.dxw'
     assertTest($w80->getProperty('res_urlencode_safe') === 'clean_text-123.jpg', 'DXW Urlencode safe filename');
 
     @$pm->resetWorld($sec80WorldId);
+}
+
+// -----------------------------------------------------------------------------
+// 81. DxwLoader Include Directive (.dxl DimensioneX Libraries & Parallel Line Counting)
+// -----------------------------------------------------------------------------
+if (shouldRun(81, ['include', 'dxl', 'library', 'it_underworld', 'it_uwpanels', 'it_commons', 'initchoice', 'initial', 'dxwloader'])) {
+    $executedSections[] = 81;
+    echo "\n--- Section 81: Testing DxwLoader Include Directive (.dxl DimensioneX Libraries, Parallel Line Counting, Panels & it_underworld.dxw) ---\n";
+
+    $tmpDir = sys_get_temp_dir() . '/dimx_test_inc_' . uniqid();
+    @mkdir($tmpDir, 0777, true);
+
+    $dxlPanels = <<<DXL
+' Panel definitions library
+PANEL initial
+	BUTTON logout
+	BUTTON help
+
+PANEL initchoice
+	LABEL "<B>Choose class</B><BR>"
+	BUTTON warrior, Warrior, "Be a Warrior", onChooseWarrior
+		IMAGE 32x32 icoWarrior.gif
+	CR
+	BUTTON logout
+	BUTTON help
+DXL;
+
+    $dxlScripts = <<<DXL
+' Script library (line 1)
+' Line 2
+EVENT Living
+	Dim x = 10
+	Return x
+End_EVENT
+
+Sub helperSub(a)
+	\$WORLD.helperVal = a + 5
+End_Sub
+DXL;
+
+    $mainDxw = <<<DXW
+WORLD
+	NAME TestIncludeWorld
+	VERSION 1.0
+
+GUI
+	SCENE SIZE 400x230
+	Include "test_panels.dxl"
+	PANEL custom_main
+		BUTTON look
+END_GUI
+
+ROOMS
+	ROOM r1 DEFAULT
+		NAME Start Room
+		PANEL initial
+END_ROOMS
+
+SCRIPTS
+	Include "test_scripts.dxl"
+
+	EVENT onStart
+		Call helperSub(37)
+	End_EVENT
+END_SCRIPTS
+END_WORLD
+DXW;
+
+    file_put_contents($tmpDir . '/test_panels.dxl', $dxlPanels);
+    file_put_contents($tmpDir . '/test_scripts.dxl', $dxlScripts);
+    file_put_contents($tmpDir . '/main_test.dxw', $mainDxw);
+
+    $loader81 = new \Dimx\DxwLoader('http://localhost', 'local');
+    $w81 = $loader81->load($tmpDir . '/main_test.dxw');
+
+    assertTest($w81 instanceof \Dimx\World, "Loaded main_test.dxw with Include directives");
+    assertTest($w81->getPanel('initial') !== null, "PANEL initial from included test_panels.dxl is present in world memory");
+    assertTest($w81->getPanel('initchoice') !== null, "PANEL initchoice from included test_panels.dxl is present in world memory");
+    assertTest($w81->getPanel('custom_main') !== null, "PANEL custom_main defined after Include in main_test.dxw is present");
+
+    $initPanel = $w81->getPanel('initial');
+    assertTest($initPanel->getButton('logout') !== null && $initPanel->getButton('help') !== null, "PANEL initial has logout and help buttons");
+
+    $choicePanel = $w81->getPanel('initchoice');
+    $warriorBtn = $choicePanel->getButton('warrior');
+    assertTest($warriorBtn !== null && $warriorBtn->image !== null && $warriorBtn->image->width === 32, "PANEL initchoice warrior button parsed with 32x32 IMAGE");
+
+    // Check parallel line counting for included scripts vs main file scripts
+    $evLiving = $w81->getEvent('Living');
+    assertTest($evLiving !== null, "EVENT Living from test_scripts.dxl is registered");
+    assertTest($evLiving->fileShort === 'test_scripts.dxl', "EVENT Living fileShort is 'test_scripts.dxl' (got '{$evLiving->fileShort}')");
+    assertTest($evLiving->actionsStartLine === 4, "EVENT Living actionsStartLine is 4 in test_scripts.dxl (got {$evLiving->actionsStartLine})");
+
+    $subHelper = $w81->getEvent('helperSub');
+    assertTest($subHelper !== null && $subHelper->fileShort === 'test_scripts.dxl' && $subHelper->actionsStartLine === 9, "Sub helperSub has parallel line count 9 in test_scripts.dxl");
+
+    // Main file line count resumed properly after Include
+    $evOnStart = $w81->getEvent('onStart');
+    assertTest($evOnStart !== null, "EVENT onStart from main_test.dxw is registered");
+    assertTest($evOnStart->fileShort === 'main_test.dxw', "EVENT onStart fileShort is 'main_test.dxw' (got '{$evOnStart->fileShort}')");
+    assertTest($evOnStart->actionsStartLine === 22, "EVENT onStart actionsStartLine is 22 in main_test.dxw (got {$evOnStart->actionsStartLine})");
+
+    // Execute onStart which calls helperSub from included dxl
+    $w81->fireEvent('onStart', $w81, null, null);
+    assertTest((int)$w81->getProperty('helperVal') === 42, "Calling helperSub from included .dxl sets helperVal = 42");
+
+    // Check snapshot HTML contains PANEL initial and PANEL initchoice
+    $snapHtml = $w81->htmlAdminSnapshot();
+    assertTest(str_contains($snapHtml, 'initial: logout, help'), "Admin snapshot lists PANEL initial");
+    assertTest(str_contains($snapHtml, 'initchoice:'), "Admin snapshot lists PANEL initchoice");
+
+    // If it_underworld.dxw exists in ../../worlds/it_underworld.dxw, verify it directly
+    $uwPath = dirname(__DIR__, 2) . '/worlds/it_underworld.dxw';
+    if (file_exists($uwPath)) {
+        $uwWorld = $loader81->load($uwPath);
+        assertTest($uwWorld->getPanel('initial') !== null, "it_underworld.dxw: PANEL initial from it_uwpanels.dxl is loaded");
+        assertTest($uwWorld->getPanel('initchoice') !== null, "it_underworld.dxw: PANEL initchoice from it_uwpanels.dxl is loaded");
+        $uwLiving = $uwWorld->getEvent('Living');
+        assertTest($uwLiving !== null && $uwLiving->fileShort === 'it_commons.dxl' && $uwLiving->actionsStartLine === 16, "it_underworld.dxw: EVENT Living has parallel line count it_commons.dxl(16)");
+        $uwStart = $uwWorld->getEvent('onStart');
+        assertTest($uwStart !== null && $uwStart->fileShort === 'it_underworld.dxw' && $uwStart->actionsStartLine === 1076, "it_underworld.dxw: EVENT onStart resumes main line count it_underworld.dxw(1076)");
+    }
+
+    @unlink($tmpDir . '/test_panels.dxl');
+    @unlink($tmpDir . '/test_scripts.dxl');
+    @unlink($tmpDir . '/main_test.dxw');
+    @rmdir($tmpDir);
 }
 
 // Clean up test worlds

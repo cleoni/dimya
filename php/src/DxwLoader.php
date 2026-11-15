@@ -71,29 +71,60 @@ class DxwLoader
     }
 
     /**
-     * Parse raw DXW string into a World object.
+     * Resolve an included file path or URL relative to the parent source path/URL.
      */
-    public function parse(string $rawContent, string $sourceName = '', ?string $serverType = null): World
+    protected function resolveIncludePath(string $includeFile, string $parentSource): string
     {
-        $activeServerType = $this->serverType;
-        if ($serverType !== null && trim($serverType) !== '') {
-            $st = strtolower(trim($serverType));
-            if ($st === 'public' || $st === 'local') {
-                $activeServerType = $st;
+        $includeFile = trim($includeFile, " \t\n\r\0\x0B\"'");
+        if (str_starts_with($includeFile, 'http://') || str_starts_with($includeFile, 'https://')) {
+            return $includeFile;
+        }
+        if ($parentSource !== '') {
+            if (str_starts_with($parentSource, 'http://') || str_starts_with($parentSource, 'https://')) {
+                $lastSlash = strrpos($parentSource, '/');
+                if ($lastSlash !== false && $lastSlash >= 8) {
+                    return substr($parentSource, 0, $lastSlash + 1) . ltrim($includeFile, '/');
+                }
+            } else {
+                $dir = dirname($parentSource);
+                if ($dir !== '' && $dir !== '.') {
+                    return $dir . DIRECTORY_SEPARATOR . $includeFile;
+                }
             }
         }
-        // Ensure content is normalized to UTF-8
+        return $includeFile;
+    }
+
+    /**
+     * Tokenize a single DXW/DXL source string into clean logical lines with their parallel file/line metadata,
+     * recursively expanding any `Include "filename"` directives while preserving each file's independent line count.
+     *
+     * @param string $rawContent
+     * @param string $sourceName
+     * @param bool   &$inScripts
+     * @param array<int, string> &$cleanLines
+     * @param array<int, int>    &$cleanLineNumbers
+     * @param array<int, string> &$cleanLineSources
+     * @param array<string, bool> $visited
+     */
+    protected function tokenizeSource(
+        string $rawContent,
+        string $sourceName,
+        bool &$inScripts,
+        array &$cleanLines,
+        array &$cleanLineNumbers,
+        array &$cleanLineSources,
+        array $visited = []
+    ): void {
         if (!mb_check_encoding($rawContent, 'UTF-8')) {
             $rawContent = mb_convert_encoding($rawContent, 'UTF-8', 'ISO-8859-1, Windows-1252, UTF-8');
         }
 
         $lines = preg_split('/\r\n|\r|\n/', $rawContent);
-        $cleanLines = [];
-        $cleanLineNumbers = [];
         $accum = '';
         $accumStartLine = 1;
         $inQuote = false;
-        $inScripts = false;
+        $inEventBody = false;
 
         $totalRaw = count($lines);
         for ($li = 0; $li < $totalRaw; $li++) {
@@ -106,16 +137,56 @@ class DxwLoader
                     continue;
                 }
 
-                $firstToken = strtoupper(preg_split('/\s+/', $trimmed)[0] ?? '');
-                $secondToken = strtoupper(preg_split('/\s+/', $trimmed)[1] ?? '');
-                if (in_array($firstToken, ['SCRIPTS', 'EVENTS', 'EVENT', 'SUB', 'FUNCTION'], true)) {
+                $tokens = preg_split('/\s+/', $trimmed);
+                $firstToken = strtoupper($tokens[0] ?? '');
+                $secondToken = strtoupper($tokens[1] ?? '');
+
+                if (in_array($firstToken, ['EVENT', 'SUB', 'FUNCTION'], true)) {
                     $inScripts = true;
-                } elseif (in_array($firstToken, ['END_SCRIPTS', 'END_EVENTS', 'END_EVENT', 'END_SUB', 'END_FUNCTION'], true)) {
+                    $inEventBody = true;
+                } elseif (in_array($firstToken, ['SCRIPTS', 'EVENTS'], true)) {
+                    $inScripts = true;
+                    $inEventBody = false;
+                } elseif (in_array($firstToken, ['END_EVENT', 'END_SUB', 'END_FUNCTION'], true)) {
+                    $inEventBody = false;
+                } elseif ($firstToken === 'END' && in_array($secondToken, ['EVENT', 'SUB', 'FUNCTION'], true)) {
+                    $inEventBody = false;
+                } elseif (in_array($firstToken, ['END_SCRIPTS', 'END_EVENTS'], true)) {
                     $inScripts = false;
-                } elseif ($firstToken === 'END' && in_array($secondToken, ['EVENT', 'SUB', 'FUNCTION', 'EVENTS', 'SCRIPTS', 'WORLD'], true)) {
+                    $inEventBody = false;
+                } elseif ($firstToken === 'END' && in_array($secondToken, ['EVENTS', 'SCRIPTS', 'WORLD'], true)) {
                     $inScripts = false;
+                    $inEventBody = false;
                 } elseif (in_array($firstToken, ['ROOMS', 'CHARACTERS', 'ITEMS', 'LINKS', 'SETS', 'GUI', 'WORLD'], true)) {
                     $inScripts = false;
+                    $inEventBody = false;
+                }
+
+                // Handle Include "filename.dxl" directive (outside an active EVENT/SUB/FUNCTION body)
+                if ($firstToken === 'INCLUDE' && !$inEventBody && $accum === '') {
+                    $rest = trim(substr($trimmed, strlen($tokens[0])));
+                    // Strip inline comment if present outside quotes
+                    if (preg_match('/^"([^"]+)"|\'([^\']+)\'|(\S+)/', $rest, $incMatch)) {
+                        $incFile = $incMatch[1] ?? ($incMatch[2] ?? ($incMatch[3] ?? ''));
+                        if ($incFile !== '') {
+                            $resolvedPath = $this->resolveIncludePath($incFile, $sourceName);
+                            $normKey = strtolower(str_replace('\\', '/', $resolvedPath));
+                            if (!isset($visited[$normKey])) {
+                                $visited[$normKey] = true;
+                                $incContent = $this->fetchContent($resolvedPath);
+                                $this->tokenizeSource(
+                                    $incContent,
+                                    $resolvedPath,
+                                    $inScripts,
+                                    $cleanLines,
+                                    $cleanLineNumbers,
+                                    $cleanLineSources,
+                                    $visited
+                                );
+                            }
+                            continue;
+                        }
+                    }
                 }
             }
 
@@ -151,6 +222,7 @@ class DxwLoader
                 if ($trimmedAccum !== '') {
                     $cleanLines[] = $trimmedAccum;
                     $cleanLineNumbers[] = $accumStartLine;
+                    $cleanLineSources[] = $sourceName;
                 }
                 $accum = '';
             }
@@ -161,8 +233,42 @@ class DxwLoader
             if ($trimmedAccum !== '') {
                 $cleanLines[] = $trimmedAccum;
                 $cleanLineNumbers[] = $accumStartLine;
+                $cleanLineSources[] = $sourceName;
             }
         }
+    }
+
+    /**
+     * Parse raw DXW string into a World object.
+     */
+    public function parse(string $rawContent, string $sourceName = '', ?string $serverType = null): World
+    {
+        $activeServerType = $this->serverType;
+        if ($serverType !== null && trim($serverType) !== '') {
+            $st = strtolower(trim($serverType));
+            if ($st === 'public' || $st === 'local') {
+                $activeServerType = $st;
+            }
+        }
+
+        $cleanLines = [];
+        $cleanLineNumbers = [];
+        $cleanLineSources = [];
+        $inScripts = false;
+        $visited = [];
+        if ($sourceName !== '') {
+            $visited[strtolower(str_replace('\\', '/', $sourceName))] = true;
+        }
+
+        $this->tokenizeSource(
+            $rawContent,
+            $sourceName,
+            $inScripts,
+            $cleanLines,
+            $cleanLineNumbers,
+            $cleanLineSources,
+            $visited
+        );
 
         $world = new World('world_' . md5($sourceName), 'DimensioneX World');
         $this->sourcePath = $sourceName;
@@ -319,7 +425,7 @@ class DxwLoader
                         $world->setProperty('LOGOSRC', $logoVal);
                         $world->setProperty('GUI.LOGOSRC', $logoVal);
                     } elseif ($directive === 'EVENT' || $directive === 'SUB' || $directive === 'FUNCTION') {
-                        $this->parseScriptBlock($directive, $line, $tokens, $cleanLines, $cleanLineNumbers, $total, $i, $sourceName, $world);
+                        $this->parseScriptBlock($directive, $line, $tokens, $cleanLines, $cleanLineNumbers, $cleanLineSources, $total, $i, $sourceName, $world);
                         break;
                     }
                     $i++;
@@ -355,10 +461,14 @@ class DxwLoader
 
                             // Exit panel parsing on next PANEL, GUI end, or new section
                             if (in_array($subDir, [
-                                'PANEL', 'END_GUI', 'SCREEN', 'SCENE', 'LOGOSRC', 'MAP', 'COMPASS',
+                                'PANEL', 'END_GUI', 'SCREEN', 'SCENE', 'LOGOSRC', 'COMPASS',
                                 'MSGLISTSIZE', 'SKINS', 'SHOW', 'HOOKS', 'ROOMS', 'CHARACTERS',
                                 'ITEMS', 'LINKS', 'SETS', 'SCRIPTS', 'EVENTS', 'END_WORLD'
                             ], true)) {
+                                break;
+                            }
+                            // MAP with an argument is the GUI-level MAP <filename> directive; bare MAP is a panel control
+                            if ($subDir === 'MAP' && isset($subTokens[1]) && trim($subTokens[1]) !== '') {
                                 break;
                             }
 
@@ -380,7 +490,8 @@ class DxwLoader
                                     }
 
                                     $ctrlType = $isGhost ? Ctrl::TYPE_CMD : Ctrl::TYPE_BUTTON;
-                                    $panel->addButton(new Ctrl($btnId, $ctrlType, $caption, $tooltip, $event, $icon, $eventModel));
+                                    $lastCtrl = new Ctrl($btnId, $ctrlType, $caption, $tooltip, $event, $icon, $eventModel);
+                                    $panel->addButton($lastCtrl);
                                 } else {
                                     // Short definition: id only - copy from parent or base default panel
                                     $btnId = trim($subTokens[1] ?? '');
@@ -393,22 +504,58 @@ class DxwLoader
                                         if (preg_match('/\bICON\s+(\S+)/i', $subLine, $icm)) {
                                             $cloned->icon = $this->resolveImageUrl($icm[1], $imagesFolder);
                                         }
+                                        $lastCtrl = $cloned;
                                         $panel->addButton($cloned);
                                     } else {
                                         $ctrlType = $isGhost ? Ctrl::TYPE_CMD : Ctrl::TYPE_BUTTON;
-                                        $panel->addButton(new Ctrl($btnId, $ctrlType, ucfirst($btnId)));
+                                        $lastCtrl = new Ctrl($btnId, $ctrlType, ucfirst($btnId));
+                                        $panel->addButton($lastCtrl);
                                     }
                                 }
+                            } elseif ($subDir === 'ICON') {
+                                $iconFile = trim(substr($subLine, strlen($subTokens[0])));
+                                if ($iconFile !== '' && isset($lastCtrl) && $lastCtrl instanceof Ctrl) {
+                                    $lastCtrl->icon = $this->resolveImageUrl($iconFile, $imagesFolder);
+                                }
+                            } elseif ($subDir === 'IMAGE') {
+                                $rest = trim(substr($subLine, strlen($subTokens[0])));
+                                if ($rest !== '' && isset($lastCtrl) && $lastCtrl instanceof Ctrl) {
+                                    $imgTokens = preg_split('/\s+/', $rest);
+                                    $last = end($imgTokens);
+                                    $imgW = 0;
+                                    $imgH = 0;
+                                    foreach ($imgTokens as $tok) {
+                                        if (preg_match('/^(\d+)x(\d+)$/i', $tok, $dimMatch)) {
+                                            $imgW = (int)$dimMatch[1];
+                                            $imgH = (int)$dimMatch[2];
+                                            break;
+                                        }
+                                    }
+                                    $lastCtrl->image = new Image($this->resolveImageUrl($last, $imagesFolder), $imgW, $imgH);
+                                }
+                            } elseif ($subDir === 'DROPDOWN') {
+                                $rest = trim(substr($subLine, strlen($subTokens[0])));
+                                $parts = array_map('trim', str_getcsv($rest));
+                                $ddId = $parts[0] ?? ('_dd' . count($panel->buttons));
+                                $setEx = $parts[1] ?? '';
+                                $defEx = $parts[2] ?? '';
+                                $model = $parts[3] ?? '';
+                                $lastCtrl = new Ctrl($ddId, Ctrl::TYPE_DROPDOWN, $defEx, '', $setEx, null, $model);
+                                $panel->addButton($lastCtrl);
                             } elseif ($subDir === 'TEXTBOX') {
                                 $txtId = !empty($subTokens[1]) ? trim($subTokens[1]) : 'txtBox';
-                                $panel->addButton(new Ctrl($txtId, Ctrl::TYPE_TEXTBOX, '', 'Enter speech or action...'));
+                                $lastCtrl = new Ctrl($txtId, Ctrl::TYPE_TEXTBOX, '', 'Enter speech or action...');
+                                $panel->addButton($lastCtrl);
                             } elseif ($subDir === 'CR') {
                                 $sepId = '_sep' . count($panel->buttons);
-                                $panel->addButton(new Ctrl($sepId, Ctrl::TYPE_CR));
+                                $lastCtrl = new Ctrl($sepId, Ctrl::TYPE_CR);
+                                $panel->addButton($lastCtrl);
                             } elseif ($subDir === 'LABEL') {
                                 $labelId = '_lbl' . count($panel->buttons);
                                 $caption = trim(substr($subLine, strlen($subTokens[0])));
-                                $panel->addButton(new Ctrl($labelId, Ctrl::TYPE_LABEL, $caption));
+                                $caption = trim($caption, "\"");
+                                $lastCtrl = new Ctrl($labelId, Ctrl::TYPE_LABEL, $caption);
+                                $panel->addButton($lastCtrl);
                             } elseif ($subDir === 'DELETE') {
                                 $delId = trim($subTokens[1] ?? '');
                                 if ($delId !== '') {
@@ -416,7 +563,8 @@ class DxwLoader
                                 }
                             } elseif ($subDir === 'MAP') {
                                 $mapId = '_map' . count($panel->buttons);
-                                $panel->addButton(new Ctrl($mapId, Ctrl::TYPE_MAP, 'MAP'));
+                                $lastCtrl = new Ctrl($mapId, Ctrl::TYPE_MAP, 'MAP');
+                                $panel->addButton($lastCtrl);
                             }
 
                             $i++;
@@ -951,7 +1099,7 @@ class DxwLoader
 
                 case 'SCRIPTS':
                     if ($directive === 'EVENT' || $directive === 'SUB' || $directive === 'FUNCTION') {
-                        $this->parseScriptBlock($directive, $line, $tokens, $cleanLines, $cleanLineNumbers, $total, $i, $sourceName, $world);
+                        $this->parseScriptBlock($directive, $line, $tokens, $cleanLines, $cleanLineNumbers, $cleanLineSources, $total, $i, $sourceName, $world);
                     } else {
                         $i++;
                     }
@@ -1000,11 +1148,13 @@ class DxwLoader
         array $tokens,
         array $cleanLines,
         array $cleanLineNumbers,
+        array $cleanLineSources,
         int $total,
         int &$i,
         string $sourceName,
         World $world
     ): void {
+        $blockSourceName = $cleanLineSources[$i] ?? $sourceName;
         $rawSig = trim(substr($line, strlen($tokens[0])));
         $eventQual = $tokens[1] ?? '';
         $formalParams = [];
@@ -1040,8 +1190,8 @@ class DxwLoader
 
         $actionText = implode("\n", $actionLines);
         $actionsStartLine = $cleanLineNumbers[$actionStartIndex] ?? (($cleanLineNumbers[$actionStartIndex - 1] ?? 0) + 1);
-        $fileShort = basename($sourceName);
-        $event = new Event($eventQual, $eventType, null, $formalParams, $sourceName, $fileShort, $actionsStartLine);
+        $fileShort = basename($blockSourceName);
+        $event = new Event($eventQual, $eventType, null, $formalParams, $blockSourceName, $fileShort, $actionsStartLine);
         $event->actions = $actionText;
         $world->registerEvent($event);
     }

@@ -13,7 +13,7 @@
 | `WORLD`: `ENCODING`, `AUTHOREMAIL`, `HELP`, `COUNTERHTML`, `SAVEGAME_PERSISTENCE`, `MUTING` | Not parsed (silently ignored) |
 | `WORLD`: `INTERPHONE` | Not parsed (the `World::$interphone` property exists but keeps its default `1`) |
 | `WORLD`: `CLUSTER` | Dropped in DimY |
-| `Include` directive (any section) | Not parsed (silently ignored) |
+| `Include` directive (any section) | Implemented (loads `.dxl` / `.dxw` libraries relative to parent file or HTTP URL, with independent parallel line counting per included file) |
 | `GUI`: `SCENE SIZE`, `SCREEN SIZE`, [`SKINS`](SKINS.md), `LOGOSRC` | Implemented (`LOGOSRC` stored as `logoSrc`/`GUI.LOGOSRC` and rendered as lowest z-layer background in the login form) |
 | `GUI`: `SCENE LOOK`, `MAP`, `COMPASS`, `MSGLISTSIZE`, `SHOW PROPERTIES`, `HOOKS` | Parsed and stored as world properties, but not used by the UI/engine |
 | `GUI`: `PANEL`, `PANEL ... VERSION OF`, controls (`BUTTON`, `CR`, `MAP`, `TEXTBOX`, `LABEL`, `DROPDOWN`, `DELETE`, `CMD`) | Not parsed; only the built-in `default`/`chat` panels (`Panel::createDefaultPanel()`) exist |
@@ -153,7 +153,7 @@ WORLD
     [ SAVEGAME_PERSISTENCE 0 | 1 | 2 ]
     [ MUTING              0 | 1 | 2 | 3 ]
     [ CLUSTER             <cluster_id> ]   ' [dropped in DimY]
-    [ Include             "library.dxl" ]  ' [DimX only - not yet implemented in DimY]
+    [ Include             "library.dxl" ]  ' [DimY: implemented]
     ...
 END_WORLD
 ```
@@ -778,9 +778,9 @@ END_SCRIPTS
 
 ## 13. File Inclusion Directive (Include)
 
-> **[DimX only - not yet implemented in DimY]** `DxwLoader` has no `Include` handling: the line is silently ignored and the library is not loaded.
+> **[DimY: implemented]** `DxwLoader` expands `Include` directives across all sections (`WORLD`, `GUI`, `ROOMS`, `LINKS`, `ITEMS`, `CHARACTERS`, `SETS`, `SCRIPTS`), suspending the parent file's line count and switching to an independent line count and source filename for the included `.dxl` (DimensioneX Library) file.
 
-The `Include` directive imports modular library files (often with `.dxl` extension):
+The `Include` directive imports modular library files (typically bearing the `.dxl` extension, short for **DimensioneX Library**, which share the same syntax and section rules as `.dxw` files):
 
 ```text
 Include "common_rooms.dxl"

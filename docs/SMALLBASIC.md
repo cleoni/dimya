@@ -12,7 +12,7 @@
 
 | Area | Item | DimY status |
 |---|---|---|
-| Directive | `Include` | Not implemented (DimX only) |
+| Directive | `Include` | Implemented (loads external `.dxl` DimensioneX Library files with independent line numbering) |
 | Structure | `Sub` / `Function` | Fully supported: formal parameter binding, custom functions in expressions, return values, and recursive calls |
 | Structure | `input()` set | Partial: passed to the runner but not accessible from scripts |
 | Structure | `HOOKS` | Partial: stored as world property `hooks`; dispatch of external commands to scripts not implemented |
@@ -120,9 +120,9 @@ SmallBasic's syntax is very similar to Microsoft VBScript and Visual Basic, but 
 
 ## 3.3 Include
 
-> **[DimX only - not yet implemented in DimY]** `Include` directives are not processed by `DxwLoader`.
+> **[DimY: implemented]** `DxwLoader` processes `Include` directives in both `SCRIPTS`/`EVENTS` and other `.dxw` sections, preserving separate source filenames and line numbers for each included `.dxl` (DimensioneX Library) file.
 
-The `Include` directive loads script code from an external file:
+The `Include` directive loads definitions or script code from an external DimensioneX Library (`.dxl`) file:
 
 ```basic
 Include "filename_or_url"

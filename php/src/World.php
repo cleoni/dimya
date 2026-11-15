@@ -314,12 +314,12 @@ class World extends DimxObject
     }
 
     /**
-     * Prevent serializing runtime service instances (like PersistenceManager/PDO).
+     * Prevent serializing runtime service instances (like PersistenceManager/PDO) and transient execution logs.
      */
     public function __sleep(): array
     {
         $vars = array_keys(get_object_vars($this));
-        return array_values(array_diff($vars, ['persistence', 'engine', 'logger']));
+        return array_values(array_diff($vars, ['persistence', 'engine', 'logger', 'log']));
     }
 
     public function __wakeup(): void
