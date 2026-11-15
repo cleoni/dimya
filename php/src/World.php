@@ -926,31 +926,69 @@ class World extends DimxObject
 
     /**
      * Retrieves a persisted setting by key.
-     * Matches DimensioneX World.getSetting().
+     * Matches DimensioneX World.getSetting() and DimxParser.funGetSetting().
      */
     public function getSetting(string $key, mixed $default = null): mixed
     {
+        $val = null;
         $pm = $this->persistence ?? GameEngine::$activeInstance?->pm;
         if ($pm !== null) {
             $val = $pm->getSetting($this->id, $key, null);
-            if ($val !== null) {
-                return $val;
-            }
         }
-        return $this->properties[$key] ?? $default;
+        if ($val === null) {
+            $val = $this->properties[$key] ?? $default;
+        }
+        if (is_string($val) && str_starts_with($val, '!set!')) {
+            $setStr = substr($val, 5);
+            if ($setStr === '') {
+                return [];
+            }
+            $parts = explode(',', $setStr);
+            $res = [];
+            foreach ($parts as $part) {
+                if ($part === '') {
+                    continue;
+                }
+                if (str_contains($part, '=')) {
+                    [$k, $v] = explode('=', $part, 2);
+                    $k = str_replace(['!1!', '!2!'], [',', '='], trim($k));
+                    $v = str_replace(['!1!', '!2!'], [',', '='], trim($v));
+                    if (is_numeric($v)) {
+                        $v = str_contains($v, '.') ? (float)$v : (int)$v;
+                    }
+                    $res[$k] = $v;
+                } else {
+                    $k = str_replace(['!1!', '!2!'], [',', '='], trim($part));
+                    $res[$k] = '';
+                }
+            }
+            uksort($res, 'strcasecmp');
+            return $res;
+        }
+        return $val;
     }
 
     /**
      * Persists a setting by key.
-     * Matches DimensioneX World.saveSetting().
+     * Matches DimensioneX World.saveSetting() and Dict.toSettingsPair().
      */
     public function saveSetting(string $key, mixed $value): bool
     {
-        $pm = $this->persistence ?? GameEngine::$activeInstance?->pm;
-        if ($pm !== null) {
-            return $pm->saveSetting($this->id, $key, $value);
+        if (is_array($value)) {
+            $parts = [];
+            foreach ($value as $k => $v) {
+                $escK = str_replace([',', '='], ['!1!', '!2!'], (string)$k);
+                $vStr = ($v instanceof DimxObject) ? (string)$v->id : (is_scalar($v) ? (string)$v : '');
+                $escV = str_replace([',', '='], ['!1!', '!2!'], $vStr);
+                $parts[] = "{$escK}={$escV}";
+            }
+            $value = '!set!' . implode(',', $parts);
         }
         $this->properties[$key] = $value;
+        $pm = $this->persistence ?? GameEngine::$activeInstance?->pm;
+        if ($pm !== null) {
+            return $pm->saveSetting($this->id, $key, (string)$value);
+        }
         return true;
     }
 

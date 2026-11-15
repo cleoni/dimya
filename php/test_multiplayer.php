@@ -76,7 +76,7 @@ $sections = [
     73 => ['title' => 'Testing SmallBasic Sets & Arrays Functions (Copy, NewSet, SetIndexOf, SetKey, SetKeys) & test_set_array_functions.dxw...', 'keywords' => ['copy', 'newset', 'setindexof', 'setkey', 'setkeys', 'sets', 'arrays', 'test_set_array_functions.dxw']],
     74 => ['title' => 'Testing SmallBasic Dynamic World Entities (NewCharacter, NewLink, NewRoom) & test_dynamic_entities.dxw...', 'keywords' => ['newcharacter', 'newlink', 'newroom', 'character', 'link', 'room', 'dynamic', 'test_dynamic_entities.dxw']],
     75 => ['title' => 'Testing SmallBasic World Objects & Inspection Queries & test_world_inspection.dxw...', 'keywords' => ['inspection', 'getcharactersin', 'getlinksfrom', 'getobject', 'getplayerproperties', 'getplayersin', 'getrooms', 'getroomsfrom', 'ischaracter', 'isplayer', 'isroom', 'maintype', 'test_world_inspection.dxw']],
-    76 => ['title' => 'Testing SmallBasic System, Scripting & Environment Functions & test_system_env.dxw...', 'keywords' => ['system', 'scripting', 'existscript', 'gettime', 'httpfetch', 'panelhtml', 'getsetting', 'gameinfo', 'test_system_env.dxw']],
+    76 => ['title' => 'Testing SmallBasic System, Scripting & Environment Functions & SaveSetting & test_system_env.dxw...', 'keywords' => ['system', 'scripting', 'existscript', 'gettime', 'httpfetch', 'panelhtml', 'getsetting', 'savesetting', 'gameinfo', 'test_system_env.dxw']],
     77 => ['title' => 'Testing SmallBasic Kill Instruction (Items, NPCs, Players, Rooms, Default $AGENT) & test_kill.dxw...', 'keywords' => ['kill', 'die', 'removepeople', 'removeroom', 'limbo', 'test_kill.dxw']],
     78 => ['title' => 'Testing SmallBasic SetAdd & SetRemove Instructions (Sets, Arrays, World Sets, Object Properties) & test_set_array_functions.dxw...', 'keywords' => ['setadd', 'setremove', 'set', 'array', 'test_set_array_functions.dxw']],
     79 => ['title' => 'Testing SmallBasic AttachEvent Instruction (Attach, Detach, Player Restrictions, Items/NPCs) & test_attachevent.dxw...', 'keywords' => ['attachevent', 'event', 'detach', 'vampire', 'test_attachevent.dxw']],
@@ -5210,11 +5210,16 @@ if (shouldRun(76)) {
     $runner76->run('Dim fakePanelHtml = PanelHtml("unexistent_panel")');
     assertTest($runner76->getLocalVar('fakePanelHtml') === '', "PanelHtml for unexistent panel returns empty string");
 
-    // getSetting
+    // getSetting & SaveSetting
     $runner76->run('Dim motdSetting = getSetting("motd", "Default MOTD")');
     assertTest($runner76->getLocalVar('motdSetting') === 'Welcome to the Matrix', "getSetting('motd') retrieves persisted setting");
     $runner76->run('Dim defSetting = getSetting("non_existent_key", "Fallback Value")');
     assertTest($runner76->getLocalVar('defSetting') === 'Fallback Value', "getSetting returns fallback default value");
+    $runner76->run("SaveSetting \"hiscore\", 9999\nDim hi = getSetting(\"hiscore\")");
+    assertTest((int)$runner76->getLocalVar('hi') === 9999, "SaveSetting persists scalar value 'hiscore' => 9999 and getSetting retrieves it");
+    $runner76->run("Dim myPrefs = NewSet(\"theme=dark, sound=1\")\nSaveSetting \"prefs\", myPrefs\nDim loadedPrefs = getSetting(\"prefs\")");
+    $loadedPrefs = $runner76->getLocalVar('loadedPrefs');
+    assertTest(is_array($loadedPrefs) && ($loadedPrefs['theme'] ?? '') === 'dark' && (int)($loadedPrefs['sound'] ?? 0) === 1, "SaveSetting persists a SET (!set!) and getSetting restores it as an array");
 
     // gameInfo
     $runner76->run('Dim gWorldName = gameInfo("worldname")');
@@ -5251,6 +5256,10 @@ if (shouldRun(76)) {
     assertTest($w76->getProperty('res_fake_panel') === '', "DXW onStart PanelHtml('fake_panel_id') returns empty string");
 
     assertTest($w76->getProperty('res_setting_def') === 'Welcome Adventurer', "DXW onStart getSetting('custom_motd', 'Welcome Adventurer') -> 'Welcome Adventurer'");
+    assertTest((int)$w76->getProperty('res_saved_hiscore') === 4500, "DXW onStart SaveSetting + getSetting('hiscore') -> 4500");
+    assertTest($w76->getProperty('res_saved_hiscoretext') === 'Best score: 4500 by Champion', "DXW onStart SaveSetting + getSetting('hiscoretext') -> 'Best score: 4500 by Champion'");
+    assertTest((int)$w76->getProperty('res_loaded_set_gold') === 300, "DXW onStart SaveSetting SET + getSetting('champion_profile')('gold') -> 300");
+    assertTest($w76->getProperty('res_loaded_set_rank') === 'Paladin', "DXW onStart SaveSetting SET + getSetting('champion_profile')('rank') -> 'Paladin'");
 
     assertTest($w76->getProperty('res_info_worldname') === 'System and Environment Test World', "DXW onStart gameInfo('worldname') -> 'System and Environment Test World'");
     assertTest($w76->getProperty('res_info_site') === 'http://www.dimensione-x.net', "DXW onStart gameInfo('site') -> 'http://www.dimensione-x.net'");

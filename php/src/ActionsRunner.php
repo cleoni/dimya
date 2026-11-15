@@ -787,7 +787,7 @@ class ActionsRunner
         // Also handle verb followed immediately by '(' e.g. "Debug("test")"
         if (preg_match('/^([A-Za-z0-9_]+)\s*\((.*)\)$/s', $line, $vm) && !str_contains($vm[1], '.')) {
             $verbCandidate = strtoupper($vm[1]);
-            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET', 'GOAL', 'KILL', 'SETADD', 'SETREMOVE', 'ATTACHEVENT'], true)) {
+            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET', 'GOAL', 'KILL', 'SETADD', 'SETREMOVE', 'ATTACHEVENT', 'SAVESETTING'], true)) {
                 $verb = $verbCandidate;
                 $argString = $vm[2];
             } elseif ($this->world?->getEvent($vm[1]) !== null) {
@@ -802,6 +802,7 @@ class ActionsRunner
 
         return match ($verb) {
             'ATTACHEVENT'         => $this->actAttachEvent($args),
+            'SAVESETTING'         => $this->actSaveSetting($args),
             'SETPANEL'   => $this->actSetPanel($args),
             'SPEAK'      => $this->actSpeak($args),
             'DISPLAY',
@@ -2334,6 +2335,43 @@ class ActionsRunner
         }
 
         return $targetObj->attachEvent($eventId, $copyFromId, $sourceEvent);
+    }
+
+    /**
+     * SaveSetting key, value (SmallBasic 3.9.23)
+     * Persists a key-value setting into the world settings database/properties.
+     * Matches DimensioneX ActionsRunner.actSaveSetting(Dict params).
+     */
+    protected function actSaveSetting(array $args): bool
+    {
+        if (count($args) < 2) {
+            throw new \RuntimeException("SaveSetting: missing arguments (expected: key, value)");
+        }
+
+        $rawKey = $this->evalValue(trim((string)$args[0]));
+        $key = trim((string)self::formatValue($rawKey), " \t\n\r\0\x0B\"'");
+        if ($key === '') {
+            throw new \RuntimeException("SaveSetting: key cannot be empty");
+        }
+
+        $valExpr = trim((string)$args[1]);
+        $val = $this->evalValue($valExpr);
+        if (!is_array($val)) {
+            $varArr = $this->getVariable($valExpr);
+            if (is_array($varArr)) {
+                $val = $varArr;
+            }
+        }
+
+        if (!is_array($val)) {
+            $val = (string)self::formatValue($val);
+        }
+
+        if ($this->world !== null) {
+            return $this->world->saveSetting($key, $val);
+        }
+
+        return false;
     }
 
     /**

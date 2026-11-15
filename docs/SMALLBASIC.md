@@ -830,7 +830,7 @@ Return [retvalue]
 
 ### 3.9.23 SaveSetting
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+> **[DimY: implemented]** Persists a key-value setting (scalar string/number or `SET` collection encoded with `!set!`) into the world's `dimx_settings` persistence store and world properties.
 
 Persists a key-value setting into the global server profile database.
 

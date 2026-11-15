@@ -35,8 +35,18 @@ EVENT onStart
 	res_panel_html = PanelHtml("default")
 	res_fake_panel = PanelHtml("fake_panel_id")
 
-	' 5. getSetting
+	' 5. getSetting & SaveSetting
 	res_setting_def = getSetting("custom_motd", "Welcome Adventurer")
+	SaveSetting "hiscore", 4500
+	SaveSetting "hiscoretext", "Best score: 4500 by Champion"
+	res_saved_hiscore = getSetting("hiscore")
+	res_saved_hiscoretext = getSetting("hiscoretext")
+
+	Dim savedSet = NewSet("gold=300, rank=Paladin")
+	SaveSetting "champion_profile", savedSet
+	Dim loadedSet = getSetting("champion_profile")
+	res_loaded_set_gold = loadedSet("gold")
+	res_loaded_set_rank = loadedSet("rank")
 
 	' 6. gameInfo
 	res_info_worldname = gameInfo("worldname")
