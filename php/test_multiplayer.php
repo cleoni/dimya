@@ -4616,6 +4616,14 @@ if (shouldRun(71)) {
     $runner->run('Dim uc = UCase("HeLLo World!")');
     assertTest($runner->getLocalVar('uc') === 'HELLO WORLD!', "UCase('HeLLo World!') returns uppercase");
 
+    // Len()
+    $runner->run('Dim lenStr = Len("DimensioneX")');
+    assertTest($runner->getLocalVar('lenStr') === 11, "Len('DimensioneX') returns 11");
+    $runner->run('Dim lenEmpty = Len("")');
+    assertTest($runner->getLocalVar('lenEmpty') === 0, "Len('') returns 0");
+    $runner->run('Dim lenNum = Len(12345)');
+    assertTest($runner->getLocalVar('lenNum') === 5, "Len(12345) returns 5");
+
     // Left()
     $runner->run('Dim l3 = Left("DimensioneX", 3)');
     assertTest($runner->getLocalVar('l3') === 'Dim', "Left('DimensioneX', 3) returns 'Dim'");
@@ -4697,6 +4705,9 @@ if (shouldRun(71)) {
     assertTest($w71->getProperty('res_chr_98') === 'b', "DXW onStart executed res_chr_98 = Chr(98) -> 'b'");
     assertTest($w71->getProperty('res_lcase') === 'hello world!', "DXW onStart executed res_lcase -> 'hello world!'");
     assertTest($w71->getProperty('res_ucase') === 'HELLO WORLD!', "DXW onStart executed res_ucase -> 'HELLO WORLD!'");
+    assertTest((int)$w71->getProperty('res_len_hello') === 5, "DXW onStart executed res_len_hello -> 5");
+    assertTest((int)$w71->getProperty('res_len_empty') === 0, "DXW onStart executed res_len_empty -> 0");
+    assertTest((int)$w71->getProperty('res_len_num') === 5, "DXW onStart executed res_len_num -> 5");
     assertTest($w71->getProperty('res_left_3') === 'Dim', "DXW onStart executed res_left_3 -> 'Dim'");
     assertTest($w71->getProperty('res_left_0') === '', "DXW onStart executed res_left_0 -> ''");
     assertTest($w71->getProperty('res_left_all') === 'Dim', "DXW onStart executed res_left_all -> 'Dim'");

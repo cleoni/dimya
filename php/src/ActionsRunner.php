@@ -3394,6 +3394,13 @@ class ActionsRunner
                 return strtoupper($s);
             }
 
+            // Built-in Len( string )
+            if (strcasecmp($fn, 'Len') === 0) {
+                $args = $this->parseArguments($argStr);
+                $s = isset($args[0]) ? self::formatValue($this->evalValue($args[0])) : '';
+                return strlen($s);
+            }
+
             // Built-in Left( string, nchars )
             if (strcasecmp($fn, 'Left') === 0) {
                 $args = $this->parseArguments($argStr);

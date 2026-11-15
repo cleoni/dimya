@@ -23,6 +23,11 @@ EVENT onStart
 	res_lcase = LCase("Hello World!")
 	res_ucase = UCase("Hello World!")
 
+	' Len
+	res_len_hello = Len("Hello")
+	res_len_empty = Len("")
+	res_len_num = Len(12345)
+
 	' Left and Right
 	res_left_3 = Left("DimensioneX", 3)
 	res_left_0 = Left("DimensioneX", 0)
