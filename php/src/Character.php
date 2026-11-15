@@ -77,7 +77,7 @@ class Character extends AdvObject
     {
         $room = $this->getRoom();
         if ($room === null) {
-            $this->world?->log("ERROR: container is NULL");
+            $this->triggerError("ERROR: container is NULL");
             return false;
         }
 
@@ -87,7 +87,7 @@ class Character extends AdvObject
             $vehicle = $this->container;
             $link = $room->getWay($directionOrLinkId) ?? $room->getLinkByDirection($directionOrLinkId);
             if ($link === null) {
-                $this->world?->log("ERROR: LINK {$directionOrLinkId} does not exist - (Player used REFRESH?)");
+                $this->triggerError("ERROR: LINK {$directionOrLinkId} does not exist - (Player used REFRESH?)");
                 return false;
             }
             if (!$link->isOpen()) {
@@ -95,7 +95,7 @@ class Character extends AdvObject
             }
             $destRoom = $link->getTarget($room->id);
             if ($destRoom === null) {
-                $this->world?->log("ERROR: LINK {$directionOrLinkId} leads to NULL");
+                $this->triggerError("ERROR: LINK {$directionOrLinkId} leads to NULL");
                 return false;
             }
             if ($this->world !== null) {
@@ -124,7 +124,7 @@ class Character extends AdvObject
 
         $link = $room->getWay($directionOrLinkId) ?? $room->getLinkByDirection($directionOrLinkId);
         if ($link === null) {
-            $this->world?->log("ERROR: LINK {$directionOrLinkId} does not exist - (Player used REFRESH?)");
+            $this->triggerError("ERROR: LINK {$directionOrLinkId} does not exist - (Player used REFRESH?)");
             return false;
         }
         if (!$link->isOpen()) {
@@ -133,7 +133,7 @@ class Character extends AdvObject
 
         $destRoom = $link->getTarget($room->id);
         if ($destRoom === null) {
-            $this->world?->log("ERROR: LINK {$directionOrLinkId} leads to NULL");
+            $this->triggerError("ERROR: LINK {$directionOrLinkId} leads to NULL");
             return false;
         }
 

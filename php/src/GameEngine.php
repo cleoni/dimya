@@ -41,6 +41,59 @@ class GameEngine
     /** Current debug log indentation level (0 = root level, incremented per nested call) */
     public int $indentLevel = 0;
 
+    /** Current executing script source file (short name) and line number for error reporting */
+    public static string $currentScriptFile = '';
+    public static int $currentScriptLine = 0;
+
+    /**
+     * Format an engine error message with the current or explicit script line number and source file name.
+     */
+    public static function formatError(string $errMsg, ?string $fileShort = null, ?int $line = null): string
+    {
+        $msg = trim($errMsg);
+        if (!str_starts_with(strtoupper($msg), 'ERROR:')) {
+            $msg = 'ERROR: ' . $msg;
+        }
+        $f = ($fileShort !== null && $fileShort !== '') ? $fileShort : self::$currentScriptFile;
+        $l = ($line !== null && $line > 0) ? $line : self::$currentScriptLine;
+        if ($f !== '' && $l > 0 && !str_contains($msg, " in {$f}")) {
+            $msg .= " near line {$l} in {$f}";
+        } elseif ($f !== '' && !str_contains($msg, " in {$f}")) {
+            $msg .= " in {$f}";
+        } elseif ($l > 0 && !str_contains($msg, "near line {$l}")) {
+            $msg .= " near line {$l}";
+        }
+        return $msg;
+    }
+
+    /**
+     * Log an engine error to debug.log (and World log) with line number and source file name,
+     * and optionally display it in the console of the target object/player/world.
+     */
+    public function triggerError(
+        string $errMsg,
+        ?DimxObject $destination = null,
+        ?string $fileShort = null,
+        ?int $line = null
+    ): string {
+        $formatted = self::formatError($errMsg, $fileShort, $line);
+        $this->log($formatted);
+
+        if ($destination instanceof DimxObject && method_exists($destination, 'display')) {
+            $destination->display($formatted);
+        } elseif ($destination instanceof Room) {
+            foreach ($destination->getOccupants() as $occ) {
+                if (method_exists($occ, 'display')) {
+                    $occ->display($formatted);
+                }
+            }
+        } elseif ($destination instanceof World) {
+            $destination->broadcast($formatted);
+        }
+
+        return $formatted;
+    }
+
     /**
      * Increment debug log indentation by 1 level.
      */

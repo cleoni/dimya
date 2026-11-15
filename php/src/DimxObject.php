@@ -58,6 +58,25 @@ class DimxObject extends ManageableObject
     }
 
     /**
+     * Format and log an engine error with current script source file name and line number,
+     * optionally displaying it on the specified destination object/player.
+     */
+    public function triggerError(
+        string $errMsg,
+        ?DimxObject $destination = null,
+        ?string $fileShort = null,
+        ?int $line = null
+    ): string {
+        if ($this->world !== null) {
+            return $this->world->triggerError($errMsg, $destination, $fileShort, $line);
+        }
+        if (GameEngine::$activeInstance !== null) {
+            return GameEngine::$activeInstance->triggerError($errMsg, $destination, $fileShort, $line);
+        }
+        return GameEngine::formatError($errMsg, $fileShort, $line);
+    }
+
+    /**
      * Display a message to players in or connected to this entity.
      * Default returns false unless overridden by World, Room, or Player.
      */

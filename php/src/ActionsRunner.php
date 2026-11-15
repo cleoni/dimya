@@ -136,28 +136,37 @@ class ActionsRunner
     }
 
     /**
-     * Log an error message and treat it like a Display instruction to output
-     * the error description to the appropriate console (e.g. $AGENT or $OWNER).
+     * Format an error message with the current script line number and source file name.
+     */
+    public function formatError(string $errMsg): string
+    {
+        return GameEngine::formatError($errMsg, $this->fileShort, $this->currLine);
+    }
+
+    /**
+     * Log an error message to debug.log (and World log) with line number and source file name,
+     * and treat it like a Display instruction to output the full error description (including
+     * line number and source file name) to the appropriate console (e.g. $AGENT or $OWNER).
      */
     public function displayError(string $errMsg): void
     {
-        $logMsg = $errMsg . ($this->fileShort !== '' && $this->currLine > 0 ? " near line {$this->currLine} in {$this->fileShort}" : "");
-        $this->log($logMsg);
+        $fullMsg = $this->formatError($errMsg);
+        $this->log($fullMsg);
 
         $destination = ($this->agent instanceof DimxObject)
             ? $this->agent
             : (($this->owner instanceof DimxObject) ? $this->owner : $this->world);
 
         if ($destination instanceof DimxObject && method_exists($destination, 'display')) {
-            $destination->display($errMsg);
+            $destination->display($fullMsg);
         } elseif ($destination instanceof Room) {
             foreach ($destination->getOccupants() as $occ) {
                 if (method_exists($occ, 'display')) {
-                    $occ->display($errMsg);
+                    $occ->display($fullMsg);
                 }
             }
         } elseif ($destination instanceof World) {
-            $destination->broadcast($errMsg);
+            $destination->broadcast($fullMsg);
         }
     }
 
@@ -257,6 +266,11 @@ class ActionsRunner
         $this->hasReturned = false;
         $this->returnValue = $this->defaultResult;
 
+        $prevFile = GameEngine::$currentScriptFile;
+        $prevLine = GameEngine::$currentScriptLine;
+        GameEngine::$currentScriptFile = $this->fileShort;
+        GameEngine::$currentScriptLine = $this->currLine;
+
         if ($this->stackLevel > 0) {
             $this->incIndent();
         }
@@ -271,6 +285,8 @@ class ActionsRunner
             if ($this->stackLevel > 0) {
                 $this->decIndent();
             }
+            GameEngine::$currentScriptFile = $prevFile;
+            GameEngine::$currentScriptLine = $prevLine;
         }
     }
 
@@ -282,6 +298,11 @@ class ActionsRunner
         $this->hasReturned = false;
         $this->returnValue = $this->defaultResult;
 
+        $prevFile = GameEngine::$currentScriptFile;
+        $prevLine = GameEngine::$currentScriptLine;
+        GameEngine::$currentScriptFile = $this->fileShort;
+        GameEngine::$currentScriptLine = $this->currLine;
+
         $this->incIndent();
         if ($this->fileShort !== '' && $this->currLine > 0) {
             $this->log("{$this->fileShort}({$this->currLine}): running");
@@ -291,6 +312,8 @@ class ActionsRunner
             return $this->executeLinesList($lines);
         } finally {
             $this->decIndent();
+            GameEngine::$currentScriptFile = $prevFile;
+            GameEngine::$currentScriptLine = $prevLine;
         }
     }
 
@@ -377,6 +400,8 @@ class ActionsRunner
             $lineItem = $lines[$i];
             $line = $lineItem['text'];
             $this->currLine = $lineItem['line'];
+            GameEngine::$currentScriptFile = $this->fileShort;
+            GameEngine::$currentScriptLine = $this->currLine;
 
             // Check for If block
             if (preg_match('/^IF\b\s*(.*)$/i', $line, $m)) {

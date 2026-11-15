@@ -903,6 +903,34 @@ class World extends DimxObject
     }
 
     /**
+     * Trigger and format a game engine error with source file name and line number,
+     * logging it to debug.log and optionally displaying it to a destination object/player/world.
+     */
+    public function triggerError(
+        string $errMsg,
+        ?DimxObject $destination = null,
+        ?string $fileShort = null,
+        ?int $line = null
+    ): string {
+        $formatted = GameEngine::formatError($errMsg, $fileShort, $line);
+        $this->log($formatted);
+
+        if ($destination instanceof DimxObject && method_exists($destination, 'display')) {
+            $destination->display($formatted);
+        } elseif ($destination instanceof Room) {
+            foreach ($destination->getOccupants() as $occ) {
+                if (method_exists($occ, 'display')) {
+                    $occ->display($formatted);
+                }
+            }
+        } elseif ($destination instanceof World) {
+            $destination->broadcast($formatted);
+        }
+
+        return $formatted;
+    }
+
+    /**
      * Persist world state via the configured persistence manager.
      */
     public function save(): bool

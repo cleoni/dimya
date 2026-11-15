@@ -4379,6 +4379,42 @@ if (shouldRun(69)) {
     assertTest(str_contains($sec69Player->clientConsole[0], 'ERROR: Syntax error: unbalanced parentheses'), "Output displays 'ERROR: Syntax error: unbalanced parentheses': '{$sec69Player->clientConsole[0]}'");
     assertTest($sec69Player->clientConsole[1] === 'After paren error', "Output contains 'After paren error'");
 
+    // 3b. Verify line number AND source file name are displayed in console AND logged when fileShort and startLine are set
+    $sec69Player->clientConsole = [];
+    $sec69World->log = [];
+    $sec69RunnerWithFile = new \Dimx\ActionsRunner($sec69World, null, $sec69Player, null, [], true, 'it_underworld.dxw', 4227);
+    $sec69RunnerWithFile->run("Display \"Before\"\nDisplay w(1)");
+    assertTest(
+        ($sec69Player->clientConsole[1] ?? '') === 'ERROR: Unknown Function or Array: w near line 4228 in it_underworld.dxw',
+        "Console error displays exact line number and source file name: '{$sec69Player->clientConsole[1]}'"
+    );
+    $loggedWithFileAndLine = false;
+    foreach ($sec69World->log as $logEntry) {
+        if (str_contains($logEntry, 'ERROR: Unknown Function or Array: w near line 4228 in it_underworld.dxw')) {
+            $loggedWithFileAndLine = true;
+            break;
+        }
+    }
+    assertTest($loggedWithFileAndLine, "World/debug log records error with line number and source file name");
+
+    // 3c. Verify DimxObject::triggerError / World::triggerError appends active script line & file
+    $sec69World->log = [];
+    $sec69Player->clientConsole = [];
+    $evtErrTest = new \Dimx\Event('onTestErr', 'EVENT', null, [], 'test_lib.dxl', 'test_lib.dxl', 100);
+    $evtErrTest->actions = "Move " . $sec69Player->id . ", nonexistent_dest";
+    $sec69World->registerEvent($evtErrTest);
+    $sec69World->fireEvent('onTestErr', $sec69World, $sec69Player, null);
+    // Test direct triggerError formatting
+    $formattedDirect = $sec69Player->triggerError("Custom engine error", $sec69Player, 'custom.dxw', 55);
+    assertTest(
+        $formattedDirect === 'ERROR: Custom engine error near line 55 in custom.dxw',
+        "triggerError formats message with ERROR prefix, line number, and source file: '{$formattedDirect}'"
+    );
+    assertTest(
+        in_array('ERROR: Custom engine error near line 55 in custom.dxw', $sec69Player->clientConsole, true),
+        "triggerError displays formatted error to destination console"
+    );
+
     // 4. Part 2: Custom Function and Sub definitions
     $customFuncScript = "Function doubleVal(n)\nReturn n * 2\nEnd_Function\n";
     $eventFunc = new \Dimx\Event('doubleVal', 'FUNCTION', null, ['n']);

@@ -480,7 +480,7 @@ class AdvObject extends DimxObject
     public function move(AdvObject $target, bool $checkOpen = false): bool
     {
         if ($this instanceof Room) {
-            $this->world?->log("ERROR: ROOM objects cannot be moved.");
+            $this->triggerError("ERROR: ROOM objects cannot be moved.");
             return false;
         }
 
