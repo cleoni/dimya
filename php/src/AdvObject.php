@@ -569,6 +569,7 @@ class AdvObject extends DimxObject
             unset($this->world->items[$this->id]);
             unset($this->world->characters[$this->id]);
             unset($this->world->rooms[$this->id]);
+            unset($this->world->links[$this->id]);
         }
     }
 

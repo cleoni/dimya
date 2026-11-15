@@ -5331,11 +5331,23 @@ if (shouldRun(77)) {
     assertTest($helm->container === $rArena && isset($rArena->contents['i_helm']), 'Kill (no args) drops $AGENT\'s carried i_helm into room r_arena');
     assertTest($pAgent->container === null && !isset($rArena->contents['p_lancelot']), 'Kill (no args) sends $AGENT to limbo');
 
-    // 1e. Kill Room
+    // 1e. Kill Link -> removes link from world and from connected rooms' ways
+    $rAnnex = new \Dimx\Room($sec77World, 'Annex', 'r_annex', 'Annex room');
+    $sec77World->addRoom($rAnnex);
+    $linkBridge = new \Dimx\Link($sec77World, 'Bridge', 'l_bridge', $rArena, $rAnnex, true, 'E', 'A bridge');
+    $sec77World->addLink($linkBridge);
+    assertTest($sec77World->getLink('l_bridge') === $linkBridge && isset($rArena->ways['l_bridge']) && isset($rAnnex->ways['l_bridge']), "Pre-Kill: l_bridge exists in world and both rooms");
+    $runner77->run('Kill l_bridge');
+    assertTest($sec77World->getLink('l_bridge') === null && !isset($rArena->ways['l_bridge']) && !isset($rAnnex->ways['l_bridge']), "Kill l_bridge removes link from world and detaches from both connected rooms");
+
+    // 1f. Kill Room (including detaching any links connected to it)
+    $linkDoomed = new \Dimx\Link($sec77World, 'Tunnel', 'l_tunnel', $rArena, $rDoomed, true, 'N', 'A tunnel');
+    $sec77World->addLink($linkDoomed);
     $runner77->run('Kill r_doomed');
     assertTest($sec77World->getRoom('r_doomed') === null, "Kill r_doomed removes room from world");
+    assertTest($sec77World->getLink('l_tunnel') === null && !isset($rArena->ways['l_tunnel']), "Kill r_doomed also removes links connected to r_doomed");
 
-    // 1f. Kill non-existent object (graceful no-op)
+    // 1g. Kill non-existent object (graceful no-op)
     $runner77->run('Kill non_existent_entity');
     assertTest(true, "Kill on non-existent object completes gracefully without error");
 
@@ -5350,6 +5362,7 @@ if (shouldRun(77)) {
     assertTest((bool)$w77->getProperty('res_pre_crate') === true, "DXW pre-Kill wooden_crate existed");
     assertTest((bool)$w77->getProperty('res_pre_goblin') === true, "DXW pre-Kill goblin existed");
     assertTest((bool)$w77->getProperty('res_pre_room_temp') === true, "DXW pre-Kill room_temp existed");
+    assertTest((bool)$w77->getProperty('res_pre_link') === true && (int)$w77->getProperty('res_pre_links_cnt') === 1, "DXW pre-Kill bridge_link existed and room_arena had 1 link");
     assertTest($w77->getProperty('res_pre_key_loc') === 'wooden_crate', "DXW pre-Kill gold_key was inside wooden_crate");
     assertTest($w77->getProperty('res_pre_dagger_loc') === 'goblin', "DXW pre-Kill goblin_dagger was carried by goblin");
 
@@ -5357,6 +5370,7 @@ if (shouldRun(77)) {
     assertTest($w77->getProperty('res_post_key_loc') === 'room_arena', "DXW post-Kill gold_key dropped into room_arena");
     assertTest((bool)$w77->getProperty('res_post_goblin') === false, "DXW post-Kill goblin no longer exists");
     assertTest($w77->getProperty('res_post_dagger_loc') === 'room_arena', "DXW post-Kill goblin_dagger dropped into room_arena");
+    assertTest((bool)$w77->getProperty('res_post_link') === false && (int)$w77->getProperty('res_post_links_cnt') === 0, "DXW post-Kill bridge_link no longer exists and room_arena has 0 links");
     assertTest((bool)$w77->getProperty('res_post_room_temp') === false, "DXW post-Kill room_temp no longer exists");
 
     // Clean up

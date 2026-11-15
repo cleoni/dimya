@@ -535,14 +535,47 @@ class World extends DimxObject
     }
 
     /**
-     * Removes a Room from the world.
+     * Removes a Room from the world and detaches any links connected to it.
      * Matches DimensioneX Java World.removeRoom().
      */
     public function removeRoom(Room $r): bool
     {
+        foreach (array_values($this->links) as $link) {
+            if ($link instanceof Link && ($link->startsFrom($r->id) || $link->leadsTo($r->id) || isset($r->ways[$link->id]))) {
+                $this->removeLink($link);
+            }
+        }
         $r->die(true, 0);
         unset($this->rooms[$r->id]);
         unset($this->contents[$r->id]);
+        return true;
+    }
+
+    /**
+     * Removes a Link from the world and detaches it from connected rooms.
+     */
+    public function removeLink(Link $link): bool
+    {
+        foreach ($link->fromto as $fromId => $toRoom) {
+            $fromRoom = $this->rooms[$fromId] ?? null;
+            if ($fromRoom instanceof Room) {
+                unset($fromRoom->ways[$link->id]);
+                $fromRoom->sendCmd('refresh!scene');
+            }
+            if ($toRoom instanceof Room) {
+                unset($toRoom->ways[$link->id]);
+                $toRoom->sendCmd('refresh!scene');
+            }
+        }
+        foreach ($this->rooms as $room) {
+            if (isset($room->ways[$link->id])) {
+                unset($room->ways[$link->id]);
+                $room->sendCmd('refresh!scene');
+            }
+        }
+        $link->die(true, 0);
+        unset($this->links[$link->id]);
+        unset($this->contents[$link->id]);
         return true;
     }
 

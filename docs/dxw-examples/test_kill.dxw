@@ -13,7 +13,17 @@ ROOM room_temp
 	NAME		Temporary Chamber
 	DESCRIPTION	A collapsible room.
 
+ROOM room_annex
+	NAME		Annex Room
+	DESCRIPTION	An annex connected by a bridge.
+
 END_ROOMS
+
+LINKS
+LINK bridge_link room_arena-room_annex E
+	NAME		Wooden Bridge
+	DESCRIPTION	A rope and plank bridge.
+END_LINKS
 
 CHARACTERS
 
@@ -61,7 +71,14 @@ EVENT onStart
 	res_post_goblin = Exists("goblin")
 	res_post_dagger_loc = goblin_dagger.container.id
 
-	' 3. Kill room (room_temp)
+	' 3. Kill link (bridge_link)
+	res_pre_link = Exists(bridge_link)
+	res_pre_links_cnt = SetLen(getLinksFrom(room_arena))
+	Kill bridge_link
+	res_post_link = Exists("bridge_link")
+	res_post_links_cnt = SetLen(getLinksFrom(room_arena))
+
+	' 4. Kill room (room_temp)
 	Kill room_temp
 	res_post_room_temp = Exists("room_temp")
 END_EVENT

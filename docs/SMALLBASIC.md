@@ -639,16 +639,22 @@ Journal title, link, text, categories
 
 ### 3.9.12 Kill
 
-> **[DimY: implemented]** Removes an item, room, or NPC character from the world (or moves a player to limbo), dropping carried items into the enclosing container/room.
+> **[DimY: implemented]** Destroys and removes a game object (item, link, room, or NPC character) from the world, or moves a player to limbo, dropping carried items into the enclosing container/room.
 
-Removes an object or NPC character from the current world.
+Removes or destroys a game object (item, link, room, or character) from the current world.
 
 ```basic
 Kill [victim]
 ```
 
 - **Parameters**:
-  - `victim` *(Optional)*: ID of the character/object to be removed. Defaults to `$AGENT` if omitted.
+  - `victim` *(Optional)*: ID or reference of the character, player, item, link, or room to be destroyed/removed. Defaults to `$AGENT` if omitted.
+- **Behavior by Object Type**:
+  - **Item**: Removed from its container and world; any inner items inside it are dropped into its enclosing container/room.
+  - **Link**: Removed from the world and detached from all connected rooms (triggering a scene refresh on affected rooms).
+  - **Room**: Removed from the world along with any links connected to or from it.
+  - **Character (NPC)**: Removed from the world; any carried items are dropped into its enclosing room/container.
+  - **Player**: Dropped items are placed in the enclosing room/container, `"You have been killed by <agent>"` is displayed, and the player is moved to limbo.
 
 ---
 

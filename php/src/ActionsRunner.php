@@ -2022,8 +2022,16 @@ class ActionsRunner
             return true;
         }
 
+        if ($o instanceof Link || $o->isLink()) {
+            if ($this->world !== null && $o instanceof Link) {
+                return $this->world->removeLink($o);
+            }
+            $o->die(true, 0);
+            return true;
+        }
+
         if ($o instanceof Room || $o->isaRoom()) {
-            if ($this->world !== null) {
+            if ($this->world !== null && $o instanceof Room) {
                 return $this->world->removeRoom($o);
             }
             $o->die(true, 0);
