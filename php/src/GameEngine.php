@@ -1339,6 +1339,7 @@ class GameEngine
                 $world->fireEvent('onQuit', $player, $player, null);
                 if ($currentRoom !== null) {
                     $world->fireEvent('onExit', $player, $player, null);
+                    $world->fireEvent('onLoose', $currentRoom, $player, $player);
                 }
 
                 $player->display("You have logged out of <b>{$world->name}</b>. Goodbye!");

@@ -382,7 +382,6 @@ class Player extends Character
      */
     public function display(string $msg): bool
     {
-        $this->world?->log("Displaying to {$this->id}: {$msg}");
         $this->clientConsole[] = $msg;
         return true;
     }

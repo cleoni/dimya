@@ -5924,6 +5924,25 @@ DXW;
             str_contains($panelTester->images['N']?->src ?? '', 'paesant.gif'),
             "Player::setSkin preserves custom \$AGENT.image instead of reverting to skin picPlayer"
         );
+
+        // Verify pre2.onLoose fires after onExit with $TARGET = link ('p1')
+        $loosePlayer = new \Dimx\Player($uwWorld, 'LooseTester', 'p_loose_tester');
+        $loosePlayer->setProperty('type', 0);
+        $loosePlayer->move($roomPre2);
+        $goBlocked = $loosePlayer->go('p1');
+        assertTest(
+            $goBlocked === false && $loosePlayer->container?->id === 'pre2',
+            "it_underworld.dxw: pre2.onLoose blocks go('p1') when \$AGENT.type = 0"
+        );
+        $loosePlayer->setProperty('type', 4);
+        $loosePlayer->setProperty('Classe', 'Artigiano');
+        $loosePlayer->drainConsole();
+        $goAllowed = $loosePlayer->go('p1');
+        $looseConsole = implode("\n", $loosePlayer->drainConsole());
+        assertTest(
+            $goAllowed === true && $loosePlayer->container?->id === 'start' && str_contains($looseConsole, 'Artigiano'),
+            "it_underworld.dxw: pre2.onLoose allows go('p1') after class choice and moves player to start"
+        );
     }
 
     // Unit test for LABEL "@expr()" in standalone world

@@ -99,11 +99,19 @@ class Character extends AdvObject
                 return false;
             }
             if ($this->world !== null) {
-                $resExit = $this->world->fireEvent('onExit', $vehicle, $this, $destRoom);
+                $resExit = $this->world->fireEvent('onExit', $vehicle, $this, $link);
                 if ($resExit === false || $resExit === 0 || $resExit === '0') {
                     $this->world->log("Could not move {$this->getName()} away from {$room->id}: action cancelled.");
                     return false;
                 }
+                $resLoose = $this->world->fireEvent('onLoose', $room, $this, $link);
+                if ($resLoose === false || $resLoose === 0 || $resLoose === '0') {
+                    $this->world->log("Could not move {$this->getName()} away from {$room->id}: action cancelled.");
+                    return false;
+                }
+            }
+            if ($vehicle->container !== $room) {
+                return true;
             }
             $walkDir = $link->getDirection($room->id);
             $moved = $vehicle->move($destRoom);
@@ -137,13 +145,22 @@ class Character extends AdvObject
             return false;
         }
 
-        // Fire onExit and onEnter events if World is available
+        // Fire onExit and onLoose events if World is available
         if ($this->world !== null) {
-            $resExit = $this->world->fireEvent('onExit', $this, $this, $destRoom);
+            $resExit = $this->world->fireEvent('onExit', $this, $this, $link);
             if ($resExit === false || $resExit === 0 || $resExit === '0') {
                 $this->world->log("Could not move {$this->getName()} away from {$room->id}: action cancelled.");
                 return false;
             }
+            $resLoose = $this->world->fireEvent('onLoose', $room, $this, $link);
+            if ($resLoose === false || $resLoose === 0 || $resLoose === '0') {
+                $this->world->log("Could not move {$this->getName()} away from {$room->id}: action cancelled.");
+                return false;
+            }
+        }
+
+        if ($this->container !== $room) {
+            return true;
         }
 
         $walkDir = $link->getDirection($room->id);
@@ -710,6 +727,10 @@ class Character extends AdvObject
             if ($res === false || $res === 0 || $res === '0') {
                 return false;
             }
+            $resLoose = $this->world->fireEvent('onLoose', $oldContainer, $this, $target);
+            if ($resLoose === false || $resLoose === 0 || $resLoose === '0') {
+                return false;
+            }
         }
 
         if ($this->move($target)) {
@@ -760,13 +781,16 @@ class Character extends AdvObject
             if ($res === false || $res === 0 || $res === '0') {
                 return false;
             }
+            $resLoose = $this->world->fireEvent('onLoose', $vehicle, $this, $destRoom);
+            if ($resLoose === false || $resLoose === 0 || $resLoose === '0') {
+                return false;
+            }
         }
 
         if ($this->move($destRoom)) {
             if ($this->world !== null) {
                 $this->world->fireEvent('onEnter', $this, $this, $destRoom);
                 $this->world->fireEvent('onReceive', $destRoom, $this, $this);
-                $this->world->fireEvent('onLoose', $vehicle, $this, $this);
             }
             $vehDesc = (stripos($vehicle->name, 'the ') === 0 || stripos($vehicle->name, 'a ') === 0) ? $vehicle->name : "the {$vehicle->name}";
             $this->display("You exit {$vehDesc}.");
