@@ -17,8 +17,8 @@
 | Structure | `input()` set | Partial: passed to the runner but not accessible from scripts |
 | Structure | `HOOKS` | Partial: stored as world property `hooks`; dispatch of external commands to scripts not implemented |
 | Types | Image / Set / Array objects in scripts | Not implemented (world `SET` declarations are loaded; only `RndSet` reads them) |
-| Operators | `^`, `Mod`, `&`, unary `-`, `><`, arithmetic precedence | Not implemented |
-| Operators | `+ - * /` | Partial: single binary split on first operator; no precedence/parentheses |
+| Operators | `^`, `Mod`, unary `-`, `><`, arithmetic precedence | Not implemented |
+| Operators | `+ - * / &` | Partial: `&` string concatenation and `+ - * /` binary split |
 | Operators | `AND`, `OR`, `Not` | Partial: `Not` only as prefix inside conditions; `AND`/`OR` split at first top-level keyword |
 | Variables | Script variables (global/local), `Dim` | Not implemented (only `object.property` assignment and reading) |
 | Flow control | `For ... Next`, `For Each ... Next` | Not implemented |
@@ -281,7 +281,7 @@ Unary operators:
 
 ### 3.6.2 String
 
-> **[DimY: partial]** `+` concatenates when an operand is non-numeric. `&` is **[DimX only - not yet implemented in DimY]**.
+> **[DimY: implemented]** Both `&` (unconditional string concatenation) and `+` (concatenates when an operand is non-numeric) are supported.
 
 - `&` : Concatenates two operands as strings, regardless of their types (e.g. `"Score: " & 100` -> `"Score: 100"`).
 - `+` : When the first operand is a string, `+` performs string concatenation. If the first operand is numeric, `+` performs arithmetical addition.

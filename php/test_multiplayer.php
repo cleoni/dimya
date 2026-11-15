@@ -4415,6 +4415,18 @@ if (shouldRun(69)) {
         "triggerError displays formatted error to destination console"
     );
 
+    // 3d. Verify Debug instruction evaluates expressions (including '&' and '+' concatenation) like Print
+    $sec69World->log = [];
+    $sec69Runner->run("Dim set_matching = NewSet(\"goblin=10,orc=20\")\nDebug \"set_matching=\" & set_matching");
+    $debugFound = false;
+    foreach ($sec69World->log as $logEntry) {
+        if (str_contains($logEntry, 'set_matching=[goblin=10,orc=20]')) {
+            $debugFound = true;
+            break;
+        }
+    }
+    assertTest($debugFound, "Debug instruction evaluates '\"set_matching=\" & set_matching' and logs 'set_matching=[goblin=10,orc=20]'");
+
     // 4. Part 2: Custom Function and Sub definitions
     $customFuncScript = "Function doubleVal(n)\nReturn n * 2\nEnd_Function\n";
     $eventFunc = new \Dimx\Event('doubleVal', 'FUNCTION', null, ['n']);

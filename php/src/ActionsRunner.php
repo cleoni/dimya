@@ -938,10 +938,15 @@ class ActionsRunner
         } else {
             $parts = [];
             foreach ($args as $arg) {
-                $val = self::formatValue($this->evalValue((string)$arg));
-                if ((str_starts_with($val, '"') && str_ends_with($val, '"')) ||
-                    (str_starts_with($val, "'") && str_ends_with($val, "'"))) {
-                    $val = substr($val, 1, -1);
+                $evalRes = $this->evalValue((string)$arg);
+                if ($evalRes instanceof Image) {
+                    $val = $evalRes->toHtml();
+                } else {
+                    $val = self::formatValue($evalRes);
+                    if ((str_starts_with($val, '"') && str_ends_with($val, '"')) ||
+                        (str_starts_with($val, "'") && str_ends_with($val, "'"))) {
+                        $val = substr($val, 1, -1);
+                    }
                 }
                 $parts[] = $val;
             }
@@ -3308,7 +3313,14 @@ class ActionsRunner
             return (bool)$this->evalCondition(trim($parts[0])) && (bool)$this->evalCondition(trim($parts[1]));
         }
 
-        // Top-level binary arithmetic & string concatenation outside quotes/parentheses
+        // Top-level string concatenation operator '&' outside quotes/parentheses
+        if ($binAmp = $this->splitTopLevelBinary($val, ['&'])) {
+            $leftStr = self::formatValue($this->evalValue($binAmp[0]));
+            $rightStr = self::formatValue($this->evalValue($binAmp[2]));
+            return $leftStr . $rightStr;
+        }
+
+        // Top-level binary arithmetic & '+' string concatenation outside quotes/parentheses
         if ($bin = $this->splitTopLevelBinary($val, ['+', '-', '*', '/'])) {
             $left = $this->evalValue($bin[0]);
             $op = $bin[1];
