@@ -1,0 +1,58 @@
+WORLD test_not_isitem_urlencode
+	NAME		NOT, IsItem and Urlencode Test World
+	VERSION		1.0
+	AUTHOR  	Test Suite
+
+ROOMS
+ROOM room_armory
+	NAME		The Armory
+	DESCRIPTION	A secure chamber storing weapons and gear.
+END_ROOMS
+
+CHARACTERS
+CHARACTER guard
+	NAME		Armory Guard
+	DESCRIPTION	A stoic guard protecting the armory.
+	POSITION	room_armory
+END_CHARACTERS
+
+ITEMS
+ITEM silver_dagger
+	NAME		Silver Dagger
+	DESCRIPTION	A gleaming silver dagger.
+	POSITION	room_armory
+END_ITEMS
+
+SCRIPTS
+
+EVENT onStart
+	' --- 1. Test NOT( expr ) ---
+	Dim zero = 0
+	Dim one = 1
+	res_not_zero = NOT(zero)
+	res_not_one = NOT(one)
+	res_not_false = NOT(False)
+	res_not_true = NOT(True)
+	res_not_str_empty = NOT("")
+	res_not_str_text = NOT("hello")
+	res_not_eq_true = NOT(5 = 5)
+	res_not_eq_false = NOT(5 = 10)
+	res_not_nested = NOT(NOT(0))
+	res_not_existing_obj = NOT(silver_dagger)
+	res_not_missing_prop = NOT(room_armory.phantom_prop)
+	res_not_missing_exists = NOT(Exists("phantom_item"))
+
+	' --- 2. Test IsItem( object ) ---
+	res_isitem_dagger = IsItem(silver_dagger)
+	res_isitem_dagger_id = IsItem("silver_dagger")
+	res_isitem_guard = IsItem(guard)
+	res_isitem_room = IsItem(room_armory)
+	res_isitem_missing = IsItem("phantom_item")
+	res_isitem_empty = IsItem("")
+
+	' --- 3. Test Urlencode( string ) ---
+	res_urlencode_spaces = Urlencode("hello world & friends")
+	res_urlencode_query = Urlencode("name=Arthur&score=100")
+	res_urlencode_empty = Urlencode("")
+	res_urlencode_safe = Urlencode("clean_text-123.jpg")
+END_EVENT

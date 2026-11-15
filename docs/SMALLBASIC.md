@@ -257,7 +257,7 @@ SmallBasic is dynamically typed. An expression can be treated as a number, strin
 
 ### 3.5.2 Complex Types
 
-> **[DimY: partial]** `Image` objects (`NewImage`) are implemented. Collection objects (`NewSet`, `NewArray`, `Split`) are **[DimX only - not yet implemented in DimY]**; only world-level `SET` declarations exist (used by `RndSet`). `Dict`/`DictSorted` were **dropped in DimY** (native PHP arrays).
+> **[DimY: implemented]** `Image` objects (`NewImage`) and collection objects (`NewSet`, `NewArray`, `Split`) are implemented. `Dict`/`DictSorted` were **dropped in DimY** (replaced with native PHP arrays and `SET`/`ARRAY`).
 
 - **Image**: An image object (created via `NewImage(src, width, height)` or defined in `.dxw`).
 - **Set**: Key-value dictionary / collection (created via `NewSet()`, `SET` declarations, or functions like `getItemsIn()`).
@@ -339,7 +339,7 @@ a = (3 + 2) * 5  ' Evaluates to 25 (parentheses first)
 
 ### 3.7.2 Declaring Variables
 
-> **[DimX only - not yet implemented in DimY]** `Dim` and script variables (local/global) are not implemented; only `object.property` can be assigned/read.
+> **[DimY: implemented]** `Dim` and procedure-local script variables are implemented in `ActionsRunner`. Global variables are managed via `$WORLD.property`.
 
 - Local variables inside a `Function`, `Sub`, or `EVENT` should be declared with **`Dim`**.
 - Local variable scope is restricted to the enclosing block, preventing naming conflicts and protecting recursive calls.
@@ -375,7 +375,7 @@ Special read-only variables automatically managed by the engine:
 
 ### 3.8.1 Assignment
 
-> **[DimY: partial]** Only `object.property = expr` and `object.property("key") = expr` are supported; plain `variable = expr` is **[DimX only - not yet implemented in DimY]** (ignored).
+> **[DimY: implemented]** Both `object.property = expr`, `object.property("key") = expr`, and local variable assignment `variable = expr` (for variables declared in scope via `Dim`) are supported.
 
 ```basic
 [object.]property = expression
@@ -479,7 +479,7 @@ AttachEvent dest, "eventID", "attachedEventID"
 
 ### 3.9.2 Ban
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (IP/session banning is handled via web server or maintenance scripts).
 
 Bans the specified player from the game.
 
@@ -509,7 +509,7 @@ Call subroutineName( [parameter1, parameter2, ...] )
 
 ### 3.9.4 Dim
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+> **[DimY: implemented]** Declares local variables in the current execution scope (`ActionsRunner::$localVarsStack`). Supports initial assignment (e.g. `Dim x = 10, y = "abc"`).
 
 Declares and creates one or more local variables in the local variable space of the current `Function`, `Sub`, or `EVENT`.
 
@@ -1311,6 +1311,17 @@ Tests whether the object argument is a `ROOM`.
 
 ---
 
+### 3.10.27b IsItem( object )
+
+> **[DimY: implemented]** Tests whether the object argument is an `ITEM`. Returns 1 or 0.
+
+Tests whether the object argument is an `ITEM`.
+
+- **Syntax**: `b = IsItem( object )`
+- **Returns**: Boolean (`1` or `0`).
+
+---
+
 ### 3.10.28 LCase( string )
 
 > **[DimY: implemented]** Converts a string to lowercase.
@@ -1333,7 +1344,7 @@ Returns the leftmost `nchars` characters of `string`.
 
 ### 3.10.30 Len( string )
 
-> **[DimX only - not yet implemented in DimY]** Function is not evaluated; the expression is returned as literal text.
+> **[DimY: implemented]** Returns the character length of `string`.
 
 Returns the character length of `string`.
 
@@ -1457,7 +1468,7 @@ Dynamically creates a new `ITEM` inside `container`.
 
 ### 3.10.40 NOT( expr )
 
-> **[DimY: partial]** Handled only as a prefix operator inside conditions (`Not expr` / `Not(expr)`), not as a general expression function.
+> **[DimY: implemented]** Logical negation of an expression or condition. Returns `1` if falsy (`0`, `""`, `False`, `null`), or `0` if truthy. Can be used in conditions, variable assignments, and expressions.
 
 Logical negation of a boolean or numeric expression.
 
@@ -1497,7 +1508,7 @@ Returns the rightmost `nchars` characters of `string`.
 
 ### 3.10.44 RndInt( N )
 
-> **[DimY: partial]** Only the two-argument form `RndInt(min, max)` is implemented; the one-argument `RndInt(N)` form documented here is **not yet implemented in DimY**.
+> **[DimY: implemented]** Both the 1-argument form `RndInt(N)` (returns $1$ to $N$) and the 2-argument form `RndInt(min, max)` (returns $min$ to $max$) are supported.
 
 Returns a pseudo-random integer between $1$ and $N$ inclusive ($N \ge 1$).
 
@@ -1620,4 +1631,16 @@ Converts a string to uppercase.
 - **Example**: `UCase("masterplan")` -> `"MASTERPLAN"`
 
 ---
+
+### 3.10.56 Urlencode( string )
+
+> **[DimY: implemented]** URL-encodes a string for safe use in URL parameters (RFC 1738 / application/x-www-form-urlencoded).
+
+Encodes a string using standard URL encoding (spaces encoded as `+`, non-alphanumeric characters encoded with percent hex). Matches DimensioneX `Utils.encodeURL`.
+
+- **Syntax**: `encoded = Urlencode( string )`
+- **Example**: `Urlencode("hello world & co")` -> `"hello+world+%26+co"`
+
+---
+
 

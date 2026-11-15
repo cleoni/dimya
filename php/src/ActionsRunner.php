@@ -3308,6 +3308,27 @@ class ActionsRunner
             $fn = $fm[1];
             $argStr = trim($fm[2]);
 
+            // Built-in NOT( expr )
+            if (strcasecmp($fn, 'NOT') === 0) {
+                if ($argStr === '') {
+                    return 1;
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $val = $this->evalCondition($targetExpr);
+                $toBool = function ($v) {
+                    if (is_bool($v)) return $v;
+                    if (is_numeric($v)) return (int)$v !== 0;
+                    if (is_string($v)) {
+                        $u = strtoupper(trim($v));
+                        if ($u === 'FALSE' || $u === '0' || $u === '') return false;
+                        if ($u === 'TRUE' || $u === '1') return true;
+                    }
+                    return (bool)$v;
+                };
+                return $toBool($val) ? 0 : 1;
+            }
+
             // Built-in Asc( c )
             if (strcasecmp($fn, 'Asc') === 0) {
                 $args = $this->parseArguments($argStr);
@@ -4138,6 +4159,23 @@ class ActionsRunner
                 return 0;
             }
 
+            // Built-in IsItem( object )
+            if (strcasecmp($fn, 'IsItem') === 0) {
+                if ($argStr === '') {
+                    return 0;
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $val = $this->evalValue($targetExpr);
+                if (is_string($val)) {
+                    $val = $this->resolveObject($val) ?? ($this->world?->getObjectExt($val));
+                }
+                if ($val instanceof Item || (is_object($val) && method_exists($val, 'isanItem') && $val->isanItem())) {
+                    return 1;
+                }
+                return 0;
+            }
+
             // Built-in MainType( object )
             if (strcasecmp($fn, 'MainType') === 0) {
                 if ($argStr === '') {
@@ -4240,6 +4278,20 @@ class ActionsRunner
                 } catch (\Throwable $e) {
                     return $e->getMessage();
                 }
+            }
+
+            // Built-in Urlencode( string )
+            if (strcasecmp($fn, 'Urlencode') === 0) {
+                if ($argStr === '') {
+                    return '';
+                }
+                $rawArgs = $this->parseArguments($argStr);
+                $targetExpr = $rawArgs[0] ?? $argStr;
+                $val = (string)$this->evalValue($targetExpr);
+                if ($val === '') {
+                    return '';
+                }
+                return urlencode($val);
             }
 
             // Built-in PanelHtml( panel )

@@ -80,6 +80,7 @@ $sections = [
     77 => ['title' => 'Testing SmallBasic Kill Instruction (Items, NPCs, Players, Rooms, Default $AGENT) & test_kill.dxw...', 'keywords' => ['kill', 'die', 'removepeople', 'removeroom', 'limbo', 'test_kill.dxw']],
     78 => ['title' => 'Testing SmallBasic SetAdd & SetRemove Instructions (Sets, Arrays, World Sets, Object Properties) & test_set_array_functions.dxw...', 'keywords' => ['setadd', 'setremove', 'set', 'array', 'test_set_array_functions.dxw']],
     79 => ['title' => 'Testing SmallBasic AttachEvent Instruction (Attach, Detach, Player Restrictions, Items/NPCs) & test_attachevent.dxw...', 'keywords' => ['attachevent', 'event', 'detach', 'vampire', 'test_attachevent.dxw']],
+    80 => ['title' => 'Testing SmallBasic NOT(), IsItem(), and Urlencode() Functions & test_not_isitem_urlencode.dxw...', 'keywords' => ['not', 'isitem', 'urlencode', 'test_not_isitem_urlencode.dxw']],
 ];
 
 // CLI Options parsing
@@ -5534,6 +5535,116 @@ if (shouldRun(79)) {
     assertTest((int)$w79->getProperty('res_amulet_cursed') === 1, "DXW attached whenPicked fired when amulet moved to villager (cursed_count === 1)");
 
     @$pm->resetWorld($sec79WorldId);
+}
+
+// Section 80: Testing SmallBasic NOT(), IsItem(), and Urlencode() Functions & test_not_isitem_urlencode.dxw
+if (shouldRun(80, ['not', 'isitem', 'urlencode', 'test_not_isitem_urlencode.dxw'])) {
+    $executedSections[] = 80;
+    echo "\n--- Section 80: Testing SmallBasic NOT(), IsItem(), and Urlencode() Functions & test_not_isitem_urlencode.dxw ---\n";
+
+    // 1. Direct unit tests via ActionsRunner
+    $sec80World = new \Dimx\World('sec80_world');
+    $rVault = new \Dimx\Room($sec80World, 'Vault', 'r_vault', 'Heavy vault');
+    $sec80World->addRoom($rVault);
+
+    $sword = new \Dimx\Item($sec80World, 'Sword', 'i_sword', 'Sharp steel sword');
+    $sword->move($rVault);
+    $sec80World->addItem($sword);
+
+    $guard = new \Dimx\Character($sec80World, 'Guard', 'c_guard');
+    $guard->move($rVault);
+    $sec80World->addCharacter($guard);
+
+    $runner80 = new \Dimx\ActionsRunner($sec80World);
+
+    // Test NOT( expr )
+    $runner80->run('Dim t_not_0 = NOT(0)');
+    assertTest((int)$runner80->getLocalVar('t_not_0') === 1, "NOT(0) returns 1");
+    $runner80->run('Dim t_not_1 = NOT(1)');
+    assertTest((int)$runner80->getLocalVar('t_not_1') === 0, "NOT(1) returns 0");
+    $runner80->run('Dim t_not_42 = NOT(42)');
+    assertTest((int)$runner80->getLocalVar('t_not_42') === 0, "NOT(42) returns 0");
+    $runner80->run('Dim t_not_false = NOT(False)');
+    assertTest((int)$runner80->getLocalVar('t_not_false') === 1, "NOT(False) returns 1");
+    $runner80->run('Dim t_not_true = NOT(True)');
+    assertTest((int)$runner80->getLocalVar('t_not_true') === 0, "NOT(True) returns 0");
+    $runner80->run('Dim t_not_empty = NOT("")');
+    assertTest((int)$runner80->getLocalVar('t_not_empty') === 1, 'NOT("") returns 1');
+    $runner80->run('Dim t_not_hello = NOT("hello")');
+    assertTest((int)$runner80->getLocalVar('t_not_hello') === 0, 'NOT("hello") returns 0');
+    $runner80->run('Dim t_not_eq_t = NOT(5 = 5)');
+    assertTest((int)$runner80->getLocalVar('t_not_eq_t') === 0, "NOT(5 = 5) returns 0");
+    $runner80->run('Dim t_not_eq_f = NOT(5 = 10)');
+    assertTest((int)$runner80->getLocalVar('t_not_eq_f') === 1, "NOT(5 = 10) returns 1");
+    $runner80->run('Dim t_not_nested = NOT(NOT(0))');
+    assertTest((int)$runner80->getLocalVar('t_not_nested') === 0, "NOT(NOT(0)) returns 0");
+    $runner80->run('Dim t_not_obj = NOT(i_sword)');
+    assertTest((int)$runner80->getLocalVar('t_not_obj') === 0, "NOT(existing_object) returns 0");
+    $runner80->run('Dim t_not_missing_prop = NOT(r_vault.missing_prop)');
+    assertTest((int)$runner80->getLocalVar('t_not_missing_prop') === 1, "NOT(missing_prop) returns 1");
+    $runner80->run('Dim t_not_missing_exists = NOT(Exists("phantom_obj"))');
+    assertTest((int)$runner80->getLocalVar('t_not_missing_exists') === 1, "NOT(Exists('phantom_obj')) returns 1");
+
+    // Test IsItem( object )
+    $runner80->run('Dim t_isitem_sword = IsItem(i_sword)');
+    assertTest((int)$runner80->getLocalVar('t_isitem_sword') === 1, "IsItem(i_sword) returns 1");
+    $runner80->run('Dim t_isitem_sword_str = IsItem("i_sword")');
+    assertTest((int)$runner80->getLocalVar('t_isitem_sword_str') === 1, 'IsItem("i_sword") returns 1');
+    $runner80->run('Dim t_isitem_guard = IsItem(c_guard)');
+    assertTest((int)$runner80->getLocalVar('t_isitem_guard') === 0, "IsItem(character) returns 0");
+    $runner80->run('Dim t_isitem_vault = IsItem(r_vault)');
+    assertTest((int)$runner80->getLocalVar('t_isitem_vault') === 0, "IsItem(room) returns 0");
+    $runner80->run('Dim t_isitem_missing = IsItem("phantom_item")');
+    assertTest((int)$runner80->getLocalVar('t_isitem_missing') === 0, "IsItem(missing) returns 0");
+    $runner80->run('Dim t_isitem_empty = IsItem("")');
+    assertTest((int)$runner80->getLocalVar('t_isitem_empty') === 0, 'IsItem("") returns 0');
+
+    // Test Urlencode( string )
+    $runner80->run('Dim t_url_spaces = Urlencode("hello world")');
+    assertTest($runner80->getLocalVar('t_url_spaces') === 'hello+world', 'Urlencode("hello world") returns "hello+world"');
+    $runner80->run('Dim t_url_query = Urlencode("name=Arthur&score=100")');
+    assertTest($runner80->getLocalVar('t_url_query') === 'name%3DArthur%26score%3D100', 'Urlencode query string escapes special characters');
+    $runner80->run('Dim t_url_empty = Urlencode("")');
+    assertTest($runner80->getLocalVar('t_url_empty') === '', 'Urlencode("") returns empty string');
+    $runner80->run('Dim t_url_safe = Urlencode("pure_123.txt")');
+    assertTest($runner80->getLocalVar('t_url_safe') === 'pure_123.txt', 'Urlencode clean string returns unmodified');
+
+    // 2. Integration test via test_not_isitem_urlencode.dxw
+    $dxwPath = __DIR__ . '/../docs/dxw-examples/test_not_isitem_urlencode.dxw';
+    $sec80WorldId = 'test_w_sec80_' . uniqid();
+    $engine80 = new \Dimx\GameEngine($pm, $sec80WorldId, $dxwPath);
+    $w80 = $engine80->loadOrSeedWorld();
+    assertTest($w80 instanceof \Dimx\World, "loadOrSeedWorld seeded world from test_not_isitem_urlencode.dxw");
+
+    // Verify NOT results from DXW onStart
+    assertTest((int)$w80->getProperty('res_not_zero') === 1, "DXW NOT(0) === 1");
+    assertTest((int)$w80->getProperty('res_not_one') === 0, "DXW NOT(1) === 0");
+    assertTest((int)$w80->getProperty('res_not_false') === 1, "DXW NOT(False) === 1");
+    assertTest((int)$w80->getProperty('res_not_true') === 0, "DXW NOT(True) === 0");
+    assertTest((int)$w80->getProperty('res_not_str_empty') === 1, 'DXW NOT("") === 1');
+    assertTest((int)$w80->getProperty('res_not_str_text') === 0, 'DXW NOT("hello") === 0');
+    assertTest((int)$w80->getProperty('res_not_eq_true') === 0, "DXW NOT(5 = 5) === 0");
+    assertTest((int)$w80->getProperty('res_not_eq_false') === 1, "DXW NOT(5 = 10) === 1");
+    assertTest((int)$w80->getProperty('res_not_nested') === 0, "DXW NOT(NOT(0)) === 0");
+    assertTest((int)$w80->getProperty('res_not_existing_obj') === 0, "DXW NOT(silver_dagger) === 0");
+    assertTest((int)$w80->getProperty('res_not_missing_prop') === 1, "DXW NOT(room_armory.phantom_prop) === 1");
+    assertTest((int)$w80->getProperty('res_not_missing_exists') === 1, "DXW NOT(Exists('phantom_item')) === 1");
+
+    // Verify IsItem results from DXW onStart
+    assertTest((int)$w80->getProperty('res_isitem_dagger') === 1, "DXW IsItem(silver_dagger) === 1");
+    assertTest((int)$w80->getProperty('res_isitem_dagger_id') === 1, 'DXW IsItem("silver_dagger") === 1');
+    assertTest((int)$w80->getProperty('res_isitem_guard') === 0, "DXW IsItem(guard) === 0");
+    assertTest((int)$w80->getProperty('res_isitem_room') === 0, "DXW IsItem(room_armory) === 0");
+    assertTest((int)$w80->getProperty('res_isitem_missing') === 0, 'DXW IsItem("phantom_item") === 0');
+    assertTest((int)$w80->getProperty('res_isitem_empty') === 0, 'DXW IsItem("") === 0');
+
+    // Verify Urlencode results from DXW onStart
+    assertTest($w80->getProperty('res_urlencode_spaces') === 'hello+world+%26+friends', 'DXW Urlencode("hello world & friends")');
+    assertTest($w80->getProperty('res_urlencode_query') === 'name%3DArthur%26score%3D100', 'DXW Urlencode("name=Arthur&score=100")');
+    assertTest($w80->getProperty('res_urlencode_empty') === '', 'DXW Urlencode("") === ""');
+    assertTest($w80->getProperty('res_urlencode_safe') === 'clean_text-123.jpg', 'DXW Urlencode safe filename');
+
+    @$pm->resetWorld($sec80WorldId);
 }
 
 // Clean up test worlds
