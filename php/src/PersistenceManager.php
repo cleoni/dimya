@@ -437,7 +437,19 @@ class PersistenceManager
         }
 
         $containerId    = $player->container?->id ?? '';
-        $propertiesJson = json_encode($player->getProperties());
+        $props          = $player->getProperties();
+        $customImg      = $player->images['N'] ?? null;
+        $skinPicSrc     = $player->skin?->picPlayer?->src;
+        if ($customImg instanceof Image && $customImg->src !== '' && $customImg->src !== $skinPicSrc) {
+            $props['__image'] = [
+                'src'    => $customImg->src,
+                'width'  => $customImg->width,
+                'height' => $customImg->height,
+            ];
+        } else {
+            unset($props['__image']);
+        }
+        $propertiesJson = json_encode($props);
         $itemsJson      = json_encode($itemIds);
         // Drain any pending console lines and persist them
         $console        = $player->drainConsole();
@@ -599,7 +611,16 @@ class PersistenceManager
         }
         $player->score = $data['score'] ?? 0;
         if (!empty($data['properties'])) {
-            $player->setAttrList($data['properties']);
+            $props = $data['properties'];
+            if (isset($props['__image']) && is_array($props['__image']) && !empty($props['__image']['src'])) {
+                $player->images['N'] = new Image(
+                    (string)$props['__image']['src'],
+                    (int)($props['__image']['width'] ?? 0),
+                    (int)($props['__image']['height'] ?? 0)
+                );
+                unset($props['__image']);
+            }
+            $player->setAttrList($props);
         }
 
         $targetRoom = !empty($data['container_id']) ? $world->getRoom($data['container_id']) : null;

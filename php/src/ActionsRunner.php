@@ -706,9 +706,9 @@ class ActionsRunner
 
             $obj = $this->resolveObject($targetName);
             if ($obj !== null) {
-                if ($propName === 'image' && property_exists($obj, 'images')) {
+                if (strcasecmp($propName, 'image') === 0 && property_exists($obj, 'images')) {
                     if ($val instanceof Image) {
-                        $obj->images['N'] = $val;
+                        $obj->images['N'] = clone $val;
                     } elseif (is_string($val)) {
                         $imgSrc = $val;
                         if ($this->world !== null && !empty($this->world->imagesFolder) && !str_starts_with($imgSrc, 'http://') && !str_starts_with($imgSrc, 'https://') && !str_starts_with($imgSrc, '/')) {
@@ -4456,6 +4456,18 @@ class ActionsRunner
                 }
             }
             if ($obj !== null) {
+                if (strcasecmp($prop, 'image') === 0 && property_exists($obj, 'images')) {
+                    $img = method_exists($obj, 'getImageForFacing')
+                        ? $obj->getImageForFacing($obj->facing ?? 'N')
+                        : ($obj->images['N'] ?? reset($obj->images) ?: null);
+                    if ($img instanceof Image) {
+                        return $img;
+                    }
+                    if (property_exists($obj, 'image') && $obj->image instanceof Image) {
+                        return $obj->image;
+                    }
+                    return null;
+                }
                 $propVal = property_exists($obj, $prop) ? $obj->{$prop} : $obj->getProperty($prop);
                 return $propVal;
             }

@@ -5902,6 +5902,28 @@ DXW;
             str_contains($renderedSkinHtml, '<link rel="stylesheet" type="text/css" href="/dimx/skins/bloody/stylesheet.css" />'),
             "UIhtml <head> includes <link rel=\"stylesheet\" type=\"text/css\" href=\"/dimx/skins/bloody/stylesheet.css\" />"
         );
+
+        // Verify onChooseArtisan sets $AGENT.image via NewImage(...) and copies it to template.image = $AGENT.image
+        $cssSkin->picPlayer = new \Dimx\Image('/dimx/skins/bloody/uomo.gif', 64, 100);
+        $panelTester->setSkin($cssSkin);
+        $uwWorld->fireEvent('onChooseArtisan', $uwWorld, $panelTester, '');
+        assertTest(
+            str_contains($panelTester->images['N']?->src ?? '', 'paesant.gif')
+            && $panelTester->images['N']?->width === 60
+            && $panelTester->images['N']?->height === 94,
+            "it_underworld.dxw: onChooseArtisan updates \$AGENT.image via NewImage(\"paesant.gif\",60,94)"
+        );
+        $tplObj = $uwWorld->getObjectExt('template');
+        assertTest(
+            str_contains($tplObj?->images['N']?->src ?? '', 'paesant.gif'),
+            "it_underworld.dxw: updTemplate copies \$AGENT.image to template.image"
+        );
+        // Re-applying skin must not overwrite the player's customized image
+        $panelTester->setSkin($cssSkin);
+        assertTest(
+            str_contains($panelTester->images['N']?->src ?? '', 'paesant.gif'),
+            "Player::setSkin preserves custom \$AGENT.image instead of reverting to skin picPlayer"
+        );
     }
 
     // Unit test for LABEL "@expr()" in standalone world

@@ -141,10 +141,13 @@ class Player extends Character
      */
     public function setSkin(Skin $skin): void
     {
+        $oldPicSrc = $this->skin?->picPlayer?->src;
         $this->skin = $skin;
         $this->setProperty('skinId', $skin->id);
         if ($skin->picPlayer !== null) {
-            $this->images['N'] = clone $skin->picPlayer;
+            if (empty($this->images['N']) || ($oldPicSrc !== null && $this->images['N']->src === $oldPicSrc)) {
+                $this->images['N'] = clone $skin->picPlayer;
+            }
         }
         if (!empty($skin->icons['ICOPLAYER'])) {
             $this->icon = $skin->icons['ICOPLAYER'];
