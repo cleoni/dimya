@@ -691,15 +691,25 @@ MoveOutside what, areaid
 
 ### 3.9.15 NewRoom
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+> **[DimY: implemented as function `NewRoom(name)`]** In DimensioneY, `NewRoom` is implemented as a built-in function (`Dim roomId = NewRoom(name)`) rather than a statement; the system generates the room ID automatically and returns it.
 
 Dynamically instantiates a new room in the world.
 
+**DimensioneY (Function syntax):**
+```basic
+Dim battleroomid = NewRoom("Pannello Master")
+battleroomid.description = "Control room"
+```
+
+- **Parameters (DimY)**:
+  - `name` *(Required)*: Display name of the new room.
+- **Returns (DimY)**: System-generated unique ID string of the newly created room.
+
+**Historical DimensioneX (Statement syntax — DimX only):**
 ```basic
 NewRoom id
 ```
-
-- **Parameters**:
+- **Parameters (DimX)**:
   - `id` *(Required)*: Unique identifier for the new room. Properties such as `name`, `description`, and `image` are assigned subsequently via property assignments.
 
 ---
@@ -1400,6 +1410,22 @@ Instantiates a sequential indexed `ARRAY` collection.
 - **Syntax**: `link = NewLink( from, to, orientation, bidirectional, name, description, image, attributes )`
 - **Orientation**: `"N"`, `"S"`, `"E"`, `"W"`, `"U"`, `"D"`.
 - **Returns**: ID string of the newly created link.
+
+---
+
+### 3.10.37b NewRoom( name )
+
+> **[DimY: implemented]** Dynamically creates a new room with the specified display name and a system-generated unique ID (replaces the historical DimX `NewRoom id` instruction; see §3.9.15).
+
+- **Syntax**: `Dim roomId = NewRoom( name )`
+- **Parameters**:
+  - `name` *(Required)*: Display name for the newly created room.
+- **Returns**: System-generated ID string of the newly created `Room`.
+- **Example**:
+  ```basic
+  Dim battleroomid = NewRoom("Pannello Master")
+  battleroomid.description = "Arena control room"
+  ```
 
 ---
 

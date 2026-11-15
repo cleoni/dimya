@@ -34,6 +34,14 @@ EVENT onStart
 	res_door_dir = doorId.direction
 	res_door_open = doorId.open
 	res_door_descr = doorId.description
+
+	' 3. Create a dynamic room via NewRoom(name)
+	Dim battleroomid = NewRoom("Pannello Master")
+	battleroomid.description = "Dynamic master control room"
+	res_room_id = battleroomid
+	res_room_name = battleroomid.name
+	res_room_descr = battleroomid.description
+	res_room_isroom = IsRoom(battleroomid)
 END_EVENT
 
 END_SCRIPTS

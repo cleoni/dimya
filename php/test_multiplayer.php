@@ -74,7 +74,7 @@ $sections = [
     71 => ['title' => 'Testing SmallBasic String Functions (Asc, Chr, LCase, UCase, Left, Right, Mid, Replace, Format, InStr, InStrCount) & test_string_functions.dxw...', 'keywords' => ['asc', 'chr', 'lcase', 'ucase', 'left', 'right', 'mid', 'replace', 'format', 'instr', 'instrcount', 'string', 'test_string_functions.dxw']],
     72 => ['title' => 'Testing SmallBasic Math Functions (Abs, Int, Log, Rnd, Round, Sqr) & test_math_functions.dxw...', 'keywords' => ['abs', 'int', 'log', 'rnd', 'round', 'sqr', 'math', 'test_math_functions.dxw']],
     73 => ['title' => 'Testing SmallBasic Sets & Arrays Functions (Copy, NewSet, SetIndexOf, SetKey, SetKeys) & test_set_array_functions.dxw...', 'keywords' => ['copy', 'newset', 'setindexof', 'setkey', 'setkeys', 'sets', 'arrays', 'test_set_array_functions.dxw']],
-    74 => ['title' => 'Testing SmallBasic Dynamic World Entities (NewCharacter, NewLink) & test_dynamic_entities.dxw...', 'keywords' => ['newcharacter', 'newlink', 'character', 'link', 'dynamic', 'test_dynamic_entities.dxw']],
+    74 => ['title' => 'Testing SmallBasic Dynamic World Entities (NewCharacter, NewLink, NewRoom) & test_dynamic_entities.dxw...', 'keywords' => ['newcharacter', 'newlink', 'newroom', 'character', 'link', 'room', 'dynamic', 'test_dynamic_entities.dxw']],
     75 => ['title' => 'Testing SmallBasic World Objects & Inspection Queries & test_world_inspection.dxw...', 'keywords' => ['inspection', 'getcharactersin', 'getlinksfrom', 'getobject', 'getplayerproperties', 'getplayersin', 'getrooms', 'getroomsfrom', 'ischaracter', 'isplayer', 'isroom', 'maintype', 'test_world_inspection.dxw']],
     76 => ['title' => 'Testing SmallBasic System, Scripting & Environment Functions & test_system_env.dxw...', 'keywords' => ['system', 'scripting', 'existscript', 'gettime', 'httpfetch', 'panelhtml', 'getsetting', 'gameinfo', 'test_system_env.dxw']],
     77 => ['title' => 'Testing SmallBasic Kill Instruction (Items, NPCs, Players, Rooms, Default $AGENT) & test_kill.dxw...', 'keywords' => ['kill', 'die', 'removepeople', 'removeroom', 'limbo', 'test_kill.dxw']],
@@ -4927,6 +4927,15 @@ if (shouldRun(74)) {
     assertTest($linkFrom2 === $createdLink, "chamber2 has reverse link exiting S to chamber1");
     assertTest($linkFrom2->getTarget('chamber2') === $room1, "chamber2 S exit leads to chamber1");
 
+    // NewRoom( name )
+    $runner74->run("Dim battleroomid = NewRoom(\"Pannello Master\")\nbattleroomid.description = \"Master control panel room\"");
+    $battleRoomId = $runner74->getLocalVar('battleroomid');
+    assertTest(is_string($battleRoomId) && !empty($battleRoomId), "NewRoom('Pannello Master') returns system-generated ID: {$battleRoomId}");
+    $createdRoom = $sec74World->getRoom($battleRoomId);
+    assertTest($createdRoom instanceof \Dimx\Room, "World contains newly created Room");
+    assertTest($createdRoom->name === 'Pannello Master', "Room name is 'Pannello Master'");
+    assertTest($createdRoom->description === 'Master control panel room', "Room description updated via battleroomid.description");
+
     // 2. Integration test: Load test_dynamic_entities.dxw with GameEngine and execute onStart
     $sec74WorldId = 'test_w_sec74_' . uniqid();
     $sec74DxwPath = dirname(__DIR__) . '/docs/dxw-examples/test_dynamic_entities.dxw';
@@ -4952,6 +4961,14 @@ if (shouldRun(74)) {
     assertTest($w74->getProperty('res_door_dir') === 'E', "DXW onStart executed res_door_dir -> 'E'");
     assertTest($w74->getProperty('res_door_open') === true, "DXW onStart executed res_door_open -> true");
     assertTest($w74->getProperty('res_door_descr') === 'A heavy oak door', "DXW onStart executed res_door_descr -> 'A heavy oak door'");
+
+    $dynRoomId = (string)$w74->getProperty('res_room_id');
+    assertTest(!empty($dynRoomId), "DXW onStart NewRoom returned non-empty res_room_id: {$dynRoomId}");
+    $dynRoom = $w74->getRoom($dynRoomId);
+    assertTest($dynRoom instanceof \Dimx\Room, "NewRoom room exists in world rooms collection");
+    assertTest($w74->getProperty('res_room_name') === 'Pannello Master', "DXW onStart executed res_room_name -> 'Pannello Master'");
+    assertTest($w74->getProperty('res_room_descr') === 'Dynamic master control room', "DXW onStart executed res_room_descr -> 'Dynamic master control room'");
+    assertTest((int)$w74->getProperty('res_room_isroom') === 1, "DXW onStart IsRoom(battleroomid) -> 1");
 
     // 3. Traversal test: Player navigates through the newly created dynamic link
     $testPlayer = new \Dimx\Player($w74, 'Explorer', 'p_test_explorer');

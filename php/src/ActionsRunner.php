@@ -1254,6 +1254,28 @@ class ActionsRunner
         return $link->id;
     }
 
+    /**
+     * NewRoom( name ) function implementation (DimensioneY).
+     * Creates a new Room with a system-generated ID and the specified name,
+     * registers it in the World, and returns the newly created room's ID.
+     */
+    protected function createNewRoom(mixed $rawName): string
+    {
+        $evalName = ($rawName === null || strcasecmp(trim((string)$rawName), 'null') === 0)
+            ? ''
+            : (is_string($rawName) ? $this->evalValue($rawName) : $rawName);
+        $name = is_string($evalName) ? trim($evalName, "\"'") : (string)self::formatValue($evalName);
+
+        $id = $this->world?->getNextId() ?? ('_room' . uniqid());
+        $room = new Room($this->world, $name, $id, '', null, '');
+
+        if ($this->world !== null) {
+            $this->world->addRoom($room);
+        }
+
+        return $room->id;
+    }
+
     public function actOpen(array $args): bool
     {
         if (empty($args)) {
@@ -3738,6 +3760,15 @@ class ActionsRunner
                     $nlArgs[6] ?? '',
                     $nlArgs[7] ?? ''
                 );
+            }
+
+            // Built-in NewRoom( name )
+            if (strcasecmp($fn, 'NewRoom') === 0) {
+                if (trim($argStr) === '') {
+                    throw new \RuntimeException("NewRoom: missing room name argument");
+                }
+                $nrArgs = $this->parseArguments($argStr, false);
+                return $this->createNewRoom($nrArgs[0] ?? $argStr);
             }
 
             // Built-in getItemsIn( object_or_collection )
