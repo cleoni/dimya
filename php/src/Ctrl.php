@@ -97,6 +97,24 @@ class Ctrl extends ManageableObject
         $captionEsc = htmlspecialchars($this->caption, ENT_QUOTES);
         $modelEsc = htmlspecialchars($this->eventModel, ENT_QUOTES);
 
+        if ($this->image !== null) {
+            $wAttr = $this->image->width > 0 ? ' width="' . (int)$this->image->width . '"' : '';
+            $hAttr = $this->image->height > 0 ? ' height="' . (int)$this->image->height . '"' : '';
+            $imgSrcEsc = htmlspecialchars($this->image->src, ENT_QUOTES);
+            return "<a href=\"#\" class=\"dimx-img-btn\" id=\"btn_{$idEsc}\" data-cmd=\"{$idEsc}\" data-model=\"{$modelEsc}\" title=\"{$titleEsc}\" onclick=\"sendCmd('{$idEsc}');return false;\"><img src=\"{$imgSrcEsc}\"{$wAttr}{$hAttr} alt=\"{$captionEsc}\" title=\"{$titleEsc}\" style=\"border:0;vertical-align:middle\" /></a>\n";
+        }
+
+        $resolvedIcon = null;
+        if ($this->icon !== null && $this->icon !== '') {
+            if (str_starts_with($this->icon, 'http://') || str_starts_with($this->icon, 'https://') || str_starts_with($this->icon, '/')) {
+                $resolvedIcon = $this->icon;
+            } elseif ($skin !== null && $skin->skinFolder !== '') {
+                $resolvedIcon = rtrim($skin->skinFolder, '/') . '/' . ltrim($this->icon, '/');
+            } else {
+                $resolvedIcon = $this->icon;
+            }
+        }
+
         $styleAttr = '';
         if ($skin !== null && trim($skin->buttonStyle) !== '') {
             $rawButtonStyle = trim($skin->buttonStyle);
@@ -109,13 +127,15 @@ class Ctrl extends ManageableObject
                 $skinFolder = rtrim($skin->skinFolder, '/') . '/';
                 $skinIconUrl = 'url(' . $skinFolder . 'pan' . $this->id . '.gif)';
                 $inlineButtonStyle = str_ireplace('$SKINICON', $skinIconUrl, $inlineButtonStyle);
+                $iconCssUrl = $resolvedIcon !== null ? 'url(' . $resolvedIcon . ')' : '';
+                $inlineButtonStyle = str_ireplace('$ICON', $iconCssUrl, $inlineButtonStyle);
                 $styleAttr = ' style="' . htmlspecialchars($inlineButtonStyle, ENT_QUOTES) . '"';
             }
         }
 
         $iconHtml = '';
-        if ($this->icon !== null) {
-            $iconHtml = "<img src=\"" . htmlspecialchars($this->icon, ENT_QUOTES) . "\" class=\"dimx-btn-icon\" alt=\"\" /> ";
+        if ($resolvedIcon !== null) {
+            $iconHtml = "<img src=\"" . htmlspecialchars($resolvedIcon, ENT_QUOTES) . "\" class=\"dimx-btn-icon\" alt=\"\" /> ";
         }
 
         return "<button type=\"button\" class=\"dimx-btn\" id=\"btn_{$idEsc}\" data-cmd=\"{$idEsc}\" data-model=\"{$modelEsc}\" title=\"{$titleEsc}\"{$styleAttr} onclick=\"sendCmd('{$idEsc}');\">{$iconHtml}{$captionEsc}</button>\n";

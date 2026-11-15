@@ -502,7 +502,7 @@ class DxwLoader
                                     if ($srcBtn !== null) {
                                         $cloned = clone $srcBtn;
                                         if (preg_match('/\bICON\s+(\S+)/i', $subLine, $icm)) {
-                                            $cloned->icon = $this->resolveImageUrl($icm[1], $imagesFolder);
+                                            $cloned->icon = $icm[1];
                                         }
                                         $lastCtrl = $cloned;
                                         $panel->addButton($cloned);
@@ -515,7 +515,7 @@ class DxwLoader
                             } elseif ($subDir === 'ICON') {
                                 $iconFile = trim(substr($subLine, strlen($subTokens[0])));
                                 if ($iconFile !== '' && isset($lastCtrl) && $lastCtrl instanceof Ctrl) {
-                                    $lastCtrl->icon = $this->resolveImageUrl($iconFile, $imagesFolder);
+                                    $lastCtrl->icon = $iconFile;
                                 }
                             } elseif ($subDir === 'IMAGE') {
                                 $rest = trim(substr($subLine, strlen($subTokens[0])));

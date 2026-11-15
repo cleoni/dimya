@@ -5871,6 +5871,15 @@ DXW;
         assertTest($panelTester->prevPanelId === '_+_', "Entering start updates prevPanelId to '_+_'");
         $cmdsStart = $panelTester->drainCommands();
         assertTest(str_contains($cmdsStart, 'refresh!ctrls'), "Entering start queues refresh!ctrls command");
+
+        // Verify PANEL button IMAGE resolves to imagesFolder and ICON resolves to skinFolder
+        $uwSkin = $uwWorld->defaultSkin ?? new \Dimx\Skin('bloody', 'Bloody');
+        $uwSkin->skinFolder = '/dimx/skins/bloody/';
+        $initChoiceHtml = $uwWorld->getPanel('initchoice')->toHtml($uwSkin, $uwWorld, $panelTester, $panelTester);
+        assertTest(str_contains($initChoiceHtml, 'icoWarrior.gif') && str_contains($initChoiceHtml, 'uwpics/icoWarrior.gif'), "PANEL initchoice warrior IMAGE renders with imagesFolder path (uwpics/icoWarrior.gif)");
+        assertTest(str_contains($initChoiceHtml, 'width="32" height="32"'), "PANEL initchoice warrior IMAGE renders 32x32 dimensions");
+        $pextractHtml = $uwWorld->getPanel('pextract')->toHtml($uwSkin, $uwWorld, $panelTester, $panelTester);
+        assertTest(str_contains($pextractHtml, '/dimx/skins/bloody/pangather.gif') && !str_contains($pextractHtml, 'uwpics/pangather.gif'), "PANEL pextract gather ICON renders with skinFolder path (/dimx/skins/bloody/pangather.gif)");
     }
 
     // Unit test for LABEL "@expr()" in standalone world
