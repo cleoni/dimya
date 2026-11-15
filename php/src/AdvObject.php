@@ -541,16 +541,17 @@ class AdvObject extends DimxObject
             }
         }
 
+        $items = array_values($this->contents);
         if ($contentsPolicy === 1) {
             $this->world?->log("Destroying all inner items of {$this->id}");
-            foreach ($this->contents as $item) {
+            foreach ($items as $item) {
                 if ($item instanceof AdvObject) {
                     $item->die(false, 1);
                 }
             }
         } elseif ($contentsPolicy === 0 && !$this->isaRoom()) {
             $this->world?->log("Dropping all inner items of {$this->id}");
-            foreach ($this->contents as $item) {
+            foreach ($items as $item) {
                 if ($item instanceof AdvObject) {
                     $this->removeObject($item);
                     if ($c !== null) {
@@ -564,6 +565,7 @@ class AdvObject extends DimxObject
             unset($this->world->contents[$this->id]);
             unset($this->world->items[$this->id]);
             unset($this->world->characters[$this->id]);
+            unset($this->world->rooms[$this->id]);
         }
     }
 

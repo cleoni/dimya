@@ -780,7 +780,7 @@ class ActionsRunner
         // Also handle verb followed immediately by '(' e.g. "Debug("test")"
         if (preg_match('/^([A-Za-z0-9_]+)\s*\((.*)\)$/s', $line, $vm) && !str_contains($vm[1], '.')) {
             $verbCandidate = strtoupper($vm[1]);
-            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET', 'GOAL'], true)) {
+            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET', 'GOAL', 'KILL'], true)) {
                 $verb = $verbCandidate;
                 $argString = $vm[2];
             } elseif ($this->world?->getEvent($vm[1]) !== null) {
@@ -807,6 +807,7 @@ class ActionsRunner
             'BROADCASTBACKGROUND' => $this->actBroadcastBackground($args),
             'MOVE'                => $this->actMove($args),
             'DROPITEMS'           => $this->actDropItems($args),
+            'KILL'                => $this->actKill($args),
             'GOAL'       => $this->actGoal($args),
             'RETURN'     => $this->actReturn($args, $argString),
             'OPEN'       => $this->actOpen($args),
@@ -1938,6 +1939,79 @@ class ActionsRunner
         }
 
         return true;
+    }
+
+    /**
+     * Kill [victim] (SmallBasic §3.9.12)
+     * Removes an item, room, or NPC character from the world, or sends a player to limbo,
+     * dropping carried items into the enclosing container/room.
+     * Matches DimensioneX ActionsRunner.actKill().
+     */
+    protected function actKill(array $args = []): bool
+    {
+        $whoExpr = isset($args[0]) ? trim((string)$args[0]) : '';
+        $o = null;
+
+        if ($whoExpr === '') {
+            if ($this->agent instanceof AdvObject) {
+                $o = $this->agent;
+            } elseif (is_string($this->agent) && $this->agent !== '' && $this->world !== null) {
+                $o = $this->world->getObjectExt($this->agent);
+            }
+        } else {
+            $o = $this->resolveObject($whoExpr);
+            if ($o === null) {
+                $evaluated = $this->evalValue($whoExpr);
+                if ($evaluated instanceof DimxObject) {
+                    $o = $evaluated;
+                } elseif (is_string($evaluated) && trim($evaluated) !== '') {
+                    $o = $this->resolveObject(trim($evaluated)) ?? $this->world?->getObjectExt(trim($evaluated));
+                }
+            }
+        }
+
+        if ($o === null || !($o instanceof AdvObject)) {
+            $label = $whoExpr !== '' ? $whoExpr : 'null';
+            $this->world?->log("You tried to Kill a NULL object: {$label}");
+            return true;
+        }
+
+        if ($o instanceof Item || $o->isanItem()) {
+            $o->die(true, 0);
+            return true;
+        }
+
+        if ($o instanceof Room || $o->isaRoom()) {
+            if ($this->world !== null) {
+                return $this->world->removeRoom($o);
+            }
+            $o->die(true, 0);
+            return true;
+        }
+
+        if ($o instanceof Character || $o->isaCharacter()) {
+            $agentObj = null;
+            if ($this->agent instanceof AdvObject) {
+                $agentObj = $this->agent;
+            } elseif (is_string($this->agent) && $this->agent !== '' && $this->world !== null) {
+                $resolvedAgent = $this->world->getObjectExt($this->agent);
+                if ($resolvedAgent instanceof AdvObject) {
+                    $agentObj = $resolvedAgent;
+                }
+            }
+            if ($agentObj !== null) {
+                $agentName = $agentObj->getName();
+                $o->display("You have been killed by {$agentName}");
+            }
+            if ($this->world !== null) {
+                $this->world->removePeople($o, !$o->isRobot(), true, null);
+            } else {
+                $o->die(true, 1);
+            }
+            return true;
+        }
+
+        throw new \RuntimeException("Could not kill object: >{$whoExpr}< - invalid type");
     }
 
     /**

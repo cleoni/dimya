@@ -639,7 +639,7 @@ Journal title, link, text, categories
 
 ### 3.9.12 Kill
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+> **[DimY: implemented]** Removes an item, room, or NPC character from the world (or moves a player to limbo), dropping carried items into the enclosing container/room.
 
 Removes an object or NPC character from the current world.
 

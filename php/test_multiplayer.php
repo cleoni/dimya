@@ -77,6 +77,7 @@ $sections = [
     74 => ['title' => 'Testing SmallBasic Dynamic World Entities (NewCharacter, NewLink) & test_dynamic_entities.dxw...', 'keywords' => ['newcharacter', 'newlink', 'character', 'link', 'dynamic', 'test_dynamic_entities.dxw']],
     75 => ['title' => 'Testing SmallBasic World Objects & Inspection Queries & test_world_inspection.dxw...', 'keywords' => ['inspection', 'getcharactersin', 'getlinksfrom', 'getobject', 'getplayerproperties', 'getplayersin', 'getrooms', 'getroomsfrom', 'ischaracter', 'isplayer', 'isroom', 'maintype', 'test_world_inspection.dxw']],
     76 => ['title' => 'Testing SmallBasic System, Scripting & Environment Functions & test_system_env.dxw...', 'keywords' => ['system', 'scripting', 'existscript', 'gettime', 'httpfetch', 'panelhtml', 'getsetting', 'gameinfo', 'test_system_env.dxw']],
+    77 => ['title' => 'Testing SmallBasic Kill Instruction (Items, NPCs, Players, Rooms, Default $AGENT) & test_kill.dxw...', 'keywords' => ['kill', 'die', 'removepeople', 'removeroom', 'limbo', 'test_kill.dxw']],
 ];
 
 // CLI Options parsing
@@ -5237,6 +5238,110 @@ if (shouldRun(76)) {
 
     // Clean up
     @$pm->resetWorld($sec76WorldId);
+}
+
+if (shouldRun(77)) {
+    echo "\n--- Section 77: Testing SmallBasic Kill Instruction (Items, NPCs, Players, Rooms, Default \$AGENT) & test_kill.dxw ---\n";
+
+    // 1. Unit tests via ActionsRunner
+    $sec77World = new \Dimx\World('sec77_world', 'Kill Test World');
+    $rArena = new \Dimx\Room($sec77World, 'Arena', 'r_arena', 'Main combat arena');
+    $rDoomed = new \Dimx\Room($sec77World, 'Doomed Room', 'r_doomed', 'A room to be destroyed');
+    $sec77World->addRoom($rArena);
+    $sec77World->addRoom($rDoomed);
+
+    // Item container with inner item
+    $chest = new \Dimx\Item($sec77World, 'Chest', 'i_chest');
+    $chest->move($rArena, false);
+    $sec77World->addItem($chest);
+
+    $ruby = new \Dimx\Item($sec77World, 'Ruby', 'i_ruby');
+    $ruby->move($chest, false);
+    $sec77World->addItem($ruby);
+
+    // NPC carrying a club
+    $orc = new \Dimx\Character($sec77World, 'Orc Warrior', 'c_orc');
+    $orc->move($rArena);
+    $sec77World->addCharacter($orc);
+
+    $club = new \Dimx\Item($sec77World, 'Iron Club', 'i_club');
+    $club->move($orc, false);
+    $sec77World->addItem($club);
+
+    // Player 1 (explicit Kill victim) carrying a shield
+    $pVictim = new \Dimx\Player($sec77World, 'SirGalahad', 'p_galahad');
+    $pVictim->move($rArena);
+    $sec77World->addPlayer($pVictim);
+
+    $shield = new \Dimx\Item($sec77World, 'Steel Shield', 'i_shield');
+    $shield->move($pVictim, false);
+    $sec77World->addItem($shield);
+
+    // Player 2 ($AGENT for default Kill with no argument) carrying a helm
+    $pAgent = new \Dimx\Player($sec77World, 'Lancelot', 'p_lancelot');
+    $pAgent->move($rArena);
+    $sec77World->addPlayer($pAgent);
+
+    $helm = new \Dimx\Item($sec77World, 'Bronze Helm', 'i_helm');
+    $helm->move($pAgent, false);
+    $sec77World->addItem($helm);
+
+    $runner77 = new \Dimx\ActionsRunner($sec77World, $rArena, $pAgent, null);
+
+    // 1a. Kill item container -> removes chest and drops ruby onto r_arena floor
+    $runner77->run('Kill i_chest');
+    assertTest($sec77World->getItem('i_chest') === null && !isset($rArena->contents['i_chest']), "Kill i_chest removes chest from world and room");
+    assertTest($ruby->container === $rArena && isset($rArena->contents['i_ruby']), "Kill i_chest drops inner item i_ruby into enclosing room r_arena");
+
+    // 1b. Kill NPC -> removes orc and drops club into r_arena
+    $runner77->run('Kill c_orc');
+    assertTest($sec77World->getCharacter('c_orc') === null && !isset($rArena->contents['c_orc']), "Kill c_orc removes NPC from world and room");
+    assertTest($club->container === $rArena && isset($rArena->contents['i_club']), "Kill c_orc drops carried i_club into room r_arena");
+
+    // 1c. Kill Player explicitly -> drops shield, displays killed message, sends player to limbo (STAYZOMBIE)
+    $runner77->run('Kill p_galahad');
+    assertTest($shield->container === $rArena && isset($rArena->contents['i_shield']), "Kill p_galahad drops carried i_shield into room r_arena");
+    assertTest($pVictim->container === null && !isset($rArena->contents['p_galahad']), "Kill p_galahad removes player from room into limbo (container === null)");
+    assertTest(isset($sec77World->players['p_galahad']), "Kill p_galahad keeps player in world.players (stayZombie)");
+    $victimConsole = implode(' ', $pVictim->drainConsole());
+    assertTest(str_contains($victimConsole, 'You have been killed by Lancelot'), "Killed player receives 'You have been killed by Lancelot' message");
+    assertTest($pVictim->hasPendingCommand('refresh!ctrls') && $pVictim->hasPendingCommand('refresh!scene'), "Killed player receives refresh!ctrls and refresh!scene commands");
+
+    // 1d. Kill with no arguments -> defaults to $AGENT (p_lancelot)
+    $runner77->run('Kill');
+    assertTest($helm->container === $rArena && isset($rArena->contents['i_helm']), 'Kill (no args) drops $AGENT\'s carried i_helm into room r_arena');
+    assertTest($pAgent->container === null && !isset($rArena->contents['p_lancelot']), 'Kill (no args) sends $AGENT to limbo');
+
+    // 1e. Kill Room
+    $runner77->run('Kill r_doomed');
+    assertTest($sec77World->getRoom('r_doomed') === null, "Kill r_doomed removes room from world");
+
+    // 1f. Kill non-existent object (graceful no-op)
+    $runner77->run('Kill non_existent_entity');
+    assertTest(true, "Kill on non-existent object completes gracefully without error");
+
+    // 2. Integration test: Load test_kill.dxw with GameEngine and verify onStart execution
+    $sec77WorldId = 'test_w_sec77_' . uniqid();
+    $sec77DxwPath = dirname(__DIR__) . '/docs/dxw-examples/test_kill.dxw';
+    $engine77 = new \Dimx\GameEngine($pm, $sec77WorldId, $sec77DxwPath);
+
+    $w77 = $engine77->loadOrSeedWorld();
+    assertTest($w77 instanceof \Dimx\World, "loadOrSeedWorld seeded world from test_kill.dxw");
+
+    assertTest((bool)$w77->getProperty('res_pre_crate') === true, "DXW pre-Kill wooden_crate existed");
+    assertTest((bool)$w77->getProperty('res_pre_goblin') === true, "DXW pre-Kill goblin existed");
+    assertTest((bool)$w77->getProperty('res_pre_room_temp') === true, "DXW pre-Kill room_temp existed");
+    assertTest($w77->getProperty('res_pre_key_loc') === 'wooden_crate', "DXW pre-Kill gold_key was inside wooden_crate");
+    assertTest($w77->getProperty('res_pre_dagger_loc') === 'goblin', "DXW pre-Kill goblin_dagger was carried by goblin");
+
+    assertTest((bool)$w77->getProperty('res_post_crate') === false, "DXW post-Kill wooden_crate no longer exists");
+    assertTest($w77->getProperty('res_post_key_loc') === 'room_arena', "DXW post-Kill gold_key dropped into room_arena");
+    assertTest((bool)$w77->getProperty('res_post_goblin') === false, "DXW post-Kill goblin no longer exists");
+    assertTest($w77->getProperty('res_post_dagger_loc') === 'room_arena', "DXW post-Kill goblin_dagger dropped into room_arena");
+    assertTest((bool)$w77->getProperty('res_post_room_temp') === false, "DXW post-Kill room_temp no longer exists");
+
+    // Clean up
+    @$pm->resetWorld($sec77WorldId);
 }
 
 // Clean up test worlds

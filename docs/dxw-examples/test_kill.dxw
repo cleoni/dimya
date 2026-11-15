@@ -1,0 +1,71 @@
+WORLD test_kill
+	NAME		Kill Instruction Test World
+	VERSION		1.0
+	AUTHOR  	Test Suite
+
+ROOMS
+
+ROOM room_arena
+	NAME		Gladiator Arena
+	DESCRIPTION	A sandy arena floor.
+
+ROOM room_temp
+	NAME		Temporary Chamber
+	DESCRIPTION	A collapsible room.
+
+END_ROOMS
+
+CHARACTERS
+
+CHARACTER goblin
+	NAME		Cave Goblin
+	POSITION	room_arena
+	DESCRIPTION	A snarling goblin.
+
+END_CHARACTERS
+
+ITEMS
+
+ITEM wooden_crate
+	NAME		Wooden Crate
+	POSITION	room_arena
+	ATTRLIST	capacity=50
+
+ITEM gold_key
+	NAME		Gold Key
+	POSITION	wooden_crate
+
+ITEM goblin_dagger
+	NAME		Goblin Dagger
+	POSITION	goblin
+
+END_ITEMS
+
+SCRIPTS
+
+EVENT onStart
+	' Verify initial state before Kill
+	res_pre_crate = Exists(wooden_crate)
+	res_pre_goblin = Exists(goblin)
+	res_pre_room_temp = Exists(room_temp)
+	res_pre_key_loc = gold_key.container.id
+	res_pre_dagger_loc = goblin_dagger.container.id
+
+	' 1. Kill item container (wooden_crate) -> drops gold_key into room_arena
+	Kill wooden_crate
+	res_post_crate = Exists("wooden_crate")
+	res_post_key_loc = gold_key.container.id
+
+	' 2. Kill NPC character (goblin) -> drops goblin_dagger into room_arena
+	Kill goblin
+	res_post_goblin = Exists("goblin")
+	res_post_dagger_loc = goblin_dagger.container.id
+
+	' 3. Kill room (room_temp)
+	Kill room_temp
+	res_post_room_temp = Exists("room_temp")
+END_EVENT
+
+END_SCRIPTS
+
+END_WORLD

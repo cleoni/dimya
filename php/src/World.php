@@ -498,6 +498,55 @@ class World extends DimxObject
     }
 
     /**
+     * Removes a Character or Player from the world (or moves a Player to limbo if stayZombie is true).
+     * Matches DimensioneX Java World.removePeople().
+     */
+    public function removePeople(Character $c, bool $stayZombie = false, bool $dropItems = true, ?string $altMessage = null): bool
+    {
+        if ($dropItems && $c->container instanceof AdvObject) {
+            $items = array_values($c->contents);
+            foreach ($items as $what) {
+                if ($what instanceof AdvObject) {
+                    $what->move($c->container, false);
+                }
+            }
+        }
+
+        if (!$stayZombie) {
+            $this->log("Character {$c->id} definitely dies.");
+            $c->die(true, $dropItems ? 1 : 2);
+            unset($this->characters[$c->id]);
+            unset($this->contents[$c->id]);
+            if ($c->isPlayer()) {
+                $message = $altMessage ?? ($c->getName() . " has left us.");
+                $this->speak($message, null);
+                unset($this->players[$c->id]);
+            }
+        } else {
+            $this->log("Character {$c->id} goes to limbo.");
+            $c->sendCmd('refresh!ctrls');
+            $c->sendCmd('refresh!scene');
+            if ($c->container !== null) {
+                $c->container->removeObject($c);
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Removes a Room from the world.
+     * Matches DimensioneX Java World.removeRoom().
+     */
+    public function removeRoom(Room $r): bool
+    {
+        $r->die(true, 0);
+        unset($this->rooms[$r->id]);
+        unset($this->contents[$r->id]);
+        return true;
+    }
+
+    /**
      * Generate a unique sequential dynamic object ID (_obj0, _obj1, ...).
      */
     public function getNextId(): string
