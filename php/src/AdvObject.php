@@ -595,7 +595,14 @@ class AdvObject extends DimxObject
             if (is_array($set) && !empty($set)) {
                 $keys = array_keys($set);
                 $randKey = $keys[array_rand($keys)];
-                $targetId = is_int($randKey) ? (string)$set[$randKey] : (string)$randKey;
+                $val = $set[$randKey];
+                if ($val instanceof AdvObject) {
+                    $targetId = $val->id;
+                } elseif (is_string($val) && $val !== '') {
+                    $targetId = $val;
+                } else {
+                    $targetId = (string)$randKey;
+                }
             }
         }
 

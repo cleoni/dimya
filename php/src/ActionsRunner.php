@@ -3795,19 +3795,23 @@ class ActionsRunner
                 return rand($min, $max);
             }
 
-            // Built-in RndSet
+            // Built-in RndSet( aSet )
             if (strcasecmp($fn, 'RndSet') === 0) {
                 $arg = trim($argStr);
-                if (str_starts_with($arg, '$WORLD.')) {
-                    $setName = substr($arg, 7);
-                } else {
-                    $setName = $arg;
+                $set = $this->evalValue($arg);
+                if (!is_array($set)) {
+                    $setName = str_starts_with($arg, '$WORLD.') ? substr($arg, 7) : $arg;
+                    $set = $this->getVariable($setName)
+                        ?? ($this->world->sets[$setName] ?? $this->world->getProperty($setName) ?? null);
                 }
-                $set = $this->world->sets[$setName] ?? $this->world->getProperty($setName) ?? null;
                 if (is_array($set) && !empty($set)) {
                     $keys = array_keys($set);
                     $randKey = $keys[array_rand($keys)];
-                    return is_int($randKey) ? $set[$randKey] : $randKey;
+                    $val = $set[$randKey];
+                    if ($val !== '' && $val !== null) {
+                        return $val;
+                    }
+                    return is_int($randKey) ? $val : $randKey;
                 }
                 return '';
             }
@@ -4303,14 +4307,14 @@ class ActionsRunner
                         if ($response === false || $httpCode >= 400) {
                             return ($httpCode === 404) ? '404 Not Found exception' : '';
                         }
-                        return (string)$response;
+                        return str_replace(["\r\n", "\r"], "\n", (string)$response);
                     } else {
                         $ctx = stream_context_create([
                             'http' => ['timeout' => 5, 'ignore_errors' => true],
                             'ssl'  => ['verify_peer' => false, 'verify_peer_name' => false]
                         ]);
                         $res = @file_get_contents($url, false, $ctx);
-                        return ($res !== false) ? (string)$res : '';
+                        return ($res !== false) ? str_replace(["\r\n", "\r"], "\n", (string)$res) : '';
                     }
                 } catch (\Throwable $e) {
                     return $e->getMessage();

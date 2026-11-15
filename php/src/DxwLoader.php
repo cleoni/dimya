@@ -1086,7 +1086,8 @@ class DxwLoader
                                     if ($directive === 'ARRAY') {
                                         $setArray[$idx++] = $p;
                                     } else {
-                                        $setArray[] = $p;
+                                        $obj = $world->getObjectExt($p);
+                                        $setArray[$p] = $obj ?? $p;
                                     }
                                 }
                             }

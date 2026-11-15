@@ -5815,7 +5815,29 @@ DXW;
         assertTest($uwLiving !== null && $uwLiving->fileShort === 'it_commons.dxl' && $uwLiving->actionsStartLine === 16, "it_underworld.dxw: EVENT Living has parallel line count it_commons.dxl(16)");
         $uwStart = $uwWorld->getEvent('onStart');
         assertTest($uwStart !== null && $uwStart->fileShort === 'it_underworld.dxw' && $uwStart->actionsStartLine === 1076, "it_underworld.dxw: EVENT onStart resumes main line count it_underworld.dxw(1076)");
+        assertTest(isset($uwWorld->sets['setCovered']['Start']) && $uwWorld->sets['setCovered']['Start'] instanceof \Dimx\Room, "it_underworld.dxw: SET setCovered keys by room ID ('Start') and maps to Room instance");
     }
+
+    // Test RndSet over a local set of arrays (popMonster pattern: SetAdd set_matching, mob(3), mob -> Dim popped=RndSet(set_matching) -> popped(3))
+    $runner81 = new \Dimx\ActionsRunner($w81, $w81, null, null);
+    $runner81->run(<<<'DXW'
+Dim set_matching = NewSet()
+Dim mob1 = Split("6|6.5|un mostro serpente|horror104.gif,105,130|type=11,Forza=6.2", "|")
+Dim mob2 = Split("6|6.5|un beholder|beholder.gif,80,100|type=11,nohands,Forza=6.5,vuln_mob", "|")
+SetAdd set_matching, mob1(3), mob1
+SetAdd set_matching, mob2(3), mob2
+Dim popped = RndSet(set_matching)
+Dim mname = popped(3)
+Dim attrs = Replace(popped(5), "*", 6)
+Dim imgparts = NewArray(popped(4))
+DXW
+    );
+    $popped81 = $runner81->getLocalVar('popped');
+    $mname81 = $runner81->getLocalVar('mname');
+    $imgparts81 = $runner81->getLocalVar('imgparts');
+    assertTest(is_array($popped81) && count($popped81) === 5, "RndSet(set_matching) over set of arrays returns a 5-element array");
+    assertTest(in_array($mname81, ['un mostro serpente', 'un beholder'], true), "popped(3) returns the monster name ('{$mname81}')");
+    assertTest(is_array($imgparts81) && count($imgparts81) === 3, "NewArray(popped(4)) parses 3 image parts");
 
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');

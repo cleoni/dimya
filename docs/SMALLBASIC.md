@@ -1528,7 +1528,7 @@ Returns a pseudo-random floating-point number in the range $[0.0, 1.0)$.
 
 ### 3.10.46 RndSet( aSet )
 
-> **[DimY: partial]** Only a literal `RndSet(setName)` (world set / `$WORLD.setName`) is supported, not arbitrary set expressions.
+> **[DimY: implemented]** Evaluates `aSet` (local variable, world set, or expression) and returns a randomly selected element value from the `SET` or `ARRAY` (including nested sets/arrays or object references).
 
 Selects and returns a random element from a `SET` or `ARRAY`.
 

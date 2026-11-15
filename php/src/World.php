@@ -356,7 +356,15 @@ class World extends DimxObject
 
     public function getRoom(string $id): ?Room
     {
-        return $this->rooms[$id] ?? null;
+        if (isset($this->rooms[$id])) {
+            return $this->rooms[$id];
+        }
+        foreach ($this->rooms as $k => $r) {
+            if (strcasecmp((string)$k, $id) === 0) {
+                return $r;
+            }
+        }
+        return null;
     }
 
     public function addCharacter(Character $character): void
@@ -368,7 +376,15 @@ class World extends DimxObject
 
     public function getCharacter(string $id): ?Character
     {
-        return $this->characters[$id] ?? null;
+        if (isset($this->characters[$id])) {
+            return $this->characters[$id];
+        }
+        foreach ($this->characters as $k => $c) {
+            if (strcasecmp((string)$k, $id) === 0) {
+                return $c;
+            }
+        }
+        return null;
     }
 
     /**
@@ -602,7 +618,15 @@ class World extends DimxObject
 
     public function getItem(string $id): ?Item
     {
-        return $this->items[$id] ?? null;
+        if (isset($this->items[$id])) {
+            return $this->items[$id];
+        }
+        foreach ($this->items as $k => $itm) {
+            if (strcasecmp((string)$k, $id) === 0) {
+                return $itm;
+            }
+        }
+        return null;
     }
 
     /**
@@ -625,7 +649,15 @@ class World extends DimxObject
 
     public function getLink(string $id): ?Link
     {
-        return $this->links[$id] ?? null;
+        if (isset($this->links[$id])) {
+            return $this->links[$id];
+        }
+        foreach ($this->links as $k => $lnk) {
+            if (strcasecmp((string)$k, $id) === 0) {
+                return $lnk;
+            }
+        }
+        return null;
     }
 
     /**
@@ -640,13 +672,24 @@ class World extends DimxObject
         if (strcasecmp($id, 'sys') === 0) {
             return $this->getDefaultCharacter();
         }
-        return $this->contents[$id]
+        $exact = $this->contents[$id]
             ?? $this->rooms[$id]
             ?? $this->items[$id]
             ?? $this->characters[$id]
             ?? $this->players[$id]
             ?? $this->links[$id]
             ?? null;
+        if ($exact !== null) {
+            return $exact;
+        }
+        foreach ([$this->contents, $this->rooms, $this->items, $this->characters, $this->players, $this->links] as $coll) {
+            foreach ($coll as $k => $obj) {
+                if (strcasecmp((string)$k, $id) === 0 && $obj instanceof DimxObject) {
+                    return $obj;
+                }
+            }
+        }
+        return null;
     }
 
     public function registerEvent(Event $event): void
