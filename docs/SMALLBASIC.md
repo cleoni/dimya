@@ -862,7 +862,7 @@ SendCmd [dest,] command
 
 ### 3.9.25 SetAdd
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+> **[DimY: implemented]**
 
 Appends or assigns a key-value entry to a `set` collection.
 
@@ -895,7 +895,7 @@ SetPanel [destination,] panelId
 
 ### 3.9.27 SetRemove
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (unknown verbs are no-ops in `ActionsRunner::executeStatement`).
+> **[DimY: implemented]**
 
 Removes an element from the specified `set` or `array`.
 

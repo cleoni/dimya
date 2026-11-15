@@ -65,6 +65,24 @@ EVENT onStart
 	s2("beta") = 999
 	res_orig_set_val = s1("beta")
 	res_copy_set_val = s2("beta")
+
+	' 6. SetAdd & SetRemove
+	Dim s3 = NewSet("red=1, green=2")
+	SetAdd s3, "blue", 3
+	SetAdd s3, "GREEN", 22
+	res_setadd_len = SetLen(s3)
+	res_setadd_blue = s3("blue")
+	res_setadd_green = s3("green")
+
+	SetRemove s3, "red"
+	res_setremove_len = SetLen(s3)
+	res_setremove_has_red = SetContainsKey(s3, "red")
+
+	Dim arr3 = NewArray("first, second, third")
+	SetRemove arr3, 2
+	res_arrremove_len = SetLen(arr3)
+	res_arrremove_1 = arr3(1)
+	res_arrremove_2 = arr3(2)
 END_EVENT
 
 END_SCRIPTS

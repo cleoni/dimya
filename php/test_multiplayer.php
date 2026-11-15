@@ -78,6 +78,7 @@ $sections = [
     75 => ['title' => 'Testing SmallBasic World Objects & Inspection Queries & test_world_inspection.dxw...', 'keywords' => ['inspection', 'getcharactersin', 'getlinksfrom', 'getobject', 'getplayerproperties', 'getplayersin', 'getrooms', 'getroomsfrom', 'ischaracter', 'isplayer', 'isroom', 'maintype', 'test_world_inspection.dxw']],
     76 => ['title' => 'Testing SmallBasic System, Scripting & Environment Functions & test_system_env.dxw...', 'keywords' => ['system', 'scripting', 'existscript', 'gettime', 'httpfetch', 'panelhtml', 'getsetting', 'gameinfo', 'test_system_env.dxw']],
     77 => ['title' => 'Testing SmallBasic Kill Instruction (Items, NPCs, Players, Rooms, Default $AGENT) & test_kill.dxw...', 'keywords' => ['kill', 'die', 'removepeople', 'removeroom', 'limbo', 'test_kill.dxw']],
+    78 => ['title' => 'Testing SmallBasic SetAdd & SetRemove Instructions (Sets, Arrays, World Sets, Object Properties) & test_set_array_functions.dxw...', 'keywords' => ['setadd', 'setremove', 'set', 'array', 'test_set_array_functions.dxw']],
 ];
 
 // CLI Options parsing
@@ -5342,6 +5343,73 @@ if (shouldRun(77)) {
 
     // Clean up
     @$pm->resetWorld($sec77WorldId);
+}
+
+if (shouldRun(78)) {
+    echo "\n--- Section 78: Testing SmallBasic SetAdd & SetRemove Instructions & test_set_array_functions.dxw ---\n";
+
+    $sec78World = new \Dimx\World('sec78_world');
+    $rLab = new \Dimx\Room($sec78World, 'Lab', 'r_lab', 'Test lab');
+    $sec78World->addRoom($rLab);
+    $sec78World->sets['global_scores'] = ['alice' => 10, 'bob' => 20];
+    $sec78World->setProperty('global_scores', $sec78World->sets['global_scores']);
+
+    $runner78 = new \Dimx\ActionsRunner($sec78World, $rLab, null, null);
+
+    // 1. SetAdd on local set (new key + case-insensitive overwrite)
+    $runner78->run("Dim localSet = NewSet(\"a=1, b=2\")\nSetAdd localSet, \"c\", 3\nSetAdd localSet, \"B\", 22");
+    $localSet = $runner78->getLocalVar('localSet');
+    assertTest(is_array($localSet) && count($localSet) === 3, "SetAdd on local set results in 3 elements");
+    assertTest((int)($localSet['c'] ?? 0) === 3, "SetAdd added key 'c' => 3");
+    assertTest((int)($localSet['b'] ?? 0) === 22, "SetAdd updated existing key 'b' case-insensitively to 22");
+
+    // 2. SetRemove on local set (case-insensitive removal + non-existent key no-op)
+    $runner78->run("SetRemove localSet, \"A\"\nSetRemove localSet, \"non_existent\"");
+    $localSetAfter = $runner78->getLocalVar('localSet');
+    assertTest(is_array($localSetAfter) && count($localSetAfter) === 2, "SetRemove removed 'a' (case-insensitive) and ignored 'non_existent'");
+    assertTest(!isset($localSetAfter['a']), "Key 'a' is no longer in localSet");
+    assertTest(isset($localSetAfter['b']) && isset($localSetAfter['c']), "Keys 'b' and 'c' remain in localSet");
+
+    // 3. SetRemove on 1-based array (NewArray) shifts sequential elements
+    $runner78->run("Dim localArr = NewArray(\"one, two, three\")\nSetRemove localArr, 2");
+    $localArr = $runner78->getLocalVar('localArr');
+    assertTest(is_array($localArr) && count($localArr) === 2, "SetRemove on NewArray reduces length from 3 to 2");
+    assertTest(($localArr[1] ?? '') === 'one' && ($localArr[2] ?? '') === 'three', "SetRemove on NewArray shifts subsequent elements (1=>'one', 2=>'three')");
+
+    // 4. SetAdd and SetRemove on World global set
+    $runner78->run("SetAdd global_scores, \"charlie\", 30\nSetRemove global_scores, \"alice\"");
+    $gScores = $sec78World->sets['global_scores'];
+    assertTest(is_array($gScores) && count($gScores) === 2, "World set global_scores has 2 elements after SetAdd + SetRemove");
+    assertTest(!isset($gScores['alice']) && (int)($gScores['bob'] ?? 0) === 20 && (int)($gScores['charlie'] ?? 0) === 30, "World set global_scores has bob=>20, charlie=>30");
+
+    // 5. SetAdd and SetRemove on object property (r_lab.bag)
+    $rLab->setProperty('bag', ['potion' => 1, 'scroll' => 2]);
+    $runner78->run("SetAdd r_lab.bag, \"elixir\", 5\nSetRemove r_lab.bag, \"potion\"");
+    $labBag = $rLab->getProperty('bag');
+    assertTest(is_array($labBag) && count($labBag) === 2, "Object property r_lab.bag has 2 elements after SetAdd + SetRemove");
+    assertTest(!isset($labBag['potion']) && (int)($labBag['scroll'] ?? 0) === 2 && (int)($labBag['elixir'] ?? 0) === 5, "Object property r_lab.bag updated properly");
+
+    // 6. Parenthesized syntax SetAdd(...) and SetRemove(...)
+    $runner78->run("SetAdd(localSet, \"d\", 40)\nSetRemove(localSet, \"c\")");
+    $localSetParen = $runner78->getLocalVar('localSet');
+    assertTest(isset($localSetParen['d']) && (int)$localSetParen['d'] === 40 && !isset($localSetParen['c']), "Parenthesized SetAdd(...) and SetRemove(...) work properly");
+
+    // 7. Integration test: Load test_set_array_functions.dxw with GameEngine
+    $sec78WorldId = 'test_w_sec78_' . uniqid();
+    $sec78DxwPath = dirname(__DIR__) . '/docs/dxw-examples/test_set_array_functions.dxw';
+    $engine78 = new \Dimx\GameEngine($pm, $sec78WorldId, $sec78DxwPath);
+    $w78 = $engine78->loadOrSeedWorld();
+
+    assertTest((int)$w78->getProperty('res_setadd_len') === 3, "DXW SetAdd: res_setadd_len === 3");
+    assertTest((int)$w78->getProperty('res_setadd_blue') === 3, "DXW SetAdd: res_setadd_blue === 3");
+    assertTest((int)$w78->getProperty('res_setadd_green') === 22, "DXW SetAdd: res_setadd_green === 22");
+    assertTest((int)$w78->getProperty('res_setremove_len') === 2, "DXW SetRemove: res_setremove_len === 2");
+    assertTest((bool)$w78->getProperty('res_setremove_has_red') === false, "DXW SetRemove: res_setremove_has_red === false");
+    assertTest((int)$w78->getProperty('res_arrremove_len') === 2, "DXW SetRemove on Array: res_arrremove_len === 2");
+    assertTest($w78->getProperty('res_arrremove_1') === 'first', "DXW SetRemove on Array: res_arrremove_1 === 'first'");
+    assertTest($w78->getProperty('res_arrremove_2') === 'third', "DXW SetRemove on Array: res_arrremove_2 === 'third'");
+
+    @$pm->resetWorld($sec78WorldId);
 }
 
 // Clean up test worlds

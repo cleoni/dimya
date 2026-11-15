@@ -237,7 +237,14 @@ class ActionsRunner
                 $idx0 = max(0, $index - 1);
                 return $arr[$idx0] ?? $arr[$index] ?? null;
             }
-            return $arr[$index] ?? null;
+            if (array_key_exists($index, $arr)) {
+                return $arr[$index];
+            }
+            $vals = array_values($arr);
+            if ($index >= 1 && $index <= count($vals)) {
+                return $vals[$index - 1];
+            }
+            return null;
         }
         return null;
     }
@@ -780,7 +787,7 @@ class ActionsRunner
         // Also handle verb followed immediately by '(' e.g. "Debug("test")"
         if (preg_match('/^([A-Za-z0-9_]+)\s*\((.*)\)$/s', $line, $vm) && !str_contains($vm[1], '.')) {
             $verbCandidate = strtoupper($vm[1]);
-            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET', 'GOAL', 'KILL'], true)) {
+            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET', 'GOAL', 'KILL', 'SETADD', 'SETREMOVE'], true)) {
                 $verb = $verbCandidate;
                 $argString = $vm[2];
             } elseif ($this->world?->getEvent($vm[1]) !== null) {
@@ -808,6 +815,8 @@ class ActionsRunner
             'MOVE'                => $this->actMove($args),
             'DROPITEMS'           => $this->actDropItems($args),
             'KILL'                => $this->actKill($args),
+            'SETADD'              => $this->actSetAdd($args),
+            'SETREMOVE'           => $this->actSetRemove($args),
             'GOAL'       => $this->actGoal($args),
             'RETURN'     => $this->actReturn($args, $argString),
             'OPEN'       => $this->actOpen($args),
@@ -2012,6 +2021,222 @@ class ActionsRunner
         }
 
         throw new \RuntimeException("Could not kill object: >{$whoExpr}< - invalid type");
+    }
+
+    /**
+     * SetAdd set, key, value (SmallBasic 3.9.25)
+     * Appends or assigns a key-value entry to a set/array collection.
+     * Matches DimensioneX ActionsRunner.actSetAdd(Dict params).
+     */
+    protected function actSetAdd(array $args): bool
+    {
+        if (count($args) < 3) {
+            throw new \RuntimeException("SetAdd: missing arguments (expected: set, key, value)");
+        }
+
+        $targetExpr = trim((string)$args[0]);
+        $arr = $this->resolveSetTarget($targetExpr);
+
+        $rawKey = $this->evalValue(trim((string)$args[1]));
+        $keyStr = ($rawKey instanceof DimxObject) ? (string)$rawKey->id : (string)self::formatValue($rawKey);
+        $val = $this->evalValue(trim((string)$args[2]));
+
+        $targetKey = $keyStr;
+        if (!array_key_exists($keyStr, $arr)) {
+            foreach (array_keys($arr) as $k) {
+                if (strcasecmp((string)$k, $keyStr) === 0) {
+                    $targetKey = $k;
+                    break;
+                }
+            }
+        }
+
+        $arr[$targetKey] = $val;
+        $this->writeSetBack($targetExpr, $arr);
+        return true;
+    }
+
+    /**
+     * SetRemove set, key (SmallBasic 3.9.27)
+     * Removes an element from the specified set or array.
+     * Matches DimensioneX ActionsRunner.actSetRemove(Dict params).
+     */
+    protected function actSetRemove(array $args): bool
+    {
+        if (count($args) < 2) {
+            throw new \RuntimeException("SetRemove: missing arguments (expected: set, key)");
+        }
+
+        $targetExpr = trim((string)$args[0]);
+        $arr = $this->resolveSetTarget($targetExpr);
+
+        $rawKey = $this->evalValue(trim((string)$args[1]));
+        $keyStr = ($rawKey instanceof DimxObject) ? (string)$rawKey->id : (string)self::formatValue($rawKey);
+
+        // Determine if $arr is a sequential numeric array (all keys are integers)
+        $isSequentialNumeric = !empty($arr);
+        if ($isSequentialNumeric) {
+            foreach (array_keys($arr) as $k) {
+                if (!is_int($k)) {
+                    $isSequentialNumeric = false;
+                    break;
+                }
+            }
+        }
+
+        $found = false;
+        if ($isSequentialNumeric && (is_int($rawKey) || ctype_digit($keyStr))) {
+            $intKey = (int)$keyStr;
+            if (array_key_exists(0, $arr)) {
+                $idx0 = ($intKey >= 1 && array_key_exists($intKey - 1, $arr)) ? ($intKey - 1) : $intKey;
+                if (array_key_exists($idx0, $arr)) {
+                    unset($arr[$idx0]);
+                    $arr = array_values($arr);
+                    $found = true;
+                }
+            } else {
+                if (array_key_exists($intKey, $arr)) {
+                    unset($arr[$intKey]);
+                    $reindexed = [];
+                    $idx = 1;
+                    foreach ($arr as $v) {
+                        $reindexed[$idx++] = $v;
+                    }
+                    $arr = $reindexed;
+                    $found = true;
+                }
+            }
+        }
+
+        if (!$found) {
+            if (array_key_exists($keyStr, $arr)) {
+                unset($arr[$keyStr]);
+                $found = true;
+            } else {
+                foreach (array_keys($arr) as $k) {
+                    if (strcasecmp((string)$k, $keyStr) === 0) {
+                        unset($arr[$k]);
+                        $found = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!$found) {
+            $this->log("SetRemove: element not found: {$keyStr} in: " . self::formatArray($arr));
+            return true;
+        }
+
+        $this->writeSetBack($targetExpr, $arr);
+        return true;
+    }
+
+    /**
+     * Resolve a set/array variable or object property expression for SetAdd / SetRemove.
+     */
+    protected function resolveSetTarget(string $targetExpr): array
+    {
+        if (array_key_exists($targetExpr, $this->localVars) && is_array($this->localVars[$targetExpr])) {
+            return $this->localVars[$targetExpr];
+        }
+        foreach ($this->localVars as $k => $v) {
+            if (strcasecmp((string)$k, $targetExpr) === 0 && is_array($v)) {
+                return $v;
+            }
+        }
+
+        $arr = $this->getVariable($targetExpr);
+        if (is_array($arr)) {
+            return $arr;
+        }
+
+        $evalVal = $this->evalValue($targetExpr);
+        if (is_array($evalVal)) {
+            return $evalVal;
+        }
+
+        throw new \RuntimeException("SET argument expected");
+    }
+
+    /**
+     * Write a modified set/array back to its local variable, world set/property, or object property.
+     */
+    protected function writeSetBack(string $targetExpr, array $arr): void
+    {
+        // 1. Check local variables (exact or case-insensitive)
+        if (array_key_exists($targetExpr, $this->localVars)) {
+            $this->localVars[$targetExpr] = $arr;
+            return;
+        }
+        foreach (array_keys($this->localVars) as $k) {
+            if (strcasecmp((string)$k, $targetExpr) === 0) {
+                $this->localVars[$k] = $arr;
+                return;
+            }
+        }
+
+        // 2. Check object property syntax e.g. "$WORLD.mySet", "$AGENT.bag", "box.items"
+        if (preg_match('/^(\$?[A-Za-z0-9_.]+(?:\([^\)]*\))?)\.([A-Za-z0-9_]+)$/', $targetExpr, $m)) {
+            $objExpr = $m[1];
+            $propName = $m[2];
+            $obj = $this->resolveObject($objExpr);
+            if ($obj === null) {
+                $evalObj = $this->evalValue($objExpr);
+                if ($evalObj instanceof DimxObject) {
+                    $obj = $evalObj;
+                }
+            }
+            if ($obj instanceof World) {
+                if (isset($obj->sets[$propName])) {
+                    $obj->sets[$propName] = $arr;
+                }
+                $obj->setProperty($propName, $arr);
+                return;
+            }
+            if ($obj instanceof DimxObject) {
+                $obj->setProperty($propName, $arr);
+                return;
+            }
+        }
+
+        // 3. World sets or properties
+        if ($this->world !== null) {
+            $matchedSetKey = null;
+            if (array_key_exists($targetExpr, $this->world->sets)) {
+                $matchedSetKey = $targetExpr;
+            } else {
+                foreach (array_keys($this->world->sets) as $sk) {
+                    if (strcasecmp((string)$sk, $targetExpr) === 0) {
+                        $matchedSetKey = $sk;
+                        break;
+                    }
+                }
+            }
+            if ($matchedSetKey !== null) {
+                $this->world->sets[$matchedSetKey] = $arr;
+                $this->world->setProperty($matchedSetKey, $arr);
+                return;
+            }
+
+            if ($this->world->hasProperty($targetExpr)) {
+                $this->world->setProperty($targetExpr, $arr);
+                return;
+            }
+        }
+
+        // 4. Owner property
+        if ($this->owner instanceof DimxObject && $this->owner->hasProperty($targetExpr)) {
+            $this->owner->setProperty($targetExpr, $arr);
+            return;
+        }
+
+        // Default fallback: set on world property (or localVars if no world)
+        if ($this->world !== null) {
+            $this->world->setProperty($targetExpr, $arr);
+        } else {
+            $this->localVars[$targetExpr] = $arr;
+        }
     }
 
     /**
