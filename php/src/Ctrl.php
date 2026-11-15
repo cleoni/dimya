@@ -52,16 +52,42 @@ class Ctrl extends ManageableObject
     /**
      * Render the control to HTML.
      */
-    public function toHtml(?Skin $skin = null): string
-    {
+    public function toHtml(
+        ?Skin $skin = null,
+        ?World $world = null,
+        ?DimxObject $owner = null,
+        mixed $agent = null,
+        mixed $target = null
+    ): string {
         return match ($this->type) {
             self::TYPE_CR => "<br />\n",
-            self::TYPE_LABEL => "<span class=\"dimx-label\">{$this->caption}</span>\n",
+            self::TYPE_LABEL => $this->renderLabel($world, $owner, $agent, $target),
             self::TYPE_TEXTBOX => "<input type=\"text\" name=\"" . htmlspecialchars($this->id, ENT_QUOTES) . "\" id=\"" . htmlspecialchars($this->id, ENT_QUOTES) . "\" class=\"dimx-textbox\" placeholder=\"" . htmlspecialchars($this->tooltip, ENT_QUOTES) . "\" onkeydown=\"if(event.key==='Enter'){sendCmd('say', this.value, '*');event.preventDefault();}\" />\n",
             self::TYPE_DROPDOWN => $this->renderDropdown(),
             self::TYPE_CMD => "<!-- Hidden CMD {$this->id} -->\n",
             default => $this->renderButton($skin),
         };
+    }
+
+    protected function renderLabel(
+        ?World $world = null,
+        ?DimxObject $owner = null,
+        mixed $agent = null,
+        mixed $target = null
+    ): string {
+        $caption = $this->caption;
+        if (str_starts_with($caption, '@')) {
+            $w = $world
+                ?? $this->world
+                ?? $owner?->world
+                ?? (($agent instanceof DimxObject) ? $agent->world : null)
+                ?? GameEngine::$activeInstance?->getWorld();
+            if ($w !== null) {
+                $val = $w->evaluateExpression(substr($caption, 1), $owner, $agent, $target);
+                $caption = ActionsRunner::formatValue($val);
+            }
+        }
+        return "<span class=\"dimx-label\">{$caption}</span>\n";
     }
 
     protected function renderButton(?Skin $skin = null): string

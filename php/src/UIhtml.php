@@ -1857,7 +1857,7 @@ class UIhtml extends UI
                   <?php if ($activePanel?->getButton('txtBox') !== null): ?>
                     <div style="font-size:12px;color:#111;margin-bottom:4px;font-weight:600">Write here and hit ENTER to speak</div>
                   <?php endif; ?>
-                  <?= $activePanel?->toHtml($skin) ?>
+                  <?= $activePanel?->toHtml($skin, $world, $player->container ?? $player, $player) ?>
                 </form>
                 <?php if ($musicEnabled): ?>
                   <audio id="bgplayer"<?= ($bgMusic !== null && !empty($bgMusic['src'])) ? ' src="' . htmlspecialchars($bgMusic['src']) . '"' : '' ?><?= (!empty($bgMusic['loop'])) ? ' loop' : '' ?> hidden style="display:none"></audio>

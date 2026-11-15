@@ -3259,7 +3259,7 @@ class ActionsRunner
     /**
      * Evaluate expression or literal into a PHP scalar value.
      */
-    protected function evalValue(string $val): mixed
+    public function evalValue(string $val): mixed
     {
         $val = trim($val);
 
@@ -4350,7 +4350,7 @@ class ActionsRunner
                 }
                 if ($panelObj instanceof Panel) {
                     $skin = ($this->world !== null) ? $this->world->getSkin(null) : null;
-                    return $panelObj->toHtml($skin);
+                    return $panelObj->toHtml($skin, $this->world, $this->owner, $this->agent, $this->target);
                 }
                 return '';
             }

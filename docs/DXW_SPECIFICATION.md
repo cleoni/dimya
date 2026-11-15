@@ -350,9 +350,10 @@ TEXTBOX [id]
 ```
 
 #### 5. LABEL
-Displays text or custom inline HTML in the control panel:
+Displays text or custom inline HTML in the control panel. If the label string begins with `@`, the remainder is evaluated at runtime as a SmallBasic expression or function call (e.g. `LABEL "@privacytext()"`):
 ```text
 LABEL "<b>Choose your action:</b>"
+LABEL "@privacytext()"
 ```
 
 #### 6. DROPDOWN

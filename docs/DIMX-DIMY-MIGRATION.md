@@ -1,4 +1,4 @@
-Migration of old code written for DimensioneX should be easily ported to DImensioneY with little or no modification.
+Migration of old code written for DimensioneX should be easily ported to DImensioneY with little or no modification. We aim ad 99% compatiblity with old code.
 
 Here is a migration guide for running old .DXW world on DimensioneY:
 
@@ -17,7 +17,7 @@ new code:
 
 2) Clusters dropped.
 
-The clusters feature has been dropped. MoveOutside instruction has been dropped too.
+The clusters feature has been dropped, so WORLD.CLUSTER directive is ignored. MoveOutside instruction has been dropped too.
 
 Recommended fix: 
 
@@ -38,5 +38,6 @@ If needed, just replace it with a call to HttpFetch()
 
 Please note:
 
-DimensioneY game engine is still under development and testing. A few features such as world attributes like HTMLCOUNTER may be ignored. Their support will be added soon, in the meantime you are invited to notify us via the project's issue link:
+DimensioneY game engine is still under development and testing. A few features such as WORLD directives HTMLCOUNTER, MUTING and GUI directives such as MAP, HOOKS get currently ignored. Their support will be added soon. 
+If you find bugs or if you need help in porting old code, notify us via the project's issue link:
 https://github.com/cleoni/dimya/issues

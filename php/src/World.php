@@ -763,6 +763,36 @@ class World extends DimxObject
     }
 
     /**
+     * Evaluates a SmallBasic expression or function call at runtime (e.g. for '@...' in LABEL or DESCRIPTION).
+     * Mirrors DimensioneX World.evaluateExpression(expression, owner, agent, targetid, input).
+     */
+    public function evaluateExpression(
+        string $expression,
+        ?DimxObject $owner = null,
+        mixed $agent = null,
+        mixed $target = null,
+        array $input = []
+    ): mixed {
+        $expression = trim($expression);
+        if ($expression === '') {
+            return '';
+        }
+
+        // If it's a bare event/function identifier without parentheses and exists in world->events, fire it directly
+        if (!str_contains($expression, '(') && $this->getEvent($expression) !== null) {
+            return $this->fireEvent($expression, $owner ?? $this, $agent, $target, $input);
+        }
+
+        $runner = new ActionsRunner($this, $owner ?? $this, $agent, $target, $input);
+        try {
+            return $runner->evalValue($expression);
+        } catch (\Throwable $e) {
+            $runner->displayError("ERROR: " . $e->getMessage());
+            return '';
+        }
+    }
+
+    /**
      * Executes the global world clock tick:
      * Checks if time passed since the last tick is >= tickLength.
      * If so (or if $force is true):

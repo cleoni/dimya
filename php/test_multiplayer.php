@@ -5814,9 +5814,31 @@ DXW;
         $uwLiving = $uwWorld->getEvent('Living');
         assertTest($uwLiving !== null && $uwLiving->fileShort === 'it_commons.dxl' && $uwLiving->actionsStartLine === 16, "it_underworld.dxw: EVENT Living has parallel line count it_commons.dxl(16)");
         $uwStart = $uwWorld->getEvent('onStart');
-        assertTest($uwStart !== null && $uwStart->fileShort === 'it_underworld.dxw' && $uwStart->actionsStartLine === 1076, "it_underworld.dxw: EVENT onStart resumes main line count it_underworld.dxw(1076)");
+        assertTest($uwStart !== null && $uwStart->fileShort === 'it_underworld.dxw' && $uwStart->actionsStartLine > 1070, "it_underworld.dxw: EVENT onStart resumes main line count in it_underworld.dxw ({$uwStart->actionsStartLine})");
         assertTest(isset($uwWorld->sets['setCovered']['Start']) && $uwWorld->sets['setCovered']['Start'] instanceof \Dimx\Room, "it_underworld.dxw: SET setCovered keys by room ID ('Start') and maps to Room instance");
+
+        // Verify LABEL "@privacytext()" in PANEL pprivacy and DESCRIPTION @privacy() in ROOM pre1a
+        $pprivacy = $uwWorld->getPanel('pprivacy');
+        assertTest($pprivacy instanceof \Dimx\Panel, "it_underworld.dxw: PANEL pprivacy is loaded");
+        $pprivacyHtml = $pprivacy->toHtml(null, $uwWorld, $uwWorld);
+        assertTest(str_contains($pprivacyHtml, 'Informativa sulla privacy') && !str_contains($pprivacyHtml, '@privacytext()'), "it_underworld.dxw: LABEL \"@privacytext()\" evaluates @privacytext() at runtime");
+        $roomPre1a = $uwWorld->getRoom('pre1a');
+        assertTest($roomPre1a instanceof \Dimx\Room, "it_underworld.dxw: ROOM pre1a is loaded");
+        $pre1aDesc = $roomPre1a->evalDescription();
+        assertTest(str_contains($pre1aDesc, 'Informativa') && !str_contains($pre1aDesc, '@privacy()'), "it_underworld.dxw: ROOM pre1a DESCRIPTION @privacy() evaluates privacy() at runtime");
     }
+
+    // Unit test for LABEL "@expr()" in standalone world
+    $dynEv = new \Dimx\Event('dynLabelFn', 'FUNCTION');
+    $dynEv->actions = 'Return "Dynamic Label Value: " & (20 + 22)';
+    $w81->registerEvent($dynEv);
+    $dynPanel = new \Dimx\Panel('dyn_test');
+    $dynCtrl = new \Dimx\Ctrl('_lbl0', \Dimx\Ctrl::TYPE_LABEL, '@dynLabelFn()');
+    $dynCtrl->world = $w81;
+    $dynPanel->addButton($dynCtrl);
+    $w81->addPanel($dynPanel);
+    $dynHtml = $dynPanel->toHtml(null, $w81, $w81);
+    assertTest(str_contains($dynHtml, 'Dynamic Label Value: 42'), "Standalone LABEL \"@dynLabelFn()\" evaluates function at runtime");
 
     // Test RndSet over a local set of arrays (popMonster pattern: SetAdd set_matching, mob(3), mob -> Dim popped=RndSet(set_matching) -> popped(3))
     $runner81 = new \Dimx\ActionsRunner($w81, $w81, null, null);

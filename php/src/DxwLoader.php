@@ -555,6 +555,7 @@ class DxwLoader
                                 $caption = trim(substr($subLine, strlen($subTokens[0])));
                                 $caption = trim($caption, "\"");
                                 $lastCtrl = new Ctrl($labelId, Ctrl::TYPE_LABEL, $caption);
+                                $lastCtrl->world = $world;
                                 $panel->addButton($lastCtrl);
                             } elseif ($subDir === 'DELETE') {
                                 $delId = trim($subTokens[1] ?? '');

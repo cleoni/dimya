@@ -633,8 +633,8 @@ class AdvObject extends DimxObject
         $desc = $this->description;
         if (str_starts_with($desc, '@')) {
             $funcExpr = substr($desc, 1);
-            if ($this->world !== null && isset($this->world->events[$funcExpr])) {
-                $desc = ActionsRunner::formatValue($this->world->fireEvent($funcExpr, $this, $agent));
+            if ($this->world !== null) {
+                $desc = ActionsRunner::formatValue($this->world->evaluateExpression($funcExpr, $this, $agent));
             }
         }
 

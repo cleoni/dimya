@@ -53,8 +53,13 @@ class Panel
     /**
      * Renders all panel controls into HTML.
      */
-    public function toHtml(?Skin $skin = null): string
-    {
+    public function toHtml(
+        ?Skin $skin = null,
+        ?World $world = null,
+        ?DimxObject $owner = null,
+        mixed $agent = null,
+        mixed $target = null
+    ): string {
         $html = "<div class=\"dimx-panel\" id=\"panel_" . htmlspecialchars($this->id, ENT_QUOTES) . "\">\n";
         foreach ($this->buttons as $ctrl) {
             // In the HTML presentation layer, clicking an object/character triggers the 'click' action directly,
@@ -63,7 +68,7 @@ class Panel
             if (in_array(strtolower($ctrl->id), ['click', 'go'], true)) {
                 continue;
             }
-            $html .= $ctrl->toHtml($skin);
+            $html .= $ctrl->toHtml($skin, $world, $owner, $agent, $target);
         }
         $html .= "</div>\n";
         return $html;
