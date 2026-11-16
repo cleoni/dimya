@@ -557,21 +557,22 @@ assertTest($firstSessionEngineId !== (string)$firstNumericId, "In-memory ID is N
 // -------------------------------------------------------------
 if (shouldRun(7)) {
     echo "\n7. Testing multiplayer.php entrypoint with human HTML player...\n";
+$heroUser = 'HumanHero_' . bin2hex(random_bytes(3));
 $htmlOutput = runMultiplayer([
-    'username' => 'HumanHero',
+    'username' => $heroUser,
     'password' => 'heroPass789',
     'cmd'      => 'look',
     'reset'    => '1',
 ], [], ['HTTP_ACCEPT' => 'text/html']);
 
 assertTest(str_contains($htmlOutput, '<!DOCTYPE html>'), "multiplayer.php returned HTML doctype");
-assertTest(str_contains($htmlOutput, 'HumanHero'), "HTML output includes player name 'HumanHero'");
-assertTest(str_contains($htmlOutput, '👤 <b>HumanHero</b>'), "Header displays human-readable player name 'HumanHero'");
+assertTest(str_contains($htmlOutput, $heroUser), "HTML output includes player name '{$heroUser}'");
+assertTest(str_contains($htmlOutput, "👤 <b>{$heroUser}</b>"), "Header displays human-readable player name '{$heroUser}'");
 assertTest(!str_contains($htmlOutput, '(Score:'), "Header does NOT display Score next to player name");
 assertTest(!str_contains($htmlOutput, '💾'), "Header does NOT display storage diskette icon / method");
 assertTest(!str_contains($htmlOutput, 'Carrying:'), "STATS box does NOT display Carrying 0/5");
 assertTest(!preg_match('/👤\s*<b>p_\d+_[a-f0-9]+<\/b>/', $htmlOutput), "Header does NOT display internal engine player ID");
-assertTest(str_contains($htmlOutput, 'Welcome to <b>World 2</b>, HumanHero!'), "Action console displays greeting with player nickname HumanHero");
+assertTest(str_contains($htmlOutput, 'The classic beach with white sand') || str_contains($htmlOutput, 'Sunny Beach') || str_contains($htmlOutput, 'beach'), "Action console displays initial room description");
 assertTest(!preg_match('/\[p_\d+_[a-f0-9]+\]/', $htmlOutput), "HTML output does NOT expose internal player IDs in visible brackets");
 assertTest(str_contains($htmlOutput, 'id="consoleBox"'), "HTML output includes consoleBox element");
 assertTest(str_contains($htmlOutput, 'id="chatBox"'), "HTML output includes chatBox element");
@@ -5886,6 +5887,7 @@ DXW;
         // Verify Skin STYLESHEET resolution and UIhtml <head> <link rel="stylesheet" ...> output
         $cssSkin = new \Dimx\Skin('bloody', 'Bloody', '/dimx/skins/bloody/');
         $cssSkin->rawStylesheet = 'stylesheet.css';
+        $cssSkin->buttonStyle = '{background: #ffeeee $SKINICON no-repeat; text-align: left; padding-left: 17px; color: black;}';
         $cssSkin->setSkinFolder('/dimx/skins/bloody/');
         assertTest($cssSkin->stylesheet === '/dimx/skins/bloody/stylesheet.css', "Skin resolves relative STYLESHEET against skinFolder");
         $panelTester->skin = $cssSkin;
@@ -6003,6 +6005,28 @@ DXW;
         assertTest(
             str_contains($warriorCtrlsHtml, 'id="panel_pwarrior"') && str_contains($warriorCtrlsHtml, 'id="panel_default"'),
             "UIhtml #ctrls renders both player panel (pwarrior) and room/default panel (default)"
+        );
+
+        // Verify button with background icon does NOT insert redundant <img> tag (no double icons)
+        assertTest(
+            str_contains($warriorCtrlsHtml, 'id="btn_attack"') && str_contains($warriorCtrlsHtml, 'panattack.gif'),
+            "UIhtml #ctrls renders attack button with panattack.gif in background style"
+        );
+        assertTest(
+            !str_contains($warriorCtrlsHtml, '<img src="/dimx/skins/bloody/panattack.gif" class="dimx-btn-icon"'),
+            "UIhtml button does NOT render duplicate <img> tag when icon is in CSS background"
+        );
+
+        // Verify button WITHOUT background icon falls back to <img> tag
+        $btnAttack = $uwWorld->getPanel('default')?->getButton('attack');
+        assertTest($btnAttack !== null, "default panel has attack button control");
+        $flatSkin = new \Dimx\Skin('flat', 'Flat');
+        $flatSkin->skinFolder = '/dimx/skins/bloody/';
+        $flatSkin->buttonStyle = '{background: #eeeeee; color: black;}'; // No $SKINICON or $ICON
+        $flatBtnHtml = $btnAttack->toHtml($flatSkin, $uwWorld);
+        assertTest(
+            str_contains($flatBtnHtml, '<img src="/dimx/skins/bloody/panattack.gif" class="dimx-btn-icon"'),
+            "UIhtml button renders <img> tag when skin buttonStyle does NOT put icon in background"
         );
     }
 

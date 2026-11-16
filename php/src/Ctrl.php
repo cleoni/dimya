@@ -118,6 +118,7 @@ class Ctrl extends ManageableObject
         }
 
         $styleAttr = '';
+        $hasBackgroundIcon = false;
         if ($skin !== null && trim($skin->buttonStyle) !== '') {
             $rawButtonStyle = trim($skin->buttonStyle);
             if (preg_match('/\{([^}]*)\}/s', $rawButtonStyle, $bsm)) {
@@ -126,17 +127,24 @@ class Ctrl extends ManageableObject
                 $inlineButtonStyle = trim($rawButtonStyle, " \t\n\r\0\x0B{}");
             }
             if ($inlineButtonStyle !== '') {
+                $hasSkinIconVar = (stripos($inlineButtonStyle, '$SKINICON') !== false);
+                $hasIconVar     = (stripos($inlineButtonStyle, '$ICON') !== false);
+
                 $skinFolder = rtrim($skin->skinFolder, '/') . '/';
                 $skinIconUrl = 'url(' . $skinFolder . 'pan' . $this->id . '.gif)';
                 $inlineButtonStyle = str_ireplace('$SKINICON', $skinIconUrl, $inlineButtonStyle);
                 $iconCssUrl = $resolvedIcon !== null ? 'url(' . $resolvedIcon . ')' : '';
                 $inlineButtonStyle = str_ireplace('$ICON', $iconCssUrl, $inlineButtonStyle);
                 $styleAttr = ' style="' . htmlspecialchars($inlineButtonStyle, ENT_QUOTES) . '"';
+
+                if ($hasSkinIconVar || ($hasIconVar && $resolvedIcon !== null) || stripos($inlineButtonStyle, 'url(') !== false) {
+                    $hasBackgroundIcon = true;
+                }
             }
         }
 
         $iconHtml = '';
-        if ($resolvedIcon !== null) {
+        if ($resolvedIcon !== null && !$hasBackgroundIcon) {
             $iconHtml = "<img src=\"" . htmlspecialchars($resolvedIcon, ENT_QUOTES) . "\" class=\"dimx-btn-icon\" alt=\"\" /> ";
         }
 
