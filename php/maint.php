@@ -179,7 +179,7 @@ if ($pm->isConnected()) {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DimensioneX — Maintenance Console</title>
+  <title>DimensioneY Maintenance Console</title>
   <style>
     body{background:#0f172a;color:#f8fafc;font-family:ui-sans-serif,system-ui,sans-serif;margin:0;padding:24px}
     .maint-card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;margin-bottom:20px;max-width:900px}
@@ -205,7 +205,7 @@ if ($pm->isConnected()) {
 <div style="max-width:900px;margin:0 auto">
 
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
-    <h1 style="margin:0;font-size:22px">⚙ DimensioneX Maintenance Console</h1>
+    <h1 style="margin:0;font-size:22px">⚙ DimensioneY Maintenance Console</h1>
     <a href="multiplayer.php" class="btn" style="text-decoration:none;font-size:13px">▶ Return to Game</a>
   </div>
 
