@@ -531,6 +531,65 @@ class Character extends AdvObject
     }
 
     /**
+     * Hide a specific item (or all carried items when $target is null/empty),
+     * matching DimensioneX Java Character.objectHide().
+     */
+    public function actHide(string|AdvObject|null $target = null): bool
+    {
+        if ($target === null || $target === '') {
+            $result = true;
+            $items = array_reverse(array_values($this->contents));
+            foreach ($items as $obj) {
+                if ($obj instanceof AdvObject) {
+                    $result = $this->actHide($obj) && $result;
+                }
+            }
+            return $result;
+        }
+
+        if (is_string($target)) {
+            $cleanId = preg_replace('/^[a-z]!/i', '', trim($target));
+            $obj = $this->world?->getObjectExt($cleanId) ?? $this->world?->getObject($cleanId);
+            if (!$obj instanceof AdvObject) {
+                $this->world?->log("The selected item does not exist: {$target}");
+                $this->display("The selected item does not exist anymore.");
+                return false;
+            }
+            $target = $obj;
+        }
+
+        if (!$target->isanItem()) {
+            $this->display("Can't hide it");
+            return false;
+        }
+
+        if ($target->container === $this) {
+            $this->actDrop($target);
+        }
+
+        $existsInWorld = ($target->world !== null && $this->world?->getObjectExt($target->id) !== null);
+        if ($target->container === $this->container || ($target->container instanceof Item && $target->isAccessibleFrom($this))) {
+            $errMsg = '';
+            if ($existsInWorld && $target->hide($errMsg)) {
+                $this->display("I've hidden {$target->name}.");
+                if ($this->container instanceof Room) {
+                    $this->world?->sendCmd('refresh!scene', $this->container);
+                }
+                return true;
+            }
+            $msg = "I could not do that.";
+            if ($errMsg !== '') {
+                $msg .= " ({$errMsg})";
+            }
+            $this->display($msg);
+            return false;
+        }
+
+        $this->display("I could not do that.");
+        return false;
+    }
+
+    /**
      * Drop an item into the enclosing room or vehicle, firing standard DimX events:
      * objRemove (whenDropped, onLooseItem) -> objPlace (onEnter, onReceiveItem).
      */

@@ -6394,6 +6394,44 @@ DXW
         "UIhtml handleCommand reads textbox value for eventModel 'T' buttons"
     );
 
+    // Built-in 'hide' command (GameEngine case 'hide' -> Character::actHide -> AdvObject::hide)
+    $hideItem = new \Dimx\Item($atkWorld, 'anello nascosto', 'hide_ring');
+    $atkWorld->addItem($hideItem);
+    $hideItem->move($atkPlayer);
+    $atkPlayer->clientConsole = [];
+    $atkEngine->executeCommandAction($atkWorld, $atkPlayer, 'hide', $hideItem->id, '');
+    $hideConsole = implode("\n", $atkPlayer->clientConsole);
+    assertTest(
+        $hideItem->container === $atkStart && $hideItem->isHidden(),
+        "hide command drops carried item into room and marks it hidden"
+    );
+    assertTest(
+        str_contains($hideConsole, "I've hidden anello nascosto."),
+        "hide command prints 'I've hidden anello nascosto.' to player console"
+    );
+    $atkPlayer->clientConsole = [];
+    $atkEngine->executeCommandAction($atkWorld, $atkPlayer, 'hide', $hideItem->id, '');
+    assertTest(
+        str_contains(implode("\n", $atkPlayer->clientConsole), "It's hidden, already."),
+        "hide command reports 'It's hidden, already.' when item is already hidden"
+    );
+    $unhideableItem = new \Dimx\Item($atkWorld, 'statua pesante', 'hide_statue');
+    $unhideableItem->setProperty('hideable', 0);
+    $atkWorld->addItem($unhideableItem);
+    $unhideableItem->move($atkStart);
+    $atkPlayer->clientConsole = [];
+    $atkEngine->executeCommandAction($atkWorld, $atkPlayer, 'hide', $unhideableItem->id, '');
+    assertTest(
+        !$unhideableItem->isHidden() && str_contains(implode("\n", $atkPlayer->clientConsole), "Can't hide it"),
+        "hide command refuses hideable=0 item with 'Can't hide it'"
+    );
+    $atkPlayer->clientConsole = [];
+    $atkEngine->executeCommandAction($atkWorld, $atkPlayer, 'hide', $atkTarget->id, '');
+    assertTest(
+        str_contains(implode("\n", $atkPlayer->clientConsole), "Can't hide it"),
+        "hide command refuses non-item (Character) with 'Can't hide it'"
+    );
+
     @unlink($tmpDir . '/loop_test.dxw');
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');

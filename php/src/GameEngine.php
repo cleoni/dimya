@@ -941,7 +941,7 @@ class GameEngine
         $panel = $activePanels[0] ?? $world->defaultPanel;
         $isCoreCommand = in_array($cmd, [
             'look', 'click', 'go', 'pick', 'drop',
-            'give', 'put', 'insert', 'use', 'use2', 'usewith', 'open', 'close', 'search', 'say', 'help', 'save', 'enter', 'exit', 
+            'give', 'put', 'insert', 'use', 'use2', 'usewith', 'open', 'close', 'search', 'hide', 'say', 'help', 'save', 'enter', 'exit', 
             'logout', 'rotl', 'rotr', 'rev'
         ], true);
 
@@ -1181,6 +1181,20 @@ class GameEngine
                     } else {
                         $player->display("I found nothing new.");
                     }
+                }
+                break;
+
+            case 'hide':
+                $hideTarget = !empty($arg0) ? $arg0 : $arg1;
+                if ($hideTarget !== '') {
+                    $targetObj = $this->findAccessibleObject($player, $hideTarget);
+                    if ($targetObj instanceof AdvObject) {
+                        $player->actHide($targetObj);
+                    } else {
+                        $player->display("The selected item does not exist anymore.");
+                    }
+                } else {
+                    $player->actHide(null);
                 }
                 break;
 

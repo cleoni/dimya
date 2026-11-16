@@ -319,6 +319,42 @@ class AdvObject extends DimxObject
     }
 
     /**
+     * Check if this object can be hidden (true unless hideable=false/0).
+     */
+    public function isHideable(): bool
+    {
+        if ($this->hasProperty('hideable')) {
+            $val = $this->getProperty('hideable');
+            if ($val === false || $val === 0 || $val === '0' || (is_string($val) && strtolower(trim($val)) === 'false')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Hide this object inside its enclosing room or item container (AdvObject.java:hide).
+     */
+    public function hide(string &$errMsg = ''): bool
+    {
+        if ($this->isHidden()) {
+            $errMsg = "It's hidden, already.";
+            return false;
+        }
+        if (!$this->isHideable()) {
+            $errMsg = "Can't hide it";
+            return false;
+        }
+        if ($this->container instanceof Room || $this->container instanceof Item) {
+            $this->hidden = true;
+            $this->setProperty('hidden', 1);
+            return true;
+        }
+        $errMsg = "Can't hide it";
+        return false;
+    }
+
+    /**
      * Check if this object is currently invisible.
      */
     public function isInvisible(): bool
