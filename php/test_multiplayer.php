@@ -6272,14 +6272,16 @@ DXW
     if ($atkWorld->getPanel('pwarrior') === null) {
         $atkWorld->addPanel(new \Dimx\Panel('pwarrior'));
     }
-    $defPanel81 = $atkWorld->getPanel('default') ?? new \Dimx\Panel('default');
+    $defPanel81 = $atkWorld->getPanel('default') ?? $atkWorld->defaultPanel ?? new \Dimx\Panel('default');
     $defPanel81->addButton(new \Dimx\Ctrl('attack', \Dimx\Ctrl::TYPE_BUTTON, 'Attacca', 'Attacca ...', 'onAttack', null, 'O'));
     $atkWorld->addPanel($defPanel81);
+    $atkWorld->defaultPanel = $defPanel81;
     $atkStart = $atkWorld->getRoom('start') ?? reset($atkWorld->rooms);
     if (!$atkStart instanceof \Dimx\Room) {
         $atkStart = new \Dimx\Room($atkWorld, 'Start', 'start');
         $atkWorld->addRoom($atkStart);
     }
+    $atkStart->panel = null;
     $atkPlayer = new \Dimx\Player($atkWorld, 'AtkTester', 'atk_p1');
     $atkWorld->addPlayer($atkPlayer);
     $atkPlayer->move($atkStart);
@@ -6304,6 +6306,20 @@ DXW
     assertTest(
         !str_contains($atkConsole, 'Unknown command: attack'),
         "Panel button 'attack' does NOT emit 'Unknown command: attack'"
+    );
+
+    // UIhtml custom button eventModel handling (data-model="O" awaits target click)
+    $atkUi = new \Dimx\UIhtml($atkPlayer);
+    ob_start();
+    $atkUi->render(['world' => $atkWorld, 'player' => $atkPlayer, 'room' => $atkStart, 'messages' => [], 'lockError' => false]);
+    $atkHtml = (string)ob_get_clean();
+    assertTest(
+        str_contains($atkHtml, 'id="btn_attack"') && str_contains($atkHtml, 'data-model="O"'),
+        "UIhtml renders #btn_attack with data-model=\"O\""
+    );
+    assertTest(
+        str_contains($atkHtml, 'function getCommandDef(cmd)') && str_contains($atkHtml, 'const def = getCommandDef(cmd);'),
+        "UIhtml handleCommand uses getCommandDef(cmd) to honor data-model for custom panel buttons"
     );
 
     @unlink($tmpDir . '/loop_test.dxw');

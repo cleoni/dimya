@@ -2025,6 +2025,28 @@ class UIhtml extends UI
             let pendingArgs  = [];
             let pendingNames = [];
 
+            function getCommandDef(cmd) {
+              if (COMMAND_DEFS[cmd]) {
+                return COMMAND_DEFS[cmd];
+              }
+              const btn = document.getElementById('btn_' + cmd) || document.querySelector('#ctrls [data-cmd="' + cmd + '"]');
+              const model = (btn?.dataset?.model || btn?.getAttribute?.('data-model') || '').trim().toUpperCase();
+              const title = (btn?.title || btn?.innerText || cmd).trim();
+              let noArgs = 0;
+              if (model === 'OO') {
+                noArgs = 2;
+              } else if (model === 'O' || model === 'TO') {
+                noArgs = 1;
+              }
+              return {
+                noArgs: noArgs,
+                model: model,
+                allowDouble: false,
+                desc: title,
+                prompt: noArgs > 0 ? ('👉 ' + title) : ''
+              };
+            }
+
             /**
              * Identify an on-screen object from a DOM element, jQuery wrapper, or DimensioneX string ref.
              * Returns { id: string, type: string, name: string, fullId: string } or null.
@@ -2120,17 +2142,17 @@ class UIhtml extends UI
               pendingArgs.push(obj.id);
               pendingNames.push(obj.name);
 
-              const def = COMMAND_DEFS[pendingCmd] || { noArgs: 1 };
+              const def = getCommandDef(pendingCmd);
               if (pendingArgs.length >= (def.noArgs || 1)) {
                 // All required arguments acquired -> execute command!
                 const cmdToSubmit = pendingCmd;
                 const firstArg    = pendingArgs[0];
                 const secondArg   = pendingArgs.length > 1 ? pendingArgs[1] : '';
                 clearPendingCmd();
-                if (cmdToSubmit === 'say') {
+                if (cmdToSubmit === 'say' || def.model === 'TO') {
                   const tb = document.getElementById('txtBox');
                   const text = (tb && tb.value) ? tb.value : '';
-                  submitCmd('say', text, firstArg);
+                  submitCmd(cmdToSubmit, text, firstArg);
                 } else if ((def.noArgs || 1) === 1) {
                   submitCmd(cmdToSubmit, firstArg, '');
                 } else {
@@ -2145,7 +2167,7 @@ class UIhtml extends UI
              * Generic command button handler for cell B panel buttons.
              */
             function handleCommand(cmd) {
-              const def = COMMAND_DEFS[cmd] || { noArgs: 0, allowDouble: false };
+              const def = getCommandDef(cmd);
 
               // Double-click check: if user presses the same button twice
               if (pendingCmd === cmd && def.allowDouble) {
@@ -2217,7 +2239,7 @@ class UIhtml extends UI
                 return;
               }
 
-              const def = COMMAND_DEFS[pendingCmd] || {};
+              const def = getCommandDef(pendingCmd);
               let msg = def.prompt || ('Select target object for ' + pendingCmd.toUpperCase() + ' (Click to cancel)');
               if (pendingNames.length > 0) {
                 if (pendingCmd === 'use2' || pendingCmd === 'usewith') {
@@ -2286,16 +2308,16 @@ class UIhtml extends UI
                   return;
                 }
                 pendingArgs.push(clickedId);
-                const def = COMMAND_DEFS[pendingCmd] || { noArgs: 1 };
+                const def = getCommandDef(pendingCmd);
                 if (pendingArgs.length >= (def.noArgs || 1)) {
                   const cmdToSubmit = pendingCmd;
                   const firstArg = pendingArgs[0];
                   const secondArg = pendingArgs.length > 1 ? pendingArgs[1] : '';
                   clearPendingCmd();
-                  if (cmdToSubmit === 'say') {
+                  if (cmdToSubmit === 'say' || def.model === 'TO') {
                     const tb = document.getElementById('txtBox');
                     const text = (tb && tb.value) ? tb.value : '';
-                    submitCmd('say', text, firstArg);
+                    submitCmd(cmdToSubmit, text, firstArg);
                   } else if ((def.noArgs || 1) === 1) {
                     submitCmd(cmdToSubmit, firstArg, '');
                   } else {
