@@ -4385,6 +4385,9 @@ class ActionsRunner
                         return (string)($this->world->site ?? $this->world->getProperty('site') ?? '');
                     }
                     if ($varName === 'imagesfolder') {
+                        if (!empty($this->world->imagesFolder)) {
+                            return (string)$this->world->imagesFolder;
+                        }
                         return (string)($this->world->imagesFolderPublic ?? $this->world->imagesFolderLocal ?? '');
                     }
                     if ($varName === 'navigator') {

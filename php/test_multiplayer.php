@@ -5970,6 +5970,14 @@ DXW;
             str_contains($invHtml, 'uwpics/scroll.gif') && !str_contains($invHtml, 'src="scroll.gif"'),
             "UIhtml inventory renders dynamic NewItem icon with imagesFolder prefix (uwpics/scroll.gif)"
         );
+
+        // Verify gameInfo('imagesfolder') returns world->imagesFolder so htmlIcon() includes imagesFolder in src
+        $uwWorld->fireEvent('onStart', $uwWorld, null, '');
+        $htmlIconOut = (string)$invRunner->evalValue('htmlIcon("scroll.gif","indizi")');
+        assertTest(
+            str_contains($htmlIconOut, 'uwpics/scroll.gif'),
+            "it_underworld.dxw: htmlIcon(\"scroll.gif\",\"indizi\") includes world imagesFolder in img src"
+        );
     }
 
     // Unit test for LABEL "@expr()" in standalone world
