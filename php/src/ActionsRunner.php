@@ -4,6 +4,12 @@ declare(strict_types=1);
 namespace Dimx;
 
 /**
+ * Thrown when SmallBasic script execution exceeds the configured wall-clock timeout
+ * or maximum recursion depth.
+ */
+class ScriptTimeoutException extends \RuntimeException {}
+
+/**
  * ActionsRunner
  *
  * Evaluates and executes game event actions and DimensioneX script instructions
@@ -11,6 +17,58 @@ namespace Dimx;
  */
 class ActionsRunner
 {
+    /** Maximum allowed wall-clock time (ms) for a single top-level script execution. */
+    public static int $scriptTimeoutMs = 6000;
+
+    /** Maximum allowed nested script/event call depth before aborting. */
+    public static int $maxCallDepth = 100;
+
+    private static ?float $executionDeadlineMs = null;
+    private static int $executionDepth = 0;
+
+    /**
+     * Marks the start of a script or event execution, arming the deadline on the outermost call.
+     *
+     * @return bool True if this call is the outermost execution frame.
+     */
+    public static function beginExecution(): bool
+    {
+        $isOuter = (self::$executionDepth === 0);
+        if ($isOuter && self::$scriptTimeoutMs > 0) {
+            self::$executionDeadlineMs = (microtime(true) * 1000.0) + self::$scriptTimeoutMs;
+        }
+        self::$executionDepth++;
+        return $isOuter;
+    }
+
+    /**
+     * Marks the end of a script or event execution, clearing the deadline when the outermost call exits.
+     */
+    public static function endExecution(bool $isOuter): void
+    {
+        if (self::$executionDepth > 0) {
+            self::$executionDepth--;
+        }
+        if ($isOuter || self::$executionDepth === 0) {
+            self::$executionDeadlineMs = null;
+        }
+    }
+
+    /**
+     * Preemptively aborts script execution if the wall-clock deadline or max call depth is exceeded.
+     *
+     * @throws ScriptTimeoutException
+     */
+    public static function checkExecutionLimits(?World $world = null, string $fileShort = '', int $currLine = 0): void
+    {
+        $loc = ($fileShort !== '' && $currLine > 0) ? " in {$fileShort}({$currLine})" : '';
+        if (self::$executionDepth > self::$maxCallDepth) {
+            throw new ScriptTimeoutException("Script recursion depth exceeded (" . self::$maxCallDepth . "){$loc}");
+        }
+        if (self::$executionDeadlineMs !== null && (microtime(true) * 1000.0) >= self::$executionDeadlineMs) {
+            throw new ScriptTimeoutException("Script execution timeout exceeded (" . self::$scriptTimeoutMs . " ms){$loc}");
+        }
+    }
     protected World $world;
     protected ?DimxObject $owner = null;
     protected mixed $agent = null;
@@ -278,10 +336,20 @@ class ActionsRunner
             $this->log("{$this->fileShort}({$this->currLine}): running");
         }
 
+        $isOuter = self::beginExecution();
         try {
+            self::checkExecutionLimits($this->world, $this->fileShort, $this->currLine);
             $lines = $this->parseScriptToLines($script);
             return $this->executeLinesList($lines);
+        } catch (ScriptTimeoutException $e) {
+            if (!$isOuter) {
+                throw $e;
+            }
+            $this->log("SCRIPT TIMEOUT: " . $e->getMessage());
+            $this->displayError("ERROR: " . $e->getMessage());
+            return false;
         } finally {
+            self::endExecution($isOuter);
             if ($this->stackLevel > 0) {
                 $this->decIndent();
             }
@@ -308,9 +376,19 @@ class ActionsRunner
             $this->log("{$this->fileShort}({$this->currLine}): running");
         }
 
+        $isOuter = self::beginExecution();
         try {
+            self::checkExecutionLimits($this->world, $this->fileShort, $this->currLine);
             return $this->executeLinesList($lines);
+        } catch (ScriptTimeoutException $e) {
+            if (!$isOuter) {
+                throw $e;
+            }
+            $this->log("SCRIPT TIMEOUT: " . $e->getMessage());
+            $this->displayError("ERROR: " . $e->getMessage());
+            return false;
         } finally {
+            self::endExecution($isOuter);
             $this->decIndent();
             GameEngine::$currentScriptFile = $prevFile;
             GameEngine::$currentScriptLine = $prevLine;
@@ -397,6 +475,7 @@ class ActionsRunner
         $result = $this->defaultResult;
 
         while ($i < $count && !$this->hasReturned) {
+            self::checkExecutionLimits($this->world, $this->fileShort, $this->currLine);
             $lineItem = $lines[$i];
             $line = $lineItem['text'];
             $this->currLine = $lineItem['line'];
@@ -419,6 +498,8 @@ class ActionsRunner
 
                 try {
                     $condVal = $this->evalCondition($condClean);
+                } catch (ScriptTimeoutException $e) {
+                    throw $e;
                 } catch (\Throwable $e) {
                     $this->displayError("ERROR: " . $e->getMessage());
 
@@ -526,6 +607,8 @@ class ActionsRunner
                 $collExpr = trim($fem[2]);
                 try {
                     $collection = $this->evalValue($collExpr);
+                } catch (ScriptTimeoutException $e) {
+                    throw $e;
                 } catch (\Throwable $e) {
                     $this->displayError("ERROR: " . $e->getMessage());
 
@@ -580,6 +663,7 @@ class ActionsRunner
 
                 $elemIdx = 0;
                 foreach ($collection as $item) {
+                    self::checkExecutionLimits($this->world, $this->fileShort, $this->currLine);
                     $this->log("Looping. Set element # " . $elemIdx);
                     $this->setVariable($varName, $item);
                     $this->executeLinesList($loopLines);
@@ -602,6 +686,8 @@ class ActionsRunner
                     $startVal = (int)$this->evalValue($fm[2]);
                     $endVal = (int)$this->evalValue($fm[3]);
                     $step = isset($fm[5]) ? (int)$this->evalValue($fm[5]) : 1;
+                } catch (ScriptTimeoutException $e) {
+                    throw $e;
                 } catch (\Throwable $e) {
                     $this->displayError("ERROR: " . $e->getMessage());
 
@@ -649,6 +735,7 @@ class ActionsRunner
                 }
 
                 for ($val = $startVal; ($step > 0 ? $val <= $endVal : $val >= $endVal); $val += $step) {
+                    self::checkExecutionLimits($this->world, $this->fileShort, $this->currLine);
                     $this->log("Looping. Index= " . $val);
                     $this->setVariable($varName, $val);
                     $this->executeLinesList($loopLines);
@@ -666,6 +753,8 @@ class ActionsRunner
             // Normal single statement execution
             try {
                 $stmtRes = $this->executeStatement($line);
+            } catch (ScriptTimeoutException $e) {
+                throw $e;
             } catch (\Throwable $e) {
                 $this->displayError("ERROR: " . $e->getMessage());
                 $i++;

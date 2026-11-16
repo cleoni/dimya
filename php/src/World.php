@@ -783,12 +783,22 @@ class World extends DimxObject
             return $this->fireEvent($expression, $owner ?? $this, $agent, $target, $input);
         }
 
+        $isOuter = ActionsRunner::beginExecution();
         $runner = new ActionsRunner($this, $owner ?? $this, $agent, $target, $input);
         try {
+            ActionsRunner::checkExecutionLimits($this, '', 0);
             return $runner->evalValue($expression);
+        } catch (ScriptTimeoutException $e) {
+            if (!$isOuter) {
+                throw $e;
+            }
+            $runner->displayError("ERROR: " . $e->getMessage());
+            return '';
         } catch (\Throwable $e) {
             $runner->displayError("ERROR: " . $e->getMessage());
             return '';
+        } finally {
+            ActionsRunner::endExecution($isOuter);
         }
     }
 

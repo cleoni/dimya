@@ -186,8 +186,10 @@ class Event extends ManageableObject
             GameEngine::$activeInstance->incIndent();
         }
 
+        $isOuter = ActionsRunner::beginExecution();
         $res = null;
         try {
+            ActionsRunner::checkExecutionLimits($world instanceof World ? $world : null, $this->fileShort, $this->actionsStartLine);
             if ($this->handler !== null) {
                 $res = ($this->handler)($owner, $agent, $target, $input, $defaultResult);
             } elseif (!empty($this->actions)) {
@@ -211,7 +213,25 @@ class Event extends ManageableObject
                 $res = $defaultResult;
             }
             return $res;
+        } catch (ScriptTimeoutException $e) {
+            if (!$isOuter) {
+                throw $e;
+            }
+            $errMsg = "SCRIPT TIMEOUT: " . $e->getMessage();
+            if ($world instanceof World) {
+                $world->log($errMsg);
+            } elseif (GameEngine::$activeInstance !== null) {
+                GameEngine::$activeInstance->log($errMsg);
+            }
+            if ($owner instanceof Player) {
+                $owner->display("ERROR: " . $e->getMessage());
+            } elseif ($agent instanceof Player) {
+                $agent->display("ERROR: " . $e->getMessage());
+            }
+            $res = false;
+            return false;
         } finally {
+            ActionsRunner::endExecution($isOuter);
             if ($world instanceof World) {
                 $world->decIndent();
             } elseif (GameEngine::$activeInstance !== null) {

@@ -6114,6 +6114,57 @@ DXW
     assertTest(in_array($mname81, ['un mostro serpente', 'un beholder'], true), "popped(3) returns the monster name ('{$mname81}')");
     assertTest(is_array($imgparts81) && count($imgparts81) === 3, "NewArray(popped(4)) parses 3 image parts");
 
+    // Preemptive script execution timeout & recursion depth guard against infinite loops in .dxw
+    assertTest(\Dimx\ActionsRunner::$scriptTimeoutMs === 6000, "Default scriptTimeoutMs is 6000 ms");
+    $loopDxw = <<<'DXW'
+WORLD
+    NAME "Loop Guard Test World"
+    ROOM r1
+        NAME "Room 1"
+    END_ROOM
+    SCRIPTS
+        EVENT onLoopTest
+            Dim x = 0
+            For i = 10 To 1 Step 0
+                x = x + 1
+            Next
+            Return true
+        End_EVENT
+
+        EVENT onRecurseTest
+            Call onRecurseTest
+            Return true
+        End_EVENT
+
+        EVENT onNormalTest
+            Return "ok"
+        End_EVENT
+    END_SCRIPTS
+END_WORLD
+DXW;
+    file_put_contents($tmpDir . '/loop_test.dxw', $loopDxw);
+    $loopWorld = $loader81->load($tmpDir . '/loop_test.dxw');
+    assertTest($loopWorld instanceof \Dimx\World, "Loaded loop_test.dxw");
+
+    $origTimeout = \Dimx\ActionsRunner::$scriptTimeoutMs;
+    \Dimx\ActionsRunner::$scriptTimeoutMs = 150;
+    try {
+        $t0 = microtime(true);
+        $loopRes = $loopWorld->fireEvent('onLoopTest', $loopWorld);
+        $elapsedMs = (microtime(true) - $t0) * 1000.0;
+        assertTest($loopRes === false, "Infinite For-loop script aborted and returned false");
+        assertTest($elapsedMs >= 100.0 && $elapsedMs < 1500.0, "Infinite loop aborted near 150ms timeout (took " . round($elapsedMs, 1) . " ms)");
+
+        $recRes = $loopWorld->fireEvent('onRecurseTest', $loopWorld);
+        assertTest($recRes === false, "Infinite recursive event aborted cleanly and returned false");
+
+        $normalRes = $loopWorld->fireEvent('onNormalTest', $loopWorld);
+        assertTest($normalRes === 'ok', "Normal script execution still succeeds after timeout/recursion abort");
+    } finally {
+        \Dimx\ActionsRunner::$scriptTimeoutMs = $origTimeout;
+    }
+
+    @unlink($tmpDir . '/loop_test.dxw');
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');
     @unlink($tmpDir . '/main_test.dxw');
