@@ -1403,11 +1403,40 @@ class GameEngine
                 break;
 
             default:
-                // Check if the current panel defines a custom button/command event
-                $btn = $panel?->getButton($cmd);
+                // Check active panels first, then all world panels (matching DimX world.getAllPanelButtons().getIC(cmd))
+                $btn = null;
+                foreach ($player->getActivePanels() as $ap) {
+                    $btn = $ap->getButton($cmd);
+                    if ($btn !== null) {
+                        break;
+                    }
+                }
+                if ($btn === null) {
+                    foreach ($world->panels as $wp) {
+                        $btn = $wp->getButton($cmd);
+                        if ($btn !== null) {
+                            break;
+                        }
+                    }
+                }
+
                 $handled = false;
-                if ($btn !== null && !empty($btn->event)) {
-                    $handled = (bool)$world->fireEvent($btn->event, $world, $player, $arg1, ['param' => $arg0, 'arg0' => $arg0, 'arg1' => $arg1], false);
+                if ($btn !== null) {
+                    $handled = true;
+                    if (empty($btn->event)) {
+                        $this->log("Warning: No event foreseen for command {$cmd}");
+                    } else {
+                        $isTargetModel = (strlen($btn->eventModel) > 0 && strtoupper($btn->eventModel[0]) === 'T');
+                        $rawOwnerArg = $isTargetModel ? $arg1 : $arg0;
+                        $targId = $isTargetModel ? $arg0 : $arg1;
+                        $cleanOwnerId = preg_replace('/^[a-z]!/i', '', (string)$rawOwnerArg);
+                        $o = ($cleanOwnerId !== '')
+                            ? ($this->findAccessibleObject($player, $cleanOwnerId) ?? $world->getObjectExt($cleanOwnerId))
+                            : null;
+                        $owner = $o ?? $player;
+                        $cmdInput = ['param' => $arg0, 'arg0' => $arg0, 'arg1' => $arg1];
+                        $world->evaluateExpression($btn->event, $owner, $player, $targId, $cmdInput);
+                    }
                 }
                 if (!$handled) {
                     $handled = (bool)$world->fireEvent("cmd_{$cmd}", $player, $player, $arg1, ['param' => $arg0, 'arg0' => $arg0, 'arg1' => $arg1], false);

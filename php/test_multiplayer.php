@@ -6266,6 +6266,46 @@ DXW
         "Call with getKillTotalTest(winner)-winner.Uccisioni when winner.Uccisioni is null evaluates to 1 (not literal string)"
     );
 
+    // Custom panel button dispatch (e.g. 'attack' button in default panel while player panel is 'pwarrior')
+    $atkEngine = new \Dimx\GameEngine($GLOBALS['pm'], 'main_test_atk_' . uniqid(), $tmpDir . '/main_test.dxw');
+    $atkWorld = $atkEngine->loadOrSeedWorld();
+    if ($atkWorld->getPanel('pwarrior') === null) {
+        $atkWorld->addPanel(new \Dimx\Panel('pwarrior'));
+    }
+    $defPanel81 = $atkWorld->getPanel('default') ?? new \Dimx\Panel('default');
+    $defPanel81->addButton(new \Dimx\Ctrl('attack', \Dimx\Ctrl::TYPE_BUTTON, 'Attacca', 'Attacca ...', 'onAttack', null, 'O'));
+    $atkWorld->addPanel($defPanel81);
+    $atkStart = $atkWorld->getRoom('start') ?? reset($atkWorld->rooms);
+    if (!$atkStart instanceof \Dimx\Room) {
+        $atkStart = new \Dimx\Room($atkWorld, 'Start', 'start');
+        $atkWorld->addRoom($atkStart);
+    }
+    $atkPlayer = new \Dimx\Player($atkWorld, 'AtkTester', 'atk_p1');
+    $atkWorld->addPlayer($atkPlayer);
+    $atkPlayer->move($atkStart);
+    $atkPlayer->setPanel('pwarrior');
+    $atkTarget = new \Dimx\Character($atkWorld, 'Bersaglio', 'atk_mob');
+    $atkTarget->setProperty('Salute', 10);
+    $atkWorld->addCharacter($atkTarget);
+    $atkTarget->move($atkStart);
+    $atkCapturedOwner = null;
+    $evTestAttack = new \Dimx\Event('onAttack', 'EVENT', function ($owner, $agent, $target, $input) use (&$atkCapturedOwner) {
+        $atkCapturedOwner = $owner;
+        return false; // Even returning false must not trigger 'Unknown command: attack'
+    });
+    $atkWorld->events['onAttack'] = $evTestAttack;
+    $atkPlayer->clientConsole = [];
+    $atkEngine->executeCommandAction($atkWorld, $atkPlayer, 'attack', $atkTarget->id, '');
+    $atkConsole = implode("\n", $atkPlayer->clientConsole);
+    assertTest(
+        $atkCapturedOwner === $atkTarget,
+        "Panel button 'attack' dispatches onAttack with \$OWNER = target monster (even when active panel is pwarrior + default)"
+    );
+    assertTest(
+        !str_contains($atkConsole, 'Unknown command: attack'),
+        "Panel button 'attack' does NOT emit 'Unknown command: attack'"
+    );
+
     @unlink($tmpDir . '/loop_test.dxw');
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');
