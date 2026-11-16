@@ -2203,7 +2203,15 @@ class UIhtml extends UI
               // If command requires 0 arguments (instant execution)
               if (!def.noArgs || def.noArgs === 0) {
                 clearPendingCmd();
-                submitCmd(cmd);
+                if (def.model === 'T') {
+                  const btn = document.getElementById('btn_' + cmd) || document.querySelector('#ctrls [data-cmd="' + cmd + '"]');
+                  const panelTb = btn?.closest?.('.dimx-panel')?.querySelector?.('input.dimx-textbox');
+                  const tb = panelTb || document.getElementById('txtBox');
+                  const text = (tb && tb.value) ? tb.value : '';
+                  submitCmd(cmd, text, '');
+                } else {
+                  submitCmd(cmd);
+                }
                 return;
               }
 

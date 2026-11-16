@@ -6362,6 +6362,38 @@ DXW
         "linked.image(\"N\").url = im.url updates linked tr1a_test image src to 'tdopen.gif'"
     );
 
+    // Local parameter named 'target' in Print target, ... (e.g. Sub giveMoney(target, value))
+    $evGiveMoneyTest = new \Dimx\Event('giveMoneyTest', 'SUB', null, ['target', 'value']);
+    $evGiveMoneyTest->actions = 'Print target, "Adesso ho " + value + " monete d\'oro!"';
+    $w81->events['giveMoneyTest'] = $evGiveMoneyTest;
+    $accPlayer->clientConsole = [];
+    $accRunner->run('Call giveMoneyTest($AGENT, 5)');
+    $gmConsole = implode("\n", $accPlayer->clientConsole);
+    assertTest(
+        str_contains($gmConsole, "Adesso ho 5 monete d'oro!"),
+        "Print target, ... inside Sub(target, value) resolves local parameter 'target' instead of \$TARGET"
+    );
+
+    // 'T' eventModel button (e.g. withdraw) forwards txtBox value as $TARGET to event
+    $pbankPanel = new \Dimx\Panel('pbank');
+    $pbankPanel->addButton(new \Dimx\Ctrl('withdraw', \Dimx\Ctrl::TYPE_BUTTON, 'Preleva', 'Preleva denaro', 'doWithdrawTest', null, 'T'));
+    $atkWorld->addPanel($pbankPanel);
+    $atkPlayer->setPanel('pbank');
+    $withdrawTarget = null;
+    $atkWorld->events['doWithdrawTest'] = new \Dimx\Event('doWithdrawTest', 'EVENT', function ($owner, $agent, $target, $input) use (&$withdrawTarget) {
+        $withdrawTarget = $target;
+        return true;
+    });
+    $atkEngine->executeCommandAction($atkWorld, $atkPlayer, 'withdraw', '5', '');
+    assertTest(
+        $withdrawTarget === '5',
+        "Panel button with eventModel 'T' (withdraw) passes arg0 ('5') as \$TARGET to event"
+    );
+    assertTest(
+        str_contains($atkHtml, "if (def.model === 'T')"),
+        "UIhtml handleCommand reads textbox value for eventModel 'T' buttons"
+    );
+
     @unlink($tmpDir . '/loop_test.dxw');
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');

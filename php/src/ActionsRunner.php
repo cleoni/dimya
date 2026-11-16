@@ -2558,6 +2558,10 @@ class ActionsRunner
         if ($allowSys && $upper === 'SYS') {
             return $this->world?->getDefaultCharacter();
         }
+        $obj = $this->resolveObject($t);
+        if ($obj !== null) {
+            return $obj;
+        }
         if ($upper === 'AGENT') {
             return ($this->agent instanceof DimxObject) ? $this->agent : null;
         }
@@ -2566,10 +2570,6 @@ class ActionsRunner
         }
         if ($upper === 'TARGET') {
             return ($this->target instanceof DimxObject) ? $this->target : null;
-        }
-        $obj = $this->resolveObject($t);
-        if ($obj !== null) {
-            return $obj;
         }
         if (strpbrk($t, '.(') !== false) {
             $val = $this->evalValue($t);
