@@ -20,6 +20,8 @@ class Panel
     public function __construct(string $id = 'default')
     {
         $this->id = $id;
+        $this->addButton(new Ctrl('go', Ctrl::TYPE_GHOST, 'Go', 'Go ...', '', null, 'O'));
+        $this->addButton(new Ctrl('look', Ctrl::TYPE_GHOST, 'Look', 'Look ...', '', null, 'O'));
     }
 
     public function addButton(Ctrl $ctrl): void

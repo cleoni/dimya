@@ -5815,7 +5815,7 @@ DXW;
 
     // Check snapshot HTML contains PANEL initial and PANEL initchoice
     $snapHtml = $w81->htmlAdminSnapshot();
-    assertTest(str_contains($snapHtml, 'initial: logout, help'), "Admin snapshot lists PANEL initial");
+    assertTest(str_contains($snapHtml, 'initial: go, look, logout, help'), "Admin snapshot lists PANEL initial");
     assertTest(str_contains($snapHtml, 'initchoice:'), "Admin snapshot lists PANEL initchoice");
 
     // If it_underworld.dxw exists in ../../worlds/it_underworld.dxw, verify it directly
@@ -5977,6 +5977,32 @@ DXW;
         assertTest(
             str_contains($htmlIconOut, 'uwpics/scroll.gif'),
             "it_underworld.dxw: htmlIcon(\"scroll.gif\",\"indizi\") includes world imagesFolder in img src"
+        );
+
+        // Verify every Panel includes ghost 'go' and 'look' controls and player panel + room/default panel combine in UIhtml
+        $pwarrior = $uwWorld->getPanel('pwarrior');
+        assertTest(
+            $pwarrior !== null && str_starts_with((string)$pwarrior, 'pwarrior: go, look, _lbl'),
+            "it_underworld.dxw: PANEL pwarrior snapshot includes go, look, _lbl*"
+        );
+        $loosePlayer->setPanel('pwarrior');
+        $activePanels = $loosePlayer->getActivePanels();
+        assertTest(
+            count($activePanels) === 2 && $activePanels[0]->id === 'pwarrior' && $activePanels[1]->id === 'default',
+            "Player with SetPanel 'pwarrior' in Start has activePanels [pwarrior, default]"
+        );
+        ob_start();
+        (new \Dimx\UIhtml($loosePlayer))->render([
+            'world'     => $uwWorld,
+            'player'    => $loosePlayer,
+            'room'      => $roomStart,
+            'messages'  => [],
+            'lockError' => false,
+        ]);
+        $warriorCtrlsHtml = ob_get_clean();
+        assertTest(
+            str_contains($warriorCtrlsHtml, 'id="panel_pwarrior"') && str_contains($warriorCtrlsHtml, 'id="panel_default"'),
+            "UIhtml #ctrls renders both player panel (pwarrior) and room/default panel (default)"
         );
     }
 

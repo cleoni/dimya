@@ -937,16 +937,26 @@ class GameEngine
             $arg1 = '';
         }
 
-        $panel = $player->getPanel() ?? $world->defaultPanel;
+        $activePanels = $player->getActivePanels();
+        $panel = $activePanels[0] ?? $world->defaultPanel;
         $isCoreCommand = in_array($cmd, [
             'look', 'click', 'go', 'pick', 'drop',
             'give', 'put', 'insert', 'use', 'use2', 'usewith', 'open', 'close', 'search', 'say', 'help', 'save', 'enter', 'exit', 
             'logout', 'rotl', 'rotr', 'rev'
         ], true);
 
-        $btn = $panel?->getButton($cmd);
+        $btn = null;
+        $cmdAllowed = empty($activePanels);
+        foreach ($activePanels as $ap) {
+            if ($btn === null) {
+                $btn = $ap->getButton($cmd);
+            }
+            if ($ap->isCommandAllowed($cmd)) {
+                $cmdAllowed = true;
+            }
+        }
         $hasCustomEvent = ($btn !== null && !empty($btn->event)) || isset($world->events["cmd_{$cmd}"]);
-        if ($panel !== null && ($isCoreCommand || $hasCustomEvent || $btn !== null) && !$panel->isCommandAllowed($cmd)) {
+        if ($panel !== null && ($isCoreCommand || $hasCustomEvent || $btn !== null) && !$cmdAllowed) {
             $player->display("Command '{$cmd}' is not allowed in current panel ({$panel->id}).");
             return;
         }

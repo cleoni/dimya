@@ -19,6 +19,7 @@ class Ctrl extends ManageableObject
     public const TYPE_CR       = 'CR';
     public const TYPE_MAP      = 'MAP';
     public const TYPE_CMD      = 'CMD';
+    public const TYPE_GHOST    = 'GHOST';
 
     public string $id = '';
     public string $type = self::TYPE_BUTTON;
@@ -65,6 +66,7 @@ class Ctrl extends ManageableObject
             self::TYPE_TEXTBOX => "<input type=\"text\" name=\"" . htmlspecialchars($this->id, ENT_QUOTES) . "\" id=\"" . htmlspecialchars($this->id, ENT_QUOTES) . "\" class=\"dimx-textbox\" placeholder=\"" . htmlspecialchars($this->tooltip, ENT_QUOTES) . "\" onkeydown=\"if(event.key==='Enter'){sendCmd('say', this.value, '*');event.preventDefault();}\" />\n",
             self::TYPE_DROPDOWN => $this->renderDropdown(),
             self::TYPE_CMD => "<!-- Hidden CMD {$this->id} -->\n",
+            self::TYPE_GHOST => '',
             default => $this->renderButton($skin),
         };
     }

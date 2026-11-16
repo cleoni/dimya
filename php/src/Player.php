@@ -495,6 +495,45 @@ class Player extends Character
     }
 
     /**
+     * Returns only the player-specific panel (if assigned via SetPanel), or null.
+     */
+    public function getOwnPanel(): ?Panel
+    {
+        return $this->panel;
+    }
+
+    /**
+     * Returns the room/container panel if defined, otherwise the world's default panel.
+     */
+    public function getRoomOrDefaultPanel(): ?Panel
+    {
+        $container = $this->container;
+        if ($container instanceof PeopleContainer && $container->panel !== null) {
+            return $container->panel;
+        }
+        return $this->world?->defaultPanel ?? null;
+    }
+
+    /**
+     * Returns the ordered list of active panels for this player:
+     * player-specific panel (if set) + room-specific (or world default) panel.
+     *
+     * @return array<Panel>
+     */
+    public function getActivePanels(): array
+    {
+        $panels = [];
+        if ($this->panel !== null) {
+            $panels[] = $this->panel;
+        }
+        $roomOrDefault = $this->getRoomOrDefaultPanel();
+        if ($roomOrDefault !== null && $roomOrDefault !== $this->panel) {
+            $panels[] = $roomOrDefault;
+        }
+        return $panels;
+    }
+
+    /**
      * Returns the combined panel IDs string for this player and their container,
      * matching DimensioneX Client.getPanelIds() ("_<playerPanelId>+_<containerPanelId>").
      */

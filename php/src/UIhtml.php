@@ -1855,17 +1855,30 @@ class UIhtml extends UI
                 }
               ?>
               <div id="ctrls" style="<?= $ctrlsStyle ?>">
-                <?php $activePanel = $player->getPanel() ?? $world->defaultPanel; ?>
+                <?php
+                  $activePanels = $player->getActivePanels();
+                  $activePanel  = $activePanels[0] ?? $world->defaultPanel;
+                  $hasTxtBox    = false;
+                  foreach ($activePanels as $ap) {
+                      if ($ap->getButton('txtBox') !== null) {
+                          $hasTxtBox = true;
+                          break;
+                      }
+                  }
+                ?>
                 <div id="cmdPrompt" class="dimx-cmd-prompt" title="Click to cancel pending command" onclick="clearPendingCmd()"></div>
                 <form id="cmdForm" data-panel-id="<?= htmlspecialchars($activePanel?->id ?? 'default') ?>" method="POST" action="multiplayer.php" style="margin:0" onsubmit="return handleFormSubmit(event)">
                   <input type="hidden" name="cmd"  id="cmdInput"  value="look" />
                   <input type="hidden" name="arg0" id="arg0Input" value="" />
                   <input type="hidden" name="arg1" id="arg1Input" value="" />
                   <input type="hidden" name="view" id="viewInput" value="scene" />
-                  <?php if ($activePanel?->getButton('txtBox') !== null): ?>
+                  <?php if ($hasTxtBox): ?>
                     <div style="font-size:12px;color:#111;margin-bottom:4px;font-weight:600">Write here and hit ENTER to speak</div>
                   <?php endif; ?>
-                  <?= $activePanel?->toHtml($skin, $world, $player->container ?? $player, $player) ?>
+                  <?php foreach ($activePanels as $idx => $ap): ?>
+                    <?php if ($idx > 0): ?><br /><?php endif; ?>
+                    <?= $ap->toHtml($skin, $world, $player->container ?? $player, $player) ?>
+                  <?php endforeach; ?>
                 </form>
                 <?php if ($musicEnabled): ?>
                   <audio id="bgplayer"<?= ($bgMusic !== null && !empty($bgMusic['src'])) ? ' src="' . htmlspecialchars($bgMusic['src']) . '"' : '' ?><?= (!empty($bgMusic['loop'])) ? ' loop' : '' ?> hidden style="display:none"></audio>
