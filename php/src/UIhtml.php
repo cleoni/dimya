@@ -1164,7 +1164,7 @@ class UIhtml extends UI
 
                             if ($charImg && !empty($charImg->src)):
                               $isIcon = ($char->showmode === \Dimx\AdvObject::SHOW_ICON);
-                              $imgSrc = ($isIcon && !empty($char->icon)) ? $char->icon : $charImg->src;
+                              $imgSrc = ($isIcon && !empty($char->icon)) ? $char->getResolvedIcon() : $world->resolveImageUrl($charImg->src);
                               $baseW = $isIcon ? ($world->iconSize ?? 16) : (!empty($charImg->width) ? $charImg->width : ($world->iconSize ?? 16));
                               $baseH = $isIcon ? ($world->iconSize ?? 16) : (!empty($charImg->height) ? $charImg->height : ($world->iconSize ?? 16));
 
@@ -1228,8 +1228,11 @@ class UIhtml extends UI
 
                             $isIcon = ($lnk->showmode === \Dimx\AdvObject::SHOW_ICON);
                             $imgSrc = ($isIcon && !empty($lnk->icon))
-                              ? $lnk->icon
-                              : ($lnk->images['N']->src ?? $lnk->image->src ?? $lnk->icon ?? null);
+                              ? $lnk->getResolvedIcon()
+                              : ($lnk->images['N']->src ?? $lnk->image->src ?? (!empty($lnk->icon) ? $lnk->getResolvedIcon() : null));
+                            if ($imgSrc) {
+                              $imgSrc = $world->resolveImageUrl($imgSrc);
+                            }
                             if ($imgSrc):
                               $baseW = $isIcon
                                 ? ($world->iconSize ?? 16)
@@ -1302,8 +1305,11 @@ class UIhtml extends UI
 
                             $isIcon = ($itm->showmode === \Dimx\AdvObject::SHOW_ICON);
                             $imgSrc = ($isIcon && !empty($itm->icon))
-                              ? $itm->icon
-                              : ($itm->images['N']->src ?? $itm->icon ?? ($isIcon ? $skin->getItemIcon() : null));
+                              ? $itm->getResolvedIcon()
+                              : ($itm->images['N']->src ?? (!empty($itm->icon) ? $itm->getResolvedIcon() : ($isIcon ? $skin->getItemIcon() : null)));
+                            if ($imgSrc) {
+                              $imgSrc = $world->resolveImageUrl($imgSrc);
+                            }
                             if ($imgSrc):
                               $baseW = $isIcon
                                 ? ($world->iconSize ?? 16)
@@ -1566,7 +1572,7 @@ class UIhtml extends UI
                                     ? $forwardLink->getDisplayName($currentRoom->id)
                                     : (!empty($forwardLink->name) && $forwardLink->name !== ($forwardLink->id ?? '') ? $forwardLink->name : \Dimx\Link::getExtendedDirectionName($actualDir));
                                   // In multiface navpad, forward direction arrow is always North pointing arrow (straight ahead)
-                                  $linkIcon = !empty($forwardLink->icon) ? $forwardLink->icon : $skin->getWayIcon('N');
+                                  $linkIcon = $forwardLink->getResolvedIcon($skin->getWayIcon('N'));
                                 ?>
                                 <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars(!empty($forwardLink->id) ? $forwardLink->id : $actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars(!empty($forwardLink->id) ? $forwardLink->id : $actualDir) ?>');if(window.event){window.event.stopPropagation();}return false;">
                                   <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
@@ -1582,7 +1588,7 @@ class UIhtml extends UI
                                   $linkDisplayName = ($link instanceof \Dimx\Link)
                                     ? $link->getDisplayName($currentRoom->id)
                                     : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($actualDir));
-                                  $linkIcon = !empty($link->icon) ? $link->icon : (in_array(strtoupper($actualDir), ['U', 'UP'], true) ? $skin->getWayIcon('U') : $skin->getWayIcon('N'));
+                                  $linkIcon = $link->getResolvedIcon(in_array(strtoupper($actualDir), ['U', 'UP'], true) ? $skin->getWayIcon('U') : $skin->getWayIcon('N'));
                                 ?>
                                 <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>');if(window.event){window.event.stopPropagation();}return false;">
                                   <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
@@ -1615,7 +1621,7 @@ class UIhtml extends UI
                                   $linkDisplayName = ($link instanceof \Dimx\Link)
                                     ? $link->getDisplayName($currentRoom->id)
                                     : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($actualDir));
-                                  $linkIcon = !empty($link->icon) ? $link->icon : $skin->getWayIcon('W');
+                                  $linkIcon = $link->getResolvedIcon($skin->getWayIcon('W'));
                                 ?>
                                 <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>');if(window.event){window.event.stopPropagation();}return false;">
                                   <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
@@ -1645,7 +1651,7 @@ class UIhtml extends UI
                                   $linkDisplayName = ($link instanceof \Dimx\Link)
                                     ? $link->getDisplayName($currentRoom->id)
                                     : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($actualDir));
-                                  $linkIcon = !empty($link->icon) ? $link->icon : $skin->getWayIcon('E');
+                                  $linkIcon = $link->getResolvedIcon($skin->getWayIcon('E'));
                                 ?>
                                 <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>');if(window.event){window.event.stopPropagation();}return false;">
                                   <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
@@ -1678,7 +1684,7 @@ class UIhtml extends UI
                                   $linkDisplayName = ($link instanceof \Dimx\Link)
                                     ? $link->getDisplayName($currentRoom->id)
                                     : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : \Dimx\Link::getExtendedDirectionName($actualDir));
-                                  $linkIcon = !empty($link->icon) ? $link->icon : (in_array(strtoupper($actualDir), ['D', 'DOWN'], true) ? $skin->getWayIcon('D') : $skin->getWayIcon('S'));
+                                  $linkIcon = $link->getResolvedIcon(in_array(strtoupper($actualDir), ['D', 'DOWN'], true) ? $skin->getWayIcon('D') : $skin->getWayIcon('S'));
                                 ?>
                                 <a href="#" class="dimx-nav-btn dimx-onscreen-obj" data-obj-id="<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>" data-obj-type="w" data-obj-name="<?= htmlspecialchars($linkDisplayName) ?>" data-dir="<?= htmlspecialchars($actualDir) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" onclick="sendCmd('go','<?= htmlspecialchars(!empty($link->id) ? $link->id : $actualDir) ?>');if(window.event){window.event.stopPropagation();}return false;">
                                   <img src="<?= htmlspecialchars($linkIcon) ?>" width="16" height="16" alt="<?= htmlspecialchars($linkDisplayName) ?>" title="<?= htmlspecialchars($linkDisplayName) ?>" style="border:0;display:block" />
@@ -1701,7 +1707,7 @@ class UIhtml extends UI
                           <?php
                             $dir = $link->getDirection($currentRoom->id);
                             $dirExtended = \Dimx\Link::getExtendedDirectionName($dir);
-                            $otherIcon = !empty($link->icon) ? $link->icon : $skin->getWayIcon($dir);
+                            $otherIcon = $link->getResolvedIcon($skin->getWayIcon($dir));
                             $linkDisplayName = ($link instanceof \Dimx\Link)
                               ? $link->getDisplayName($currentRoom->id)
                               : (!empty($link->name) && $link->name !== ($link->id ?? '') ? $link->name : $dirExtended);
@@ -1726,9 +1732,7 @@ class UIhtml extends UI
                       <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
                         <?php foreach ($offscreenChars as $oc): ?>
                           <?php
-                            $charIcon = !empty($oc->icon)
-                                ? $oc->icon
-                                : ($oc instanceof \Dimx\Player ? $skin->getPlayerIcon() : $skin->getCharacterIcon());
+                            $charIcon = $oc->getResolvedIcon($oc instanceof \Dimx\Player ? $skin->getPlayerIcon() : $skin->getCharacterIcon());
                           ?>
                           <div>
                             <a href="javascript:void(0)"
@@ -1762,7 +1766,7 @@ class UIhtml extends UI
                       <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
                         <?php foreach ($offscreenItems as $itm): ?>
                           <?php
-                            $itemIcon = !empty($itm->icon) ? $itm->icon : $skin->getItemIcon();
+                            $itemIcon = $itm->getResolvedIcon($skin->getItemIcon());
                           ?>
                           <div>
                             <a href="javascript:void(0)"
@@ -1788,7 +1792,7 @@ class UIhtml extends UI
                     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
                       <?php foreach ($inventory as $item): ?>
                         <?php
-                          $itemIcon = !empty($item->icon) ? $item->icon : $skin->getItemIcon();
+                          $itemIcon = $item->getResolvedIcon($skin->getItemIcon());
                         ?>
                         <div style="background:rgba(255,255,255,0.06);padding:3px 6px;border-radius:3px;font-size:12px">
                           <a href="javascript:void(0)"

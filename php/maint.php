@@ -228,65 +228,6 @@ if ($pm->isConnected()) {
     </div>
   </div>
 
-  <!-- Storage diagnostics -->
-  <div class="maint-card">
-    <h3>Storage &amp; Database</h3>
-    <p>
-      Status:
-      <?php if ($diag['connected']): ?>
-        <span class="status-badge badge-ok">✔ <?= $diag['type'] ?></span>
-      <?php else: ?>
-        <span class="status-badge badge-warn">⚠ <?= $diag['type'] ?></span>
-      <?php endif; ?>
-    </p>
-    <p style="font-size:14px;color:#94a3b8"><?= htmlspecialchars($diag['message']) ?></p>
-
-    <?php if ($diag['connected']): ?>
-    <!-- Row count stats -->
-    <div class="stat-grid" style="margin:16px 0">
-      <div class="stat-box"><div class="stat-num">Active</div><div class="stat-label">Single World</div></div>
-      <div class="stat-box"><div class="stat-num"><?= $players >= 0 ? $players : '?' ?></div><div class="stat-label">Players</div></div>
-      <div class="stat-box"><div class="stat-num"><?= $settings >= 0 ? $settings : '?' ?></div><div class="stat-label">Settings</div></div>
-      <div class="stat-box"><div class="stat-num"><?= $messages >= 0 ? $messages : '?' ?></div><div class="stat-label">Chat Messages</div></div>
-    </div>
-    <?php endif; ?>
-
-    <form method="POST" style="display:inline" onsubmit="return syncPasswd(this)">
-      <input type="hidden" name="action" value="init_db" />
-      <input type="hidden" name="adminPasswd" class="form-admin-passwd" value="<?= htmlspecialchars($inputPasswd) ?>" />
-      <button type="submit" class="btn">Initialize / Upgrade MySQL Tables</button>
-    </form>
-  </div>
-
-  <!-- System Snapshot -->
-  <div class="maint-card">
-    <h3>📸 System Snapshot</h3>
-    <p style="font-size:13px;color:#94a3b8">Generate a full runtime text snapshot of the game engine and world (rooms, characters, items, links, events, panels, and properties).</p>
-    <form method="POST" onsubmit="return syncPasswd(this)">
-      <input type="hidden" name="action" value="snapshot" />
-      <input type="hidden" name="adminPasswd" class="form-admin-passwd" value="<?= htmlspecialchars($inputPasswd) ?>" />
-      <button type="submit" class="btn">📸 Generate System Snapshot</button>
-    </form>
-  </div>
-
-  <!-- Active world locks -->
-  <div class="maint-card">
-    <h3>🔐 Active World Locks</h3>
-    <?php if (empty($activeLocks)): ?>
-      <p style="color:#64748b;font-size:14px">No world locks currently held. (Requires performance_schema access.)</p>
-    <?php else: ?>
-      <table>
-        <tr><th>Lock Name</th><th>Status</th></tr>
-        <?php foreach ($activeLocks as $lk): ?>
-          <tr>
-            <td><?= htmlspecialchars($lk['lock_name'] ?? '') ?></td>
-            <td><?= htmlspecialchars($lk['LOCK_STATUS'] ?? '') ?></td>
-          </tr>
-        <?php endforeach; ?>
-      </table>
-    <?php endif; ?>
-  </div>
-
   <!-- World management -->
   <div class="maint-card">
     <h3>🌍 World Management</h3>
@@ -300,6 +241,17 @@ if ($pm->isConnected()) {
         </label>
       </div>
       <button type="submit" class="btn btn-danger">🔄 Reset Game World</button>
+    </form>
+  </div>
+
+  <!-- System Snapshot -->
+  <div class="maint-card">
+    <h3>📸 System Snapshot</h3>
+    <p style="font-size:13px;color:#94a3b8">Generate a full runtime text snapshot of the game engine and world (rooms, characters, items, links, events, panels, and properties).</p>
+    <form method="POST" onsubmit="return syncPasswd(this)">
+      <input type="hidden" name="action" value="snapshot" />
+      <input type="hidden" name="adminPasswd" class="form-admin-passwd" value="<?= htmlspecialchars($inputPasswd) ?>" />
+      <button type="submit" class="btn">📸 Generate System Snapshot</button>
     </form>
   </div>
 
@@ -333,30 +285,54 @@ if ($pm->isConnected()) {
     </form>
   </div>
 
-  <!-- Config reference -->
+  <!-- Storage diagnostics -->
   <div class="maint-card">
-    <h3>Configuration Reference</h3>
-    <pre style="background:#090d16;padding:12px;border-radius:6px;font-size:12px;color:#38bdf8;overflow-x:auto">// php/config.php
-return [
-    'db' => [
-        'host'   => '127.0.0.1',
-        'port'   => 3306,
-        'dbname' => 'dimya',
-        'user'   => 'root',
-        'pass'   => 'secret',
-    ],
-    'adminPasswd' => 'admin123',
-    'serverType'  => 'public',
-    'debugTo'     => 'none',
-    'world_file'  => __DIR__ . '/../docs/dxw-examples/world3net.dxw',
-    'tickLength'  => 30,
-    'msgRefreshRate' => 5,
-    'base_url'    => 'http://localhost',
-    'testBots'    => [
-        'BotAlpha',
-    ],
-];</pre>
+    <h3>Storage &amp; Database</h3>
+    <p>
+      Status:
+      <?php if ($diag['connected']): ?>
+        <span class="status-badge badge-ok">✔ <?= $diag['type'] ?></span>
+      <?php else: ?>
+        <span class="status-badge badge-warn">⚠ <?= $diag['type'] ?></span>
+      <?php endif; ?>
+    </p>
+    <p style="font-size:14px;color:#94a3b8"><?= htmlspecialchars($diag['message']) ?></p>
+
+    <?php if ($diag['connected']): ?>
+    <!-- Row count stats -->
+    <div class="stat-grid" style="margin:16px 0">
+      <div class="stat-box"><div class="stat-num">Active</div><div class="stat-label">Single World</div></div>
+      <div class="stat-box"><div class="stat-num"><?= $players >= 0 ? $players : '?' ?></div><div class="stat-label">Players</div></div>
+      <div class="stat-box"><div class="stat-num"><?= $settings >= 0 ? $settings : '?' ?></div><div class="stat-label">Settings</div></div>
+      <div class="stat-box"><div class="stat-num"><?= $messages >= 0 ? $messages : '?' ?></div><div class="stat-label">Chat Messages</div></div>
+    </div>
+    <?php endif; ?>
+
+    <form method="POST" style="display:inline" onsubmit="return syncPasswd(this)">
+      <input type="hidden" name="action" value="init_db" />
+      <input type="hidden" name="adminPasswd" class="form-admin-passwd" value="<?= htmlspecialchars($inputPasswd) ?>" />
+      <button type="submit" class="btn">Initialize / Upgrade MySQL Tables</button>
+    </form>
   </div>
+
+  <!-- Active world locks -->
+  <div class="maint-card">
+    <h3>🔐 Active World Locks</h3>
+    <?php if (empty($activeLocks)): ?>
+      <p style="color:#64748b;font-size:14px">No world locks currently held. (Requires performance_schema access.)</p>
+    <?php else: ?>
+      <table>
+        <tr><th>Lock Name</th><th>Status</th></tr>
+        <?php foreach ($activeLocks as $lk): ?>
+          <tr>
+            <td><?= htmlspecialchars($lk['lock_name'] ?? '') ?></td>
+            <td><?= htmlspecialchars($lk['LOCK_STATUS'] ?? '') ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </table>
+    <?php endif; ?>
+  </div>
+
 
 </div>
 

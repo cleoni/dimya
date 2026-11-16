@@ -1064,7 +1064,6 @@ class ActionsRunner
         $item = new Item($this->world, $name, $id, $descr, null, $evalAttrs, 5, 1, $posId);
         if ($image !== null) {
             $item->setImage('N', $image);
-            $item->image = $image;
         }
 
         if ($this->world !== null) {
@@ -1140,7 +1139,6 @@ class ActionsRunner
         $char = new Character($this->world, $name, $id, $descr, null, $evalAttrs, $capacity, $volume, $posId);
         if ($image !== null) {
             $char->setImage('N', $image);
-            $char->image = $image;
         }
 
         if ($this->world !== null) {
@@ -1268,7 +1266,6 @@ class ActionsRunner
         );
         if ($image !== null) {
             $link->setImage('N', $image);
-            $link->image = $image;
         }
 
         if ($this->world !== null) {

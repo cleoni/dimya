@@ -89,4 +89,23 @@ class Image extends ManageableObject
     {
         return "NewImage(\"{$this->src}\", {$this->width}, {$this->height})";
     }
+
+    /**
+     * Resolves a relative image/icon URL against an images folder path at runtime.
+     */
+    public static function resolveUrl(string $url, string $folder): string
+    {
+        $url = trim($url);
+        if ($url === '' || str_starts_with($url, 'http://') || str_starts_with($url, 'https://') || str_starts_with($url, '/')) {
+            return $url;
+        }
+        $folder = rtrim(trim($folder), '/');
+        if ($folder === '') {
+            return $url;
+        }
+        if (str_starts_with($url, $folder . '/')) {
+            return $url;
+        }
+        return $folder . '/' . ltrim($url, '/');
+    }
 }

@@ -348,7 +348,7 @@ class Character extends AdvObject
                 $itemLinks = [];
                 $skin = $this->skin ?? $this->world?->skins['default'] ?? $this->world?->defaultSkin;
                 foreach ($contents as $it) {
-                    $ico = !empty($it->icon) ? $it->icon : ($skin?->getItemIcon() ?? '');
+                    $ico = $it->getResolvedIcon($skin?->getItemIcon() ?? '');
                     $iconImg = !empty($ico)
                         ? "<img src=\"" . htmlspecialchars($ico) . "\" alt=\"" . htmlspecialchars($it->name) . "\" style=\"width:20px;height:20px;object-fit:contain;vertical-align:middle;margin-right:4px;border-radius:2px\" />"
                         : "📦 ";

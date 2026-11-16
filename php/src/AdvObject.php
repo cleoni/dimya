@@ -194,6 +194,19 @@ class AdvObject extends DimxObject
     }
 
     /**
+     * Return this object's icon URL resolved against world->imagesFolder, or $defaultIcon if unset.
+     */
+    public function getResolvedIcon(?string $defaultIcon = null): string
+    {
+        if ($this->icon !== null && $this->icon !== '') {
+            return $this->world !== null
+                ? $this->world->resolveImageUrl($this->icon)
+                : $this->icon;
+        }
+        return $defaultIcon ?? '';
+    }
+
+    /**
      * Return DimensioneX type prefix identifier ('i'=item, 'c'=character, 'w'=way/link, 'r'=room, 'o'=object).
      */
     public function getTypePrefix(): string

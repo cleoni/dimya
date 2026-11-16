@@ -1094,6 +1094,14 @@ class World extends DimxObject
     }
 
     /**
+     * Resolve a relative image/icon filename against this world's imagesFolder.
+     */
+    public function resolveImageUrl(string $url): string
+    {
+        return Image::resolveUrl($url, $this->imagesFolder);
+    }
+
+    /**
      * Generate complete HTML snapshot of the world and engine state.
      */
     public function htmlAdminSnapshot(): string

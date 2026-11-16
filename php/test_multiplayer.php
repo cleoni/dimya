@@ -5943,6 +5943,33 @@ DXW;
             $goAllowed === true && $loosePlayer->container?->id === 'start' && str_contains($looseConsole, 'Artigiano'),
             "it_underworld.dxw: pre2.onLoose allows go('p1') after class choice and moves player to start"
         );
+
+        // Verify NewItem with icon=scroll.gif resolves imagesFolder at UI render time and does not duplicate image in properties
+        $invRunner = new \Dimx\ActionsRunner($uwWorld, $uwWorld, $loosePlayer, '');
+        $scrollId = $invRunner->run('return NewItem($AGENT,"indizi importanti","<h2>Informazioni</h2>",NewImage("pergamena.gif",100,100),"type=scroll.hints,pickable,showmode=2,icon=scroll.gif,vanishing")');
+        $scrollItem = is_string($scrollId) ? $uwWorld->getItem($scrollId) : null;
+        assertTest(
+            $scrollItem !== null && !array_key_exists('image', $scrollItem->getProperties()),
+            "NewItem does not store duplicate 'image' entry in properties"
+        );
+        assertTest(
+            $scrollItem !== null && str_contains($scrollItem->getResolvedIcon(), 'uwpics/scroll.gif'),
+            "NewItem icon=scroll.gif resolves with world imagesFolder via getResolvedIcon()"
+        );
+        $loosePlayer->skin = $cssSkin;
+        ob_start();
+        (new \Dimx\UIhtml($loosePlayer))->render([
+            'world'     => $uwWorld,
+            'player'    => $loosePlayer,
+            'room'      => $roomStart,
+            'messages'  => [],
+            'lockError' => false,
+        ]);
+        $invHtml = ob_get_clean();
+        assertTest(
+            str_contains($invHtml, 'uwpics/scroll.gif') && !str_contains($invHtml, 'src="scroll.gif"'),
+            "UIhtml inventory renders dynamic NewItem icon with imagesFolder prefix (uwpics/scroll.gif)"
+        );
     }
 
     // Unit test for LABEL "@expr()" in standalone world

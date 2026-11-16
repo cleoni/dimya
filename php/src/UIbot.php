@@ -283,8 +283,9 @@ class UIbot extends UIjson
             'name' => $occ->name,
         ];
 
-        if ($occ->icon !== null && $occ->icon !== '') {
-            $data['icon'] = $occ->icon;
+        $resolvedIcon = $occ->getResolvedIcon();
+        if ($resolvedIcon !== '') {
+            $data['icon'] = $resolvedIcon;
         }
 
         $img = $occ->images[$occ->facing] ?? ($occ->images['N'] ?? (reset($occ->images) ?: null));
@@ -321,8 +322,9 @@ class UIbot extends UIjson
             $data['container_id'] = $item->container->id;
         }
 
-        if ($item->icon !== null && $item->icon !== '') {
-            $data['icon'] = $item->icon;
+        $resolvedIcon = $item->getResolvedIcon();
+        if ($resolvedIcon !== '') {
+            $data['icon'] = $resolvedIcon;
         }
 
         $img = $item->images[$item->facing] ?? ($item->images['N'] ?? (reset($item->images) ?: null));

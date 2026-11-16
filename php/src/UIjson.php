@@ -285,7 +285,7 @@ class UIjson extends UI
             'pickable'    => (bool)$item->pickable,
             'volume'      => $item->volume,
             'type'        => $item->type ?? '',
-            'icon'        => $item->icon,
+            'icon'        => ($item->icon !== null && $item->icon !== '') ? $item->getResolvedIcon() : null,
             'showmode'    => $item->showmode,
         ];
         if ($item->isOpenable()) {
@@ -309,7 +309,7 @@ class UIjson extends UI
             'name'        => $occ->name,
             'description' => $occ->evalDescription($player),
             'is_player'   => ($occ instanceof Player),
-            'icon'        => $occ->icon,
+            'icon'        => ($occ->icon !== null && $occ->icon !== '') ? $occ->getResolvedIcon() : null,
             'showmode'    => $occ->showmode,
         ];
     }
