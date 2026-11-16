@@ -531,6 +531,74 @@ class Character extends AdvObject
     }
 
     /**
+     * Drop an item into the enclosing room or vehicle, firing standard DimX events:
+     * objRemove (whenDropped, onLooseItem) -> objPlace (onEnter, onReceiveItem).
+     */
+    public function actDrop(AdvObject $item, ?AdvObject $dest = null): bool
+    {
+        $dest ??= $this->container;
+        if ($dest === null) {
+            return false;
+        }
+
+        if ($item->container !== $this) {
+            $this->display("You are not carrying that item.");
+            return false;
+        }
+
+        if ($dest->getFreeSpace() < $item->volume) {
+            $this->world?->log("AdvObject.objPlace: Not enough capacity in {$dest->id}");
+            $this->display("There's not enough room.");
+            return false;
+        }
+
+        $isFalseResult = static fn(mixed $r): bool => $r === false || $r === 0 || $r === '0';
+
+        // objRemove phase on character: whenDropped -> onLooseItem
+        if ($this->world !== null) {
+            if ($isFalseResult($this->world->fireEvent('whenDropped', $item, $this, $dest))) {
+                return false;
+            }
+            if ($isFalseResult($this->world->fireEvent('onLooseItem', $this, $this, $item))) {
+                return false;
+            }
+            if (!isset($this->world->contents[$item->id]) || $item->container !== $this) {
+                // Event already killed or moved the item
+                return true;
+            }
+        }
+
+        $this->world?->log("Removal of {$item->id} from its container: {$this->id}");
+        $this->removeObject($item);
+
+        // objPlace phase on destination: onEnter -> onReceiveItem
+        $dest->addObject($item);
+
+        if ($this->world !== null) {
+            $res = !$isFalseResult($this->world->fireEvent('onEnter', $item, $this, $dest));
+            if ($res) {
+                $res = !$isFalseResult($this->world->fireEvent('onReceiveItem', $dest, $this, $item));
+            }
+            if (!$res) {
+                if (!isset($this->world->contents[$item->id])) {
+                    // Item was killed (e.g. vanishing item) during onEnter/onReceiveItem
+                    $this->display("You dropped the <b>{$item->name}</b>.");
+                    return true;
+                }
+                if ($item->container === $dest) {
+                    $dest->removeObject($item);
+                }
+                $this->addObject($item);
+                $this->display("Could not drop <b>{$item->name}</b>.");
+                return false;
+            }
+        }
+
+        $this->display("You dropped the <b>{$item->name}</b>.");
+        return true;
+    }
+
+    /**
      * Give an item to another character / actor.
      */
     public function actGive(AdvObject $item, Character $recipient): bool

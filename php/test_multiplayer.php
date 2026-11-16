@@ -6028,6 +6028,21 @@ DXW;
             str_contains($flatBtnHtml, '<img src="/dimx/skins/bloody/panattack.gif" class="dimx-btn-icon"'),
             "UIhtml button renders <img> tag when skin buttonStyle does NOT put icon in background"
         );
+
+        // Verify dropping a vanishing item triggers onReceiveItem (it_commons.dxl) which prints & kills it
+        $loosePlayer->clientConsole = [];
+        $hintsId = (string)$invRunner->evalValue('NewItem($AGENT,"indizi importanti","desc",NewImage("pergamena.gif",100,100),"type=scroll.hints,pickable,vanishing")');
+        $hintsItem = $uwWorld->getItem($hintsId);
+        assertTest($hintsItem instanceof \Dimx\Item && isset($loosePlayer->contents[$hintsItem->id]), "Created vanishing hints item in player inventory");
+        $dropVanishOk = $loosePlayer->actDrop($hintsItem, $roomStart);
+        assertTest($dropVanishOk === true, "actDrop returns true when vanishing item is killed by onReceiveItem");
+        assertTest(!isset($loosePlayer->contents[$hintsItem->id]), "Vanishing item removed from player inventory after drop");
+        assertTest(!isset($roomStart->contents[$hintsItem->id]), "Vanishing item not left in room after drop");
+        assertTest(!isset($uwWorld->contents[$hintsItem->id]), "Vanishing item killed by room.onReceiveItem");
+        assertTest(
+            str_contains(implode("\n", $loosePlayer->clientConsole), 'svanisce'),
+            "it_commons.dxl onReceiveItem printed 'svanisce' message to player on drop"
+        );
     }
 
     // Unit test for LABEL "@expr()" in standalone world
@@ -6041,6 +6056,42 @@ DXW;
     $w81->addPanel($dynPanel);
     $dynHtml = $dynPanel->toHtml(null, $w81, $w81);
     assertTest(str_contains($dynHtml, 'Dynamic Label Value: 42'), "Standalone LABEL \"@dynLabelFn()\" evaluates function at runtime");
+
+    // Unit test for drop event sequence (whenDropped -> onLooseItem -> onEnter -> onReceiveItem) and cancellation
+    $dropRoom = new \Dimx\Room($w81, 'Drop Room', 'drop_r1');
+    $w81->addRoom($dropRoom);
+    $dropPlayer = new \Dimx\Player($w81, 'DropTester', 'drop_p1');
+    $w81->addPlayer($dropPlayer);
+    $dropPlayer->move($dropRoom);
+    $dropItem = new \Dimx\Item($w81, 'Test Coin', 'drop_i1', '', null, 'pickable');
+    $w81->addItem($dropItem);
+    $dropItem->move($dropPlayer);
+    $dropLog = [];
+    foreach (['whenDropped', 'onLooseItem', 'onEnter', 'onReceiveItem'] as $evName) {
+        $w81->registerEvent(new \Dimx\Event($evName, 'EVENT', function ($owner, $agent, $target) use (&$dropLog, $evName) {
+            $dropLog[] = $evName . ':' . ($owner?->id ?? '') . ':' . ($target?->id ?? '');
+            return true;
+        }));
+    }
+    $dropOk = $dropPlayer->actDrop($dropItem, $dropRoom);
+    assertTest($dropOk === true, "actDrop succeeds when all drop events allow it");
+    assertTest(
+        $dropLog === [
+            'whenDropped:drop_i1:drop_r1',
+            'onLooseItem:drop_p1:drop_i1',
+            'onEnter:drop_i1:drop_r1',
+            'onReceiveItem:drop_r1:drop_i1',
+        ],
+        "actDrop fires events in exact DimX order: whenDropped -> onLooseItem -> onEnter -> onReceiveItem"
+    );
+    assertTest(isset($dropRoom->contents['drop_i1']) && !isset($dropPlayer->contents['drop_i1']), "Dropped item moved to room");
+
+    // Cancellation in onReceiveItem (without Kill) restores item to player
+    $dropItem->move($dropPlayer);
+    $w81->registerEvent(new \Dimx\Event('onReceiveItem', 'EVENT', fn() => false));
+    $dropCancelled = $dropPlayer->actDrop($dropItem, $dropRoom);
+    assertTest($dropCancelled === false, "actDrop returns false when onReceiveItem cancels without Kill");
+    assertTest(isset($dropPlayer->contents['drop_i1']) && !isset($dropRoom->contents['drop_i1']), "Item restored to player when onReceiveItem cancels without Kill");
 
     // Test RndSet over a local set of arrays (popMonster pattern: SetAdd set_matching, mob(3), mob -> Dim popped=RndSet(set_matching) -> popped(3))
     $runner81 = new \Dimx\ActionsRunner($w81, $w81, null, null);

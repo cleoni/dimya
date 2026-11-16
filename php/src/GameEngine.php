@@ -1068,9 +1068,8 @@ class GameEngine
                     : $currentRoom;
                 if (!empty($dropTarget) && $dropDest !== null) {
                     $item = $player->contents[$dropTarget] ?? null;
-                    if ($item instanceof Item && $item->move($dropDest)) {
-                        $player->display("You dropped the <b>{$item->name}</b>.");
-                        $world->fireEvent('whenDropped', $item, $player, $dropDest);
+                    if ($item instanceof Item) {
+                        $player->actDrop($item, $dropDest);
                     } else {
                         $player->display("You are not carrying that item.");
                     }
