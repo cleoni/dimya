@@ -1403,17 +1403,23 @@ Instantiates a sequential indexed `ARRAY` collection.
 
 ### 3.10.36 NewImage( url, width, height )
 
-> **[DimY: implemented]** Instantiates an `Image` object with explicit dimensions. Relative URLs are automatically absolutized against the world's `IMAGESFOLDER`. When passed to `Display`, `Print`, or string concatenation, it renders an HTML `<img>` tag.
+> **[DimY: implemented]** Instantiates an `Image` object with explicit dimensions. The `url` is stored as provided; relative URLs are resolved against the world's `IMAGESFOLDER` at render time (including `.html()`). When passed to `Display`, `Print`, or string concatenation, it renders an HTML `<img>` tag.
 
 - **Syntax**: `img = NewImage( url, width, height )`
 - **Parameters**:
-  - `url` *(Required)*: String path or URL to the image file. If relative, prepended with world `IMAGESFOLDER`.
+  - `url` *(Required)*: String path or URL to the image file. Relative paths are resolved against the world's `IMAGESFOLDER` when rendered.
   - `width` *(Required)*: Target display width in pixels.
   - `height` *(Required)*: Target display height in pixels.
 - **Returns**: An `Image` object instance.
+- **Properties & Methods**:
+  - `img.url` (or `img.src`): Image URL string.
+  - `img.width`, `img.height`: Image dimensions in pixels.
+  - `img.html( [title [, player]] )`: Returns an HTML `<img ...>` tag string for the image (resolving relative URLs against `IMAGESFOLDER`), with optional `title` for `alt`/`title` attributes. *(Note: client `factorx` scaling via the optional `player` argument is DimX only — ignored in DimY.)*
 - **Example**:
   ```basic
   Print NewImage("hero.gif", 64, 100)
+  Dim h = NewImage("heart.png", 20, 20).html()
+  Dim hTitled = NewImage("heart.png", 20, 20).html("Salute")
   testroom.effect = NewImage("rain.gif", 350, 235)
   pathgate.image("E") = NewImage("pathgateeo.jpg", 350, 235)
   ```

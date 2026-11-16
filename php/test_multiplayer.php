@@ -6164,6 +6164,108 @@ DXW;
         \Dimx\ActionsRunner::$scriptTimeoutMs = $origTimeout;
     }
 
+    // Indexed object property access & assignment (e.g. garumir.accounts($AGENT.name))
+    $npcBanker = new \Dimx\Character($w81, 'Garumir', 'garumir_test');
+    $w81->addCharacter($npcBanker);
+    $accPlayer = new \Dimx\Player($w81, 'Cris', 'acc_p1');
+    $w81->addPlayer($accPlayer);
+    $accRunner = new \Dimx\ActionsRunner($w81, $w81, $accPlayer, null);
+    assertTest(
+        $accRunner->evalValue('garumir_test.accounts($AGENT.name)') === null,
+        "Missing indexed property garumir_test.accounts(\$AGENT.name) returns null instead of literal string"
+    );
+    $accRunner->run(<<<'DXW'
+If garumir_test.accounts($AGENT.name) = null
+    garumir_test.accounts($AGENT.name) = 100
+    $AGENT.Crediti = garumir_test.accounts($AGENT.name)
+End_If
+DXW
+    );
+    assertTest(
+        $accPlayer->getProperty('Crediti') === 100,
+        "Indexed property assignment & read evaluates \$AGENT.name key and sets Crediti = 100"
+    );
+    $accountsArr = $npcBanker->getProperty('accounts');
+    assertTest(
+        is_array($accountsArr) && ($accountsArr['Cris'] ?? null) === 100,
+        "garumir_test.accounts['Cris'] stored with evaluated key 'Cris'"
+    );
+
+    // Local-variable Print/Display/Speak targets & obj.getProperty(expr)/setProperty(expr, val)
+    $w81->setProperty('cstLEVEL', 'Livello');
+    $monster = new \Dimx\Character($w81, 'un mostro serpente', 'snake_test');
+    $monster->setProperty('Livello', 5);
+    $w81->addCharacter($monster);
+    $accPlayer->clientConsole = [];
+    $accRunner->run(<<<'DXW'
+Dim attacker = $AGENT
+Dim victim = snake_test
+Dim hits = 5
+Print attacker, victim.name&": <b>"&(-hits)&"</b>"
+Display attacker, "Salute: "&victim.getProperty(cstLevel)
+Speak SYS, attacker, "Ricompensa per la vittoria: "&victim.getProperty(cstLevel)&" monete!"
+victim.setProperty(cstLevel, 7)
+DXW
+    );
+    $consoleText = implode("\n", $accPlayer->clientConsole);
+    assertTest(
+        str_contains($consoleText, 'un mostro serpente: <b>-5</b>'),
+        "Print attacker, ... resolves local variable 'attacker' and formats (-hits)"
+    );
+    assertTest(
+        str_contains($consoleText, 'Salute: 5'),
+        "Display attacker, ... resolves local variable 'attacker' and victim.getProperty(cstLevel) returns 5"
+    );
+    $msgs = $accPlayer->getMessages();
+    $lastChat = $msgs[count($msgs) - 1] ?? null;
+    assertTest(
+        is_array($lastChat) && str_contains((string)($lastChat['text'] ?? ''), 'Ricompensa per la vittoria: 5 monete!'),
+        "Speak SYS, attacker, ... resolves local variable 'attacker' and evaluates victim.getProperty(cstLevel)"
+    );
+    assertTest(
+        $monster->getProperty('Livello') == 7,
+        "victim.setProperty(cstLevel, 7) updates Livello property"
+    );
+
+    // Image.html() method & properties (e.g. it_commons.dxl line 5665: NewImage("heart.png",20,20).html())
+    $origImgFolder81 = $w81->imagesFolder;
+    $w81->imagesFolder = 'uwpics';
+    $imgHtmlNoTitle = (string)$accRunner->evalValue('NewImage("heart.png",20,20).html()');
+    assertTest(
+        str_contains($imgHtmlNoTitle, '<img ')
+            && str_contains($imgHtmlNoTitle, 'uwpics/heart.png')
+            && str_contains($imgHtmlNoTitle, 'width="20"')
+            && str_contains($imgHtmlNoTitle, 'height="20"'),
+        "NewImage(\"heart.png\",20,20).html() renders <img> tag with IMAGESFOLDER and dimensions"
+    );
+    $imgHtmlTitled = (string)$accRunner->evalValue('NewImage("heart.png",20,20).html("Salute")');
+    assertTest(
+        str_contains($imgHtmlTitled, 'alt="Salute"') && str_contains($imgHtmlTitled, 'title="Salute"'),
+        "NewImage(\"heart.png\",20,20).html(\"Salute\") includes alt and title attributes"
+    );
+    assertTest(
+        $accRunner->evalValue('NewImage("heart.png",20,20).width') === 20,
+        "NewImage(\"heart.png\",20,20).width returns 20"
+    );
+    $w81->imagesFolder = $origImgFolder81;
+
+    // Arithmetic with null/unset property in Call expression (e.g. it_commons.dxl: Call advanceCheck(winner,"kills",getKillTotal(winner)-winner.Uccisioni))
+    $evGetKillTotal = new \Dimx\Event('getKillTotalTest', 'FUNCTION', null, ['person']);
+    $evGetKillTotal->actions = 'Return 1';
+    $w81->events['getKillTotalTest'] = $evGetKillTotal;
+    $evAdvanceCheck = new \Dimx\Event('advanceCheckTest', 'SUB', null, ['person', 'param', 'incr']);
+    $evAdvanceCheck->actions = 'person.Uccisioni = person.Uccisioni + incr';
+    $w81->events['advanceCheckTest'] = $evAdvanceCheck;
+    $accRunner->run(<<<'DXW'
+Dim winner = $AGENT
+Call advanceCheckTest(winner,"kills",getKillTotalTest(winner)-winner.Uccisioni)
+DXW
+    );
+    assertTest(
+        (int)$accPlayer->getProperty('Uccisioni') === 1,
+        "Call with getKillTotalTest(winner)-winner.Uccisioni when winner.Uccisioni is null evaluates to 1 (not literal string)"
+    );
+
     @unlink($tmpDir . '/loop_test.dxw');
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');

@@ -29,10 +29,13 @@ class Image extends ManageableObject
     /**
      * Renders an HTML <img> tag with dimensions and optional alt/title.
      */
-    public function toHtml(?string $title = null, ?Player $player = null, string $class = '', string $style = ''): string
+    public function toHtml(?string $title = null, ?Player $player = null, string $class = '', string $style = '', ?string $imagesFolder = null): string
     {
         $alt = $title !== null ? htmlspecialchars($title, ENT_QUOTES, 'UTF-8') : '';
-        $src = htmlspecialchars($this->src, ENT_QUOTES, 'UTF-8');
+        $resolvedSrc = ($imagesFolder !== null && $imagesFolder !== '')
+            ? self::resolveUrl($this->src, $imagesFolder)
+            : $this->src;
+        $src = htmlspecialchars($resolvedSrc, ENT_QUOTES, 'UTF-8');
         $widthAttr = $this->width > 0 ? " width=\"{$this->width}\"" : '';
         $heightAttr = $this->height > 0 ? " height=\"{$this->height}\"" : '';
         $classAttr = !empty($class) ? " class=\"" . htmlspecialchars($class, ENT_QUOTES, 'UTF-8') . "\"" : '';
@@ -50,9 +53,9 @@ class Image extends ManageableObject
         return "IMAGE {$this->width}x{$this->height}{$sa} {$this->src}";
     }
 
-    public function html(?string $title = null, ?Player $player = null): string
+    public function html(?string $title = null, ?Player $player = null, ?string $imagesFolder = null): string
     {
-        return $this->toHtml($title, $player);
+        return $this->toHtml($title, $player, '', '', $imagesFolder);
     }
 
     public function getProperty(string $name): mixed

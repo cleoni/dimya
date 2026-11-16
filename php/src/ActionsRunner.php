@@ -830,11 +830,18 @@ class ActionsRunner
             return true;
         }
 
-        // 1b. Property with key assignment e.g. "pathgate.image("E") = "pathgateeo.jpg""
-        if (preg_match('/^(\$?[A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*\(\s*["\']?([^"\']+)["\']?\s*\)\s*=\s*(.*)$/', $line, $m)) {
+        // 1c. Standalone object method call e.g. "victim.setProperty(cstLevel, 7)"
+        if (preg_match('/^(\$?[A-Za-z0-9_.]+(?:\([^\)]*\))?)\.setProperty\s*\((.+)\)$/i', $line)) {
+            $this->evalValue($line);
+            return true;
+        }
+
+        // 1b. Property with key assignment e.g. "pathgate.image("E") = "pathgateeo.jpg"" or "garumir.accounts($AGENT.name) = 100"
+        if (preg_match('/^(\$?[A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*\(\s*(.+?)\s*\)\s*=\s*(.*)$/', $line, $m)) {
             $targetName = $m[1];
             $propName   = $m[2];
-            $key        = $m[3];
+            $rawKey     = $this->evalValue($m[3]);
+            $key        = is_string($rawKey) ? $rawKey : (string)$rawKey;
             $rawVal     = trim($m[4]);
             $val        = $this->evalValue($rawVal);
 
@@ -1515,32 +1522,8 @@ class ActionsRunner
             return str_starts_with($t, '"') || str_starts_with($t, "'") || is_numeric($t);
         };
 
-        $resolveObj = function(mixed $s): ?DimxObject {
-            if (!is_string($s)) {
-                return ($s instanceof DimxObject) ? $s : null;
-            }
-            $t = trim($s);
-            $upper = strtoupper($t);
-            if ($upper === '$WORLD' || $upper === 'WORLD') {
-                return $this->world;
-            }
-            if ($upper === '$AGENT' || $upper === 'AGENT') {
-                return ($this->agent instanceof DimxObject) ? $this->agent : null;
-            }
-            if ($upper === '$OWNER' || $upper === 'OWNER') {
-                return ($this->owner instanceof DimxObject) ? $this->owner : null;
-            }
-            if ($upper === '$TARGET' || $upper === 'TARGET') {
-                return ($this->target instanceof DimxObject) ? $this->target : null;
-            }
-            if ($upper === 'SYS') {
-                return $this->world->getDefaultCharacter();
-            }
-            return $this->world->getObjectExt($t);
-        };
-
         $p0 = $args[0] ?? null;
-        $p0Obj = (!$isLiteral($p0)) ? $resolveObj($p0) : null;
+        $p0Obj = (!$isLiteral($p0)) ? $this->resolveObjectArg($p0, true) : null;
 
         if ($p0Obj === null) {
             // Compact syntax: Speak msg1 [, msg2, ...]
@@ -1551,7 +1534,7 @@ class ActionsRunner
         } else {
             // p0 is an object ID/reference. Check p1:
             $p1 = $args[1] ?? null;
-            $p1Obj = ($p1 !== null && !$isLiteral($p1)) ? $resolveObj($p1) : null;
+            $p1Obj = ($p1 !== null && !$isLiteral($p1)) ? $this->resolveObjectArg($p1, true) : null;
 
             if ($p1Obj === null) {
                 // DimensioneX ActionsRunner.java:
@@ -1696,29 +1679,8 @@ class ActionsRunner
             return str_starts_with($t, '"') || str_starts_with($t, "'") || is_numeric($t);
         };
 
-        $resolveObj = function(mixed $s): ?DimxObject {
-            if (!is_string($s)) {
-                return ($s instanceof DimxObject) ? $s : null;
-            }
-            $t = trim($s);
-            $upper = strtoupper($t);
-            if ($upper === '$WORLD' || $upper === 'WORLD') {
-                return $this->world;
-            }
-            if ($upper === '$AGENT' || $upper === 'AGENT') {
-                return ($this->agent instanceof DimxObject) ? $this->agent : null;
-            }
-            if ($upper === '$OWNER' || $upper === 'OWNER') {
-                return ($this->owner instanceof DimxObject) ? $this->owner : null;
-            }
-            if ($upper === '$TARGET' || $upper === 'TARGET') {
-                return ($this->target instanceof DimxObject) ? $this->target : null;
-            }
-            return $this->world->getObjectExt($t);
-        };
-
         $p0 = $args[0] ?? null;
-        $p0Obj = (!$isLiteral($p0)) ? $resolveObj($p0) : null;
+        $p0Obj = (!$isLiteral($p0)) ? $this->resolveObjectArg($p0) : null;
 
         if ($p0Obj === null || count($args) === 1) {
             // Compact syntax: Display msg1 [, msg2, ...]
@@ -2573,6 +2535,47 @@ class ActionsRunner
     }
 
     /**
+     * Resolve an argument expression in Speak/Display/Print to a DimxObject (including local vars and member expressions).
+     */
+    protected function resolveObjectArg(mixed $s, bool $allowSys = false): ?DimxObject
+    {
+        if (!is_string($s)) {
+            return ($s instanceof DimxObject) ? $s : null;
+        }
+        $t = trim($s);
+        if ($t === '') {
+            return null;
+        }
+        $upper = strtoupper($t);
+        if ($allowSys && $upper === 'SYS') {
+            return $this->world?->getDefaultCharacter();
+        }
+        if ($upper === 'AGENT') {
+            return ($this->agent instanceof DimxObject) ? $this->agent : null;
+        }
+        if ($upper === 'OWNER') {
+            return ($this->owner instanceof DimxObject) ? $this->owner : null;
+        }
+        if ($upper === 'TARGET') {
+            return ($this->target instanceof DimxObject) ? $this->target : null;
+        }
+        $obj = $this->resolveObject($t);
+        if ($obj !== null) {
+            return $obj;
+        }
+        if (strpbrk($t, '.(') !== false) {
+            $val = $this->evalValue($t);
+            if ($val instanceof DimxObject) {
+                return $val;
+            }
+            if (is_string($val) && $val !== '') {
+                return $this->world?->getObjectExt($val);
+            }
+        }
+        return null;
+    }
+
+    /**
      * Resolve object identifier like "$WORLD", "surfer", "box", "apple", "$AGENT", etc.
      */
     protected function resolveObject(string $name): ?DimxObject
@@ -3423,13 +3426,43 @@ class ActionsRunner
                 $leftStr = self::formatValue($left);
                 $rightStr = self::formatValue($right);
                 return $leftStr . $rightStr;
+            } else {
+                $toNum = static function (mixed $v): int|float {
+                    if (is_int($v) || is_float($v)) {
+                        return $v;
+                    }
+                    if (is_bool($v)) {
+                        return $v ? 1 : 0;
+                    }
+                    if (is_numeric($v)) {
+                        return str_contains((string)$v, '.') ? (float)$v : (int)$v;
+                    }
+                    return 0;
+                };
+                $lNum = $toNum($left);
+                $rNum = $toNum($right);
+                return match ($op) {
+                    '-' => $lNum - $rNum,
+                    '*' => $lNum * $rNum,
+                    '/' => $rNum != 0 ? $lNum / $rNum : 0,
+                    default => 0,
+                };
+            }
+        }
+
+        // Unary minus: -expr (e.g. -hits, -5, -(a+b))
+        if (str_starts_with($val, '-') && strlen($val) > 1) {
+            $inner = trim(substr($val, 1));
+            $numVal = $this->evalValue($inner);
+            if (is_numeric($numVal)) {
+                return -$numVal;
             }
         }
 
         // Function call or array indexing: func(...) or array(...)
-        if (preg_match('/^([A-Za-z0-9_]+)\s*\((.*)\)$/s', $val, $fm)) {
+        if (preg_match('/^([A-Za-z0-9_]+)\s*(\(.*\))$/s', $val, $fm) && self::isFullyEnclosedInParens($fm[2])) {
             $fn = $fm[1];
-            $argStr = trim($fm[2]);
+            $argStr = trim(substr($fm[2], 1, -1));
 
             // Built-in NOT( expr )
             if (strcasecmp($fn, 'NOT') === 0) {
@@ -4538,7 +4571,7 @@ class ActionsRunner
             $obj = $this->resolveObject($targetExpr);
             if ($obj === null) {
                 $evalTarget = $this->evalValue($targetExpr);
-                if ($evalTarget instanceof DimxObject) {
+                if ($evalTarget instanceof ManageableObject) {
                     $obj = $evalTarget;
                 } elseif (is_string($evalTarget) && $evalTarget !== '') {
                     $obj = $this->world?->getObjectExt($evalTarget);
@@ -4559,6 +4592,94 @@ class ActionsRunner
                 }
                 $propVal = property_exists($obj, $prop) ? $obj->{$prop} : $obj->getProperty($prop);
                 return $propVal;
+            }
+            return null;
+        }
+
+        // Indexed property / method access e.g. "garumir.accounts($AGENT.name)", "NewImage(\"heart.png\",20,20).html()", "pathgate.image('E')"
+        if (preg_match('/^(\$?[A-Za-z0-9_.]+(?:\([^\)]*\))?)\.([A-Za-z0-9_]+)\s*\((.*)\)$/s', $val, $m)) {
+            $targetExpr = $m[1];
+            $prop = $m[2];
+            $keyExpr = trim($m[3]);
+            $obj = $this->resolveObject($targetExpr);
+            if ($obj === null) {
+                $evalTarget = $this->evalValue($targetExpr);
+                if ($evalTarget instanceof ManageableObject) {
+                    $obj = $evalTarget;
+                } elseif (is_string($evalTarget) && $evalTarget !== '') {
+                    $obj = $this->world?->getObjectExt($evalTarget);
+                }
+            }
+            if ($obj === null) {
+                return null;
+            }
+            if ($obj instanceof Image && strcasecmp($prop, 'html') === 0) {
+                $mArgs = ($keyExpr !== '') ? $this->parseArguments($keyExpr) : [];
+                $title = isset($mArgs[0]) ? self::formatValue($this->evalValue($mArgs[0])) : null;
+                $playerArg = null;
+                if (isset($mArgs[1])) {
+                    $pVal = $this->evalValue($mArgs[1]);
+                    if ($pVal instanceof Player) {
+                        $playerArg = $pVal;
+                    } elseif (is_string($pVal) && $pVal !== '') {
+                        $pObj = $this->world?->getObjectExt($pVal);
+                        if ($pObj instanceof Player) {
+                            $playerArg = $pObj;
+                        }
+                    }
+                }
+                return $obj->html($title, $playerArg, $this->world?->imagesFolder);
+            }
+            if (strcasecmp($prop, 'getProperty') === 0) {
+                $propKey = (string)$this->evalValue($keyExpr);
+                return $obj->getProperty($propKey);
+            }
+            if (strcasecmp($prop, 'setProperty') === 0) {
+                $mArgs = $this->parseArguments($keyExpr);
+                if (count($mArgs) >= 2) {
+                    $propKey = (string)$this->evalValue($mArgs[0]);
+                    $propNewVal = $this->evalValue($mArgs[1]);
+                    $obj->setProperty($propKey, $propNewVal);
+                    return $propNewVal;
+                }
+                return null;
+            }
+            $evalKey = $this->evalValue($keyExpr);
+            if (strcasecmp($prop, 'image') === 0 && property_exists($obj, 'images') && is_array($obj->images)) {
+                $facingKey = (string)$evalKey;
+                if (isset($obj->images[$facingKey])) {
+                    return $obj->images[$facingKey];
+                }
+                foreach ($obj->images as $k => $v) {
+                    if (strcasecmp((string)$k, $facingKey) === 0) {
+                        return $v;
+                    }
+                }
+                return null;
+            }
+            $propVal = property_exists($obj, $prop) ? $obj->{$prop} : $obj->getProperty($prop);
+            if (!is_array($propVal)) {
+                return null;
+            }
+            if (is_int($evalKey) || ctype_digit((string)$evalKey)) {
+                $idx = (int)$evalKey;
+                if (array_key_exists($idx, $propVal)) {
+                    return $propVal[$idx];
+                }
+                $idx0 = $idx - 1;
+                if (array_key_exists(0, $propVal) && $idx0 >= 0 && array_key_exists($idx0, $propVal)) {
+                    return $propVal[$idx0];
+                }
+                return null;
+            }
+            $keyStr = (string)$evalKey;
+            if (array_key_exists($keyStr, $propVal)) {
+                return $propVal[$keyStr];
+            }
+            foreach ($propVal as $k => $v) {
+                if (strcasecmp((string)$k, $keyStr) === 0) {
+                    return $v;
+                }
             }
             return null;
         }
