@@ -73,6 +73,24 @@ class Image extends ManageableObject
         return parent::getProperty($name);
     }
 
+    public function setProperty(string $name, mixed $value): mixed
+    {
+        $lower = strtolower($name);
+        if ($lower === 'url' || $lower === 'src') {
+            $this->src = (string)$value;
+            return $this->src;
+        }
+        if ($lower === 'width') {
+            $this->width = (int)$value;
+            return $this->width;
+        }
+        if ($lower === 'height') {
+            $this->height = (int)$value;
+            return $this->height;
+        }
+        return parent::setProperty($name, $value);
+    }
+
     public function __get(string $name): mixed
     {
         $lower = strtolower($name);

@@ -786,14 +786,22 @@ class ActionsRunner
             return $val;
         }
 
-        // 1. Property assignment e.g. "$WORLD.mode = 1" or "box.open = 0"
-        if (preg_match('/^(\$?[A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*=\s*(.*)$/', $line, $m)) {
-            $targetName = $m[1];
+        // 1. Property assignment e.g. "$WORLD.mode = 1", "box.open = 0", "$OWNER.image(\"N\").url = im.url"
+        if (preg_match('/^(\$?[A-Za-z0-9_.]+(?:\([^\)]*\))?)\.([A-Za-z0-9_]+)\s*=\s*(.*)$/', $line, $m)) {
+            $targetExpr = $m[1];
             $propName   = $m[2];
             $rawVal     = trim($m[3]);
             $val        = $this->evalValue($rawVal);
 
-            $obj = $this->resolveObject($targetName);
+            $obj = $this->resolveObject($targetExpr);
+            if ($obj === null) {
+                $evalTarget = $this->evalValue($targetExpr);
+                if ($evalTarget instanceof ManageableObject) {
+                    $obj = $evalTarget;
+                } elseif (is_string($evalTarget) && $evalTarget !== '') {
+                    $obj = $this->world?->getObjectExt($evalTarget);
+                }
+            }
             if ($obj !== null) {
                 if (strcasecmp($propName, 'image') === 0 && property_exists($obj, 'images')) {
                     if ($val instanceof Image) {

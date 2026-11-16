@@ -6322,6 +6322,46 @@ DXW
         "UIhtml handleCommand uses getCommandDef(cmd) to honor data-model for custom panel buttons"
     );
 
+    // Nested indexed property assignment: $OWNER.image("N").url = im.url (e.g. it_commons.dxl onOpen)
+    $trImg = new \Dimx\Image('td.gif', 82, 35);
+    $trLink = new \Dimx\Item($w81, 'botola', 'tr1_test');
+    $trLink->images['N'] = $trImg;
+    $trLink->image = $trImg;
+    $trLink->setProperty('open', 1);
+    $trLink->setProperty('imageOpen', 'tdopen.gif');
+    $trLinkedImg = new \Dimx\Image('td.gif', 82, 35);
+    $trLinked = new \Dimx\Item($w81, 'botola2', 'tr1a_test');
+    $trLinked->images['N'] = $trLinkedImg;
+    $trLinked->image = $trLinkedImg;
+    $trLinked->setProperty('imageOpen', 'tdopen.gif');
+    $trLink->setProperty('linked', 'tr1a_test');
+    $w81->addItem($trLink);
+    $w81->addItem($trLinked);
+    $trRunner = new \Dimx\ActionsRunner($w81, $trLink, $accPlayer, null);
+    $trRunner->run(<<<'DXW'
+If $OWNER.imageOpen <> null And $OWNER.open
+    Dim im = NewImage($OWNER.imageOpen,1,1)
+    $OWNER.image("N").url = im.url
+End_If
+Dim linked = $OWNER.linked
+If linked <> null
+    linked.open=$OWNER.open
+    If linked.imageOpen <> null And linked.open
+        Dim im = NewImage(linked.imageOpen,1,1)
+        linked.image("N").url = im.url
+    End_If
+End_If
+DXW
+    );
+    assertTest(
+        $trLink->images['N']->src === 'tdopen.gif' && $trLink->image->src === 'tdopen.gif',
+        "\$OWNER.image(\"N\").url = im.url updates tr1_test image src to 'tdopen.gif'"
+    );
+    assertTest(
+        $trLinked->images['N']->src === 'tdopen.gif' && $trLinked->image->src === 'tdopen.gif',
+        "linked.image(\"N\").url = im.url updates linked tr1a_test image src to 'tdopen.gif'"
+    );
+
     @unlink($tmpDir . '/loop_test.dxw');
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');
