@@ -1835,8 +1835,12 @@ class ActionsRunner
             return $this->world->fireEvent($evtName, $obj, $this->agent, $this->target, $callArgs, true);
         }
 
-        // 2. Direct event / subroutine in world
-        return $this->world->fireEvent($subName, $this->owner, $this->agent, $this->target, $callArgs, true);
+        // 2. Direct event / subroutine in world (bypass owner.event qualification to avoid self-recursion)
+        $ev = $this->world?->getEvent($subName);
+        if ($ev !== null) {
+            return $ev->fire($this->owner, $this->agent, $this->target, $callArgs, true, $this->world);
+        }
+        return true;
     }
 
     /**
@@ -4596,7 +4600,7 @@ class ActionsRunner
                     foreach ($rawArgs as $a) {
                         $evalArgs[] = $this->evalValue($a);
                     }
-                    return $this->world->fireEvent($ev->id, $this->owner, $this->agent, $this->target, $evalArgs, null);
+                    return $ev->fire($this->owner, $this->agent, $this->target, $evalArgs, null, $this->world);
                 }
             }
 

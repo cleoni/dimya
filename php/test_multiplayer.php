@@ -6179,6 +6179,26 @@ DXW;
         $playlistLen = $uwW->getProperty('playlistLen');
         assertTest(($playlist[1] ?? '') === 'livetotell.mp3', "jukebox_play('0010') resolves jukebox.trackfiles(10) to 'livetotell.mp3' via zero-padded key '0010'");
         assertTest((int)($playlistLen[1] ?? 0) === 240, "jukebox_play('0010') resolves jukebox.tracklen(10) to 240 via zero-padded key '0010'");
+
+        // Verify speaking aloud in 'bar' triggers bar.onHear (creating barman and speaking 'Pronti!!')
+        assertTest($uwW->getProperty('barman') === null, "barman does not exist in bar before saying 'oste'");
+        $uwPlayer->move($uwW->getRoom('bar'));
+        $uwPlayer->messages = [];
+        $uwEngine->executeCommandAction($uwW, $uwPlayer, 'say', 'oste', '*');
+        $barmanId = (string)$uwW->getProperty('barman');
+        $barmanObj = $barmanId !== '' ? ($uwW->getCharacter($barmanId) ?? $uwW->getObjectExt($barmanId)) : null;
+        assertTest($barmanObj instanceof \Dimx\Character && $barmanObj->name === "l'oste", "Speaking 'oste' in bar triggers bar.onHear and spawns barman");
+        assertTest($barmanObj !== null && $barmanObj->container?->id === 'bar', "Spawned barman is located inside bar room");
+        $barMsgsText = implode(' ', array_column($uwPlayer->getMessages(), 'text'));
+        assertTest(str_contains($barMsgsText, 'Pronti!!'), "bar.onHear Speak barman,barman.container,'Pronti!!' delivered to room players");
+
+        // Verify chapel.onReceive -> Call onReceive() does NOT recurse into chapel.onReceive
+        $chapelRoom = $uwW->getRoom('chapel');
+        assertTest($chapelRoom !== null, "it_underworld.dxw: room 'chapel' exists");
+        if ($chapelRoom !== null) {
+            $chapelRecvRes = $uwW->fireEvent('onReceive', $chapelRoom, $uwPlayer, $uwPlayer);
+            assertTest($chapelRecvRes !== false, "it_underworld.dxw: chapel.onReceive -> Call onReceive() completes without recursion limit error");
+        }
     }
 
     // Unit test for LABEL "@expr()" in standalone world
@@ -6255,9 +6275,11 @@ DXW
     $loopDxw = <<<'DXW'
 WORLD
     NAME "Loop Guard Test World"
-    ROOM r1
-        NAME "Room 1"
-    END_ROOM
+    ROOMS
+        ROOM r1
+            NAME "Room 1"
+        END_ROOM
+    END_ROOMS
     SCRIPTS
         EVENT onLoopTest
             Dim x = 0
@@ -6274,6 +6296,16 @@ WORLD
 
         EVENT onNormalTest
             Return "ok"
+        End_EVENT
+
+        EVENT r1.onReceive
+            Call onReceive()
+            Return "room_ok:" & $OWNER.id
+        End_EVENT
+
+        EVENT onReceive
+            $OWNER.calledGlobalOnReceive = true
+            Return true
         End_EVENT
     END_SCRIPTS
 END_WORLD
@@ -6296,6 +6328,13 @@ DXW;
 
         $normalRes = $loopWorld->fireEvent('onNormalTest', $loopWorld);
         assertTest($normalRes === 'ok', "Normal script execution still succeeds after timeout/recursion abort");
+
+        $r1Room = $loopWorld->getRoom('r1');
+        $recvRes = $loopWorld->fireEvent('onReceive', $r1Room, null, null);
+        assertTest(
+            $recvRes === 'room_ok:r1' && (bool)$r1Room->getProperty('calledGlobalOnReceive') === true,
+            "EVENT r1.onReceive -> Call onReceive() calls global onReceive without self-recursion (recvRes=" . var_export($recvRes, true) . ", prop=" . var_export($r1Room->getProperty('calledGlobalOnReceive'), true) . ")"
+        );
     } finally {
         \Dimx\ActionsRunner::$scriptTimeoutMs = $origTimeout;
     }

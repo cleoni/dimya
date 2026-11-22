@@ -1385,14 +1385,23 @@ class GameEngine
                     } else {
 						//Spoken message shows on speaker's console
 						$player->display("- " . htmlspecialchars($arg0));
-                        // Broadcast aloud to all players in the room (target is '*' or speaking aloud)
-                        $world->postChatMessage($player->name, $arg0, null, $currentRoom?->id);
-                        
-                        // Fire onHear only on other Players in the same room (computer controlled characters excluded)
-                        if ($currentRoom !== null) {
-                            foreach ($currentRoom->getOccupants() as $occ) {
-                                if ($occ !== $player && $occ instanceof Player) {
-                                    $world->fireEvent('onHear', $occ, $player, $arg0);
+                        // Fire onHear on the containing PeopleContainer (e.g. room or vehicle) first
+                        $hearContainer = ($player->container instanceof PeopleContainer) ? $player->container : $currentRoom;
+                        $hearRes = true;
+                        if ($hearContainer !== null) {
+                            $hearRes = $world->fireEvent('onHear', $hearContainer, $player, $arg0);
+                        }
+
+                        if ($hearRes !== false) {
+                            // Broadcast aloud to all players in the room (target is '*' or speaking aloud)
+                            $world->postChatMessage($player->name, $arg0, null, $currentRoom?->id);
+                            
+                            // Fire onHear only on other Players in the same room (computer controlled characters excluded)
+                            if ($currentRoom !== null) {
+                                foreach ($currentRoom->getOccupants() as $occ) {
+                                    if ($occ !== $player && $occ instanceof Player) {
+                                        $world->fireEvent('onHear', $occ, $player, $arg0);
+                                    }
                                 }
                             }
                         }
