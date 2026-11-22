@@ -4712,6 +4712,18 @@ class ActionsRunner
             return $this->getVariable($val);
         }
 
+        // World object lookup & undefined identifier handling (DimxParser.java:929-938):
+        // Undefined identifiers evaluate to null (not to their own literal name string).
+        if (preg_match('/^\$?[A-Za-z_][A-Za-z0-9_]*$/', $val)) {
+            if (!str_starts_with($val, '$') && $this->world !== null) {
+                $obj = $this->world->getObjectExt($val);
+                if ($obj !== null) {
+                    return $obj;
+                }
+            }
+            return null;
+        }
+
         return $val;
     }
 }

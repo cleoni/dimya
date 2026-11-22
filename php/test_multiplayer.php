@@ -6349,6 +6349,29 @@ DXW;
         $accRunner->evalValue('garumir_test.accounts($AGENT.name)') === null,
         "Missing indexed property garumir_test.accounts(\$AGENT.name) returns null instead of literal string"
     );
+    assertTest(
+        $accRunner->evalValue('undefined_cat') === null,
+        "Undefined bare identifier 'undefined_cat' evaluates to null (not literal 'undefined_cat')"
+    );
+    assertTest(
+        $accRunner->evalValue('"cat:" & undefined_cat') === 'cat:',
+        "Concatenating undefined identifier '\"cat:\" & undefined_cat' produces 'cat:' (not 'cat:undefined_cat')"
+    );
+    $accRunner->run(<<<'DXW'
+Dim cat_res = "false"
+If undefined_cat = null
+    cat_res = "is_null"
+End_If
+Dim lim_res = "false"
+If undefined_limitedavails
+    lim_res = "truthy"
+End_If
+DXW
+    );
+    assertTest(
+        $accRunner->getLocalVar('cat_res') === 'is_null' && $accRunner->getLocalVar('lim_res') === 'false',
+        "If undefined_cat = null evaluates to TRUE and If undefined_limitedavails evaluates to FALSE"
+    );
     $accRunner->run(<<<'DXW'
 If garumir_test.accounts($AGENT.name) = null
     garumir_test.accounts($AGENT.name) = 100
