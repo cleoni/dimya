@@ -1502,6 +1502,13 @@ class GameEngine
                 break;
 
             case 'save':
+                if ($player->container === null) {
+                    break;
+                }
+                $saveAllowed = $world->fireEvent('onSave', $player, $player, $player, $rawInput);
+                if ($saveAllowed === false || $saveAllowed === 0 || $saveAllowed === '0') {
+                    break;
+                }
                 $this->pm->savePlayer($player);
                 $player->display("Game saved!");
                 break;

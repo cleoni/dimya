@@ -6818,6 +6818,56 @@ DXW
         "PeopleContainer::setPanel queues refresh!ctrls for contained players when panel changes"
     );
 
+    // save command triggers onSave($OWNER=$player, $AGENT=$player, $TARGET=$player) and respects cancellation
+    $onSaveCalls = [];
+    $onSaveAllow = false;
+    $w81->events['onSave'] = new \Dimx\Event('onSave', 'EVENT', function ($owner, $agent, $target) use (&$onSaveCalls, &$onSaveAllow) {
+        $onSaveCalls[] = [$owner?->id, $agent?->id, $target?->id];
+        if (!$onSaveAllow) {
+            $owner?->display("Wait before saving.");
+            return 0;
+        }
+        return 1;
+    });
+    $saveEngine = new \Dimx\GameEngine($pm, 'w81_save', null);
+    $saveRef = new ReflectionMethod($saveEngine, 'executeCommandAction');
+    $saveRef->setAccessible(true);
+
+    $panelPlayer->drainConsole();
+    $saveRef->invoke($saveEngine, $w81, $panelPlayer, 'save', '', '', 'scene', []);
+    $saveMsgsDenied = implode("\n", $panelPlayer->drainConsole());
+    assertTest(
+        count($onSaveCalls) === 1 && $onSaveCalls[0] === ['p_panel_81', 'p_panel_81', 'p_panel_81']
+            && str_contains($saveMsgsDenied, 'Wait before saving.')
+            && !str_contains($saveMsgsDenied, 'Game saved!'),
+        "save command fires onSave(\$OWNER,\$AGENT,\$TARGET) and aborts save when onSave returns 0"
+    );
+
+    $onSaveAllow = true;
+    $saveRef->invoke($saveEngine, $w81, $panelPlayer, 'save', '', '', 'scene', []);
+    $saveMsgsAllowed = implode("\n", $panelPlayer->drainConsole());
+    assertTest(
+        count($onSaveCalls) === 2 && str_contains($saveMsgsAllowed, 'Game saved!'),
+        "save command completes and displays 'Game saved!' when onSave returns 1"
+    );
+    unset($w81->events['onSave']);
+
+    // NewCharacter inherits world->charactersDefaultAttrlist (e.g. Salute=10) and lets custom attrs override
+    $origCharDefaults = $w81->charactersDefaultAttrlist;
+    $w81->charactersDefaultAttrlist = 'Salute=10,Forza=1,Esperienza=0,type=0,Livello=1,gender=M';
+    $mobRunner = new \Dimx\ActionsRunner($w81, $w81, $panelPlayer, null);
+    $mobId = $mobRunner->evalValue('NewCharacter("armory", "Orco", "Un orco", null, "Forza=4,type=2")');
+    $mobChar = is_string($mobId) ? $w81->getCharacter($mobId) : null;
+    assertTest(
+        $mobChar instanceof \Dimx\Character
+            && (int)$mobChar->getProperty('Salute') === 10
+            && (int)$mobChar->getProperty('Forza') === 4
+            && (int)$mobChar->getProperty('type') === 2
+            && (string)$mobChar->getProperty('gender') === 'M',
+        "NewCharacter inherits world->charactersDefaultAttrlist (Salute=10) while custom attrs override"
+    );
+    $w81->charactersDefaultAttrlist = $origCharDefaults;
+
     @unlink($tmpDir . '/loop_test.dxw');
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');

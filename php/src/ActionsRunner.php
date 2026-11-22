@@ -1291,9 +1291,18 @@ class ActionsRunner
         $posId = $opos?->id ?? (is_string($evalRoom) ? $evalRoom : '');
         $id = $this->world?->getNextId() ?? ('_char' . uniqid());
 
+        $defaultAttrList = $this->world?->charactersDefaultAttrlist ?? '';
+        $attrList = $defaultAttrList;
+        if (is_string($evalAttrs) && $evalAttrs !== '') {
+            $attrList = ($attrList !== '') ? ($attrList . ',' . $evalAttrs) : $evalAttrs;
+        }
+
         $capacity = $this->world?->defaultCharacter?->capacity ?? 5;
         $volume = 10;
-        $char = new Character($this->world, $name, $id, $descr, null, $evalAttrs, $capacity, $volume, $posId);
+        $char = new Character($this->world, $name, $id, $descr, null, $attrList, $capacity, $volume, $posId);
+        if (is_array($evalAttrs) && !empty($evalAttrs)) {
+            $char->setAttrList($evalAttrs);
+        }
         if ($image !== null) {
             $char->setImage('N', $image);
         }
