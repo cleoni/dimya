@@ -130,8 +130,12 @@ class ActionsRunner
 
         if ($this->world !== null) {
             $this->world->setProperty($name, $val);
-            if (property_exists($this->world, $name)) {
-                $this->world->{$name} = $val;
+            if (property_exists($this->world, $name) && $val !== null) {
+                $rp = new \ReflectionProperty($this->world, $name);
+                $rt = $rp->getType();
+                if ($rt === null || !($rt instanceof \ReflectionNamedType) || $rt->isBuiltin() === false || get_debug_type($val) === $rt->getName()) {
+                    $this->world->{$name} = $val;
+                }
             }
         }
     }
@@ -946,18 +950,26 @@ class ActionsRunner
             return true;
         }
 
-        // 1d. Variable assignment with or without Dim e.g. "Dim slot = addPlayer($AGENT)" or "mode = 'pre'"
-        if (preg_match('/^(?:DIM\s+)?([A-Za-z0-9_]+)\s*=\s*(.*)$/i', $line, $m) && !str_contains($m[1], '.')) {
-            $varName = $m[1];
-            $val = $this->evalValue($m[2]);
-            $isDim = str_starts_with(strtoupper($line), 'DIM');
-            $this->setVariable($varName, $val, $isDim);
+        // 1d. Local variable declarations: "Dim i", "Dim x = 0", "Dim a, b = 1, name"
+        if (preg_match('/^DIM\s+(.+)$/is', $line, $dm)) {
+            $decls = $this->parseArguments($dm[1]);
+            foreach ($decls as $decl) {
+                $decl = trim($decl);
+                if ($decl === '') {
+                    continue;
+                }
+                if (preg_match('/^([A-Za-z0-9_]+)\s*=\s*(.*)$/s', $decl, $m)) {
+                    $this->setVariable($m[1], $this->evalValue($m[2]), true);
+                } elseif (preg_match('/^([A-Za-z0-9_]+)$/', $decl, $m)) {
+                    $this->localVars[$m[1]] = null;
+                }
+            }
             return true;
         }
 
-        // 1e. Variable declaration without assignment: "Dim i"
-        if (preg_match('/^DIM\s+([A-Za-z0-9_]+)$/i', $line, $m)) {
-            $this->localVars[$m[1]] = null;
+        // 1e. Variable assignment without Dim e.g. "mode = 'pre'"
+        if (preg_match('/^([A-Za-z0-9_]+)\s*=\s*(.*)$/s', $line, $m) && !str_contains($m[1], '.')) {
+            $this->setVariable($m[1], $this->evalValue($m[2]), false);
             return true;
         }
 

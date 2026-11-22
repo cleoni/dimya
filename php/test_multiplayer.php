@@ -6868,6 +6868,19 @@ DXW
     );
     $w81->charactersDefaultAttrlist = $origCharDefaults;
 
+    // Multi-variable Dim declaration: "Dim owner, link1, link0, txt, tmp, name" + assigning null to local 'name'
+    $origWorldName = $w81->name;
+    $subEv = new \Dimx\Event('subPrintKillStatsTest', 'SUB');
+    $subEv->actions = "Dim owner, link1, link0, txt, tmp, name\nowner = \"_unknown\"\nname = missingGuildNamesTest(owner)\nIf name = \"\"\nname = \"Mostri\"\nEnd_If\nReturn name";
+    $w81->events['subPrintKillStatsTest'] = $subEv;
+    $dimRunner = new \Dimx\ActionsRunner($w81, $w81, $panelPlayer, null);
+    $dimRes = $dimRunner->evalValue('subPrintKillStatsTest()');
+    assertTest(
+        $dimRes === 'Mostri' && $w81->name === $origWorldName,
+        "Multi-var Dim declares local 'name' so assigning null does not throw TypeError or overwrite World::\$name (got: " . var_export($dimRes, true) . ")"
+    );
+    unset($w81->events['subPrintKillStatsTest']);
+
     @unlink($tmpDir . '/loop_test.dxw');
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');
