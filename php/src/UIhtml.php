@@ -462,6 +462,7 @@ class UIhtml extends UI
         $inventory    = array_values(array_filter($player->contents, fn($i) => !$i->isHidden()));
         $links        = (!$isInsideVehicle && $currentRoom) ? array_values(array_filter($currentRoom->getLinks(), fn($l) => !$l->isHidden()))     : [];
         $activePanel  = $player->getPanel() ?? $world->defaultPanel;
+        $panelIdsAttr = $player->getPanelIds();
 
         // One-shot Sound FX resolution (driven by UIhtml sound support property)
         $commands      = (string)($context['commands'] ?? '');
@@ -1092,7 +1093,7 @@ class UIhtml extends UI
                   <?php if ($lockError): ?><span style="color:#f87171;font-size:11px">⚠ Lock busy</span><?php endif; ?>
                 </div>
 
-                <div id="dimx-scene-meta" style="display:none" data-panel-id="<?= htmlspecialchars($activePanel?->id ?? 'default') ?>" data-sound-url="<?= htmlspecialchars($soundUrl ?? '') ?>" data-bg-src="<?= htmlspecialchars($bgMusic['src'] ?? '') ?>" data-bg-loop="<?= !empty($bgMusic['loop']) ? '1' : '0' ?>" data-bg-triggered="<?= $bgTriggered ? '1' : '0' ?>" data-commands="<?= htmlspecialchars($commands, ENT_QUOTES, 'UTF-8') ?>"></div>
+                <div id="dimx-scene-meta" style="display:none" data-panel-id="<?= htmlspecialchars($panelIdsAttr) ?>" data-sound-url="<?= htmlspecialchars($soundUrl ?? '') ?>" data-bg-src="<?= htmlspecialchars($bgMusic['src'] ?? '') ?>" data-bg-loop="<?= !empty($bgMusic['loop']) ? '1' : '0' ?>" data-bg-triggered="<?= $bgTriggered ? '1' : '0' ?>" data-commands="<?= htmlspecialchars($commands, ENT_QUOTES, 'UTF-8') ?>"></div>
                 <!-- 1-row table for #display and #dashboard -->
                 <table id="dimx-scene-table" class="dimx-scene-table">
                   <tr style="vertical-align:top">
@@ -1867,7 +1868,7 @@ class UIhtml extends UI
                   }
                 ?>
                 <div id="cmdPrompt" class="dimx-cmd-prompt" title="Click to cancel pending command" onclick="clearPendingCmd()"></div>
-                <form id="cmdForm" data-panel-id="<?= htmlspecialchars($activePanel?->id ?? 'default') ?>" method="POST" action="multiplayer.php" style="margin:0" onsubmit="return handleFormSubmit(event)">
+                <form id="cmdForm" data-panel-id="<?= htmlspecialchars($panelIdsAttr) ?>" method="POST" action="multiplayer.php" style="margin:0" onsubmit="return handleFormSubmit(event)">
                   <input type="hidden" name="cmd"  id="cmdInput"  value="look" />
                   <input type="hidden" name="arg0" id="arg0Input" value="" />
                   <input type="hidden" name="arg1" id="arg1Input" value="" />
@@ -2511,9 +2512,18 @@ class UIhtml extends UI
                 if (curForm && newForm) {
                   const curPanelId = curForm.getAttribute('data-panel-id') || '';
                   const newPanelId = newForm.getAttribute('data-panel-id') || '';
-                  const curPanelEl = curForm.querySelector('.dimx-panel');
-                  const newPanelEl = newForm.querySelector('.dimx-panel');
-                  if (curPanelId !== newPanelId || (curPanelEl && newPanelEl && curPanelEl.innerHTML !== newPanelEl.innerHTML)) {
+                  const curPanelEls = curForm.querySelectorAll('.dimx-panel');
+                  const newPanelEls = newForm.querySelectorAll('.dimx-panel');
+                  let panelsHtmlChanged = curPanelEls.length !== newPanelEls.length;
+                  if (!panelsHtmlChanged) {
+                    for (let i = 0; i < curPanelEls.length; i++) {
+                      if (curPanelEls[i].innerHTML !== newPanelEls[i].innerHTML) {
+                        panelsHtmlChanged = true;
+                        break;
+                      }
+                    }
+                  }
+                  if (curPanelId !== newPanelId || panelsHtmlChanged) {
                     curForm.setAttribute('data-panel-id', newPanelId);
                     curForm.innerHTML = newForm.innerHTML;
                   }

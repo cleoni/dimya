@@ -6764,6 +6764,60 @@ DXW
     );
     unset($w81->events['nkono_test.onExit'], $w81->events['E_test.onLoose'], $w81->events['nkono_test.onEnter'], $w81->events['dest_test.onReceive']);
 
+    // Container change panel switch: player with player-specific panel entering room with custom panel (e.g. armory/pshop)
+    $pWarrior = new \Dimx\Panel('pwarrior');
+    $pWarrior->addButton(new \Dimx\Ctrl('look', 'BUTTON', 'Look', 'Look', ''));
+    $w81->addPanel($pWarrior);
+
+    $pShop = new \Dimx\Panel('pshop');
+    $pShop->addButton(new \Dimx\Ctrl('buy', 'BUTTON', 'Compra', 'Compra', ''));
+    $w81->addPanel($pShop);
+
+    $armoryRoom = new \Dimx\Room($w81, 'l\'armeria', 'armory');
+    $armoryRoom->setPanel($pShop);
+    $w81->addRoom($armoryRoom);
+
+    $panelPlayer = new \Dimx\Player($w81, 'PanelHero', 'p_panel_81');
+    $w81->addPlayer($panelPlayer);
+    $roomE81->addObject($panelPlayer);
+    $panelPlayer->setPanel($pWarrior);
+    $panelPlayer->drainCommands(); // clear initial commands
+
+    $panelPlayer->moveTo($armoryRoom, $panelPlayer, false, false);
+    $cmdsAfterArmory = $panelPlayer->drainCommands();
+    assertTest(
+        str_contains($cmdsAfterArmory, 'refresh!ctrls') && $panelPlayer->prevPanelId === '_pwarrior+_pshop',
+        "Entering armory queues refresh!ctrls and updates prevPanelId even when player has player-specific panel"
+    );
+
+    $uiHtml81 = new \Dimx\UIhtml();
+    ob_start();
+    $uiHtml81->render([
+        'world'            => $w81,
+        'player'           => $panelPlayer,
+        'room'             => $armoryRoom,
+        'messages'         => [],
+        'chat'             => [],
+        'commands'         => $cmdsAfterArmory,
+        'storageLabel'     => 'file',
+        'worldId'          => 'w81',
+        'msgRefreshRate'   => 5,
+        'status'           => 'ok',
+    ]);
+    $armoryHtml = ob_get_clean();
+    assertTest(
+        str_contains($armoryHtml, 'id="cmdForm" data-panel-id="_pwarrior+_pshop"') && str_contains($armoryHtml, 'Compra'),
+        "UIhtml #cmdForm uses combined panel IDs (_pwarrior+_pshop) and renders room panel controls"
+    );
+
+    // PeopleContainer::setPanel notifies contained players with refresh!ctrls
+    $armoryRoom->setPanel('default');
+    $cmdsAfterRoomPanelReset = $panelPlayer->drainCommands();
+    assertTest(
+        str_contains($cmdsAfterRoomPanelReset, 'refresh!ctrls') && $panelPlayer->prevPanelId === '_pwarrior+_',
+        "PeopleContainer::setPanel queues refresh!ctrls for contained players when panel changes"
+    );
+
     @unlink($tmpDir . '/loop_test.dxw');
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');

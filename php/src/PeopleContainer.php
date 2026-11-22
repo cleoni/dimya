@@ -199,6 +199,15 @@ class PeopleContainer extends AdvObject
             }
         }
         $this->panel = $panel;
+        foreach ($this->getOccupants() as $occ) {
+            if ($occ instanceof Player) {
+                $panelIds = $occ->getPanelIds();
+                if (strcasecmp($panelIds, (string)$occ->prevPanelId) !== 0) {
+                    $occ->prevPanelId = $panelIds;
+                    $occ->sendCmd('refresh!ctrls');
+                }
+            }
+        }
         return true;
     }
 
