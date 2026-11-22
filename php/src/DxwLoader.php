@@ -541,6 +541,7 @@ class DxwLoader
                                 $defEx = $parts[2] ?? '';
                                 $model = $parts[3] ?? '';
                                 $lastCtrl = new Ctrl($ddId, Ctrl::TYPE_DROPDOWN, $defEx, '', $setEx, null, $model);
+                                $lastCtrl->world = $world;
                                 $panel->addButton($lastCtrl);
                             } elseif ($subDir === 'TEXTBOX') {
                                 $txtId = !empty($subTokens[1]) ? trim($subTokens[1]) : 'txtBox';

@@ -6043,6 +6043,35 @@ DXW;
             str_contains(implode("\n", $loosePlayer->clientConsole), 'svanisce'),
             "it_commons.dxl onReceiveItem printed 'svanisce' message to player on drop"
         );
+
+        // Verify DROPDOWN rendering via PanelHtml("pguilds") in it_underworld.dxw
+        $cssSkin->list2BgColor = '#603030';
+        $cssSkin->listStyle = '{FONT-FAMILY: tahoma,Helvetica; FONT-SIZE: 12px;color:#DDDDDD}';
+        $loosePlayer->skin = $cssSkin;
+        $loosePlayer->setProperty('__lastcmd', '4info');
+        $pguildsHtml = (string)$invRunner->evalValue('PanelHtml("pguilds")');
+        assertTest(
+            str_contains($pguildsHtml, '<select id="guildop" name="guildop"')
+            && str_contains($pguildsHtml, 'background:#603030;')
+            && str_contains($pguildsHtml, 'FONT-FAMILY: tahoma,Helvetica; FONT-SIZE: 12px;color:#DDDDDD'),
+            "PanelHtml(\"pguilds\") renders <select id=\"guildop\"> with skin list2BgColor & listStyle"
+        );
+        assertTest(
+            str_contains($pguildsHtml, '<option value="0new">Fonda nuova gilda</option>')
+            && str_contains($pguildsHtml, '<option value="4info" selected>Info su (nome)</option>')
+            && str_contains($pguildsHtml, '<option value="8del">Cancella gilda</option>')
+            && str_contains($pguildsHtml, '<option value="8type">Cambia tipologia gilda</option>'),
+            "PanelHtml(\"pguilds\") populates guildOps options and pre-selects \$AGENT.__lastcmd"
+        );
+        $pos3fund = strpos($pguildsHtml, 'value="3fund"');
+        $pos4info = strpos($pguildsHtml, 'value="4info"');
+        $pos8del  = strpos($pguildsHtml, 'value="8del"');
+        $pos8deldele = strpos($pguildsHtml, 'value="8deldele"');
+        assertTest(
+            $pos3fund !== false && $pos4info !== false && $pos8del !== false && $pos8deldele !== false
+            && $pos3fund < $pos4info && $pos4info < $pos8del && $pos8del < $pos8deldele,
+            "PanelHtml(\"pguilds\") renders guildOps options in sorted key order (3fund < 4info < 8del < 8deldele)"
+        );
     }
 
     // Unit test for LABEL "@expr()" in standalone world

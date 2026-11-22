@@ -4483,7 +4483,12 @@ class ActionsRunner
                     $panelObj = $this->world->getPanel($panelArg);
                 }
                 if ($panelObj instanceof Panel) {
-                    $skin = ($this->world !== null) ? $this->world->getSkin(null) : null;
+                    $skin = ($this->agent instanceof Character && $this->agent->skin !== null)
+                        ? $this->agent->skin
+                        : ($this->world?->defaultSkin ?? $this->world?->skins['default'] ?? null);
+                    if ($skin === null && $this->world !== null && !empty($this->world->skins)) {
+                        $skin = reset($this->world->skins) ?: null;
+                    }
                     return $panelObj->toHtml($skin, $this->world, $this->owner, $this->agent, $this->target);
                 }
                 return '';
