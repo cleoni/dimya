@@ -2164,6 +2164,34 @@ class UIhtml extends UI
             }
 
             /**
+             * Legacy DimensioneX AJAX helper: fetches HTML from url and injects it into #targetId.
+             */
+            function ajax(targetId, url) {
+              const target = document.getElementById(targetId);
+              if (!target || !url) return false;
+              if (typeof $ !== 'undefined' && typeof $.ajax === 'function') {
+                $.ajax({
+                  url: url,
+                  type: 'GET',
+                  dataType: 'html',
+                  xhrFields: { withCredentials: true },
+                  success: function(html) {
+                    $(target).html(html);
+                  },
+                  error: function(xhr) {
+                    target.textContent = 'Error loading content (' + (xhr.status || 'network') + ')';
+                  }
+                });
+              } else {
+                fetch(url, { credentials: 'same-origin' })
+                  .then(r => r.text())
+                  .then(html => { target.innerHTML = html; })
+                  .catch(() => { target.textContent = 'Error loading content'; });
+              }
+              return false;
+            }
+
+            /**
              * Generic command button handler for panel buttons (in #ctrls or in-page PanelHtml).
              */
             function handleCommand(cmd, sourceEl = null) {

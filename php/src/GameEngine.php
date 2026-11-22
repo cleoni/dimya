@@ -661,6 +661,11 @@ class GameEngine
                 $dateStr    = date('Y-m-d H:i:s');
                 $this->log("{$dateStr} USER: {$userStr} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: {$roomStr} | STATUS: {$status}");
 
+                $hookResult = $this->dispatchHookCommand($world, $player, $cmd, $rawInput);
+                if ($hookResult !== null) {
+                    return $hookResult;
+                }
+
                 $this->executeCommandAction($world, $player, $cmd, $arg0, $arg1, $view, $rawInput);
 
                 // Advance world clock tick
@@ -758,6 +763,9 @@ class GameEngine
                         'error'            => $result['login_error'],
                     ];
                 }
+                if (isset($result['direct_html'])) {
+                    return $result;
+                }
                 $world           = $result['world'];
                 $player          = $result['player'];
                 $consoleMessages = $result['msgs'];
@@ -841,6 +849,11 @@ class GameEngine
             $dateStr    = date('Y-m-d H:i:s');
             $this->log("{$dateStr} USER: {$userStr} | COMMAND: {$commandStr} | VIEW: {$view} | ROOM: {$roomStr} | STATUS: {$status}");
 
+            $hookResult = $this->dispatchHookCommand($world, $player, $cmd, $rawInput);
+            if ($hookResult !== null) {
+                return $hookResult;
+            }
+
             $this->executeCommandAction($world, $player, $cmd, $arg0, $arg1, $view, $rawInput);
 
             $world->tick();
@@ -909,6 +922,25 @@ class GameEngine
             'msgRefreshRate'   => $msgRefreshRate,
             'logged_out'       => $loggedOut,
             'reset'            => $wasReset,
+        ];
+    }
+
+    /**
+     * Dispatches a world HOOKS command (e.g. viewitem=doViewItem) and returns a direct_html response, or null.
+     */
+    protected function dispatchHookCommand(World $world, Player $player, string $cmd, array $rawInput): ?array
+    {
+        $hookEvent = ($cmd !== '') ? $world->getHookEvent($cmd) : null;
+        if ($hookEvent === null) {
+            return null;
+        }
+        $world->fireEvent($hookEvent, $world, $player, null, $rawInput, true);
+        $hookLines = $player->drainConsole();
+        $this->pm->saveWorld($world);
+        return [
+            'world'       => $world,
+            'player'      => $player,
+            'direct_html' => implode("\n", $hookLines),
         ];
     }
 

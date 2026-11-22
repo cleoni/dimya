@@ -35,6 +35,7 @@ class World extends DimxObject
     public int $sceneHeight = 235; // Default room scene height (default 235)
     public int $iconSize = 16; // Default on-screen icon size (default 16)
     public string $imagesFolder = ''; // Remote or local base images folder
+    public string $navigatorUrl = ''; // Full URL of multiplayer.php navigator endpoint
 
     /** @var array<string> Blacklisted client IPs */
     public array $bannedClients = [];
@@ -711,6 +712,51 @@ class World extends DimxObject
     public function registerEvent(Event $event): void
     {
         $this->events[$event->id] = $event;
+    }
+
+    public function getNavigatorUrl(): string
+    {
+        if ($this->navigatorUrl !== '') {
+            return $this->navigatorUrl;
+        }
+        if (!empty($_SERVER['HTTP_HOST'])) {
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $script = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '/multiplayer.php'));
+            $dir = rtrim(dirname($script), '/');
+            if ($dir === '.' || $dir === '\\') {
+                $dir = '';
+            }
+            return $scheme . '://' . $_SERVER['HTTP_HOST'] . $dir . '/multiplayer.php';
+        }
+        $base = rtrim((string)($this->engine?->baseUrl ?? ''), '/');
+        if ($base !== '') {
+            return str_ends_with($base, 'multiplayer.php') ? $base : $base . '/multiplayer.php';
+        }
+        return 'multiplayer.php';
+    }
+
+    public function getHookEvent(string $hookCmd): ?string
+    {
+        $hookCmd = trim($hookCmd);
+        if ($hookCmd === '') {
+            return null;
+        }
+        $hooksRaw = (string)$this->getProperty('hooks');
+        if ($hooksRaw === '') {
+            return null;
+        }
+        foreach (explode(',', $hooksRaw) as $pair) {
+            $eqPos = strpos($pair, '=');
+            if ($eqPos === false) {
+                continue;
+            }
+            $k = trim(substr($pair, 0, $eqPos));
+            $v = trim(substr($pair, $eqPos + 1));
+            if ($k !== '' && $v !== '' && strcasecmp($k, $hookCmd) === 0) {
+                return $v;
+            }
+        }
+        return null;
     }
 
     public function getEvent(string $id): ?Event

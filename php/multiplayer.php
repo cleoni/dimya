@@ -309,6 +309,14 @@ if (!empty($result['logged_out']) || !empty($result['reset'])) {
     );
 }
 
+// If a HOOKS command produced direct HTML output, return it immediately without UIhtml wrapper
+if (isset($result['direct_html'])) {
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo $result['direct_html'];
+    exit;
+}
+
 // If view is msgs, return JSON payload immediately matching DimensioneX/chat poll format
 if ($view === 'msgs') {
     header('Content-Type: application/json; charset=utf-8');

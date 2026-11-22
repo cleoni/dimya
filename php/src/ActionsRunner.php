@@ -4569,7 +4569,7 @@ class ActionsRunner
                         return (string)($this->world->imagesFolderPublic ?? $this->world->imagesFolderLocal ?? '');
                     }
                     if ($varName === 'navigator') {
-                        return (string)($this->world->baseUrl ?? '');
+                        return $this->world->getNavigatorUrl();
                     }
                     if ($varName === 'version') {
                         return (string)($this->world->getProperty('version') ?? GameEngine::ENGINE_VERSION);

@@ -6166,8 +6166,9 @@ DXW;
         assertTest(
             str_contains($barUiHtml, 'extraParams[el.name] = el.value;')
             && str_contains($barUiHtml, "submitCmd(cmd, '', '', extraParams);")
-            && str_contains($barUiHtml, 'body.set(k, extraParams[k]);'),
-            "UIhtml JS handleCommand/submitCmd collects .dimx-panel form values and sends extraParams without filling arg0"
+            && str_contains($barUiHtml, 'body.set(k, extraParams[k]);')
+            && str_contains($barUiHtml, 'function ajax(targetId, url)'),
+            "UIhtml JS includes ajax(targetId, url) and handleCommand/submitCmd collects .dimx-panel form values"
         );
 
         // Verify zero-padded string keys (e.g. '0010') match integer index (10) in jukebox_play
@@ -6201,6 +6202,35 @@ DXW;
         assertTest($barmanObj !== null && $barmanObj->container?->id === 'bar', "Spawned barman is located inside bar room");
         $barMsgsText = implode(' ', array_column($uwPlayer->getMessages(), 'text'));
         assertTest(str_contains($barMsgsText, 'Pronti!!'), "bar.onHear Speak barman,barman.container,'Pronti!!' delivered to room players");
+
+        // Verify HOOKS dispatch (e.g. viewitem=doViewItem) returns direct_html without full UIhtml wrapper
+        assertTest(
+            $uwW->getHookEvent('viewitem') === 'doViewItem',
+            "it_underworld.dxw: getHookEvent('viewitem') resolves to 'doViewItem'"
+        );
+        $uwW->setProperty('wcatalog_names', ['amulet.invis' => 'amuleto anti-invisibilità']);
+        $pm->saveWorld($uwW);
+        $hookRes = $uwEngine->processCommand(
+            $uwPlayer->name,
+            'viewitem',
+            '',
+            '',
+            new \Dimx\UIhtml($uwPlayer),
+            null,
+            false,
+            false,
+            $uwPlayer->id,
+            null,
+            null,
+            null,
+            'scene',
+            ['cmd' => 'viewitem', 'item' => 'amulet.invis']
+        );
+        $hookHtml = (string)($hookRes['direct_html'] ?? '');
+        assertTest(
+            isset($hookRes['direct_html']) && str_contains($hookHtml, '<div class=viewitem>') && !str_contains($hookHtml, 'COMMAND_DEFS'),
+            "HOOKS cmd=viewitem returns direct_html fragment without full UIhtml page/COMMAND_DEFS (hooks=" . var_export($hookRes['world']->getProperty('hooks'), true) . ", direct_html=" . var_export(substr($hookHtml, 0, 120), true) . ")"
+        );
 
         // Verify chapel.onReceive -> Call onReceive() does NOT recurse into chapel.onReceive
         $chapelRoom = $uwW->getRoom('chapel');
@@ -6382,6 +6412,28 @@ DXW
         $accRunner->getLocalVar('cat_res') === 'is_null' && $accRunner->getLocalVar('lim_res') === 'false',
         "If undefined_cat = null evaluates to TRUE and If undefined_limitedavails evaluates to FALSE"
     );
+
+    // Verify gameInfo("navigator") returns multiplayer.php URL (full URL under HTTP, non-empty fallback in CLI)
+    $origHost = $_SERVER['HTTP_HOST'] ?? null;
+    $origScript = $_SERVER['SCRIPT_NAME'] ?? null;
+    $origHttps = $_SERVER['HTTPS'] ?? null;
+    $_SERVER['HTTP_HOST'] = 'localhost';
+    $_SERVER['SCRIPT_NAME'] = '/dimya/php/multiplayer.php';
+    unset($_SERVER['HTTPS']);
+    $navFull = $accRunner->evalValue('gameInfo("navigator")');
+    assertTest(
+        $navFull === 'http://localhost/dimya/php/multiplayer.php',
+        "gameInfo(\"navigator\") returns full multiplayer.php URL under HTTP (got: " . var_export($navFull, true) . ")"
+    );
+    unset($_SERVER['HTTP_HOST'], $_SERVER['SCRIPT_NAME']);
+    $navFallback = $accRunner->evalValue('gameInfo("navigator")');
+    assertTest(
+        $navFallback === 'multiplayer.php',
+        "gameInfo(\"navigator\") falls back to 'multiplayer.php' when HTTP_HOST is unset (got: " . var_export($navFallback, true) . ")"
+    );
+    if ($origHost !== null) $_SERVER['HTTP_HOST'] = $origHost; else unset($_SERVER['HTTP_HOST']);
+    if ($origScript !== null) $_SERVER['SCRIPT_NAME'] = $origScript; else unset($_SERVER['SCRIPT_NAME']);
+    if ($origHttps !== null) $_SERVER['HTTPS'] = $origHttps; else unset($_SERVER['HTTPS']);
     $accRunner->run(<<<'DXW'
 If garumir_test.accounts($AGENT.name) = null
     garumir_test.accounts($AGENT.name) = 100
