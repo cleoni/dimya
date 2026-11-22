@@ -89,7 +89,7 @@ class Ctrl extends ManageableObject
                 $caption = ActionsRunner::formatValue($val);
             }
         }
-        return "<span class=\"dimx-label\">{$caption}</span>\n";
+        return $caption . ' ';
     }
 
     protected function renderButton(?Skin $skin = null): string

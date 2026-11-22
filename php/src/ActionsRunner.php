@@ -4532,7 +4532,7 @@ class ActionsRunner
                     if ($skin === null && $this->world !== null && !empty($this->world->skins)) {
                         $skin = reset($this->world->skins) ?: null;
                     }
-                    return $panelObj->toHtml($skin, $this->world, $this->owner, $this->agent, $this->target);
+                    return $panelObj->toHtml($skin, $this->world, $this->owner, $this->agent, $this->target, true);
                 }
                 return '';
             }

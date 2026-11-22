@@ -6051,6 +6051,16 @@ DXW;
         $loosePlayer->setProperty('__lastcmd', '4info');
         $pguildsHtml = (string)$invRunner->evalValue('PanelHtml("pguilds")');
         assertTest(
+            str_starts_with($pguildsHtml, '<form class="dimx-panel" id="panel_pguilds" method="POST"')
+            && str_contains($pguildsHtml, '<input type="hidden" name="view" value="scene" />')
+            && str_contains($pguildsHtml, '<input type="hidden" name="arg0" value="" />')
+            && str_contains($pguildsHtml, '<input type="hidden" name="arg1" value="" />')
+            && str_contains($pguildsHtml, '<input type="hidden" name="cmd" value="" />')
+            && str_ends_with($pguildsHtml, '</form>')
+            && !str_contains($pguildsHtml, '<div class="dimx-panel"'),
+            "PanelHtml(\"pguilds\") wraps controls in <form class=\"dimx-panel\"> with hidden view/arg0/arg1/cmd inputs"
+        );
+        assertTest(
             str_contains($pguildsHtml, '<select id="guildop" name="guildop"')
             && str_contains($pguildsHtml, 'background:#603030;')
             && str_contains($pguildsHtml, 'FONT-FAMILY: tahoma,Helvetica; FONT-SIZE: 12px;color:#DDDDDD'),

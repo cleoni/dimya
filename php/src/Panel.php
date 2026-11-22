@@ -60,9 +60,10 @@ class Panel
         ?World $world = null,
         ?DimxObject $owner = null,
         mixed $agent = null,
-        mixed $target = null
+        mixed $target = null,
+        bool $wrapForm = false
     ): string {
-        $html = "<div class=\"dimx-panel\" id=\"panel_" . htmlspecialchars($this->id, ENT_QUOTES) . "\">\n";
+        $controlsHtml = '';
         foreach ($this->buttons as $ctrl) {
             // In the HTML presentation layer, clicking an object/character triggers the 'click' action directly,
             // and clicking a link icon or onscreen link triggers the 'go' action automatically;
@@ -70,10 +71,25 @@ class Panel
             if (in_array(strtolower($ctrl->id), ['click', 'go'], true)) {
                 continue;
             }
-            $html .= $ctrl->toHtml($skin, $world, $owner, $agent, $target);
+            $controlsHtml .= $ctrl->toHtml($skin, $world, $owner, $agent, $target);
         }
-        $html .= "</div>\n";
-        return $html;
+
+        if ($wrapForm) {
+            $action = (!empty($world?->baseUrl)) ? $world->baseUrl : 'multiplayer.php';
+            $html = '<form class="dimx-panel" id="panel_' . htmlspecialchars($this->id, ENT_QUOTES) . '"'
+                . ' method="POST" action="' . htmlspecialchars($action, ENT_QUOTES) . '" style="margin:0">'
+                . '<input type="hidden" name="view" value="scene" />'
+                . '<input type="hidden" name="arg0" value="" />'
+                . '<input type="hidden" name="arg1" value="" />'
+                . '<input type="hidden" name="cmd" value="" />'
+                . $controlsHtml
+                . '</form>';
+            return str_replace("\n", '', $html);
+        }
+
+        return "<div class=\"dimx-panel\" id=\"panel_" . htmlspecialchars($this->id, ENT_QUOTES) . "\">\n"
+            . $controlsHtml
+            . "</div>\n";
     }
 
     /**
