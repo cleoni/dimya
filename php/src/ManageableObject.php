@@ -36,10 +36,32 @@ class ManageableObject
             return self::$classPropMetadata[$className];
         }
 
+        $internalProps = [
+            'contents' => true,
+            'images' => true,
+            'events' => true,
+            'rooms' => true,
+            'items' => true,
+            'characters' => true,
+            'players' => true,
+            'links' => true,
+            'panels' => true,
+            'skins' => true,
+            'sets' => true,
+            'clientconsole' => true,
+            'messagesqueue' => true,
+            'chatmessages' => true,
+            'queuedcommands' => true,
+        ];
+
         $map = [];
         $ref = new \ReflectionClass($className);
         foreach ($ref->getProperties() as $prop) {
-            if ($prop->isStatic()) {
+            if ($prop->isStatic() || !$prop->isPublic()) {
+                continue;
+            }
+            $lowerName = strtolower($prop->getName());
+            if (isset($internalProps[$lowerName])) {
                 continue;
             }
             $type = $prop->getType();
@@ -145,6 +167,10 @@ class ManageableObject
                     $this->{$propName} = (string)$value;
                     $this->properties[$name] = $this->{$propName};
                     return $this->{$propName};
+                } elseif ($typeName === 'array' && !is_array($value)) {
+                    // Non-array scalar assigned to an array-typed property: store dynamically without TypeError
+                    $this->properties[$name] = $value;
+                    return $value;
                 } elseif ($meta['isClass']) {
                     if ($value instanceof $typeName) {
                         $this->{$propName} = $value;

@@ -820,19 +820,6 @@ class ActionsRunner
                     }
                 } else {
                     $obj->setProperty($propName, $val);
-                    if (property_exists($obj, $propName)) {
-                        if (is_bool($obj->{$propName})) {
-                            $obj->{$propName} = (bool)$val;
-                        } elseif (is_int($obj->{$propName})) {
-                            $obj->{$propName} = (int)$val;
-                        } elseif (is_float($obj->{$propName})) {
-                            $obj->{$propName} = (float)$val;
-                        } elseif (is_string($obj->{$propName})) {
-                            $obj->{$propName} = self::formatValue($val);
-                        } else {
-                            $obj->{$propName} = $val;
-                        }
-                    }
                 }
             }
             return true;
@@ -4603,8 +4590,7 @@ class ActionsRunner
                     }
                     return null;
                 }
-                $propVal = property_exists($obj, $prop) ? $obj->{$prop} : $obj->getProperty($prop);
-                return $propVal;
+                return $obj->getProperty($prop);
             }
             return null;
         }
@@ -4670,7 +4656,7 @@ class ActionsRunner
                 }
                 return null;
             }
-            $propVal = property_exists($obj, $prop) ? $obj->{$prop} : $obj->getProperty($prop);
+            $propVal = $obj->getProperty($prop);
             if (!is_array($propVal)) {
                 return null;
             }

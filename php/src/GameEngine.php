@@ -980,31 +980,92 @@ class GameEngine
 
                     if ($targetObj instanceof AdvObject) {
                         $player->focus = $targetObj;
-                        $desc = $targetObj->evalDescription($player);
-                        if ($targetObj->isaRoom()) {
-                            // Room description is rendered by UI / view
-                        } else {
-                            $msg = !empty($desc) ? $desc : "<b>{$targetObj->name}</b>";
-                            $player->display($msg);
-                        }
+                        $desc = $targetObj->isaRoom() ? '' : $targetObj->evalDescription($player);
 
-                        if ($targetObj->isanItem() && !$targetObj->isaRoom() && $targetObj->isOpen() && !$targetObj->isVehicle()) {
-                            $contents = $targetObj->getContents(true);
-                            if (!empty($contents)) {
-                                $itemLinks = [];
-                                $skin = $player->skin ?? $world->skins['default'] ?? $world->defaultSkin;
-                                foreach ($contents as $it) {
-                                    $ico = !empty($it->icon) ? $it->icon : ($skin?->getItemIcon() ?? '');
-                                    $iconImg = !empty($ico)
-                                        ? "<img src=\"" . htmlspecialchars($ico) . "\" alt=\"" . htmlspecialchars($it->name) . "\" style=\"width:20px;height:20px;object-fit:contain;vertical-align:middle;margin-right:4px;border-radius:2px\" />"
-                                        : "📦 ";
-                                    $itemLinks[] = "<a href=\"javascript:void(0)\" class=\"dimx-onscreen-obj\" data-obj-id=\"" . htmlspecialchars($it->id) . "\" data-obj-type=\"i\" data-obj-name=\"" . htmlspecialchars($it->name) . "\" onclick=\"clickObject(this)\" style=\"color:#38bdf8;text-decoration:none;display:inline-flex;align-items:center;cursor:pointer;\">{$iconImg}<b>" . htmlspecialchars($it->name) . "</b></a>";
+                        $preOnLookConsole = $player->clientConsole;
+                        $onLookTarget = ($cmd === 'look') ? 'explicit' : '';
+                        $lookRes = $world->fireEvent('onLook', $targetObj, $player, $onLookTarget, $inputData);
+                        $onLookConsole = array_slice($player->clientConsole, count($preOnLookConsole));
+                        $player->clientConsole = $preOnLookConsole;
+
+                        if ($lookRes !== false && !$targetObj->isaRoom()) {
+                            $header = ($targetObj->showmode !== AdvObject::SHOW_OFFSCREEN)
+                                ? "-- {$targetObj->name} --"
+                                : '';
+                            if ($header !== '' && $desc !== '') {
+                                $player->display("{$header}\n{$desc}");
+                            } elseif ($header !== '') {
+                                $player->display($header);
+                            } elseif ($desc !== '') {
+                                $player->display($desc);
+                            }
+
+                            if ($targetObj->isanItem() && $targetObj->isOpen() && !$targetObj->isVehicle()) {
+                                $contents = $targetObj->getContents(true);
+                                if (!empty($contents)) {
+                                    $itemLinks = [];
+                                    $skin = $player->skin ?? $world->skins['default'] ?? $world->defaultSkin;
+                                    foreach ($contents as $it) {
+                                        $ico = !empty($it->icon) ? $it->icon : ($skin?->getItemIcon() ?? '');
+                                        $iconImg = !empty($ico)
+                                            ? "<img src=\"" . htmlspecialchars($ico) . "\" alt=\"" . htmlspecialchars($it->name) . "\" style=\"width:20px;height:20px;object-fit:contain;vertical-align:middle;margin-right:4px;border-radius:2px\" />"
+                                            : "📦 ";
+                                        $itemLinks[] = "<a href=\"javascript:void(0)\" class=\"dimx-onscreen-obj\" data-obj-id=\"" . htmlspecialchars($it->id) . "\" data-obj-type=\"i\" data-obj-name=\"" . htmlspecialchars($it->name) . "\" onclick=\"clickObject(this)\" style=\"color:#38bdf8;text-decoration:none;display:inline-flex;align-items:center;cursor:pointer;\">{$iconImg}<b>" . htmlspecialchars($it->name) . "</b></a>";
+                                    }
+                                    $player->display("Containing: " . implode(', ', $itemLinks));
                                 }
-                                $player->display("Containing: " . implode(', ', $itemLinks));
+                            }
+
+                            if ($targetObj->isaCharacter() || $targetObj->isanItem()) {
+                                $skipProps = false;
+                                if ($targetObj->getProperty('__clearinfo')) {
+                                    $skipProps = true;
+                                    $targetObj->setProperty('__clearinfo', false);
+                                }
+                                if (!$skipProps) {
+                                    $propLines = [];
+                                    $showProps = $world->showproperties ?? null;
+                                    foreach ($targetObj->getProperties() as $propKey => $propVal) {
+                                        if (!is_string($propKey) || $propKey === '') {
+                                            continue;
+                                        }
+                                        $shouldDisplay = false;
+                                        if ($showProps === null) {
+                                            if ($propKey[0] >= 'A' && $propKey[0] <= 'Z') {
+                                                $shouldDisplay = true;
+                                            }
+                                        } else {
+                                            $showList = is_array($showProps) ? $showProps : array_map('trim', explode(',', (string)$showProps));
+                                            foreach ($showList as $sp) {
+                                                if (strcasecmp($propKey, (string)$sp) === 0) {
+                                                    $shouldDisplay = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        if ($shouldDisplay) {
+                                            if ($propVal instanceof DimxObject) {
+                                                $valDisplay = $propVal->getName();
+                                            } elseif (is_bool($propVal)) {
+                                                $valDisplay = $propVal ? '1' : '0';
+                                            } elseif (is_scalar($propVal)) {
+                                                $valDisplay = (string)$propVal;
+                                            } else {
+                                                $valDisplay = ActionsRunner::formatValue($propVal);
+                                            }
+                                            $propLines[] = htmlspecialchars($propKey) . ': ' . htmlspecialchars($valDisplay);
+                                        }
+                                    }
+                                    if (!empty($propLines)) {
+                                        $player->display("Situation\n" . implode("\n", $propLines));
+                                    }
+                                }
                             }
                         }
 
-                        $world->fireEvent('onLook', $targetObj, $player, '', $inputData);
+                        foreach ($onLookConsole as $line) {
+                            $player->display($line);
+                        }
                     } else {
                         $player->display("You do not see that here.");
                     }

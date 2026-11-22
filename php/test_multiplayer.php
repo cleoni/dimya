@@ -6072,6 +6072,57 @@ DXW;
             && $pos3fund < $pos4info && $pos4info < $pos8del && $pos8del < $pos8deldele,
             "PanelHtml(\"pguilds\") renders guildOps options in sorted key order (3fund < 4info < 8del < 8deldele)"
         );
+
+        // Verify isOpenable() respects openable=0 (jukebox) & Link without open/locked attrs (w13b in B)
+        $jukebox = $uwWorld->getItem('jukebox');
+        $linkW13b = $uwWorld->getLink('w13b');
+        assertTest($jukebox !== null && $jukebox->isOpenable() === false, "it_underworld.dxw: jukebox (openable=0) is NOT openable");
+        assertTest($linkW13b !== null && $linkW13b->isOpenable() === false, "it_underworld.dxw: link w13b (no open/locked attrs) is NOT openable");
+
+        // Verify cmd=look on jukebox displays '-- juke-box --', 'Situation', 'Credits: 5' without 'is open.' or lowercase 'contents'
+        $roomBar = $uwWorld->getRoom('bar');
+        assertTest($roomBar !== null, "it_underworld.dxw: bar room exists");
+        $uwEngine = new \Dimx\GameEngine($pm, 'test_uw_look_' . uniqid(), $uwPath);
+        $uwW = $uwEngine->loadOrSeedWorld();
+        $uwPlayer = $uwEngine->ensurePlayer($uwW, 'LookTester81', new \Dimx\UIhtml());
+        $uwPlayer->move($uwW->getRoom('bar'));
+        $uwJb = $uwW->getItem('jukebox');
+        $uwJb->setProperty('contents', 10);
+        $uwJb->setProperty('Credits', 5);
+        $uwPlayer->clientConsole = [];
+        $uwEngine->executeCommandAction($uwW, $uwPlayer, 'look', 'jukebox', '');
+        $jbConsole = implode("\n", $uwPlayer->drainConsole());
+        assertTest(!str_contains($jbConsole, 'juke-box is open'), "Looking at jukebox does NOT display 'juke-box is open'");
+        assertTest(str_contains($jbConsole, '-- juke-box --'), "Looking at jukebox displays '-- juke-box --'");
+        assertTest(str_contains($jbConsole, "Situation\nCredits: 5"), "Looking at jukebox displays Situation and Credits: 5");
+        assertTest(!str_contains($jbConsole, 'contents:'), "Looking at jukebox does NOT display lowercase property 'contents'");
+
+        // Verify cmd=look on Link w13b in room B does NOT display 'is open.'
+        $uwPlayer->move($uwW->getRoom('B'));
+        $uwPlayer->clientConsole = [];
+        $uwEngine->executeCommandAction($uwW, $uwPlayer, 'look', 'w13b', '');
+        $w13bConsole = implode("\n", $uwPlayer->drainConsole());
+        assertTest(!str_contains($w13bConsole, 'is open.'), "Looking at link w13b in room B does NOT display 'is open.'");
+
+        // Verify cmd=look on Character displays capitalized properties and respects __clearinfo
+        $npcLook = new \Dimx\Character($uwW, 'Guardiano', 'guard_look_81', 'Un guardiano.');
+        $npcLook->showmode = \Dimx\AdvObject::SHOW_ONSCREEN;
+        $npcLook->setProperty('Health', 100);
+        $npcLook->setProperty('secret', 42);
+        $npcLook->move($uwW->getRoom('B'));
+        $uwW->addCharacter($npcLook);
+        $uwPlayer->clientConsole = [];
+        $uwEngine->executeCommandAction($uwW, $uwPlayer, 'look', 'guard_look_81', '');
+        $npcConsole = implode("\n", $uwPlayer->drainConsole());
+        assertTest(str_contains($npcConsole, '-- Guardiano --'), "Looking at Character displays '-- Guardiano --'");
+        assertTest(str_contains($npcConsole, "Situation\nHealth: 100"), "Looking at Character displays Situation and capitalized Health: 100");
+        assertTest(!str_contains($npcConsole, 'secret:'), "Looking at Character omits lowercase property 'secret'");
+        $npcLook->setProperty('__clearinfo', true);
+        $uwPlayer->clientConsole = [];
+        $uwEngine->executeCommandAction($uwW, $uwPlayer, 'look', 'guard_look_81', '');
+        $npcClearedConsole = implode("\n", $uwPlayer->drainConsole());
+        assertTest(!str_contains($npcClearedConsole, 'Situation'), "Looking at Character with __clearinfo=true skips Situation properties");
+        assertTest(!$npcLook->getProperty('__clearinfo'), "__clearinfo flag is cleared after look");
     }
 
     // Unit test for LABEL "@expr()" in standalone world
@@ -6459,6 +6510,28 @@ DXW
     assertTest(
         str_contains(implode("\n", $atkPlayer->clientConsole), "Can't hide it"),
         "hide command refuses non-item (Character) with 'Can't hide it'"
+    );
+
+    // User-defined 'contents' property on Item/DimxObject (must not collide with DimxObject::$contents array)
+    $jukebox = new \Dimx\Item($w81, 'jukebox', 'jukebox_test');
+    $coins5 = new \Dimx\Item($w81, '5 monete', 'coins5_test');
+    $coins5->setProperty('Monete', 5);
+    $w81->addItem($jukebox);
+    $w81->addItem($coins5);
+    $coins5->move($jukebox);
+    $jbRunner = new \Dimx\ActionsRunner($w81, $jukebox, $accPlayer, $coins5);
+    $jbRunner->run(<<<'DXW'
+$OWNER.Credits = $TARGET.Monete+$OWNER.Credits
+$OWNER.contents = $TARGET.Monete+$OWNER.contents
+DXW
+    );
+    assertTest(
+        (int)$jukebox->getProperty('Credits') === 5 && (int)$jukebox->getProperty('contents') === 5,
+        "jukebox.Credits and jukebox.contents both hold 5 after \$TARGET.Monete + \$OWNER.contents"
+    );
+    assertTest(
+        is_array($jukebox->contents) && isset($jukebox->contents['coins5_test']),
+        "Internal DimxObject::\$contents array remains intact after setting dynamic 'contents' property"
     );
 
     @unlink($tmpDir . '/loop_test.dxw');

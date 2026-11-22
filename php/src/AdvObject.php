@@ -231,7 +231,19 @@ class AdvObject extends DimxObject
      */
     public function isOpenable(): bool
     {
-        return property_exists($this, 'open') || $this->getProperty('open') !== null || $this->isLocked() || $this->getProperty('locked') !== null;
+        if ($this->varExists('openable')) {
+            $openableVal = $this->getProperty('openable');
+            if ($openableVal === false || $openableVal === 0 || $openableVal === '0' || (is_string($openableVal) && strtolower(trim($openableVal)) === 'false')) {
+                return false;
+            }
+        }
+        foreach ($this->properties as $k => $v) {
+            $kl = strtolower((string)$k);
+            if ($kl === 'open' || $kl === 'locked') {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
