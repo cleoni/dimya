@@ -76,7 +76,7 @@ class Panel
 
         if ($wrapForm) {
             $action = ($world !== null) ? $world->getNavigatorUrl() : 'multiplayer.php';
-            $html = '<form class="dimx-panel" id="panel_' . htmlspecialchars($this->id, ENT_QUOTES) . '"'
+            $html = '<form id="panel_' . htmlspecialchars($this->id, ENT_QUOTES) . '"'
                 . ' method="POST" action="' . htmlspecialchars($action, ENT_QUOTES) . '" style="margin:0">'
                 . '<input type="hidden" name="view" value="scene" />'
                 . '<input type="hidden" name="arg0" value="" />'

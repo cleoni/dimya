@@ -2234,8 +2234,8 @@ class UIhtml extends UI
               // If command requires 0 arguments (instant execution)
               if (!def.noArgs || def.noArgs === 0) {
                 clearPendingCmd();
-                const panelEl = sourceEl?.closest?.('.dimx-panel')
-                             || document.getElementById('btn_' + cmd)?.closest?.('.dimx-panel')
+                const panelEl = sourceEl?.closest?.('form, .dimx-panel')
+                             || document.getElementById('btn_' + cmd)?.closest?.('form, .dimx-panel')
                              || document.querySelector('#ctrls .dimx-panel');
                 const extraParams = {};
                 if (panelEl && typeof panelEl.querySelectorAll === 'function') {
