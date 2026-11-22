@@ -590,6 +590,122 @@ class AdvObject extends DimxObject
     }
 
     /**
+     * Move this object to $where with full DimensioneX event chain (AdvObject.java:moveTo).
+     * When $checkEvents is true, fires objRemove events (whenDropped/onExit + onLooseItem/onLoose)
+     * before moving and objPlace events (whenPicked/onEnter + onReceiveItem/onReceive) after moving,
+     * cancelling/restoring if any event returns false/0.
+     */
+    public function moveTo(AdvObject $where, ?AdvObject $agent = null, bool $checkOpen = false, bool $checkEvents = true): bool
+    {
+        if ($this instanceof Room) {
+            $this->triggerError("ERROR: ROOM objects cannot be moved.");
+            return false;
+        }
+        if ($this->container === $where) {
+            return true;
+        }
+        if ($checkOpen && $where->isOpenable() && !$where->isOpen()) {
+            $this->world?->log("Cannot move {$this->id}: destination closed");
+            return false;
+        }
+        if ($where->capacity > 0 && $this->volume > $where->getFreeSpace()) {
+            $this->world?->log("Not enough room in {$where->id}");
+            return false;
+        }
+
+        $oldContainer = $this->container;
+        $isCancelled = static function (mixed $res): bool {
+            return $res === false || $res === 0 || $res === '0';
+        };
+
+        if ($oldContainer !== null && $this->world !== null) {
+            $res = true;
+            if ($oldContainer->isaCharacter()) {
+                $r = $this->world->fireEvent('whenDropped', $this, $agent, $where);
+                if ($isCancelled($r)) {
+                    $res = false;
+                }
+            } else {
+                $r = $this->world->fireEvent('onExit', $this, $agent, $where);
+                if ($isCancelled($r)) {
+                    $res = false;
+                }
+            }
+
+            if ($res) {
+                if ($this->isanItem()) {
+                    $r = $this->world->fireEvent('onLooseItem', $oldContainer, $agent, $this);
+                    if ($isCancelled($r)) {
+                        $res = false;
+                    }
+                } else {
+                    $looseTarget = ($agent !== null) ? $where : $this;
+                    $r = $this->world->fireEvent('onLoose', $oldContainer, $agent, $looseTarget);
+                    if ($isCancelled($r)) {
+                        $res = false;
+                    }
+                }
+            }
+
+            if ($checkEvents && !$res) {
+                $this->world->log("WARNING: Move of {$this->id} from its container failed");
+                return false;
+            }
+        }
+
+        if (!$this->move($where, $checkOpen)) {
+            return false;
+        }
+
+        if ($oldContainer instanceof Room) {
+            $this->world?->sendCmd('refresh!scene', $oldContainer);
+        }
+        if ($where instanceof Room) {
+            $this->world?->sendCmd('refresh!scene', $where);
+        }
+
+        if ($this->world !== null) {
+            $placeRes = true;
+            if ($where->isaCharacter()) {
+                $r = $this->world->fireEvent('whenPicked', $this, $agent, $where);
+                if ($isCancelled($r)) {
+                    $placeRes = false;
+                }
+            } else {
+                $r = $this->world->fireEvent('onEnter', $this, $agent, $where);
+                if ($isCancelled($r)) {
+                    $placeRes = false;
+                }
+            }
+
+            if ($placeRes) {
+                if ($this->isanItem()) {
+                    $r = $this->world->fireEvent('onReceiveItem', $where, $agent, $this);
+                    if ($isCancelled($r)) {
+                        $placeRes = false;
+                    }
+                } else {
+                    $r = $this->world->fireEvent('onReceive', $where, $agent, $this);
+                    if ($isCancelled($r)) {
+                        $placeRes = false;
+                    }
+                }
+            }
+
+            if ($checkEvents && !$placeRes) {
+                $stillAlive = ($this->world !== null && $this->world->getObjectExt($this->id) !== null);
+                if ($stillAlive && $oldContainer !== null && $this->container === $where) {
+                    $this->move($oldContainer, false);
+                }
+                $this->world->log("WARNING: Placing {$this->id} into {$where->id} failed.");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Internal destruction/cleanup matching original DimensioneX AdvObject.die().
      *
      * @param bool $removeFromContainer Remove from container

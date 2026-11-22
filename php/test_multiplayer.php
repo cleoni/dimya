@@ -6534,6 +6534,56 @@ DXW
         "Internal DimxObject::\$contents array remains intact after setting dynamic 'contents' property"
     );
 
+    // Move statement (AdvObject::moveTo) fires onExit -> onLoose -> onEnter -> onReceive for Characters & Players
+    $roomE81 = new \Dimx\Room($w81, 'Room E', 'E_test');
+    $roomDest81 = new \Dimx\Room($w81, 'Dest Room', 'dest_test');
+    $w81->addRoom($roomE81);
+    $w81->addRoom($roomDest81);
+    $nkono = new \Dimx\Character($w81, 'Nkono', 'nkono_test');
+    $w81->addCharacter($nkono);
+    $nkono->move($roomE81);
+    $guardBlock = true;
+    $nkonoTrace = [];
+    $w81->events['nkono_test.onExit'] = new \Dimx\Event('nkono_test.onExit', 'EVENT', function ($owner, $agent, $target) use (&$guardBlock, &$nkonoTrace) {
+        $nkonoTrace[] = 'onExit';
+        return $guardBlock ? 0 : 1;
+    });
+    $looseBlock = false;
+    $w81->events['E_test.onLoose'] = new \Dimx\Event('E_test.onLoose', 'EVENT', function ($owner, $agent, $target) use (&$looseBlock, &$nkonoTrace) {
+        $nkonoTrace[] = 'onLoose';
+        return $looseBlock ? 0 : 1;
+    });
+    $w81->events['nkono_test.onEnter'] = new \Dimx\Event('nkono_test.onEnter', 'EVENT', function () use (&$nkonoTrace) {
+        $nkonoTrace[] = 'onEnter';
+        return 1;
+    });
+    $w81->events['dest_test.onReceive'] = new \Dimx\Event('dest_test.onReceive', 'EVENT', function () use (&$nkonoTrace) {
+        $nkonoTrace[] = 'onReceive';
+        return 1;
+    });
+    $moveRunner = new \Dimx\ActionsRunner($w81, $w81, $nkono, null);
+    $moveRunner->run('Move nkono_test, dest_test');
+    assertTest(
+        $nkono->container === $roomE81 && $nkonoTrace === ['onExit'],
+        "Move nkono_test blocked by nkono_test.onExit returning 0"
+    );
+    $guardBlock = false;
+    $looseBlock = true;
+    $nkonoTrace = [];
+    $moveRunner->run('Move nkono_test, dest_test');
+    assertTest(
+        $nkono->container === $roomE81 && $nkonoTrace === ['onExit', 'onLoose'],
+        "Move nkono_test blocked by E_test.onLoose returning 0"
+    );
+    $looseBlock = false;
+    $nkonoTrace = [];
+    $moveRunner->run('Move nkono_test, dest_test');
+    assertTest(
+        $nkono->container === $roomDest81 && $nkonoTrace === ['onExit', 'onLoose', 'onEnter', 'onReceive'],
+        "Move nkono_test fires onExit -> onLoose -> onEnter -> onReceive and moves Character"
+    );
+    unset($w81->events['nkono_test.onExit'], $w81->events['E_test.onLoose'], $w81->events['nkono_test.onEnter'], $w81->events['dest_test.onReceive']);
+
     @unlink($tmpDir . '/loop_test.dxw');
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');

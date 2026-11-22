@@ -1992,21 +1992,7 @@ class ActionsRunner
         $whereObj = $this->resolveObject((string)$args[1]);
 
         if ($whatObj instanceof AdvObject && $whereObj instanceof AdvObject) {
-            $moved = $whatObj->move($whereObj, false);
-            if ($moved && $this->world !== null) {
-                $agentArg = $this->agent ?? $whatObj;
-                if ($whereObj->isaCharacter()) {
-                    $this->world->fireEvent('whenPicked', $whatObj, $agentArg, $whereObj);
-                } else {
-                    $this->world->fireEvent('onEnter', $whatObj, $agentArg, $whereObj);
-                }
-                if ($whatObj->isanItem()) {
-                    $this->world->fireEvent('onReceiveItem', $whereObj, $agentArg, $whatObj);
-                } else {
-                    $this->world->fireEvent('onReceive', $whereObj, $agentArg, $whatObj);
-                }
-            }
-            return $moved;
+            return $whatObj->moveTo($whereObj, $this->agent ?? $whatObj, false, true);
         }
 
         return false;
