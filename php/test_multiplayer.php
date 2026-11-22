@@ -6123,6 +6123,42 @@ DXW;
         $npcClearedConsole = implode("\n", $uwPlayer->drainConsole());
         assertTest(!str_contains($npcClearedConsole, 'Situation'), "Looking at Character with __clearinfo=true skips Situation properties");
         assertTest(!$npcLook->getProperty('__clearinfo'), "__clearinfo flag is cleared after look");
+
+        // Verify all panel BUTTON IDs (including 'dothis' from pjukebox) are in world->getAllPanelCommands()
+        $allPanelCmds = $uwW->getAllPanelCommands();
+        assertTest(in_array('dothis', $allPanelCmds, true), "it_underworld.dxw: getAllPanelCommands() includes 'dothis' from pjukebox");
+        assertTest(in_array('guildcmd', $allPanelCmds, true), "it_underworld.dxw: getAllPanelCommands() includes 'guildcmd' from pguilds");
+
+        // Verify dothis command with pjukebox form input (trackselector) triggers doCommand -> doCommand_Local -> jukebox_play
+        $uwPlayer->move($uwW->getRoom('bar'));
+        $uwPlayer->setPanel('pwarrior');
+        $uwJb->setProperty('Credits', 0);
+        $uwPlayer->clientConsole = [];
+        $uwEngine->executeCommandAction($uwW, $uwPlayer, 'dothis', '', '', 'scene', ['cmd' => 'dothis', 'trackselector' => '1']);
+        $dothisConsole = implode("\n", $uwPlayer->drainConsole());
+        assertTest(!str_contains($dothisConsole, 'not allowed in current panel'), "dothis command is NOT blocked when active panel is pwarrior");
+        assertTest(!str_contains($dothisConsole, 'Unknown command'), "dothis command is recognized and dispatched to doCommand");
+        assertTest(
+            str_contains($dothisConsole, 'Forse dovrei inserire una monetina'),
+            "dothis command fills input('trackselector') so doCommand -> doCommand_Local -> jukebox_play runs (got: {$dothisConsole})"
+        );
+
+        // Verify UIhtml JS handleCommand collects .dimx-panel form controls & sends extraParams without filling arg0
+        ob_start();
+        (new \Dimx\UIhtml($uwPlayer))->render([
+            'world'     => $uwW,
+            'player'    => $uwPlayer,
+            'room'      => $uwW->getRoom('bar'),
+            'messages'  => [],
+            'lockError' => false,
+        ]);
+        $barUiHtml = ob_get_clean();
+        assertTest(
+            str_contains($barUiHtml, 'extraParams[el.name] = el.value;')
+            && str_contains($barUiHtml, "submitCmd(cmd, '', '', extraParams);")
+            && str_contains($barUiHtml, 'body.set(k, extraParams[k]);'),
+            "UIhtml JS handleCommand/submitCmd collects .dimx-panel form values and sends extraParams without filling arg0"
+        );
     }
 
     // Unit test for LABEL "@expr()" in standalone world

@@ -141,6 +141,9 @@ class ActionsRunner
         if (array_key_exists($name, $this->localVars)) {
             return $this->localVars[$name];
         }
+        if (strcasecmp($name, 'input') === 0) {
+            return $this->input;
+        }
         if ($this->world !== null) {
             if ($this->world->hasProperty($name)) {
                 return $this->world->getProperty($name);
@@ -161,6 +164,24 @@ class ActionsRunner
             }
         }
         return null;
+    }
+
+    public function hasVariable(string $name): bool
+    {
+        if (array_key_exists($name, $this->localVars) || strcasecmp($name, 'input') === 0) {
+            return true;
+        }
+        if ($this->world !== null) {
+            if ($this->world->hasProperty($name) || isset($this->world->sets[$name]) || property_exists($this->world, $name)) {
+                return true;
+            }
+        }
+        if ($this->owner instanceof DimxObject) {
+            if ($this->owner->hasProperty($name) || property_exists($this->owner, $name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -4670,12 +4691,8 @@ class ActionsRunner
         }
 
         // Variable lookup in local variables or world properties
-        if (array_key_exists($val, $this->localVars)) {
-            return $this->localVars[$val];
-        }
-        $varVal = $this->getVariable($val);
-        if ($varVal !== null) {
-            return $varVal;
+        if ($this->hasVariable($val)) {
+            return $this->getVariable($val);
         }
 
         return $val;

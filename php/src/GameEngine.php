@@ -957,8 +957,19 @@ class GameEngine
         }
         $hasCustomEvent = ($btn !== null && !empty($btn->event)) || isset($world->events["cmd_{$cmd}"]);
         if ($panel !== null && ($isCoreCommand || $hasCustomEvent || $btn !== null) && !$cmdAllowed) {
-            $player->display("Command '{$cmd}' is not allowed in current panel ({$panel->id}).");
-            return;
+            $isWorldPanelCustomBtn = false;
+            if (!$isCoreCommand && $btn === null) {
+                foreach ($world->panels as $wp) {
+                    if ($wp->getButton($cmd) !== null) {
+                        $isWorldPanelCustomBtn = true;
+                        break;
+                    }
+                }
+            }
+            if (!$isWorldPanelCustomBtn) {
+                $player->display("Command '{$cmd}' is not allowed in current panel ({$panel->id}).");
+                return;
+            }
         }
 
         $currentRoom = $player->getRoom();
@@ -1509,12 +1520,13 @@ class GameEngine
                             ? ($this->findAccessibleObject($player, $cleanOwnerId) ?? $world->getObjectExt($cleanOwnerId))
                             : null;
                         $owner = $o ?? $player;
-                        $cmdInput = ['param' => $arg0, 'arg0' => $arg0, 'arg1' => $arg1];
+                        $cmdInput = array_merge($rawInput, ['param' => $arg0, 'arg0' => $arg0, 'arg1' => $arg1]);
                         $world->evaluateExpression($btn->event, $owner, $player, $targId, $cmdInput);
                     }
                 }
                 if (!$handled) {
-                    $handled = (bool)$world->fireEvent("cmd_{$cmd}", $player, $player, $arg1, ['param' => $arg0, 'arg0' => $arg0, 'arg1' => $arg1], false);
+                    $cmdInput = array_merge($rawInput, ['param' => $arg0, 'arg0' => $arg0, 'arg1' => $arg1]);
+                    $handled = (bool)$world->fireEvent("cmd_{$cmd}", $player, $player, $arg1, $cmdInput, false);
                 }
                 if (!$handled) {
                     $player->display("Unknown command: {$cmd}");

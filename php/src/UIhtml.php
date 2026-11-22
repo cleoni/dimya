@@ -2164,9 +2164,12 @@ class UIhtml extends UI
             }
 
             /**
-             * Generic command button handler for cell B panel buttons.
+             * Generic command button handler for panel buttons (in #ctrls or in-page PanelHtml).
              */
-            function handleCommand(cmd) {
+            function handleCommand(cmd, sourceEl = null) {
+              if (!sourceEl && typeof window !== 'undefined' && window.event) {
+                sourceEl = window.event.currentTarget || window.event.target;
+              }
               const def = getCommandDef(cmd);
 
               // Double-click check: if user presses the same button twice
@@ -2203,14 +2206,25 @@ class UIhtml extends UI
               // If command requires 0 arguments (instant execution)
               if (!def.noArgs || def.noArgs === 0) {
                 clearPendingCmd();
+                const panelEl = sourceEl?.closest?.('.dimx-panel')
+                             || document.getElementById('btn_' + cmd)?.closest?.('.dimx-panel')
+                             || document.querySelector('#ctrls .dimx-panel');
+                const extraParams = {};
+                if (panelEl && typeof panelEl.querySelectorAll === 'function') {
+                  panelEl.querySelectorAll('select[name], input[name], textarea[name]').forEach(function(el) {
+                    if ((el.type === 'checkbox' || el.type === 'radio') && !el.checked) {
+                      return;
+                    }
+                    extraParams[el.name] = el.value;
+                  });
+                }
                 if (def.model === 'T') {
-                  const btn = document.getElementById('btn_' + cmd) || document.querySelector('#ctrls [data-cmd="' + cmd + '"]');
-                  const panelTb = btn?.closest?.('.dimx-panel')?.querySelector?.('input.dimx-textbox');
+                  const panelTb = panelEl?.querySelector?.('input.dimx-textbox');
                   const tb = panelTb || document.getElementById('txtBox');
                   const text = (tb && tb.value) ? tb.value : '';
-                  submitCmd(cmd, text, '');
+                  submitCmd(cmd, text, '', extraParams);
                 } else {
-                  submitCmd(cmd);
+                  submitCmd(cmd, '', '', extraParams);
                 }
                 return;
               }
@@ -2294,7 +2308,10 @@ class UIhtml extends UI
             });
 
             // ---- Game command submission ----
-            function sendCmd(cmd, arg0 = '', arg1 = '') {
+            function sendCmd(cmd, arg0 = '', arg1 = '', sourceEl = null) {
+              if (!sourceEl && typeof window !== 'undefined' && window.event) {
+                sourceEl = window.event.currentTarget || window.event.target;
+              }
               const now = Date.now();
               // In case just 1 parameter is passed in arg1 position, ensure arg0 gets filled
               if (arg0 === '' && arg1 !== '' && cmd !== 'say') {
@@ -2344,11 +2361,11 @@ class UIhtml extends UI
                 return;
               }
 
-              // Called without arguments (e.g. from cell B button click)
-              handleCommand(cmd);
+              // Called without arguments (e.g. from cell B or in-page panel button click)
+              handleCommand(cmd, sourceEl);
             }
 
-            function submitCmd(cmd, arg0 = '', arg1 = '') {
+            function submitCmd(cmd, arg0 = '', arg1 = '', extraParams = null) {
               // In case just 1 parameter is passed in arg1 position, ensure arg0 gets filled
               if (arg0 === '' && arg1 !== '' && cmd !== 'say') {
                 arg0 = arg1;
@@ -2391,6 +2408,13 @@ class UIhtml extends UI
                 body.set('arg0', arg0);
                 body.set('arg1', arg1);
                 body.set('view', 'scene');
+                if (extraParams && typeof extraParams === 'object') {
+                  Object.keys(extraParams).forEach(function(k) {
+                    if (k !== 'cmd' && k !== 'arg0' && k !== 'arg1' && k !== 'view') {
+                      body.set(k, extraParams[k]);
+                    }
+                  });
+                }
 
                 fetch('multiplayer.php', {
                   method: 'POST',

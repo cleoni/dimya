@@ -185,6 +185,22 @@ class World extends DimxObject
         return $this->panels[strtolower(trim($id))] ?? null;
     }
 
+    /**
+     * Collect all command IDs from every BUTTON/SUBMIT/CMD defined across all world panels.
+     *
+     * @return array<string>
+     */
+    public function getAllPanelCommands(): array
+    {
+        $cmds = [];
+        foreach ($this->panels as $panel) {
+            foreach ($panel->getAvailableCommands() as $c) {
+                $cmds[$c] = true;
+            }
+        }
+        return array_keys($cmds);
+    }
+
     public function addPanel(Panel $panel): void
     {
         $this->panels[strtolower($panel->id)] = $panel;
