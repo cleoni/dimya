@@ -338,6 +338,51 @@ class ActionsRunner
     }
 
     /**
+     * Look up an element in a SmallBasic array/set by key or 1-based index.
+     * Supports 0-indexed PHP lists (1-based SmallBasic index), exact/case-insensitive keys,
+     * zero-padded numeric string keys (e.g. '0010' matched by 10), and 1-based positional fallback.
+     */
+    protected function lookupArrayValue(array $arr, mixed $evalKey): mixed
+    {
+        $keyStr = (string)$evalKey;
+        $isNumericKey = is_int($evalKey) || ($keyStr !== '' && ctype_digit($keyStr));
+
+        if ($isNumericKey && array_key_exists(0, $arr)) {
+            $idx = (int)$evalKey;
+            $idx0 = max(0, $idx - 1);
+            return $arr[$idx0] ?? $arr[$idx] ?? null;
+        }
+
+        if (is_int($evalKey) && array_key_exists($evalKey, $arr)) {
+            return $arr[$evalKey];
+        }
+        if ($keyStr !== '' && array_key_exists($keyStr, $arr)) {
+            return $arr[$keyStr];
+        }
+        foreach ($arr as $k => $v) {
+            if (strcasecmp((string)$k, $keyStr) === 0) {
+                return $v;
+            }
+        }
+
+        if ($isNumericKey) {
+            $idx = (int)$evalKey;
+            foreach ($arr as $k => $v) {
+                $ks = (string)$k;
+                if ($ks !== '' && ctype_digit($ks) && (int)$ks === $idx) {
+                    return $v;
+                }
+            }
+            $vals = array_values($arr);
+            if ($idx >= 1 && $idx <= count($vals)) {
+                return $vals[$idx - 1];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Run a multi-line script string.
      */
     public function run(string $script): mixed
@@ -4539,19 +4584,7 @@ class ActionsRunner
             $arr = $this->getVariable($fn);
             if (is_array($arr)) {
                 $evalKey = $this->evalValue($argStr);
-                if (is_int($evalKey) || ctype_digit((string)$evalKey)) {
-                    return $this->getArrayElement($fn, (int)$evalKey);
-                }
-                $keyStr = (string)$evalKey;
-                if (array_key_exists($keyStr, $arr)) {
-                    return $arr[$keyStr];
-                }
-                foreach ($arr as $k => $v) {
-                    if (strcasecmp((string)$k, $keyStr) === 0) {
-                        return $v;
-                    }
-                }
-                return null;
+                return $this->lookupArrayValue($arr, $evalKey);
             }
 
             // Check if $fn is a custom script Function/Sub in world events
@@ -4667,27 +4700,7 @@ class ActionsRunner
             if (!is_array($propVal)) {
                 return null;
             }
-            if (is_int($evalKey) || ctype_digit((string)$evalKey)) {
-                $idx = (int)$evalKey;
-                if (array_key_exists($idx, $propVal)) {
-                    return $propVal[$idx];
-                }
-                $idx0 = $idx - 1;
-                if (array_key_exists(0, $propVal) && $idx0 >= 0 && array_key_exists($idx0, $propVal)) {
-                    return $propVal[$idx0];
-                }
-                return null;
-            }
-            $keyStr = (string)$evalKey;
-            if (array_key_exists($keyStr, $propVal)) {
-                return $propVal[$keyStr];
-            }
-            foreach ($propVal as $k => $v) {
-                if (strcasecmp((string)$k, $keyStr) === 0) {
-                    return $v;
-                }
-            }
-            return null;
+            return $this->lookupArrayValue($propVal, $evalKey);
         }
 
         // Variable lookup in local variables or world properties

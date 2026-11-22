@@ -6159,6 +6159,26 @@ DXW;
             && str_contains($barUiHtml, 'body.set(k, extraParams[k]);'),
             "UIhtml JS handleCommand/submitCmd collects .dimx-panel form values and sends extraParams without filling arg0"
         );
+
+        // Verify zero-padded string keys (e.g. '0010') match integer index (10) in jukebox_play
+        $uwJb->setProperty('Credits', 3);
+        $uwJb->setProperty('trackfiles', [
+            '0001' => '$dir$/sentry.mp3',
+            '0009' => '$dir$/talking.mp3',
+            '0010' => 'livetotell.mp3',
+        ]);
+        $uwJb->setProperty('tracklen', [
+            '0001' => 120,
+            '0009' => 150,
+            '0010' => 240,
+        ]);
+        $uwW->setProperty('playlist', []);
+        $uwW->setProperty('playlistLen', []);
+        $uwEngine->executeCommandAction($uwW, $uwPlayer, 'dothis', '', '', 'scene', ['cmd' => 'dothis', 'trackselector' => '0010']);
+        $playlist = $uwW->getProperty('playlist');
+        $playlistLen = $uwW->getProperty('playlistLen');
+        assertTest(($playlist[1] ?? '') === 'livetotell.mp3', "jukebox_play('0010') resolves jukebox.trackfiles(10) to 'livetotell.mp3' via zero-padded key '0010'");
+        assertTest((int)($playlistLen[1] ?? 0) === 240, "jukebox_play('0010') resolves jukebox.tracklen(10) to 240 via zero-padded key '0010'");
     }
 
     // Unit test for LABEL "@expr()" in standalone world
