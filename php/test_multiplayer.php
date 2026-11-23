@@ -6764,6 +6764,25 @@ DXW
     );
     unset($w81->events['nkono_test.onExit'], $w81->events['E_test.onLoose'], $w81->events['nkono_test.onEnter'], $w81->events['dest_test.onReceive']);
 
+    // Move with member expression destination (e.g. it_commons.dxl onSell: Move $OWNER, shopkeeper.container)
+    unset($w81->events['onReceiveItem']);
+    $shopKeeper = new \Dimx\Character($w81, 'Auron', 'auron_test');
+    $w81->addCharacter($shopKeeper);
+    $shopKeeper->move($roomDest81);
+    $sellKey = new \Dimx\Item($w81, 'chiave di bronzo', 'key5_test');
+    $w81->addItem($sellKey);
+    $sellKey->move($accPlayer);
+    $sellRunner = new \Dimx\ActionsRunner($w81, $sellKey, $accPlayer, null);
+    $sellRunner->run(<<<'DXW'
+Dim shopkeeper = auron_test
+Move $OWNER, shopkeeper.container
+DXW
+    );
+    assertTest(
+        $sellKey->container === $roomDest81 && !isset($accPlayer->contents['key5_test']),
+        "Move \$OWNER, shopkeeper.container moves item from player inventory into shopkeeper's room"
+    );
+
     // Container change panel switch: player with player-specific panel entering room with custom panel (e.g. armory/pshop)
     $pWarrior = new \Dimx\Panel('pwarrior');
     $pWarrior->addButton(new \Dimx\Ctrl('look', 'BUTTON', 'Look', 'Look', ''));

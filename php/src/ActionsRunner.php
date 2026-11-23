@@ -2079,8 +2079,8 @@ class ActionsRunner
             return false;
         }
 
-        $whatObj = $this->resolveObject((string)$args[0]);
-        $whereObj = $this->resolveObject((string)$args[1]);
+        $whatObj = $this->resolveObjectArg($args[0]);
+        $whereObj = $this->resolveObjectArg($args[1]);
 
         if ($whatObj instanceof AdvObject && $whereObj instanceof AdvObject) {
             return $whatObj->moveTo($whereObj, $this->agent ?? $whatObj, false, true);
