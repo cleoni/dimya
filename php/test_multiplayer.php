@@ -6915,8 +6915,15 @@ DXW
         $dimRunner->evalValue('3 + 2 * 5') === 13
             && $dimRunner->evalValue('10 - 2 * 3') === 4
             && $dimRunner->evalValue('20 - 5 - 3') === 12
-            && $dimRunner->evalValue('24 / 6 * 2') === 8,
-        "Arithmetic operator precedence evaluates * and / before + and - with left-associativity"
+            && $dimRunner->evalValue('24 / 6 * 2') === 8
+            && $dimRunner->evalValue('2 ^ 3') === 8
+            && $dimRunner->evalValue('1 + 2 ^ 3') === 9
+            && $dimRunner->evalValue('17 Mod 5') === 2
+            && $dimRunner->evalValue('10 + 17 Mod 5') === 12
+            && $dimRunner->evalValue('-(3 + 2)') === -5
+            && $dimRunner->evalValue('10 * -2') === -20
+            && $dimRunner->evalValue('2 ^ -1') == 0.5,
+        "Arithmetic operator precedence evaluates *, /, Mod, ^ before + and - with left-associativity and unary -"
     );
     $todEv = new \Dimx\Event('getTimeOfDayTest', 'FUNCTION');
     $todEv->actions = <<<'DXW'

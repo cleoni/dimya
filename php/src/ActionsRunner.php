@@ -3088,14 +3088,14 @@ class ActionsRunner
             return !$this->evalCondition($inner);
         }
 
-        // Check operators: <>, <=, >=, =, <, >
-        $operators = ['<>', '<=', '>=', '=', '<', '>'];
+        // Check operators: <>, ><, <=, >=, =, <, >
+        $operators = ['<>', '><', '<=', '>=', '=', '<', '>'];
         if ($parts = $this->splitTopLevelBinary($expr, $operators)) {
             $left  = $this->evalValue(trim($parts[0]));
             $op    = $parts[1];
             $right = $this->evalValue(trim($parts[2]));
 
-            if ($op === '=' || $op === '<>') {
+            if ($op === '=' || $op === '<>' || $op === '><') {
                 $isEqual = self::compareEquality($left, $right);
                 return ($op === '=') ? $isEqual : !$isEqual;
             }
@@ -3237,19 +3237,35 @@ class ActionsRunner
             if ($parenDepth === 0) {
                 foreach ($operators as $op) {
                     $opLen = strlen($op);
-                    if (substr($expr, $i, $opLen) === $op) {
-                        if ($op === '+' || $op === '-') {
+                    $isWordOp = ctype_alpha($op[0]);
+                    $matched = $isWordOp
+                        ? (strcasecmp(substr($expr, $i, $opLen), $op) === 0)
+                        : (substr($expr, $i, $opLen) === $op);
+                    if ($matched) {
+                        if ($isWordOp) {
+                            $beforeOk = ($i === 0) || !preg_match('/[A-Za-z0-9_$]/', $expr[$i - 1]);
+                            $afterPos = $i + $opLen;
+                            $afterOk = ($afterPos >= $len) || !preg_match('/[A-Za-z0-9_$]/', $expr[$afterPos]);
+                            if (!$beforeOk || !$afterOk) {
+                                continue;
+                            }
+                        } elseif ($op === '+' || $op === '-') {
                             $prevIdx = $i - 1;
                             while ($prevIdx >= 0 && ctype_space($expr[$prevIdx])) {
                                 $prevIdx--;
                             }
-                            if ($prevIdx < 0 || in_array($expr[$prevIdx], ['+', '-', '*', '/', '&', '=', '<', '>', ','], true)) {
+                            if ($prevIdx < 0 || in_array($expr[$prevIdx], ['+', '-', '*', '/', '^', '&', '=', '<', '>', ','], true)) {
+                                continue;
+                            }
+                            // Also skip if immediately preceded by 'Mod' keyword
+                            $beforeStr = substr($expr, 0, $prevIdx + 1);
+                            if (preg_match('/(?:^|[^A-Za-z0-9_$])mod$/i', $beforeStr)) {
                                 continue;
                             }
                         }
                         $match = [
                             substr($expr, 0, $i),
-                            $op,
+                            $isWordOp ? strtoupper($op) : $op,
                             substr($expr, $i + $opLen),
                         ];
                         if (!$rightmost) {
@@ -3526,9 +3542,9 @@ class ActionsRunner
             }
         }
 
-        // Top-level multiplicative (*, /) outside quotes/parentheses (higher precedence than +, -)
+        // Top-level multiplicative (*, /, Mod, ^) outside quotes/parentheses (higher precedence than +, -)
         // Split rightmost so left-associative chains like a / b * c evaluate as (a / b) * c
-        if ($bin = $this->splitTopLevelBinary($val, ['*', '/'], true)) {
+        if ($bin = $this->splitTopLevelBinary($val, ['*', '/', 'Mod', '^'], true)) {
             $left = $this->evalValue($bin[0]);
             $op = $bin[1];
             $right = $this->evalValue($bin[2]);
@@ -3549,6 +3565,8 @@ class ActionsRunner
             return match ($op) {
                 '*' => $lNum * $rNum,
                 '/' => $rNum != 0 ? $lNum / $rNum : 0,
+                'MOD' => $rNum != 0 ? ((is_int($lNum) && is_int($rNum)) ? ($lNum % $rNum) : fmod((float)$lNum, (float)$rNum)) : 0,
+                '^' => pow($lNum, $rNum),
                 default => 0,
             };
         }
@@ -3559,6 +3577,12 @@ class ActionsRunner
             $numVal = $this->evalValue($inner);
             if (is_numeric($numVal)) {
                 return -$numVal;
+            }
+            if (is_bool($numVal)) {
+                return $numVal ? -1 : 0;
+            }
+            if ($numVal === null || $numVal === '') {
+                return 0;
             }
         }
 

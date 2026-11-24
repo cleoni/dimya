@@ -17,8 +17,7 @@
 | Structure | `input()` set | Partial: passed to the runner but not accessible from scripts |
 | Structure | `HOOKS` | Partial: stored as world property `hooks`; dispatch of external commands to scripts not implemented |
 | Types | Image / Set / Array objects in scripts | Not implemented (world `SET` declarations are loaded; only `RndSet` reads them) |
-| Operators | `^`, `Mod`, unary `-`, `><`, arithmetic precedence | Not implemented |
-| Operators | `+ - * / &` | Partial: `&` string concatenation and `+ - * /` binary split |
+| Operators | `+ - * / Mod ^ &`, unary `-`, `><`, arithmetic precedence | Implemented (`&` string concatenation, `+ - * / Mod ^` with `* / Mod ^` before `+ -` and left-associativity, unary `-`, `<>` and `><`) |
 | Operators | `AND`, `OR`, `Not` | Partial: `Not` only as prefix inside conditions; `AND`/`OR` split at first top-level keyword |
 | Variables | Script variables (global/local), `Dim` | Not implemented (only `object.property` assignment and reading) |
 | Flow control | `For ... Next`, `For Each ... Next` | Not implemented |
@@ -269,7 +268,7 @@ SmallBasic is dynamically typed. An expression can be treated as a number, strin
 
 ### 3.6.1 Arithmetical
 
-> **[DimY: partial - `+ - * /` and unary `-`]** `+`, `-`, `*`, `/` with standard operator precedence (`*`, `/` before `+`, `-`, left-associative) and unary `-` are implemented. `^` and `Mod` are **[DimX only - not yet implemented in DimY]**.
+> **[DimY: implemented]** `+`, `-`, `*`, `/`, `Mod`, `^` with standard operator precedence (`*`, `/`, `Mod`, `^` before `+`, `-`, left-associative) and unary `-` are implemented.
 
 Binary operators (in descending precedence):
 - `^` : Exponentiation (e.g. `2 ^ 3` = `8`).
@@ -288,7 +287,7 @@ Unary operators:
 
 ### 3.6.3 Comparison
 
-> **[DimY: partial]** `<>`, `<`, `>`, `=`, `<=`, `>=` implemented (loose PHP comparison). `><` is **[DimX only - not yet implemented in DimY]**.
+> **[DimY: implemented]** `<>`, `><`, `<`, `>`, `=`, `<=`, `>=` implemented (loose PHP comparison + DimxObject ID/name comparison).
 
 Binary comparison operators returning boolean (`1` or `0`):
 - `<` : Less than
@@ -300,15 +299,15 @@ Binary comparison operators returning boolean (`1` or `0`):
 
 ### 3.6.4 Logical
 
-> **[DimY: partial]** `AND`/`OR` implemented (split at first top-level keyword); `Not` only as a prefix in conditions.
+> **[DimY: partial]** `AND`/`OR` implemented (split at first top-level keyword); `Not` as a built-in function `Not(expr)` or prefix `Not expr` in conditions.
 
 - `AND` : Logical conjunction (`expr1 AND expr2`).
 - `OR` : Logical disjunction (`expr1 OR expr2`).
-- `Not( expr )` : Logical negation (implemented as a built-in function, requires parentheses).
+- `Not( expr )` : Logical negation (implemented as a built-in function, and also supported as prefix `Not expr` in conditions).
 
 ### 3.6.5 Operator Precedence
 
-> **[DimY: implemented for `OR` < `AND` < comparison < `+`/`-` < `*`/`/` < `.` < unary `-`]** `^` and `Mod` remain **[DimX only - not yet implemented in DimY]**.
+> **[DimY: implemented]** Full precedence hierarchy (`OR` < `AND` < comparison < `+`/`-` < `*`/`/`/`Mod`/`^` < `.` < unary `-`) is implemented.
 
 Precedence hierarchy from lowest (1) to highest (6):
 1. `AND`, `OR` (lowest)
