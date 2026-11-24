@@ -3199,12 +3199,13 @@ class ActionsRunner
         return $depth === 1;
     }
 
-    protected function splitTopLevelBinary(string $expr, array $operators): ?array
+    protected function splitTopLevelBinary(string $expr, array $operators, bool $rightmost = false): ?array
     {
         $len = strlen($expr);
         $parenDepth = 0;
         $inQuote = false;
         $quoteChar = '';
+        $lastMatch = null;
 
         for ($i = 0; $i < $len; $i++) {
             $ch = $expr[$i];
@@ -3237,20 +3238,31 @@ class ActionsRunner
                 foreach ($operators as $op) {
                     $opLen = strlen($op);
                     if (substr($expr, $i, $opLen) === $op) {
-                        if (($op === '+' || $op === '-') && $i === 0) {
-                            continue;
+                        if ($op === '+' || $op === '-') {
+                            $prevIdx = $i - 1;
+                            while ($prevIdx >= 0 && ctype_space($expr[$prevIdx])) {
+                                $prevIdx--;
+                            }
+                            if ($prevIdx < 0 || in_array($expr[$prevIdx], ['+', '-', '*', '/', '&', '=', '<', '>', ','], true)) {
+                                continue;
+                            }
                         }
-                        return [
+                        $match = [
                             substr($expr, 0, $i),
                             $op,
                             substr($expr, $i + $opLen),
                         ];
+                        if (!$rightmost) {
+                            return $match;
+                        }
+                        $lastMatch = $match;
+                        break;
                     }
                 }
             }
         }
 
-        return null;
+        return $lastMatch;
     }
 
     public static function isSingleQuotedString(string $val): bool
@@ -3481,8 +3493,9 @@ class ActionsRunner
             return $leftStr . $rightStr;
         }
 
-        // Top-level binary arithmetic & '+' string concatenation outside quotes/parentheses
-        if ($bin = $this->splitTopLevelBinary($val, ['+', '-', '*', '/'])) {
+        // Top-level additive & '+' string concatenation outside quotes/parentheses (lower precedence than *, /)
+        // Split rightmost so left-associative chains like a - b - c or a - b + c evaluate as (a - b) - c
+        if ($bin = $this->splitTopLevelBinary($val, ['+', '-'], true)) {
             $left = $this->evalValue($bin[0]);
             $op = $bin[1];
             $right = $this->evalValue($bin[2]);
@@ -3490,8 +3503,6 @@ class ActionsRunner
                 return match ($op) {
                     '+' => $left + $right,
                     '-' => $left - $right,
-                    '*' => $left * $right,
-                    '/' => $right != 0 ? $left / $right : 0,
                     default => $val,
                 };
             } elseif ($op === '+') {
@@ -3511,15 +3522,35 @@ class ActionsRunner
                     }
                     return 0;
                 };
-                $lNum = $toNum($left);
-                $rNum = $toNum($right);
-                return match ($op) {
-                    '-' => $lNum - $rNum,
-                    '*' => $lNum * $rNum,
-                    '/' => $rNum != 0 ? $lNum / $rNum : 0,
-                    default => 0,
-                };
+                return $toNum($left) - $toNum($right);
             }
+        }
+
+        // Top-level multiplicative (*, /) outside quotes/parentheses (higher precedence than +, -)
+        // Split rightmost so left-associative chains like a / b * c evaluate as (a / b) * c
+        if ($bin = $this->splitTopLevelBinary($val, ['*', '/'], true)) {
+            $left = $this->evalValue($bin[0]);
+            $op = $bin[1];
+            $right = $this->evalValue($bin[2]);
+            $toNum = static function (mixed $v): int|float {
+                if (is_int($v) || is_float($v)) {
+                    return $v;
+                }
+                if (is_bool($v)) {
+                    return $v ? 1 : 0;
+                }
+                if (is_numeric($v)) {
+                    return str_contains((string)$v, '.') ? (float)$v : (int)$v;
+                }
+                return 0;
+            };
+            $lNum = $toNum($left);
+            $rNum = $toNum($right);
+            return match ($op) {
+                '*' => $lNum * $rNum,
+                '/' => $rNum != 0 ? $lNum / $rNum : 0,
+                default => 0,
+            };
         }
 
         // Unary minus: -expr (e.g. -hits, -5, -(a+b))

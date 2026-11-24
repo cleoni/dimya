@@ -6900,6 +6900,47 @@ DXW
     );
     unset($w81->events['subPrintKillStatsTest']);
 
+    // getTime("mm"), getTime("ss") and arithmetic operator precedence (*, / before +, -) in getTimeOfDay()
+    $mmStr = $dimRunner->evalValue('getTime("mm")');
+    $ssStr = $dimRunner->evalValue('getTime("ss")');
+    assertTest(
+        is_string($mmStr) && preg_match('/^[0-5][0-9]$/', $mmStr) === 1,
+        "getTime(\"mm\") returns current minutes in two digits (got: '{$mmStr}')"
+    );
+    assertTest(
+        is_string($ssStr) && preg_match('/^[0-5][0-9]$/', $ssStr) === 1,
+        "getTime(\"ss\") returns current seconds in two digits (got: '{$ssStr}')"
+    );
+    assertTest(
+        $dimRunner->evalValue('3 + 2 * 5') === 13
+            && $dimRunner->evalValue('10 - 2 * 3') === 4
+            && $dimRunner->evalValue('20 - 5 - 3') === 12
+            && $dimRunner->evalValue('24 / 6 * 2') === 8,
+        "Arithmetic operator precedence evaluates * and / before + and - with left-associativity"
+    );
+    $todEv = new \Dimx\Event('getTimeOfDayTest', 'FUNCTION');
+    $todEv->actions = <<<'DXW'
+Dim realsecs = 60*getTime("mm")+getTime("ss")
+Dim uwsecs = 24*realsecs
+Dim uwhrs = Int(uwsecs/3600)
+uwsecs = uwsecs - uwhrs*3600
+Dim uwmins = Int(uwsecs/60)
+If uwhrs < 10
+    uwhrs = "" + "0" + uwhrs
+End_If
+If uwmins < 10
+    uwmins = "" + "0" + uwmins
+End_If
+Return "" + uwhrs + ":" + uwmins
+DXW;
+    $w81->events['getTimeOfDayTest'] = $todEv;
+    $todStr = $dimRunner->evalValue('getTimeOfDayTest()');
+    assertTest(
+        is_string($todStr) && preg_match('/^([01][0-9]|2[0-3]):[0-5][0-9]$/', $todStr) === 1,
+        "getTimeOfDay() returns valid 00:00..23:59 time using 60*getTime(\"mm\")+getTime(\"ss\") (got: '{$todStr}')"
+    );
+    unset($w81->events['getTimeOfDayTest']);
+
     @unlink($tmpDir . '/loop_test.dxw');
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');

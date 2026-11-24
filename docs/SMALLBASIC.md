@@ -269,7 +269,7 @@ SmallBasic is dynamically typed. An expression can be treated as a number, strin
 
 ### 3.6.1 Arithmetical
 
-> **[DimY: partial - only `+ - * /`]** Single binary split, no precedence. `^`, `Mod` and unary `-` are **[DimX only - not yet implemented in DimY]**.
+> **[DimY: partial - `+ - * /` and unary `-`]** `+`, `-`, `*`, `/` with standard operator precedence (`*`, `/` before `+`, `-`, left-associative) and unary `-` are implemented. `^` and `Mod` are **[DimX only - not yet implemented in DimY]**.
 
 Binary operators (in descending precedence):
 - `^` : Exponentiation (e.g. `2 ^ 3` = `8`).
@@ -308,7 +308,7 @@ Binary comparison operators returning boolean (`1` or `0`):
 
 ### 3.6.5 Operator Precedence
 
-> **[DimY: partial]** Only `OR` < `AND` < comparison plus outer-parenthesis unwrapping in conditions; arithmetic precedence and `.` precedence are **[DimX only - not yet implemented in DimY]**.
+> **[DimY: implemented for `OR` < `AND` < comparison < `+`/`-` < `*`/`/` < `.` < unary `-`]** `^` and `Mod` remain **[DimX only - not yet implemented in DimY]**.
 
 Precedence hierarchy from lowest (1) to highest (6):
 1. `AND`, `OR` (lowest)
