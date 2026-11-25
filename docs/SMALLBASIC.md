@@ -13,22 +13,21 @@
 | Area | Item | DimY status |
 |---|---|---|
 | Directive | `Include` | Implemented (loads external `.dxl` DimensioneX Library files with independent line numbering) |
-| Structure | `Sub` / `Function` | Fully supported: formal parameter binding, custom functions in expressions, return values, and recursive calls |
-| Structure | `input()` set | Partial: passed to the runner but not accessible from scripts |
-| Structure | `HOOKS` | Partial: stored as world property `hooks`; dispatch of external commands to scripts not implemented |
-| Types | Image / Set / Array objects in scripts | Not implemented (world `SET` declarations are loaded; only `RndSet` reads them) |
+| Structure | `Sub` / `Function` | Implemented: formal parameter binding, custom functions in expressions, return values, and recursive calls |
+| Structure | `input()` set | Implemented: passed to the runner and accessible in scripts via `input("key")` (e.g. `input("arg0")`, `input("cmd")`, `input("txtBox")`, form controls) |
+| Structure | `HOOKS` | Implemented: parsed from `GUI` / `WORLD` and dispatched via `GameEngine::dispatchHookCommand()` when an external `cmd=<hook>` HTTP request arrives |
+| Types | Image / Set / Array objects in scripts | Implemented (`NewImage`, `Image.html()`, `Image.url`/`width`/`height`, `NewSet`, `NewArray`, `Split`, `SET` declarations, indexed reading/writing) |
 | Operators | `+ - * / Mod ^ &`, unary `-`, `><`, arithmetic precedence | Implemented (`&` string concatenation, `+ - * / Mod ^` with `* / Mod ^` before `+ -` and left-associativity, unary `-`, `<>` and `><`) |
-| Operators | `AND`, `OR`, `Not` | Partial: `Not` only as prefix inside conditions; `AND`/`OR` split at first top-level keyword |
-| Variables | Script variables (global/local), `Dim` | Not implemented (only `object.property` assignment and reading) |
-| Flow control | `For ... Next`, `For Each ... Next` | Not implemented |
-| Flow control | `If / Else / End_If` | Implemented (nested; no `ElseIf`, as in DimX) |
-| Statements | `AttachEvent`, `Ban`, `Dim`, `Kill`, `NewRoom`, `SaveSetting`, `SetAdd`, `SetRemove`, `SendPage`, `Journal` | Not implemented (silently ignored) |
-| Statements | `MoveOutside` | Dropped in DimY (Cluster) |
-| Statements | `Call`, `Goal`, `Move`, `Print`, `PrintRight`, `Return`, `SetPanel`, `Reset`, `RefreshView`, `SendCmd` | Partial / Implemented (see inline notes) |
-| Statements | `Speak`, `Display`, `PlaySound`, `BroadcastSound`, `PlayBackground`, `BroadcastBackground`, `Debug`, `DropItems` | Implemented |
-| Functions | All 55 built-ins except `RndSet`, `RndInt` (2-arg form only), `NOT` (partial) | Not implemented (see per-function tags) |
-| Dropped | `Cluster`, `Dict` / `DictSorted` | Dropped in DimY (native PHP arrays are used instead) |
-| DimY extras | `Broadcast`, `Open`, `Close`, `Search`, `Give` statements | DimY-only, not part of the DimX reference below |
+| Operators | `AND`, `OR`, `Not` | Implemented (`OR` < `AND` precedence, `Not(expr)` built-in function and prefix `Not expr` in conditions) |
+| Variables | Script variables (global/local), `Dim` | Implemented (`Dim` procedure-local variables including multi-variable declarations, global `$WORLD` variables, `object.property`, `object.getProperty()`/`setProperty()`, and `object.property(key)`) |
+| Flow control | `For ... Next`, `For Each ... Next`, `If / Else / End_If` | Implemented (`For ... To ... [Step ...]`, `For Each ... In ...`, nested `If / Else / End_If`, plus preemptive timeout & recursion depth guards) |
+| Statements | `AttachEvent`, `Call`, `Debug`, `Dim`, `Display`, `DropItems`, `Goal`, `Kill`, `Move`, `PlaySound`, `PlayBackground`, `BroadcastSound`, `BroadcastBackground`, `Print`, `PrintRight`, `RefreshView`, `Reset`, `Return`, `SaveSetting`, `SendCmd`, `SetAdd`, `SetPanel`, `SetRemove`, `Speak` | Implemented (`Move` requires 2 arguments `Move what, where`) |
+| Statements | `NewRoom` | Implemented as built-in function `NewRoom(name)` returning the generated room ID (also `NewItem`, `NewCharacter`, `NewLink` work both as functions and statements) |
+| Statements | `Ban`, `Journal`, `SendPage` (`UseView`) | **DimX only - not yet implemented in DimY** (silently ignored) |
+| Statements | `MoveOutside` | **Dropped in DimY** (Cluster) |
+| Functions | All 55 built-in functions (§3.10.1 – §3.10.56) | Implemented |
+| Dropped | `Cluster`, `Dict` / `DictSorted` | **Dropped in DimY** (native PHP arrays are used instead) |
+| DimY extras | `Broadcast`, `Open`, `Close`, `Search`, `Give` statements | DimY-only statement shorthands, not part of the DimX reference below |
 
 ---
 
@@ -204,7 +203,7 @@ End_EVENT
 
 ### 3.4.4 Example & HOOKS
 
-> **[DimY: partial]** `HOOKS` is stored only as the world property `hooks`; mapping HTTP commands to script functions is not yet implemented in DimY. `getCharactersIn` is implemented.
+> **[DimY: implemented]** `HOOKS` declarations in `GUI` / `WORLD` are parsed into `$world->hooks` and dispatched by `GameEngine::dispatchHookCommand()` when an external HTTP request with `cmd=<hookName>` is received. `getCharactersIn` and `getItemsIn` are implemented.
 
 DimensioneX supports `HOOKS` to accept external HTTP commands and trigger event handlers:
 
@@ -750,7 +749,7 @@ PlayBackground [dest,] soundFile [, loop]
 
 ### 3.9.18 Print
 
-> **[DimY: partial]** Implemented (`Display`/`Print`). Both strings and `NewImage()` image objects are supported (images render to HTML `<img>` tags). Expressions are limited (see operators).
+> **[DimY: implemented]** Implemented (`Display`/`Print`). Both strings and `NewImage()` image objects are supported (images render to HTML `<img>` tags), as well as cycling through multiple message arguments.
 
 Outputs formatted messages or images directly to player consoles.
 
@@ -813,7 +812,7 @@ RefreshView [dest]
 
 ### 3.9.22 Return
 
-> **[DimY: partial]** `Return [expr]` works in events (sets the event result). Returning values from user `Function`s into expressions is not supported (function calls in expressions are not implemented).
+> **[DimY: implemented]** `Return [expr]` terminates the current `EVENT`, `Sub`, or `Function` and returns the evaluated value (both to the engine event caller for action cancellation and to calling expressions for custom `Function`s).
 
 Terminates execution of the current procedure or event script and returns a value.
 
@@ -925,6 +924,8 @@ SetRemove set, key
 ---
 
 ### 3.9.28 SendPage (formerly UseView)
+
+> **[DimX only - not yet implemented in DimY]** Statement is silently ignored (`PAGE` definitions in `GUI` and `SendPage` are not implemented).
 
 Assigns an alternative graphical view (declared as a `PAGE` in `GUI`) to a player or globally to `$WORLD`.
 

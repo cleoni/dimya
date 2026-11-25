@@ -9,22 +9,22 @@ This document defines the authoritative command catalog and execution model for 
 
 | Item | Status | Detail |
 | :--- | :--- | :--- |
-| `put` / `insert` command | **Supported** | Implemented via `Character::actPut`, `GameEngine::executeCommandAction`, `UIhtml` `COMMAND_DEFS` ('OO' model) |
-| `hide` command, `onHide` | **DimX only - not yet implemented in DimY** | No `hide` case |
-| `onClick` event | **DimX only - not yet implemented in DimY** | `click` is an alias of `look`; no `onClick` fired, no `go` default for Links |
-| `onRotate` event | **DimX only - not yet implemented in DimY** | `rotate`/`rotl`/`rotr`/`rev` work, but no event fires |
-| `onLogin` event | **DimX only - not yet implemented in DimY** | `login` only prints the room description |
-| `onSave` event (and cancellation) | **DimX only - not yet implemented in DimY** | `save` always persists, never fires `onSave` |
-| `onEnterVehicle` / `onExitVehicle` | **DimX only - not yet implemented in DimY** | Vehicles fire generic `onEnter` / `onExit` / `onReceive` / `onLoose` |
-| `go` aliases `walk`, `move`; `look` alias `l`; `put` alias `insert`; `use2` alias `combine` | **DimX only - not yet implemented in DimY** | Only `take`, `get`, `usewith`, `board`, `leave`, `disembark`, `inv`/`inventory` exist |
-| `look`: `onLook` cancel / `$TARGET` | **DimY: partial** | Fired after the description is shown; result ignored (not cancellable); `$TARGET` is `null` |
-| `pick` / `drop` | **DimY: partial** | Fire only `whenPicked` / `whenDropped`; `onLooseItem`, `onReceiveItem`, `onReceive`, `onLoose` are not fired for plain moves (only for `give` / vehicles), and return values of `whenPicked`/`whenDropped` don't cancel |
-| `give` events | **DimY: partial** | Fires `onLooseItem`, `whenPicked`, `onReceiveItem`; return values are not used to cancel |
-| `onUse` / `onUseWith` | **DimY: partial** | Fired, but `$OWNER`/`$TARGET` fallbacks differ from DimX (use2 fires on both objects) |
-| `logout` events | **DimY: partial** | `onQuit`, `onExit` fired; cancellation not honoured |
+| `put` / `insert` command | **Implemented** | Implemented via `Character::actPut`, `GameEngine::executeCommandAction`, `UIhtml` `COMMAND_DEFS` ('OO' model) |
+| `hide` command | **Implemented** | Implemented via `Character::actHide` and `AdvObject::hide()` (`GameEngine::executeCommandAction`, `UIhtml` `COMMAND_DEFS` 'O' model); hides room item in place or drops & hides carried item (firing `onLooseItem` / `onReceiveItem`) |
+| `save` command & `onSave` event | **Implemented** | Fires `onSave($OWNER=$player, $AGENT=$player, $TARGET=$player)`; returning `0` / `false` aborts saving |
+| `look`: `onLook` cancel / `$TARGET` | **Implemented** | Fires `onLook` with `$TARGET = "explicit"` (via Look command) or `""` (via click); returning `0` / `false` suppresses standard description/items/properties output while preserving any custom `Print`/`Display` from `onLook` |
+| `drop`, `give`, `put`, `Move` event chains | **Implemented** | Use `AdvObject::moveTo()` firing full DimX event sequence (`onExit`/`onLoose`/`onLooseItem`/`whenDropped` ➔ `onEnter`/`onReceive`/`onReceiveItem`/`whenPicked`) with cancellation and rollback if an event returns `0`/`false` |
+| `pick` command | **DimY: partial** | Moves item to player and fires `whenPicked`; does not run `onLooseItem` / `onReceiveItem` cancellation via `moveTo()` |
+| `onClick` event | **DimX only - not yet implemented in DimY** | `click` is handled as `look` with `$TARGET = ""`; no `onClick` fired, no `go` default for Links |
+| `onRotate` event | **DimX only - not yet implemented in DimY** | `rotate`/`rotl`/`rotr`/`rev` update facing and refresh scene, but no `onRotate` event fires |
+| `onLogin` event | **DimX only - not yet implemented in DimY** | New/restored players fire `$WORLD` `onNew` and room `onEnter`/`onReceive` upon placement; no separate `onLogin` event |
+| `onEnterVehicle` / `onExitVehicle` | **DimX only - not yet implemented in DimY** | Vehicles fire standard `onEnter` / `onExit` / `onReceive` / `onLoose` |
+| `go` aliases `walk`, `move`; `look` alias `l`; `use2` alias `combine` | **DimX only - not yet implemented in DimY** | `insert` (for `put`), `usewith` (for `use2`), and `inv`/`inventory` are implemented |
+| `onUse` / `onUseWith` | **Implemented** | `actUse` fires `item.onUse` / global `onUse`; `actUseWith` fires `obj1.onUseWith($TARGET=obj2)` |
+| `logout` events | **DimY: partial** | Drops carried items (`whenDropped`) and fires `onQuit`, `onExit`, `onLoose`; cancellation not honoured |
 | `Cluster` / clustering | **dropped in DimY** | Intentionally removed |
 | `Dict` / `DictSorted` | **dropped in DimY** | Replaced by native PHP arrays |
-| Implemented | - | `go`, `look`, `use`, `use2`, `open`, `close`, `pick`, `drop`, `search`, `give`, `say`, `enter`, `exit`, `save`, `login`, `logout`, `popmsg`, `rotate`, custom `BUTTON` commands (`cmd_*`), `onTick`, `Living`, `onStart`, `onHear`, `onSpeechFinish`, `beforeOpen`/`onOpen`/`onClose`, `onSearch`, `onEnter`/`onExit` |
+| Core & Custom Commands | **Implemented** | `go`, `look`, `click`, `use`, `use2`/`usewith`, `open`, `close`, `pick`, `drop`, `search`, `hide`, `put`/`insert`, `give`, `say`, `enter`, `exit`, `save`, `login`, `logout`, `popmsg`, `rotl`/`rotr`/`rev`, custom `PANEL` `BUTTON` commands (models `""`, `"O"`, `"T"`, `"OO"`, `"TO"`), `HOOKS`, `onTick`, `Living`, `onStart`, `onNew`, `onHear`, `onSpeechFinish`, `beforeOpen`/`onOpen`/`onClose`, `onSearch`, `onSave`, `onEnter`/`onExit`/`onReceive`/`onLoose`, `onReceiveItem`/`onLooseItem` |
 
 ---
 
@@ -75,8 +75,8 @@ Every command cycle follows this processing pipeline:
 | **`close`** | `target` | - | Closes an opened container, door, or link | `onClose` |
 | **`pick`** | `target` | `take`, `get` | Picks up an item from room into player inventory | `whenPicked` |
 | **`drop`** | `target` | - | Drops carried item into current room | `whenDropped` |
-| **`search`** | - | - | Reveals hidden objects in container (`visible = 1`) | `onSearch` |
-| **`hide`** **[DimX only - not yet implemented in DimY]** | `target` | - | Conceals an object (`visible = 0`) | `onHide` |
+| **`search`** | `[target]` | - | Reveals hidden objects in room or container (`hidden = 0`) | `onSearch` |
+| **`hide`** | `target` | - | Conceals an item in room or drops & hides carried item (`hidden = 1`) | `onLooseItem`, `onReceiveItem` (when carried) |
 | **`put`** | `item`, `dest` | `insert` | Puts an item into a destination container | `onLooseItem`, `onEnter`, `onReceiveItem` |
 | **`give`** | `item`, `character`| - | Offers an item to an NPC or another player | `onLooseItem`, `whenPicked`, `onReceiveItem` |
 | **`enter`** | `vehicle` | `board` | Enters a vehicle item | `onEnterVehicle` |
@@ -120,12 +120,12 @@ Every command cycle follows this processing pipeline:
 * **Parameters**: Optional direction or rotation step (`rotr` for clockwise, `rotl` for counter-clockwise).
 * **Behavior**: Updates `$player->facing` through `N` ➔ `E` ➔ `S` ➔ `W` (or sets facing directly).
 
-### 4. `look [object]` **[DimY: partial - `onLook` not cancellable, `$TARGET` always null]**
+### 4. `look [object]`
 * **Intent**: Inspect room surroundings or specific items/characters.
 * **Behavior**:
-  * If no target specified: evaluates room description and lists visible occupants and items.
-  * If target specified: evaluates object description and lists any contained items if it is an open container.
-* **Events**: Fires `onLook` on the target object.
+  * If no target specified: fires `onLook` on current room/vehicle (with `$TARGET = ""`).
+  * If target specified: fires `onLook` on the target object (with `$TARGET = "explicit"` when invoked via `look`, or `""` when invoked via `click`). If `onLook` does not return `0`/`false`, displays object description, contained items (if an open container), and public capitalized/showproperties attributes, followed by any console output produced by `onLook`.
+* **Events**: Fires `onLook` on the target object (cancellable by returning `0` / `false`).
 
 ### 5. `use (object)`
 * **Intent**: Single-object interaction (e.g. drinking potion, pulling lever).
@@ -147,10 +147,10 @@ Every command cycle follows this processing pipeline:
 * **`pick`**: Verifies item is in current room, item is pickable (`pickable = 1`), and player has remaining capacity and volume. Moves item to player contents. Fires `whenPicked`.
 * **`drop`**: Moves item from player inventory into current room. Fires `whenDropped`.
 
-### 9. `search` & `hide (object)` **[`hide`: DimX only - not yet implemented in DimY]**
+### 9. `search [object]` & `hide (object)`
 * **Intent**: Concealment and discovery.
-* **`search`**: Reveals all hidden items and links in the current room by setting `hidden = 0` / `visible = 1`. Fires `onSearch`.
-* **`hide`**: Conceals target object in room or inventory by setting `hidden = 1` / `visible = 0`. Fires `onHide`.
+* **`search`**: Searches target container/object (or current room if omitted) for hidden items, ways, or inner items (`onSearch` is fired on each candidate; returning `0`/`false` prevents discovery).
+* **`hide`**: Conceals target item (`hideable > 0`, not already hidden, and empty) by setting `hidden = true`. If the item is carried by the player, it is first moved into the enclosing room/container (firing `onLooseItem` / `onReceiveItem`).
 
 ### 10. `put (object), (destination)`
 * **Intent**: Placing an item into a container item (e.g. `put key into bag`).
@@ -186,10 +186,10 @@ Every command cycle follows this processing pipeline:
   * Speech messages from chat controls (`say`, speech textbox) and script instructions (`Speak`) are delivered directly to the chat messages queue (`#msgs` / `multiplayer.php?view=msgs` / UIjson `'chat'`) and do not pollute the room description / console space.
 * **Events**: Fires `onHear` on each receiving occupant.
 
-### 14. `save` **[DimY: partial - `onSave` not fired]**
+### 14. `save`
 * **Intent**: Saves current player data to the database without leaving the game.
-* **Effect**: Persists score, room location, properties/attributes, and carried inventory items into `dimx_players`.
-* **Events**: Fires `onSave`.
+* **Effect**: Fires `onSave` (`$OWNER = $player`, `$AGENT = $player`, `$TARGET = $player`). If not cancelled (return value is not `0` / `false`), persists score, room location, properties/attributes, and carried inventory items into `dimx_players`.
+* **Events**: Fires `onSave` (cancellable).
 * **Output**: Displays confirmation message `"Game saved!"`.
 
 ### 15. `login [password]` **[DimY: partial - `onLogin` not fired]**
@@ -292,8 +292,8 @@ Whenever an event fires (e.g. `onLook`, `onUseWith`, `onEnter`, `whenPicked`, `L
 
 | Event | $OWNER | $AGENT | $TARGET | Cancellable? (Return 0) | Notes |
 |:---|:---|:---|:---|:---:|:---|
-| `onLook` **[DimY: partial]** | Object looked at | Character/Player looking | `"explicit"` (via Look button) or `""` (via click) | Yes | Returning `0` / `false` cancels description display |
-| `onUse` **[DimY: partial]** | Item being used | Character using item | Target or `null` | No | Single item activation |
+| `onLook` | Object looked at | Character/Player looking | `"explicit"` (via Look button) or `""` (via click) | Yes | Returning `0` / `false` cancels standard description/properties display |
+| `onUse` | Item being used | Character using item | Target or `null` | No | Single item activation |
 | `onUseWith` | First item / tool | Character using | Second item / target object | No | Combines or applies tool on target |
 | `beforeOpen` | Item being opened | Character opening item | Unused | Yes | Returning `0` / `false` keeps item locked/closed |
 | `onOpen` | Item being opened | Character opening item | Unused | No | Post-open trigger |
@@ -306,7 +306,7 @@ Whenever an event fires (e.g. `onLook`, `onUseWith`, `onEnter`, `whenPicked`, `L
 | `onLoose` | Container losing character | Character causing move | Destination Link or object | Yes | Returning `0` / `false` aborts departure |
 | `onReceiveItem`| Container receiving item | Character causing move | Item being received | Yes | Triggers right after `whenPicked` |
 | `onLooseItem` | Container losing item | Character causing move | Item being lost | Yes | Returning `0` / `false` cancels pickup/loss |
-| `onSave` **[DimX only - not yet implemented in DimY]** | Player saving | Player | Player (if Save) or `""` (if exit) | Yes | Returning `0` / `false` aborts save operation |
+| `onSave` | Player saving | Player | Player (if Save) or `""` (if exit) | Yes | Returning `0` / `false` aborts save operation |
 | `onSearch` | Item to be found | Character searching | Unused | Yes | Returning `0` / `false` leaves item hidden |
 | `Living` | Character evaluated | Same character | Same character | Yes | Evaluated each tick; returning `0` / `false` causes NPC death |
 | `onSpeechFinish`| Character speaking | Character speaking | Character receiving speech | No | Triggered when NPC finishes `Speak "*"` sequence |
