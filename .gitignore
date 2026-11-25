@@ -77,5 +77,6 @@ Thumbs.db
 config.php
 /php/data/
 AGENTS.md
+SESSION_STATE.md
 .aiexclude
 .htaccess
