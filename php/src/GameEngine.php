@@ -23,6 +23,7 @@ class GameEngine
     public array $config = [];
     public string $serverType = 'public';
     public string $debugTo = 'none';
+    public string $journalFile = '';
 
     /** Optional custom system folder override. Defaults to dirname(__DIR__) (where config.php resides). */
     public static ?string $systemFolder = null;
@@ -142,6 +143,83 @@ class GameEngine
         @file_put_contents($logFile, $entry . "\n", FILE_APPEND | LOCK_EX);
     }
 
+    /**
+     * Resolve the configured journal file path (if any).
+     * Relative paths are resolved against the game engine's system folder.
+     */
+    public function getJournalFilePath(): string
+    {
+        $jf = trim($this->journalFile);
+        if ($jf === '' && isset($this->config['journal']) && is_string($this->config['journal'])) {
+            $jf = trim($this->config['journal']);
+        }
+        if ($jf === '') {
+            return '';
+        }
+        $isAbsolute = str_starts_with($jf, '/')
+            || str_starts_with($jf, '\\')
+            || (strlen($jf) >= 3 && ctype_alpha($jf[0]) && $jf[1] === ':' && ($jf[2] === '/' || $jf[2] === '\\'));
+        if (!$isAbsolute) {
+            $jf = rtrim(self::getSystemFolder(), '/\\') . '/' . $jf;
+        }
+        return $jf;
+    }
+
+    /**
+     * Prepends a new RSS-style journal item to the configured journal file, retaining up to 20 most recent entries.
+     * Matches DimensioneX Java Journal.newItem(String title, String link, String what, String categories).
+     */
+    public function writeJournalItem(string $title, string $link, string $what, string $categories): bool
+    {
+        $filePath = $this->getJournalFilePath();
+        if ($filePath === '') {
+            return true;
+        }
+
+        try {
+            $existingLines = [];
+            if (file_exists($filePath)) {
+                $lines = @file($filePath, FILE_IGNORE_NEW_LINES);
+                if (is_array($lines)) {
+                    $existingLines = array_slice($lines, 0, 19);
+                }
+            }
+
+            $title      = str_replace('|', '/', $title);
+            $what       = str_replace('|', '/', $what);
+            $what       = str_replace(["\r\n", "\r", "\n"], '\\n', $what);
+            $link       = str_replace('|', '%7C', $link);
+            $categories = str_replace('|', '/', $categories);
+
+            $newEntry = date('D, d M Y H:i:s O') . '|' . $title . '|' . $link . '|' . $what . '|' . $categories;
+            $allLines = array_merge([$newEntry], $existingLines);
+
+            $dir = dirname($filePath);
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0777, true);
+            }
+
+            return @file_put_contents($filePath, implode("\n", $allLines) . "\n", LOCK_EX) !== false;
+        } catch (\Throwable $e) {
+            $this->log("Cannot write to file {$filePath} due to " . get_class($e));
+            return false;
+        }
+    }
+
+    /**
+     * Truncates the configured journal file upon administrator request.
+     * Matches DimensioneX Java Journal.clear().
+     */
+    public function clearJournal(): bool
+    {
+        $filePath = $this->getJournalFilePath();
+        if ($filePath === '') {
+            return false;
+        }
+        $msg = "This journal file was truncated at " . date('F j, Y g:i:s A T') . " upon request of the administrator\n";
+        return @file_put_contents($filePath, $msg, LOCK_EX) !== false;
+    }
+
     /** Inactivity timeout for automatically disconnecting idle players (seconds) */
     public int $playerTimeout = 30; // 30 seconds
 
@@ -184,6 +262,10 @@ class GameEngine
             if ($dt === 'none' || $dt === 'file') {
                 $this->debugTo = $dt;
             }
+        }
+
+        if (isset($this->config['journal']) && is_string($this->config['journal'])) {
+            $this->journalFile = trim($this->config['journal']);
         }
 
         $this->pdo  = $pm->getPdo();

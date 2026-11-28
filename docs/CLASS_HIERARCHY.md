@@ -143,7 +143,7 @@ All classes belong to namespace `Dimx`, located in [`php/src/`](file:///c:/xampp
 | `View`, `ViewDirect` | `UI` / `UIhtml` |
 | `ViewAdmin`, `ViewHOF`, `ViewMap` | Partly `maint.php` (admin); `htmlAdminSnapshot()` methods on entities; HOF/Map views not implemented |
 | `Client`, `Message`, `Messages` | `Player` fields; chat in `PersistenceManager`/`World`; no localisation layer |
-| `Journal`, `Logger` | `World::$log` / `World::logDebug()` |
+| `Journal`, `Logger` | `GameEngine::writeJournalItem()` / `GameEngine::log()` / `World::$log` |
 | `Const`, `Utils` | Class constants and inline helpers |
 | `DimxException`, `NestedException` | Native PHP exceptions |
 | `multiplayer`, `Maint` (servlets) | `multiplayer.php`, `maint.php` scripts + `GameEngine` |

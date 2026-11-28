@@ -47,6 +47,13 @@ return [
     'debugTo' => 'none',
 
     // -------------------------------------------------------------------------
+    // Journal Output File (optional)
+    // -------------------------------------------------------------------------
+    // File path for the SmallBasic Journal instruction (RSS-style pipe-delimited
+    // log of the 20 most recent events). Leave empty ('') to disable journal output.
+    'journal' => '',
+
+    // -------------------------------------------------------------------------
     // World Definition File (.dxw)
     // -------------------------------------------------------------------------
     // The single authoritative world definition file for this installation.

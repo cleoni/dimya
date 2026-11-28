@@ -978,10 +978,10 @@ class ActionsRunner
         $verb = strtoupper($parts[0] ?? '');
         $argString = $parts[1] ?? '';
 
-        // Also handle verb followed immediately by '(' e.g. "Debug("test")"
+        // Also handle verb followed immediately by '(' e.g. "Debug("test")" or "Journal (title, ...)"
         if (preg_match('/^([A-Za-z0-9_]+)\s*\((.*)\)$/s', $line, $vm) && !str_contains($vm[1], '.')) {
             $verbCandidate = strtoupper($vm[1]);
-            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET', 'GOAL', 'KILL', 'SETADD', 'SETREMOVE', 'ATTACHEVENT', 'SAVESETTING'], true)) {
+            if (in_array($verbCandidate, ['DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK', 'BROADCAST', 'CALL', 'DROPITEMS', 'RESET', 'GOAL', 'JOURNAL', 'KILL', 'SETADD', 'SETREMOVE', 'ATTACHEVENT', 'SAVESETTING'], true)) {
                 $verb = $verbCandidate;
                 $argString = $vm[2];
             } elseif ($this->world?->getEvent($vm[1]) !== null) {
@@ -989,8 +989,11 @@ class ActionsRunner
             }
         }
 
-        if (str_starts_with($argString, '(') && str_ends_with($argString, ')') && strlen($argString) >= 2) {
+        if (str_starts_with($argString, '(') && str_ends_with($argString, ')') && strlen($argString) >= 2 && self::isFullyEnclosedInParens($argString)) {
             $argString = substr($argString, 1, -1);
+        } elseif (str_starts_with($argString, '(') && in_array($verb, ['JOURNAL', 'DEBUG', 'DISPLAY', 'PRINT', 'PRINTRIGHT', 'SPEAK'], true) && $this->hasUnbalancedParens($argString)) {
+            // Tolerate typo with leading '(' and missing closing ')' e.g. commons.dxl:4563 "Journal (person.name&...,..."
+            $argString = ltrim(substr($argString, 1));
         }
         $args = $this->parseArguments($argString);
 
@@ -1014,6 +1017,7 @@ class ActionsRunner
             'SETADD'              => $this->actSetAdd($args),
             'SETREMOVE'           => $this->actSetRemove($args),
             'GOAL'       => $this->actGoal($args),
+            'JOURNAL'    => $this->actJournal($args),
             'RETURN'     => $this->actReturn($args, $argString),
             'OPEN'       => $this->actOpen($args),
             'CLOSE'      => $this->actClose($args),
@@ -2545,6 +2549,36 @@ class ActionsRunner
             : null;
 
         return $this->world->goal($agentName, $msgArg, $score);
+    }
+
+    /**
+     * Journal title, link, text, categories (SmallBasic 3.9.11)
+     * Prepends an entry to the top of the configured journal file (retaining the 20 most recent entries).
+     * Matches DimensioneX ActionsRunner.actJournal(Dict params) and Journal.newItem().
+     */
+    protected function actJournal(array $args): bool
+    {
+        if (count($args) < 4) {
+            throw new \RuntimeException("Journal: missing arguments (expected: title, link, text, categories)");
+        }
+
+        $evalStr = function (string $expr): string {
+            $val = self::formatValue($this->evalValue($expr));
+            // Convert literal \n sequences inside SmallBasic strings to actual newlines before Journal.newItem encodes them
+            return str_replace('\\n', "\n", $val);
+        };
+
+        $title      = $evalStr((string)$args[0]);
+        $link       = $evalStr((string)$args[1]);
+        $what       = $evalStr((string)$args[2]);
+        $categories = $evalStr((string)$args[3]);
+
+        $engine = $this->world?->engine ?? GameEngine::$activeInstance;
+        if ($engine instanceof GameEngine) {
+            return $engine->writeJournalItem($title, $link, $what, $categories);
+        }
+
+        return true;
     }
 
     /**

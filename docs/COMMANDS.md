@@ -15,7 +15,6 @@ This document defines the authoritative command catalog and execution model for 
 | `look`: `onLook` cancel / `$TARGET` | **Implemented** | Fires `onLook` with `$TARGET = "explicit"` (via Look command) or `""` (via click); returning `0` / `false` suppresses standard description/items/properties output while preserving any custom `Print`/`Display` from `onLook` |
 | `drop`, `give`, `put`, `Move` event chains | **Implemented** | Use `AdvObject::moveTo()` firing full DimX event sequence (`onExit`/`onLoose`/`onLooseItem`/`whenDropped` ➔ `onEnter`/`onReceive`/`onReceiveItem`/`whenPicked`) with cancellation and rollback if an event returns `0`/`false` |
 | `pick` command | **DimY: partial** | Moves item to player and fires `whenPicked`; does not run `onLooseItem` / `onReceiveItem` cancellation via `moveTo()` |
-| `onClick` event | **DimX only - not yet implemented in DimY** | `click` is handled as `look` with `$TARGET = ""`; no `onClick` fired, no `go` default for Links |
 | `onRotate` event | **DimX only - not yet implemented in DimY** | `rotate`/`rotl`/`rotr`/`rev` update facing and refresh scene, but no `onRotate` event fires |
 | `onLogin` event | **DimX only - not yet implemented in DimY** | New/restored players fire `$WORLD` `onNew` and room `onEnter`/`onReceive` upon placement; no separate `onLogin` event |
 | `onEnterVehicle` / `onExitVehicle` | **DimX only - not yet implemented in DimY** | Vehicles fire standard `onEnter` / `onExit` / `onReceive` / `onLoose` |
@@ -65,7 +64,7 @@ Every command cycle follows this processing pipeline:
 
 | Command | Arguments | Aliases | Description / Primary Effect | Events Fired |
 | :--- | :--- | :--- | :--- | :--- |
-| **`click`** **[DimY: partial - alias of `look`, no `onClick`]** | `target` | - | Context-sensitive click on an object | `onClick` (defaults to `go` for Links, `look` for others) |
+| **`click`** | `target` | - | Point-and-click inspection of an object (`look` with `$TARGET = ""`); clicking a Link in the UI dispatches `go` | `onLook` (`$TARGET = ""`) |
 | **`go`** | `link_or_dir` | `walk`, `move` | Traverses a Link or direction (`N`, `S`, `E`, `W`, `U`, `D`) | `onExit`, `onEnter` |
 | **`rotate`** | `[direction]` | `rotr`, `rotl` | Rotates player facing orientation (N ➔ E ➔ S ➔ W) | `onRotate` |
 | **`look`** | `[target]` | `l` | Inspects an object or current room, returning description and items | `onLook` |
@@ -96,14 +95,11 @@ Every command cycle follows this processing pipeline:
 
 ## 3. Detailed Command Behaviors
 
-### 1. `click (object)` **[DimY: partial - handled as `look`; `onClick` and the Link `go` default are not implemented]**
+### 1. `click (object)`
 * **Intent**: Universal point-and-click interaction default.
 * **Mechanism**:
-  1. Looks up `target` in room, inventory, or world.
-  2. If the object defines an `onClick` event, executes it.
-  3. If no `onClick` event is registered:
-     * If object is a **`Link`**: automatically defaults to `go (link)`.
-     * For all other objects: automatically defaults to `look (object)`.
+  1. Clicking an exit/passage **`Link`** on screen dispatches `go (link)`.
+  2. Clicking any other object (item, character, container) dispatches `click (object)`, which looks at the object and fires `onLook` with `$TARGET = ""` (distinguishing an implicit click from an explicit `look` command where `$TARGET = "explicit"`).
 
 ### 2. `go (link)`
 * **Intent**: Navigation between rooms through passage links.

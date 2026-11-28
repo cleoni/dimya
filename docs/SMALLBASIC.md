@@ -21,9 +21,9 @@
 | Operators | `AND`, `OR`, `Not` | Implemented (`OR` < `AND` precedence, `Not(expr)` built-in function and prefix `Not expr` in conditions) |
 | Variables | Script variables (global/local), `Dim` | Implemented (`Dim` procedure-local variables including multi-variable declarations, global `$WORLD` variables, `object.property`, `object.getProperty()`/`setProperty()`, and `object.property(key)`) |
 | Flow control | `For ... Next`, `For Each ... Next`, `If / Else / End_If` | Implemented (`For ... To ... [Step ...]`, `For Each ... In ...`, nested `If / Else / End_If`, plus preemptive timeout & recursion depth guards) |
-| Statements | `AttachEvent`, `Call`, `Debug`, `Dim`, `Display`, `DropItems`, `Goal`, `Kill`, `Move`, `PlaySound`, `PlayBackground`, `BroadcastSound`, `BroadcastBackground`, `Print`, `PrintRight`, `RefreshView`, `Reset`, `Return`, `SaveSetting`, `SendCmd`, `SetAdd`, `SetPanel`, `SetRemove`, `Speak` | Implemented (`Move` requires 2 arguments `Move what, where`) |
+| Statements | `AttachEvent`, `Call`, `Debug`, `Dim`, `Display`, `DropItems`, `Goal`, `Journal`, `Kill`, `Move`, `PlaySound`, `PlayBackground`, `BroadcastSound`, `BroadcastBackground`, `Print`, `PrintRight`, `RefreshView`, `Reset`, `Return`, `SaveSetting`, `SendCmd`, `SetAdd`, `SetPanel`, `SetRemove`, `Speak` | Implemented (`Move` requires 2 arguments `Move what, where`) |
 | Statements | `NewRoom` | Implemented as built-in function `NewRoom(name)` returning the generated room ID (also `NewItem`, `NewCharacter`, `NewLink` work both as functions and statements) |
-| Statements | `Ban`, `Journal`, `SendPage` (`UseView`) | **DimX only - not yet implemented in DimY** (silently ignored) |
+| Statements | `Ban`, `SendPage` (`UseView`) | **DimX only - not yet implemented in DimY** (silently ignored) |
 | Statements | `MoveOutside` | **Dropped in DimY** (Cluster) |
 | Functions | All 55 built-in functions (§3.10.1 – §3.10.56) | Implemented |
 | Dropped | `Cluster`, `Dict` / `DictSorted` | **Dropped in DimY** (native PHP arrays are used instead) |
@@ -615,9 +615,9 @@ Goal [message]
 
 ### 3.9.11 Journal
 
-> **[DimX only - not yet implemented in DimY]** Statement is silently ignored. The cluster journal part is also **dropped in DimY** (Cluster removed).
+> **[DimY: implemented]** Writes a pipe-delimited entry (`<date>|<title>|<link>|<text>|<categories>`) to the top of the journal file configured via `'journal'` in `config.php`, retaining up to the 20 most recent entries (matching DimensioneX `Journal.newItem()`). If `'journal'` is empty or unconfigured in `config.php`, the instruction is a no-op.
 
-Appends an entry to the top of the game or cluster RSS journal file (retaining the 20 most recent entries).
+Appends an entry to the top of the game RSS journal file (retaining the 20 most recent entries).
 
 ```basic
 Journal title, link, text, categories

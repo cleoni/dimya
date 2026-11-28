@@ -6948,6 +6948,47 @@ DXW;
     );
     unset($w81->events['getTimeOfDayTest']);
 
+    // Journal instruction (SmallBasic 3.9.11): pipe-delimited format, escaping, and 20-item rotation
+    $journalPath = $tmpDir . '/test_journal.txt';
+    @unlink($journalPath);
+    $journalEngine = new \Dimx\GameEngine($pm, 'w81_journal', null, '', ['journal' => $journalPath]);
+    $w81->engine = $journalEngine;
+    $journalRunner = new \Dimx\ActionsRunner($w81, $w81, $panelPlayer, null);
+
+    for ($ji = 1; $ji <= 22; $ji++) {
+        $journalRunner->run(
+            'Journal "Event #' . $ji . '|pipe", "http://example.com/item?a=1|2", "Line 1\nLine 2|pipe", "news*cat' . $ji . '|sub"'
+        );
+    }
+    $jLines = file_exists($journalPath) ? file($journalPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
+    assertTest(
+        is_array($jLines) && count($jLines) === 20,
+        "Journal file retains at most the 20 most recent entries (got: " . count($jLines) . ")"
+    );
+    $newestParts = isset($jLines[0]) ? explode('|', $jLines[0]) : [];
+    $oldestParts = isset($jLines[19]) ? explode('|', $jLines[19]) : [];
+    assertTest(
+        count($newestParts) === 5
+            && $newestParts[1] === 'Event #22/pipe'
+            && $newestParts[2] === 'http://example.com/item?a=1%7C2'
+            && $newestParts[3] === 'Line 1\nLine 2/pipe'
+            && $newestParts[4] === 'news*cat22/sub',
+        "Journal newest entry is prepended at index 0 with pipes and newlines escaped matching DimX Journal.java"
+    );
+    assertTest(
+        count($oldestParts) === 5 && $oldestParts[1] === 'Event #3/pipe',
+        "Journal oldest retained entry at index 19 is Event #3 after 22 writes"
+    );
+    // Also verify tolerance for leading parenthesis typo from commons.dxl:4563: Journal (title,link,text,categories
+    $journalRunner->run('Journal ("Level Up", "http://example.com/u", "Reached level 2!", "news*advancements"');
+    $jLinesAfterTypo = file($journalPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $typoParts = isset($jLinesAfterTypo[0]) ? explode('|', $jLinesAfterTypo[0]) : [];
+    assertTest(
+        count($typoParts) === 5 && $typoParts[1] === 'Level Up' && $typoParts[4] === 'news*advancements',
+        "Journal tolerates leading parenthesis syntax from commons.dxl:4563"
+    );
+    @unlink($journalPath);
+
     @unlink($tmpDir . '/loop_test.dxw');
     @unlink($tmpDir . '/test_panels.dxl');
     @unlink($tmpDir . '/test_scripts.dxl');
